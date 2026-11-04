@@ -57,7 +57,7 @@ both: Both directions
 Log every scroll event and how it was classified to standard error
 .TP
 \fB\-c\fR, \fB\-\-config\fR \fI<PATH>\fR
-Read the configuration from PATH, which must exist, instead of $XDG_CONFIG_HOME/scrollreversed/config.toml
+Read the configuration from PATH, which must exist, instead of ~/Library/Application Support/scrollreversed/config.toml
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 Print help (see a summary with \*(Aq\-h\*(Aq)
@@ -68,8 +68,8 @@ Print version
 .el .ds Aq '
 .SH FILES
 .TP
-\fI$XDG_CONFIG_HOME/scrollreversed/config.toml\fR
-Configuration file, read at startup.  Without \fBXDG_CONFIG_HOME\fR, \fI~/.config\fR takes its place.
+\fI~/Library/Application Support/scrollreversed/config.toml\fR
+Configuration file, read at startup.
 .SH "SEE ALSO"
 \fBscrollreversed\fR(5), \fBlaunchctl\fR(1)
 .ie \n(.g .ds Aq \(aq

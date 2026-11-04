@@ -4,9 +4,9 @@
 .SH NAME
 scrollreversed \- configuration file for scrollreversed
 .SH SYNOPSIS
-\fI$XDG_CONFIG_HOME/scrollreversed/config.toml\fR
+\fI~/Library/Application Support/scrollreversed/config.toml\fR
 .SH DESCRIPTION
-\fBscrollreversed\fR(1) reads its settings from a TOML file at startup.  Without \fBXDG_CONFIG_HOME\fR, the file is \fI~/.config/scrollreversed/config.toml\fR.  The \fB\-\-config\fR option names a different file.
+\fBscrollreversed\fR(1) reads its settings at startup from a TOML file in the user\*(Aqs Application Support directory.  The \fB\-\-config\fR option names a different file.
 .PP
 Every key is optional, and a missing file leaves every setting at its default.  Unknown keys and values are errors.  Options given on the command line override the file.  Changes take effect when scrollreversed restarts.
 .SH KEYS
