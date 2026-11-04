@@ -2,6 +2,8 @@
 import CoreGraphics
 import Foundation
 
+// Expected signs after the tap: wheel line, wheel horizontal, gesture point, gesture horizontal
+let expected = CommandLine.arguments.dropFirst().compactMap { Int64($0) }
 let wheelTag: Int64 = 1
 let gestureTag: Int64 = 2
 var seen: [Int64: (line: Int64, point: Int64, horizontal: Int64)] = [:]
@@ -44,9 +46,8 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
     guard let wheel = seen[wheelTag], let gesture = seen[gestureTag] else {
         print("FAIL: events not observed: \(seen)"); exit(1)
     }
-    let wheelReversed = wheel.line < 0 && wheel.point < 0 && wheel.horizontal < 0
-    let gestureKept = gesture.point > 0
-    print("wheel reversed: \(wheelReversed), gesture untouched: \(gestureKept)")
-    exit(wheelReversed && gestureKept ? 0 : 1)
+    let signs = [wheel.line, wheel.horizontal, gesture.point, gesture.horizontal].map { $0.signum() }
+    print("signs \(signs), expected \(expected)")
+    exit(signs == expected ? 0 : 1)
 }
 CFRunLoopRun()
