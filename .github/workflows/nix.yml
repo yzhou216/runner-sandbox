@@ -15,4 +15,4 @@ jobs:
           codesign -dv result/bin/scrollreversed 2>&1 | grep -E "Format|flags"
           MANPAGER=cat man result/share/man/man5/scrollreversed.5.gz | col -b | head -12
       - name: Flake checks
-        run: nix flake check ./src-tree -L 2>&1 | tail -15
+        run: nix flake check ./src-tree
