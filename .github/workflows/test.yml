@@ -48,6 +48,8 @@ jobs:
         run: |
           DB="/Library/Application Support/com.apple.TCC/TCC.db"
           sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, flags) VALUES ('kTCCServiceAccessibility', '$BIN', 1, 2, 4, 1, 0);"
+          # tccd only rereads its database when it restarts, as System Settings would make it
+          sudo killall tccd; killall tccd || true
           for i in $(seq 1 15); do
             sleep 2
             grep -q "reversing mouse scrolling" /tmp/scrollreversed.log && break
