@@ -18,7 +18,7 @@ Settings come from the configuration file described in scrollreversed(5).  Optio
 .PP
 The device behind each scroll event is looked up in the I/O Registry and classified the way Darwin picks between the Mouse and Trackpad scroll settings, so a Magic Mouse counts as a mouse.  Events whose sender is not in the registry, such as events posted by other applications or forwarded by Universal Control, are classified by gesture phase instead.
 .PP
-The process needs Accessibility access.  Without it, scrollreversed asks for access once and waits until it is granted under System Settings > Privacy & Security > Accessibility.
+The process needs Accessibility access.  Without it, scrollreversed asks for access once and waits until it is granted under System Settings > Privacy & Security > Accessibility.  Darwin only honours the grant in a new process, so scrollreversed then exits for launchd to restart it.
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
 .SH OPTIONS

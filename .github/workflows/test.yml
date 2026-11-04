@@ -22,7 +22,7 @@ jobs:
           sudo install -m 755 bin/scrollreversed-${{ matrix.arch }} "$BIN"
           sudo install -m 644 scrollreversed.1 /usr/local/share/man/man1/
           sudo install -m 644 scrollreversed.5 /usr/local/share/man/man5/
-          codesign -dv "$BIN" 2>&1 | grep -E "Format|flags"
+          codesign -dv "$BIN" 2>&1 | grep -E "Format|flags|not signed" || true
           swiftc -O probe.swift -o /tmp/probe
       - name: Command line and manual pages
         run: |
@@ -44,20 +44,19 @@ jobs:
           grep -q "waiting for Accessibility access" /tmp/scrollreversed.log
           echo "--- scroll is untouched while waiting"
           /tmp/probe 1 1 1 1
-      - name: Grant access and see whether the waiting agent notices
+      - name: Agent restarts by itself once access is granted
         run: |
           DB="/Library/Application Support/com.apple.TCC/TCC.db"
           sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, flags) VALUES ('kTCCServiceAccessibility', '$BIN', 1, 2, 4, 1, 0);"
-          for i in $(seq 1 10); do
-            sleep 3
-            grep -q "access granted" /tmp/scrollreversed.log && break
+          for i in $(seq 1 15); do
+            sleep 2
+            grep -q "reversing mouse scrolling" /tmp/scrollreversed.log && break
           done
           cat /tmp/scrollreversed.log
-          grep -q "access granted" /tmp/scrollreversed.log && echo "NOTICED WITHOUT RESTART" || echo "NOT NOTICED WITHOUT RESTART"
+          launchctl print gui/$(id -u)/io.yiyuzhou.scrollreversed | grep -E "runs|last exit"
+          grep -q "reversing mouse scrolling" /tmp/scrollreversed.log
       - name: Default config reverses the wheel only
         run: |
-          launchctl kickstart -k gui/$(id -u)/io.yiyuzhou.scrollreversed
-          sleep 3
           /tmp/probe -1 -1 1 1
           echo "--- daemon log"; tail -4 /tmp/scrollreversed.log
       - name: Config change after restart reverses all devices vertically
