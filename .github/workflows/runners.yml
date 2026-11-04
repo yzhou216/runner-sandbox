@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-26.04
+          - ubuntu-24.04
+          - ubuntu-22.04
+          - ubuntu-slim
+          - ubuntu-26.04-arm
+          - ubuntu-24.04-arm
+          - ubuntu-22.04-arm
+          - windows-latest
+          - windows-2025
+          - windows-2022
+          - windows-11-arm
+          - macos-latest
+          - macos-26
+          - macos-15
+          - xcode-27
+          - macos-26-intel
+          - macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Platform
+        run: |
+          echo "label=${{ matrix.runner }} os=${{ runner.os }} arch=${{ runner.arch }} cpus=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
+          uname -srm
+          shopt -qo pipefail && echo "shell bash: pipefail on" || echo "shell bash: pipefail off"
+      - name: Darwin
+        if: runner.os == 'macOS'
+        run: |
+          sw_vers -productVersion
+          csrutil status
+          echo "uid $(id -u)"
+          launchctl print "gui/$(id -u)" | head -2
+          command -v swiftc sqlite3
+  default-shell:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - name: Default shell
+        run: |
+          echo "default shell on ${{ runner.os }}: $0"
+          if [ -n "$BASH_VERSION" ]; then shopt -qo pipefail && echo "default: pipefail on" || echo "default: pipefail off"; fi
+        continue-on-error: true
+      - name: PowerShell edition
+        if: runner.os == 'Windows'
+        run: "Write-Output \"default: PowerShell $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion)\""
