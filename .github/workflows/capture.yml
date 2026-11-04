@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  gnu-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - name: Preinstalled tools
+        run: |
+          for t in Xvfb xvfb-run ffmpeg import xwd xclock; do
+            p=$(command -v "$t") && echo "$t: $p" || echo "$t: missing"
+          done
+      - name: Install tools
+        run: |
+          sudo apt-get update -q > /dev/null
+          sudo apt-get install -yq --no-install-recommends xvfb ffmpeg x11-apps > /dev/null
+          echo "installed in ${SECONDS}s"
+      - name: Start a display and windows
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo DISPLAY=:99 >> "$GITHUB_ENV"
+          sleep 2
+          DISPLAY=:99 xclock -update 1 -geometry 300x300+100+100 &
+          DISPLAY=:99 xeyes -geometry 300x200+500+100 &
+          sleep 2
+      - name: Capture
+        run: |
+          mkdir capture
+          ffmpeg -loglevel error -f x11grab -video_size 1280x800 -i "$DISPLAY" -frames:v 1 capture/screenshot.png
+          ffmpeg -loglevel error -f x11grab -video_size 1280x800 -framerate 15 -t 5 -i "$DISPLAY" -pix_fmt yuv420p capture/video.mp4
+          ls -l capture
+      - uses: actions/upload-artifact@v7
+        with:
+          name: capture-${{ matrix.runner }}
+          path: capture
+  darwin:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15, macos-26-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - name: Tools, grants, and process ancestry
+        run: |
+          sw_vers -productVersion
+          for t in screencapture ffmpeg; do
+            p=$(command -v "$t") && echo "$t: $p" || echo "$t: missing"
+          done
+          sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+            "SELECT service, client, auth_value FROM access WHERE service IN
+              ('kTCCServiceScreenCapture', 'kTCCServiceAccessibility', 'kTCCServicePostEvent')
+              ORDER BY service, client;"
+          pid=$$
+          while [ "$pid" -gt 1 ]; do
+            ps -o pid=,ppid=,comm= -p "$pid"
+            pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+          done
+      - name: Open windows
+        run: |
+          open -a Calculator
+          open -a Clock || true
+          sleep 5
+      - name: Capture
+        timeout-minutes: 3
+        run: |
+          mkdir capture
+          screencapture -x capture/screenshot.png
+          screencapture -x -V 5 capture/video.mov
+          ls -l capture
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: capture-${{ matrix.runner }}
+          path: capture
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-2022, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Preinstalled tools
+        run: |
+          for t in ffmpeg choco winget; do
+            p=$(command -v "$t") && echo "$t: $p" || echo "$t: missing"
+          done
+      - name: Open a window
+        shell: pwsh
+        run: |
+          Start-Process notepad
+          Start-Sleep 5
+          Get-Process notepad | Format-Table Id, SessionId, MainWindowTitle
+      - name: Screenshot
+        run: |
+          mkdir capture
+          pwsh -File screenshot.ps1 capture/screenshot.png
+          ls -l capture
+      - name: Video
+        run: |
+          command -v ffmpeg || choco install ffmpeg -y --no-progress > /dev/null
+          echo "ffmpeg ready after ${SECONDS}s"
+          ffmpeg -loglevel error -f gdigrab -framerate 15 -t 5 -i desktop -pix_fmt yuv420p capture/video.mp4
+          ls -l capture
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: capture-${{ matrix.runner }}
+          path: capture
