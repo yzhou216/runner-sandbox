@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-2025, windows-2022, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Checkout with default Git configuration
+        run: |
+          for key in core.autocrlf core.symlinks core.longpaths; do
+            echo "$key: $(git config --show-origin --get "$key" || echo unset)"
+          done
+          echo "SKILL.md CRLF lines: $(grep -c $'\r$' SKILL.md || true)"
+          if [ -L AGENTS.md ]; then echo "AGENTS.md: symlink"; else echo "AGENTS.md: file containing '$(cat AGENTS.md)'"; fi
+      - name: Identity and paths
+        run: |
+          echo "user $(whoami), uname $(uname -sm)"
+          net session > /dev/null 2>&1 && echo "net session: elevated" || echo "net session: not elevated"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          echo "RUNNER_TEMP=$RUNNER_TEMP"
+          echo "TEMP=$TEMP, Windows form $(cygpath -w "$TEMP")"
+          echo "HOME=$HOME USERPROFILE=$USERPROFILE"
+          df -h /c /d 2> /dev/null || df -h
+      - name: Git Bash path conversion
+        run: |
+          echo "--- cmd /c echo /usr/bin"; cmd /c echo /usr/bin || true
+          echo "--- cmd //c echo /usr/bin"; cmd //c echo /usr/bin || true
+          echo "--- MSYS_NO_PATHCONV=1 cmd /c echo /usr/bin"; MSYS_NO_PATHCONV=1 cmd /c echo /usr/bin || true
+      - name: Symbolic links
+        run: |
+          ln -s SKILL.md link-default && { [ -L link-default ] && echo "ln -s: symlink" || echo "ln -s: copy"; }
+          MSYS=winsymlinks:nativestrict ln -s SKILL.md link-native && { [ -L link-native ] && echo "nativestrict: symlink" || echo "nativestrict: copy"; }
+          cmd //c dir | grep -i link || true
+      - name: Python output encoding
+        run: |
+          command -v python
+          python -c "import sys, locale, platform; print(sys.version, platform.machine(), sys.stdout.encoding, locale.getpreferredencoding())"
+          python -c "print('✓')" | cat || echo "piped print failed"
+          PYTHONUTF8=1 python -c "print('✓')" | cat
+          env | grep -iE '^(python|lang|lc_)' || echo "no PYTHON*, LANG, or LC_* variables"
+      - name: Tools
+        run: |
+          for t in gcc clang cl make cmake ninja node go rustc cargo java choco winget ffmpeg 7z jq zstd docker wsl; do
+            p=$(command -v "$t") && echo "$t: $p" || echo "$t: missing"
+          done
+          vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+          [ -x "$vswhere" ] && "$vswhere" -latest -property installationPath || echo "vswhere missing"
+      - name: Windows state
+        shell: pwsh
+        run: |
+          "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE, OS $([Runtime.InteropServices.RuntimeInformation]::OSArchitecture), pwsh $([Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)"
+          "UserInteractive=$([Environment]::UserInteractive), own session $((Get-Process -Id $PID).SessionId)"
+          Get-Process explorer -ErrorAction SilentlyContinue | Format-Table Id, SessionId
+          query session
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::AllScreens | Format-Table DeviceName, Bounds, Primary
+          (Get-CimInstance Win32_OperatingSystem).Caption
+          whoami /groups | Select-String "Mandatory Label"
+          "EnableLUA=$((Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System).EnableLUA)"
+          "LongPathsEnabled=$((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem).LongPathsEnabled)"
+          "DeveloperMode=$((Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense)"
+          try { Get-MpComputerStatus | Format-List AMServiceEnabled, RealTimeProtectionEnabled } catch { "Defender: $_" }
+          "Console code page: $(chcp.com)"
+          Get-Command bash -All | Format-Table Source
+  checkout-configured:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - name: Configure Git before checkout
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.symlinks true
+      - uses: actions/checkout@v7
+      - name: Checkout result
+        run: |
+          echo "SKILL.md CRLF lines: $(grep -c $'\r$' SKILL.md || true)"
+          if [ -L AGENTS.md ]; then echo "AGENTS.md: symlink to $(readlink AGENTS.md)"; else echo "AGENTS.md: file containing '$(cat AGENTS.md)'"; fi
