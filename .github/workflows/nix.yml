@@ -1,0 +1,18 @@
+name: Nix on Darwin
+on: [push, workflow_dispatch]
+jobs:
+  nix:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: Native package
+        run: |
+          nix build ./src-tree#default -L 2>&1 | grep -E "Running phase|test result|Finished|error" || true
+          nix build ./src-tree#default
+          ls -R result
+          result/bin/scrollreversed --version
+          codesign -dv result/bin/scrollreversed 2>&1 | grep -E "Format|flags"
+          MANPAGER=cat man result/share/man/man5/scrollreversed.5.gz | col -b | head -12
+      - name: Flake checks
+        run: nix flake check ./src-tree -L 2>&1 | tail -15

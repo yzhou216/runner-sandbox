@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+clap = "4.6"
+clap_mangen = "0.3"
+roff = "1.1"
+scrollreversed = { path = ".." }

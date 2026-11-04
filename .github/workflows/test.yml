@@ -37,7 +37,7 @@ jobs:
         run: |
           mkdir -p "$HOME/Library/Application Support/scrollreversed"
           # Old XDG location must be ignored, so a broken file there is harmless
-          mkdir -p ~/.config/scrollreversed && printf 'devices = "broken"\n' > ~/.config/scrollreversed/config.toml
+          mkdir -p "$HOME/Library/Application Support/scrollreversed" && printf 'devices = "broken"\n' > "$HOME/Library/Application Support/scrollreversed"/config.toml
           printf 'verbose = true\n' > "$HOME/Library/Application Support/scrollreversed"/config.toml
           cp io.yiyuzhou.scrollreversed.plist ~/Library/LaunchAgents/
           launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.yiyuzhou.scrollreversed.plist
