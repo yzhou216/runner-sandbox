@@ -1,0 +1,75 @@
+name: macOS runtime test
+on: [push, workflow_dispatch]
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15, arch: arm64 }
+          - { runner: macos-latest, arch: arm64 }
+          - { runner: macos-15-intel, arch: x86_64 }
+    runs-on: ${{ matrix.runner }}
+    env:
+      BIN: /usr/local/bin/scrollreversed
+      AGENT: gui/501/io.yiyuzhou.scrollreversed
+    steps:
+      - uses: actions/checkout@v4
+      - name: Environment
+        run: |
+          sw_vers; uname -m; id; csrutil status || true
+          launchctl print gui/$(id -u) | head -5
+      - name: Install binary and manual pages
+        run: |
+          sudo install -d /usr/local/bin /usr/local/share/man/man1 /usr/local/share/man/man5
+          sudo install -m 755 bin/scrollreversed-${{ matrix.arch }} "$BIN"
+          sudo install -m 644 scrollreversed.1 /usr/local/share/man/man1/
+          sudo install -m 644 scrollreversed.5 /usr/local/share/man/man5/
+          file "$BIN"; codesign -dv "$BIN" 2>&1 || true
+      - name: Command line and manual pages
+        run: |
+          set -x
+          "$BIN" --version
+          "$BIN" --help
+          MANPAGER=cat man scrollreversed | col -b | head -20
+          MANPAGER=cat man 5 scrollreversed | col -b | sed -n '/KEYS/,/EXAMPLES/p'
+          ! "$BIN" --device pen; echo "exit $?"
+          ! "$BIN" --config /nonexistent.toml
+          printf 'devices = "mouse"\n' > /tmp/bad.toml
+          ! "$BIN" --config /tmp/bad.toml
+      - name: Start the agent without Accessibility access
+        run: |
+          mkdir -p ~/.config/scrollreversed
+          printf 'verbose = true\n' > ~/.config/scrollreversed/config.toml
+          cp io.yiyuzhou.scrollreversed.plist ~/Library/LaunchAgents/
+          AGENT=gui/$(id -u)/io.yiyuzhou.scrollreversed
+          launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.yiyuzhou.scrollreversed.plist
+          sleep 6
+          launchctl print "$AGENT" | grep -E "state|pid|last exit" || true
+          cat /tmp/scrollreversed.log
+      - name: Grant Accessibility through TCC
+        run: |
+          DB="/Library/Application Support/com.apple.TCC/TCC.db"
+          sudo sqlite3 "$DB" ".schema access"
+          for client in "$BIN"; do
+            for service in kTCCServiceAccessibility kTCCServicePostEvent; do
+              sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, flags) VALUES ('$service', '$client', 1, 2, 4, 1, 0);"
+            done
+          done
+          sudo sqlite3 "$DB" "SELECT service, client, auth_value FROM access WHERE client LIKE '%scrollreversed%';"
+          sleep 6
+          cat /tmp/scrollreversed.log
+      - name: Probe reversal
+        run: |
+          swiftc -O probe.swift -o /tmp/probe
+          launchctl print gui/$(id -u)/io.yiyuzhou.scrollreversed | grep -E "state|pid" || true
+          /tmp/probe; status=$?
+          echo "--- daemon log"; cat /tmp/scrollreversed.log
+          exit $status
+      - name: Restart picks up config changes
+        if: always()
+        run: |
+          printf 'device = "all"\naxis = "vertical"\nverbose = true\n' > ~/.config/scrollreversed/config.toml
+          launchctl kickstart -k gui/$(id -u)/io.yiyuzhou.scrollreversed
+          sleep 3
+          tail -5 /tmp/scrollreversed.log

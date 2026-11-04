@@ -1,0 +1,78 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH scrollreversed 1 2026-11-03 "scrollreversed 0.1.0" 
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH NAME
+scrollreversed \- Darwin daemon reversing mouse or trackpad scrolling
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH SYNOPSIS
+\fBscrollreversed\fR [\fB\-d\fR|\fB\-\-device\fR] [\fB\-a\fR|\fB\-\-axis\fR] [\fB\-v\fR|\fB\-\-verbose\fR] [\fB\-c\fR|\fB\-\-config\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] 
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH DESCRIPTION
+scrollreversed reverses the scroll direction of either the mouse or the trackpad, so that each can scroll its own way despite the single natural scrolling setting in System Settings.
+.PP
+Settings come from the configuration file described in scrollreversed(5).  Options given on the command line override them.
+.PP
+The device behind each scroll event is looked up in the I/O Registry and classified the way Darwin picks between the Mouse and Trackpad scroll settings, so a Magic Mouse counts as a mouse.  Events whose sender is not in the registry, such as events posted by other applications or forwarded by Universal Control, are classified by gesture phase instead.
+.PP
+The process needs Accessibility access.  Without it, scrollreversed asks for access once and waits until it is granted under System Settings > Privacy & Security > Accessibility.
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH OPTIONS
+.TP
+\fB\-d\fR, \fB\-\-device\fR \fI<DEVICE>\fR
+Device whose scrolling is reversed, overriding the device key of the configuration file [default: mouse]
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+mouse: Mice, including the Magic Mouse
+.IP \(bu 2
+trackpad: Built\-in and external trackpads
+.IP \(bu 2
+all: Every device
+.RE
+.TP
+\fB\-a\fR, \fB\-\-axis\fR \fI<AXIS>\fR
+Axis along which scrolling is reversed, overriding the axis key of the configuration file [default: both]
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+vertical: Vertical scrolling only
+.IP \(bu 2
+horizontal: Horizontal scrolling only
+.IP \(bu 2
+both: Both directions
+.RE
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Log every scroll event and how it was classified to standard error
+.TP
+\fB\-c\fR, \fB\-\-config\fR \fI<PATH>\fR
+Read the configuration from PATH, which must exist, instead of $XDG_CONFIG_HOME/scrollreversed/config.toml
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH FILES
+.TP
+\fI$XDG_CONFIG_HOME/scrollreversed/config.toml\fR
+Configuration file, read at startup.  Without \fBXDG_CONFIG_HOME\fR, \fI~/.config\fR takes its place.
+.SH "SEE ALSO"
+\fBscrollreversed\fR(5), \fBlaunchctl\fR(1)
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.SH VERSION
+v0.1.0

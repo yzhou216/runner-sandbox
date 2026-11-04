@@ -1,0 +1,70 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH scrollreversed 5 2026-11-03 "scrollreversed 0.1.0" "File Formats Manual"
+.SH NAME
+scrollreversed \- configuration file for scrollreversed
+.SH SYNOPSIS
+\fI$XDG_CONFIG_HOME/scrollreversed/config.toml\fR
+.SH DESCRIPTION
+\fBscrollreversed\fR(1) reads its settings from a TOML file at startup.  Without \fBXDG_CONFIG_HOME\fR, the file is \fI~/.config/scrollreversed/config.toml\fR.  The \fB\-\-config\fR option names a different file.
+.PP
+Every key is optional, and a missing file leaves every setting at its default.  Unknown keys and values are errors.  Options given on the command line override the file.  Changes take effect when scrollreversed restarts.
+.SH KEYS
+.TP
+\fBdevice\fR = \fIstring\fR
+Device whose scrolling is reversed.  Defaults to "mouse".
+.RS
+.TP
+\fB"mouse"\fR
+Mice, including the Magic Mouse
+.RE
+.RS
+.TP
+\fB"trackpad"\fR
+Built\-in and external trackpads
+.RE
+.RS
+.TP
+\fB"all"\fR
+Every device
+.RE
+.TP
+\fBaxis\fR = \fIstring\fR
+Axis along which scrolling is reversed.  Defaults to "both".
+.RS
+.TP
+\fB"vertical"\fR
+Vertical scrolling only
+.RE
+.RS
+.TP
+\fB"horizontal"\fR
+Horizontal scrolling only
+.RE
+.RS
+.TP
+\fB"both"\fR
+Both directions
+.RE
+.TP
+\fBverbose\fR = \fIboolean\fR
+Log every scroll event and how it was classified to standard error.  Defaults to false.
+.SH EXAMPLES
+Reverse only vertical trackpad scrolling, for natural scrolling turned off in System Settings:
+.PP
+.nf
+.RS 4
+device = "trackpad"
+axis = "vertical"
+.RE
+.fi
+.PP
+Restart the launchd agent to apply the change:
+.PP
+.nf
+.RS 4
+launchctl kickstart \-k gui/$(id \-u)/io.yiyuzhou.scrollreversed
+.RE
+.fi
+.SH "SEE ALSO"
+\fBscrollreversed\fR(1), \fBlaunchctl\fR(1)
