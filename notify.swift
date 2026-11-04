@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 //
 // SPDX-License-Identifier: 0BSD OR CC0-1.0
 
