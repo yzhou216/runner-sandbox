@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
 name: Nix on Darwin
 on: [push, workflow_dispatch]
 jobs:

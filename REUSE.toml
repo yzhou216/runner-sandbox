@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+version = 1
+
+[[annotations]] # Built from scrollreversed, which src-tree holds
+path = ["bin/**", "scrollreversed.1", "scrollreversed.5", "io.yiyuzhou.scrollreversed.plist"]
+SPDX-FileCopyrightText = "2026 Yiyu Zhou <yiyu@yiyuzhou.io>"
+SPDX-License-Identifier = "GPL-3.0-or-later"

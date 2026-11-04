@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+//
+// SPDX-License-Identifier: 0BSD OR CC0-1.0
+
 // Posts scroll events and reports how they look after every session tap.
 import CoreGraphics
 import Foundation

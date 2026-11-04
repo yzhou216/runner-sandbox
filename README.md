@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 runner-sandbox contributors
+
+SPDX-License-Identifier: 0BSD OR CC0-1.0
+-->
+
 # scrollreversed: Darwin runtime tests
 
 Tested [scrollreversed](https://github.com/yzhou216/scrollreversed), cross-built
