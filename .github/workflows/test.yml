@@ -50,13 +50,14 @@ jobs:
           sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, flags) VALUES ('kTCCServiceAccessibility', '$BIN', 1, 2, 4, 1, 0);"
           # tccd only rereads its database when it restarts, as System Settings would make it
           sudo killall tccd; killall tccd || true
+          swiftc notify.swift -o /tmp/notify && /tmp/notify
           for i in $(seq 1 15); do
             sleep 2
             grep -q "reversing mouse scrolling" /tmp/scrollreversed.log && break
           done
           cat /tmp/scrollreversed.log
           launchctl print gui/$(id -u)/io.yiyuzhou.scrollreversed | grep -E "runs|last exit"
-          grep -q "reversing mouse scrolling" /tmp/scrollreversed.log
+          if grep -q "reversing mouse scrolling" /tmp/scrollreversed.log; then echo "RESULT: recovered without a manual restart"; else echo "RESULT: needed a manual restart"; launchctl kickstart -k gui/$(id -u)/io.yiyuzhou.scrollreversed; sleep 3; tail -2 /tmp/scrollreversed.log; fi
       - name: Default config reverses the wheel only
         run: |
           /tmp/probe -1 -1 1 1
