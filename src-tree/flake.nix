@@ -19,7 +19,7 @@
       systems = nixpkgs.lib.platforms.all;
 
       perSystem =
-        { pkgs, ... }:
+        { system, pkgs, ... }:
         with pkgs;
         let
           fontconfigFile = makeFontsConf {
@@ -38,6 +38,8 @@
           );
         in
         {
+          _module.args.pkgs = import nixpkgs { inherit system; };
+
           devShells.default = mkShell {
             packages = [
               gnumake
