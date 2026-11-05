@@ -4,9 +4,10 @@
 
 //! Subscriptions, which turn keys, clicks, the clock, the pictures of video
 //! cues as they come due, windows that gain the keyboard, change size, or
-//! close, and changes of the configuration file into messages.  The ticks
-//! of the clock wait on Windows for every window to draw, as [`pace`]
-//! tells.
+//! close, and changes of the configuration file into messages
+//!
+//! On Windows, the ticks of the clock wait for every window to draw, as
+//! [`pace`] tells.
 
 mod pace;
 
@@ -31,10 +32,11 @@ const SOONEST: Duration = Duration::from_millis(1);
 impl App {
     /// Listens for keys and clicks in either window, windows that gain the
     /// keyboard, change size, or close, and changes of the configuration,
-    /// for clock ticks while any cue is running, and sooner when the next
-    /// picture of a video cue comes due before the next tick, so that it
-    /// shows then, and for the time to try again the files that could not
-    /// be played
+    /// for clock ticks while any cue is running, a tick after the last, or
+    /// sooner when the next picture of a video cue comes due before then,
+    /// so that it shows then, and for the time to try again the files that
+    /// could not be played.  The first tick, which counts a whole tick
+    /// whenever it comes, waits for no window to draw.
     pub(super) fn subscription(&self) -> Subscription<Message> {
         let tick = self.running().then_some(TICK);
         let picture = self
@@ -42,9 +44,12 @@ impl App {
             .due()
             .filter(|_| self.stage.window().is_some() && self.moving_pictures())
             .map(|due| Duration::from_secs_f64(due).max(SOONEST));
+        let windows = self
+            .last_tick
+            .map_or_else(Vec::new, |_| self.paced_windows());
         let ticks = chain!(tick, picture)
             .min()
-            .map(|wait| pace::every(wait, self.paced_windows()).map(Message::Tick));
+            .map(|wait| pace::after(self.last_tick, wait, windows).map(Message::Tick));
         let rechecks = (!self.rechecking && self.workspace.failed().next().is_some())
             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
         let always = [
@@ -87,11 +92,17 @@ impl App {
     /// it as minimized while it has no size, as minimized windows have on
     /// Windows
     pub(super) fn resized(self, window: window::Id, size: Size) -> Self {
+        self.with_minimized(window, size.width == 0.0 || size.height == 0.0)
+    }
+
+    /// Returns the state with `window` among the minimized windows, or
+    /// apart from them
+    pub(super) fn with_minimized(self, window: window::Id, minimized: bool) -> Self {
         let minimized = self
             .minimized
             .into_iter()
             .filter(|minimized| *minimized != window)
-            .chain((size.width == 0.0 || size.height == 0.0).then_some(window))
+            .chain(minimized.then_some(window))
             .collect();
         Self { minimized, ..self }
     }

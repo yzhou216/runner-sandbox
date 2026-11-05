@@ -13,28 +13,57 @@ use super::{GRACE, Pace};
 /// Time between two ticks of the paces under test
 const WAIT: Duration = Duration::from_millis(25);
 
-#[test]
-fn ticks_of_no_windows_go_on_time() {
-    let now = Instant::now();
-    assert_eq!(Pace::new(WAIT, Vec::new(), now).release(), now + WAIT);
+/// Returns a pace of `windows` that starts at `start`, with its tick due
+/// [`WAIT`] later
+fn pace(windows: Vec<window::Id>, start: Instant) -> Pace {
+    Pace::new(WAIT, windows, start, start + WAIT)
 }
 
 #[test]
-fn tick_waits_for_every_window_to_draw_but_no_longer_than_its_grace() {
+fn ticks_of_no_windows_go_on_time() {
+    let start = Instant::now();
+    assert_eq!(pace(Vec::new(), start).release(), start + WAIT);
+}
+
+#[test]
+fn tick_waits_no_longer_than_its_grace_for_windows_that_never_draw() {
+    let start = Instant::now();
+    let release = pace(vec![window::Id::unique()], start).release();
+    assert_eq!(release, (start + WAIT).max(start + GRACE));
+}
+
+#[test]
+fn tick_waits_for_every_window_until_a_grace_past_the_first_drawing() {
     let (main, stage) = (window::Id::unique(), window::Id::unique());
-    let now = Instant::now();
-    let pace = Pace::new(WAIT, vec![main, stage], now);
-    assert_eq!(pace.release(), now + WAIT + GRACE);
-    let pace = pace.drawn(stage);
-    assert_eq!(pace.release(), now + WAIT + GRACE);
-    assert_eq!(pace.drawn(main).release(), now + WAIT);
+    let start = Instant::now();
+    let drawn = start + 2 * WAIT;
+    let staged = pace(vec![main, stage], start).drawn(stage, drawn);
+    assert_eq!(staged.release(), drawn + GRACE);
+    let again = staged.drawn(stage, drawn + WAIT);
+    assert_eq!(again.release(), drawn + GRACE);
+    assert_eq!(again.drawn(main, drawn + WAIT).release(), start + WAIT);
+}
+
+#[test]
+fn overdue_tick_still_waits_for_a_window_to_draw_since_the_update() {
+    let (main, stage) = (window::Id::unique(), window::Id::unique());
+    let due = Instant::now();
+    let start = due + 3 * WAIT;
+    let late = Pace::new(WAIT, vec![main, stage], start, due);
+    assert_eq!(late.release(), start + GRACE);
+    let drawn = start + WAIT;
+    let drawn_once = late.drawn(main, drawn);
+    assert_eq!(drawn_once.release(), drawn + GRACE);
+    assert_eq!(drawn_once.drawn(stage, drawn).release(), due);
 }
 
 #[test]
 fn each_tick_waits_for_the_windows_to_draw_again() {
     let main = window::Id::unique();
-    let now = Instant::now();
-    let later = now + 3 * WAIT;
-    let pace = Pace::new(WAIT, vec![main], now).drawn(main).ticked(later);
-    assert_eq!(pace.release(), later + WAIT + GRACE);
+    let start = Instant::now();
+    let later = start + 3 * WAIT;
+    let ticked = pace(vec![main], start)
+        .drawn(main, start + WAIT)
+        .ticked(later);
+    assert_eq!(ticked.release(), (later + WAIT).max(later + GRACE));
 }
