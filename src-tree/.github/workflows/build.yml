@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2025 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: Compile to PDF and MIDI
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@main
+      - name: Install Nix
+        uses: cachix/install-nix-action@master
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Check REUSE compliance
+        run: nix flake check
+      - run: nix build .#default
+      - name: Archive distributables
+        run: tar -cf dist.tar result/dist
+      - name: Upload artifacts
+        uses: actions/upload-artifact@main
+        with:
+          name: dist.tar
+          path: dist.tar

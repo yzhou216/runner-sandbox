@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: Nix platforms
+on: push
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Check and build
+        run: |
+          nix flake check ./src-tree --print-build-logs
+          nix build ./src-tree#default --print-build-logs
+
+  freebsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/freebsd-vm@v1
+        with:
+          prepare: pkg install -y nix
+          run: |
+            export NIX_CONFIG='experimental-features = nix-command flakes'
+            nix --version
+            nix flake check ./src-tree --print-build-logs
+            nix build ./src-tree#default --print-build-logs
+
+  netbsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/netbsd-vm@v1
+        with:
+          prepare: /usr/sbin/pkg_add nix
+          run: |
+            export NIX_CONFIG='experimental-features = nix-command flakes'
+            nix --version
+            nix flake check ./src-tree --print-build-logs
+            nix build ./src-tree#default --print-build-logs
+
+  openbsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/openbsd-vm@v1
+        with:
+          prepare: pkg_add nix
+          run: |
+            export NIX_CONFIG='experimental-features = nix-command flakes'
+            nix --version
+            nix flake check ./src-tree --print-build-logs
+            nix build ./src-tree#default --print-build-logs
