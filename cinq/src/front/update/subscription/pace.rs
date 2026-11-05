@@ -15,7 +15,9 @@
 //! waits until every window that it paces has drawn since the update before
 //! it, so that the windows take turns, at the cost of fewer ticks while
 //! drawing is slow.  Each pace starts with an update and gives a single
-//! tick before the update of that tick starts the next pace.
+//! tick before the update of that tick starts the next pace, since a tick
+//! more, which a late update would let through, would bring an update
+//! before the windows draw.
 
 #[cfg(test)]
 mod tests;
@@ -37,17 +39,22 @@ use iced::{
     window,
 };
 
-/// Longest that a tick waits for the windows to draw, past the first
-/// drawing since the update before it, or past that update while no window
-/// draws.  A tick that comes during a drawing leaves the windows their
-/// turns, since winit updates with it only after the next wake, which draws
-/// a window that has yet to draw.
+/// Longest that a tick waits for the windows that have yet to draw, past
+/// the first drawing since the update before it.  A tick that comes then
+/// leaves the windows their turns, since winit updates with it only after
+/// the next wake, which draws a window that has yet to draw.
 const GRACE: Duration = Duration::from_millis(50);
 
-/// Returns ticks of the clock, the first `wait` after `last`, the time of
-/// the last tick, or `wait` from now without one, and each later one `wait`
-/// after the one before, each of which waits for the windows of `windows`
-/// to draw, as far as [`GRACE`] allows
+/// Longest that a tick waits for the first drawing since the update before
+/// it, which only windows that never draw make it wait in full.  A tick
+/// that came before that drawing would bring its update right after it,
+/// which would send the window that drew back to draw first.
+const STALL: Duration = Duration::from_secs(1);
+
+/// Returns a tick of the clock `wait` after `last`, the time of the last
+/// tick, or `wait` from now without one, which waits for the windows of
+/// `windows` to draw, as far as [`GRACE`] and [`STALL`] allow.  The update
+/// of that tick asks for the next.
 pub fn after(
     last: Option<Instant>,
     wait: Duration,
@@ -90,14 +97,19 @@ impl Recipe for Ticks {
             self.wait,
             due.saturating_duration_since(now)
         );
-        let pace = Pace::new(self.wait, self.windows, now, due);
+        let pace = Pace::new(self.windows, now, due);
         // Each step either ticks or counts a window that has drawn
         stream::unfold((pace, draws), move |(pace, mut draws)| async move {
             let release = tokio::time::sleep_until(pace.release().into());
             match future::select(pin!(release), draws.next()).await {
                 Either::Left(_) => {
                     let now = Instant::now();
-                    eprintln!("{:>8.3} tick, undrawn {:?}", elapsed(), pace.undrawn);
+                    let first = pace.first.map(|first| now.duration_since(first));
+                    eprintln!(
+                        "{:>8.3} tick, undrawn {:?}, first drawing {first:?} ago",
+                        elapsed(),
+                        pace.undrawn
+                    );
                     Some((Some(now), (pace.ticked(now), draws)))
                 }
                 Either::Right((Some(window), _)) => {
@@ -127,10 +139,6 @@ fn drawn(event: subscription::Event) -> Option<window::Id> {
 
 /// Next tick of a pace, and the windows that have yet to draw before it
 struct Pace {
-    /// Time from each tick to the next
-    wait: Duration,
-    /// Windows that each tick waits for
-    windows: Vec<window::Id>,
     /// Time from which the windows count as drawn: the update that started
     /// the pace, and then its last tick
     since: Instant,
@@ -143,28 +151,27 @@ struct Pace {
 }
 
 impl Pace {
-    /// Returns a pace of `windows`, which count as drawn from `since`, whose
-    /// next tick comes due at `due`
-    fn new(wait: Duration, windows: Vec<window::Id>, since: Instant, due: Instant) -> Self {
+    /// Returns a pace whose next tick comes due at `due` and waits for
+    /// `windows` to draw from `since`
+    fn new(windows: Vec<window::Id>, since: Instant, due: Instant) -> Self {
         Self {
-            wait,
-            undrawn: windows.clone(),
-            windows,
             since,
             due,
+            undrawn: windows,
             first: None,
         }
     }
 
     /// Returns the time that the next tick goes at, as far as the windows
     /// have drawn: its due time once every window has drawn, and until then
-    /// no sooner than [`GRACE`] past the first drawing, or past the start
-    /// without one
+    /// no sooner than [`GRACE`] past the first drawing, or [`STALL`] past
+    /// the start without one
     fn release(&self) -> Instant {
         if self.undrawn.is_empty() {
             self.due
         } else {
-            self.due.max(self.first.unwrap_or(self.since) + GRACE)
+            let wait = self.first.map_or(self.since + STALL, |first| first + GRACE);
+            self.due.max(wait)
         }
     }
 
@@ -182,10 +189,12 @@ impl Pace {
         }
     }
 
-    /// Returns the pace after a tick at `now`, for want of an update that
-    /// starts a pace in its place, whose next tick comes due `wait` later
-    /// and waits for the windows to draw again
+    /// Returns the pace after a tick at `now`, which the update of that tick
+    /// replaces with a pace of its own.  Until then, the next tick waits
+    /// [`STALL`], whether or not the windows draw, so that ticks cannot pile
+    /// up while the update is late, and the clock still goes on should no
+    /// update come.
     fn ticked(self, now: Instant) -> Self {
-        Self::new(self.wait, self.windows, now, now + self.wait)
+        Self::new(Vec::new(), now, now + STALL)
     }
 }

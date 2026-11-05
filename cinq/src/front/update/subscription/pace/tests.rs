@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use iced::window;
 
-use super::{GRACE, Pace};
+use super::{GRACE, Pace, STALL};
 
 /// Time between two ticks of the paces under test
 const WAIT: Duration = Duration::from_millis(25);
@@ -16,7 +16,7 @@ const WAIT: Duration = Duration::from_millis(25);
 /// Returns a pace of `windows` that starts at `start`, with its tick due
 /// [`WAIT`] later
 fn pace(windows: Vec<window::Id>, start: Instant) -> Pace {
-    Pace::new(WAIT, windows, start, start + WAIT)
+    Pace::new(windows, start, start + WAIT)
 }
 
 #[test]
@@ -26,10 +26,10 @@ fn ticks_of_no_windows_go_on_time() {
 }
 
 #[test]
-fn tick_waits_no_longer_than_its_grace_for_windows_that_never_draw() {
+fn tick_waits_for_a_first_drawing_no_longer_than_a_stall() {
     let start = Instant::now();
     let release = pace(vec![window::Id::unique()], start).release();
-    assert_eq!(release, (start + WAIT).max(start + GRACE));
+    assert_eq!(release, start + STALL);
 }
 
 #[test]
@@ -49,8 +49,8 @@ fn overdue_tick_still_waits_for_a_window_to_draw_since_the_update() {
     let (main, stage) = (window::Id::unique(), window::Id::unique());
     let due = Instant::now();
     let start = due + 3 * WAIT;
-    let late = Pace::new(WAIT, vec![main, stage], start, due);
-    assert_eq!(late.release(), start + GRACE);
+    let late = Pace::new(vec![main, stage], start, due);
+    assert_eq!(late.release(), start + STALL);
     let drawn = start + WAIT;
     let drawn_once = late.drawn(main, drawn);
     assert_eq!(drawn_once.release(), drawn + GRACE);
@@ -58,12 +58,13 @@ fn overdue_tick_still_waits_for_a_window_to_draw_since_the_update() {
 }
 
 #[test]
-fn each_tick_waits_for_the_windows_to_draw_again() {
+fn tick_that_no_update_follows_holds_the_next_for_a_stall() {
     let main = window::Id::unique();
     let start = Instant::now();
     let later = start + 3 * WAIT;
     let ticked = pace(vec![main], start)
         .drawn(main, start + WAIT)
         .ticked(later);
-    assert_eq!(ticked.release(), (later + WAIT).max(later + GRACE));
+    assert_eq!(ticked.release(), later + STALL);
+    assert_eq!(ticked.drawn(main, later + WAIT).release(), later + STALL);
 }

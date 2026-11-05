@@ -35,8 +35,7 @@ impl App {
     /// for clock ticks while any cue is running, a tick after the last, or
     /// sooner when the next picture of a video cue comes due before then,
     /// so that it shows then, and for the time to try again the files that
-    /// could not be played.  The first tick, which counts a whole tick
-    /// whenever it comes, waits for no window to draw.
+    /// could not be played
     pub(super) fn subscription(&self) -> Subscription<Message> {
         let tick = self.running().then_some(TICK);
         let picture = self
@@ -44,12 +43,9 @@ impl App {
             .due()
             .filter(|_| self.stage.window().is_some() && self.moving_pictures())
             .map(|due| Duration::from_secs_f64(due).max(SOONEST));
-        let windows = self
-            .last_tick
-            .map_or_else(Vec::new, |_| self.paced_windows());
         let ticks = chain!(tick, picture)
             .min()
-            .map(|wait| pace::after(self.last_tick, wait, windows).map(Message::Tick));
+            .map(|wait| pace::after(self.last_tick, wait, self.paced_windows()).map(Message::Tick));
         let rechecks = (!self.rechecking && self.workspace.failed().next().is_some())
             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
         let always = [
