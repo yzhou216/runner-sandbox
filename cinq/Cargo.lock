@@ -391,7 +391,6 @@ dependencies = [
  "keyboard-types",
  "kira",
  "kurbo 0.10.4",
- "log",
  "mp4",
  "notify-debouncer-full",
  "open",

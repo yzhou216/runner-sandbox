@@ -89,31 +89,16 @@ impl Recipe for Ticks {
         // Stream starts during the update that asks for it
         let now = Instant::now();
         let due = self.last.unwrap_or(now) + self.wait;
-        let elapsed = || crate::START.elapsed().as_secs_f64();
-        eprintln!(
-            "{:>8.3} pace of {:?}, wait {:?}, due in {:?}",
-            elapsed(),
-            self.windows,
-            self.wait,
-            due.saturating_duration_since(now)
-        );
         let pace = Pace::new(self.windows, now, due);
         // Each step either ticks or counts a window that has drawn
-        stream::unfold((pace, draws), move |(pace, mut draws)| async move {
+        stream::unfold((pace, draws), |(pace, mut draws)| async move {
             let release = tokio::time::sleep_until(pace.release().into());
             match future::select(pin!(release), draws.next()).await {
                 Either::Left(_) => {
                     let now = Instant::now();
-                    let first = pace.first.map(|first| now.duration_since(first));
-                    eprintln!(
-                        "{:>8.3} tick, undrawn {:?}, first drawing {first:?} ago",
-                        elapsed(),
-                        pace.undrawn
-                    );
                     Some((Some(now), (pace.ticked(now), draws)))
                 }
                 Either::Right((Some(window), _)) => {
-                    eprintln!("{:>8.3} drawn {window:?}", elapsed());
                     Some((None, (pace.drawn(window, Instant::now()), draws)))
                 }
                 // Events end along with the subscription

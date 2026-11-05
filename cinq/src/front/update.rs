@@ -102,7 +102,6 @@ impl App {
             // Ticks of the timer and those that wake for pictures may come out
             // of order, and an earlier one counts no time
             Message::Tick(now) => {
-                eprintln!("{:>8.3} update tick", crate::START.elapsed().as_secs_f64());
                 let elapsed = self
                     .last_tick
                     .map_or(TICK, |last| now.saturating_duration_since(last));
