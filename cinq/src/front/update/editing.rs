@@ -50,7 +50,7 @@ impl App {
             .set_title(title)
             .add_filter(filter, &endings)
             .add_filter("All files", &["*"])
-            .set_directory(self.workspace.sound_directory(cue));
+            .set_directory(self.workspace.file_directory(cue));
         Task::future(chooser.pick_file())
             .and_then(move |chosen| Task::done(Message::FileChosen(id, chosen.path().to_owned())))
     }

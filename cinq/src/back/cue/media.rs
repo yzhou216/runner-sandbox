@@ -12,9 +12,11 @@ pub enum Media {
     /// File has not been loaded since it was set
     #[default]
     Unloaded,
-    /// File plays for the given number of seconds, and holds sound unless
-    /// it is a video file with a picture alone
-    Loaded { duration: f32, sound: bool },
+    /// File plays for `duration` seconds, and its sound for `sound`
+    /// seconds, apart from a video file with a picture alone, which holds
+    /// no sound.  The two are the same for a sound file, while the sound
+    /// of a video file can end before its picture or after it.
+    Loaded { duration: f32, sound: Option<f32> },
     /// File cannot be played, for the given reason
     Failed(String),
 }

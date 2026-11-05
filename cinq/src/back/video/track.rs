@@ -8,16 +8,18 @@
 //! MP4 holds the samples of a track in the order they decode, which with
 //! B-frames differs from the order they show in.  The tables of the track
 //! give each sample the time at which it decodes, and the offset from there
-//! to the time at which it shows.  The picture starts with the first sample
-//! to show, so that it starts with the sound, as the edit lists that encoders
-//! write for B-frames shift it.  Each sample holds NAL units after their
-//! lengths, which [`annex`] turns into the stream of start codes that
-//! openh264 reads, and the parameter sets that decoding needs are in the
-//! description of the track rather than in its samples.
+//! to the time at which it shows, which [`timing`] reads.  The picture
+//! starts with the first sample to show, so that it starts with the sound,
+//! as the edit lists that encoders write for B-frames shift it.  Each
+//! sample holds NAL units after their lengths, which [`annex`] turns into
+//! the stream of start codes that openh264 reads, and the parameter sets
+//! that decoding needs are in the description of the track rather than in
+//! its samples.
 
 mod annex;
 #[cfg(test)]
 mod tests;
+mod timing;
 
 use std::{
     fs::File,
@@ -28,11 +30,16 @@ use std::{
 
 use mp4::{MediaType, Mp4Reader, TrackType};
 
-use crate::back::Media;
 use annex::{annex_b, units};
+pub(super) use timing::Sample;
+use timing::timeline;
 
 /// Why a file holds no picture to play
 const NO_VIDEO: &str = "holds no H.264 video";
+
+/// Why a file holds no picture to play when the tables of its H.264 track
+/// cannot be right
+const DAMAGED: &str = "holds a damaged H.264 track";
 
 /// Profiles of H.264 that openh264 decodes: Baseline, Main, and High, in
 /// eight bits for each color with the colors shared by four pixels
@@ -55,26 +62,12 @@ pub(super) struct Track {
     sound: bool,
 }
 
-/// Sample of a track
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Sample {
-    /// Seconds into the picture at which the sample shows
-    pub(super) shows: f64,
-    /// Whether decoding can start at the sample
-    pub(super) sync: bool,
-}
-
-/// Reads how long the picture of a video file plays and whether the file
-/// holds a sound track besides, or why the picture cannot be played.  This
-/// reads the tables of the tracks of the file without decoding a picture.
-pub(in crate::back) fn probe(path: &Path) -> Media {
-    match Track::open(path) {
-        Ok(track) => Media::Loaded {
-            duration: track.duration as f32,
-            sound: track.sound,
-        },
-        Err(reason) => Media::Failed(reason),
-    }
+/// Reads how many seconds the picture of a video file plays and whether
+/// the file holds a sound track besides, or why the picture cannot be
+/// played.  This reads the tables of the tracks of the file without
+/// decoding a picture.
+pub(in crate::back) fn probe(path: &Path) -> Result<(f32, bool), String> {
+    Track::open(path).map(|track| (track.duration as f32, track.sound))
 }
 
 impl Track {
@@ -106,6 +99,13 @@ impl Track {
             .avcc;
         if !PROFILES.contains(&avc.avc_profile_indication) {
             return Err("holds H.264 video in a profile that cannot be decoded".to_owned());
+        }
+        // Each sample takes a byte of the file at least, while mp4 takes the
+        // count of samples of the same size on trust, and a count far past
+        // what the file can hold would make the samples take more memory
+        // than there is
+        if u64::from(track.sample_count()) > size {
+            return Err(DAMAGED.to_owned());
         }
         // Tables of the track, whose runs of equal values give each sample
         // the time it takes to decode and its offset from there to the time
@@ -170,69 +170,15 @@ impl Track {
     }
 
     /// Returns the samples that decoding the picture from `start` to `end`
-    /// seconds reads, by their indices in the order of decoding: from the
-    /// sync sample that decoding has to start at, to the last sample that
-    /// shows before `end`.  Along with them comes the time at which the
-    /// picture that shows at `start` shows, which is the first of the part.
+    /// seconds reads, and the time at which the first picture of the part
+    /// shows, as [`timing::span`] finds them
     pub(super) fn span(&self, start: f64, end: f64) -> Option<(usize, usize, f64)> {
-        let by_time = |a: &(usize, &Sample), b: &(usize, &Sample)| a.1.shows.total_cmp(&b.1.shows);
-        let indexed = || self.samples.iter().enumerate();
-        let (first, shown) = indexed()
-            .filter(|(_, sample)| sample.shows <= start)
-            .max_by(by_time)
-            .or_else(|| indexed().min_by(by_time))?;
-        let from = self.samples[..=first]
-            .iter()
-            .rposition(|sample| sample.sync)
-            .unwrap_or(0);
-        let to = self
-            .samples
-            .iter()
-            .rposition(|sample| sample.shows < end)
-            .unwrap_or(first);
-        Some((from, to.max(first), shown.shows))
+        timing::span(&self.samples, start, end)
     }
-}
 
-/// Returns the samples of a track in the order of decoding, each with the
-/// time at which it shows, counted in seconds from the first picture to
-/// show, along with the time at which the picture ends.  Each sample takes
-/// the time of its `deltas` to decode and shows its `offsets` after it
-/// decodes, which are none past the end of the offsets, in units of which
-/// `timescale` make a second.  Decoding can start at the samples whose
-/// numbers, counted from one, `syncs` lists, or at every sample without the
-/// list.
-fn timeline(
-    deltas: impl Iterator<Item = u32>,
-    offsets: impl Iterator<Item = i32>,
-    syncs: Option<&[u32]>,
-    timescale: u32,
-) -> (Vec<Sample>, f64) {
-    // Time at which each sample shows and then stops showing, in units of
-    // the timescale
-    let shown: Vec<(i64, i64)> = deltas
-        .scan(0_i64, |decoded, delta| {
-            let at = *decoded;
-            *decoded += i64::from(delta);
-            Some((at, i64::from(delta)))
-        })
-        .zip(offsets.chain(iter::repeat(0)))
-        .map(|((decoded, delta), offset)| {
-            let shows = decoded + i64::from(offset);
-            (shows, shows + delta)
-        })
-        .collect();
-    let first = shown.iter().map(|&(shows, _)| shows).min().unwrap_or(0);
-    let end = shown.iter().map(|&(_, ends)| ends).max().unwrap_or(0);
-    let seconds = |time: i64| (time - first) as f64 / f64::from(timescale.max(1));
-    let sync = |number: u32| syncs.is_none_or(|syncs| syncs.binary_search(&number).is_ok());
-    let samples = shown
-        .iter()
-        .zip(1..)
-        .map(|(&(shows, _), number)| Sample {
-            shows: seconds(shows),
-            sync: sync(number),
-        })
-        .collect();
-    (samples, seconds(end))
+    /// Returns whether the sample at `index` starts a closed group of
+    /// pictures, as [`timing::starts_group`] tells
+    pub(super) fn starts_group(&self, index: usize) -> bool {
+        timing::starts_group(&self.samples, index)
+    }
 }

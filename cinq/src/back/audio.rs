@@ -12,7 +12,9 @@
 //! that cannot be played.  Ahead of that, a thread of its own makes ready
 //! the sounds that runs may start next, so that GO waits on no file.  The
 //! sound of a video file plays as that of a sound file does, from the
-//! file's sound track.
+//! file's sound track, along with the silence that AAC encoders put around
+//! the sound, since the decoder reads no edit list, which marks that
+//! silence for players to skip.
 
 mod preload;
 #[cfg(test)]
@@ -27,8 +29,8 @@ use kira::{
     sound::{FromFileError, streaming::StreamingSoundData},
 };
 
-use super::{Active, Clip, Command, Cue, CueId, Media, Problem, Workspace};
-use preload::{Ask, Preloader, Wanted};
+use super::{Active, Clip, Command, Cue, CueId, Media, Problem, Wanted, Workspace};
+use preload::{Ask, Preloader};
 use voice::Voice;
 
 /// Endings of the names of the sound files that the sound output plays,
@@ -143,38 +145,31 @@ impl Audio {
 fn upcoming(workspace: &Workspace) -> Vec<Ask> {
     let fired = workspace.active().iter().filter_map(|active| {
         let clip = active.pending()?;
-        Some((workspace.cue(active.id)?, clip, active.level))
+        let path = workspace.path(workspace.cue(active.id)?)?;
+        Some(Ask {
+            cue: active.id,
+            wanted: Wanted { path, clip },
+            level: active.level,
+        })
     });
     let next = workspace
-        .lists()
-        .iter()
-        .flat_map(|list| workspace.next_go(list))
+        .upcoming()
         .filter(|(cue, _)| cue.sounds())
-        .filter_map(|(cue, _)| Some((cue, cue.clip()?, cue.level)));
-    fired
-        .chain(next)
-        .filter_map(|(cue, clip, level)| {
-            let path = workspace.path(cue)?;
-            Some(Ask {
-                cue: cue.id,
-                wanted: Wanted { path, clip },
-                level,
-            })
-        })
-        .unique_by(|ask| ask.cue)
-        .collect()
+        .map(|(cue, wanted)| Ask {
+            cue: cue.id,
+            wanted,
+            level: cue.level,
+        });
+    fired.chain(next).unique_by(|ask| ask.cue).collect()
 }
 
-/// Reads how long the sound of a file plays, or why it cannot be played.
-/// This opens the file and reads its format without decoding the sound.
-pub(super) fn probe(file: &Path) -> Media {
-    match StreamingSoundData::from_file(file) {
-        Ok(data) => Media::Loaded {
-            duration: data.duration().as_secs_f32(),
-            sound: true,
-        },
-        Err(error) => Media::Failed(reason(error)),
-    }
+/// Reads how many seconds the sound of a file plays, or why it cannot be
+/// played.  This opens the file and reads its format without decoding the
+/// sound.
+pub(super) fn probe(file: &Path) -> Result<f32, String> {
+    StreamingSoundData::from_file(file)
+        .map(|data| data.duration().as_secs_f32())
+        .map_err(reason)
 }
 
 /// Describes why the sound of a file cannot be played

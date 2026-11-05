@@ -9,37 +9,35 @@
 //! window, and on its own while no video plays.  The video cue that fired
 //! last shows on top, and hides those that fired before it while its
 //! picture is wholly opaque, so that a picture fading out as its cue stops
-//! fades to whatever shows once it has gone.  The pointer stays hidden over
-//! the stage, out of the audience's sight.
+//! fades to whatever shows once it has gone.  Each picture draws in the
+//! first frame that shows it, through [`pictures`].  The pointer stays
+//! hidden over the stage, out of the audience's sight.
 
-use iced::{
-    ContentFit, Element, Fill, mouse,
-    widget::{image, mouse_area, stack},
-};
+use iced::{Element, mouse, widget::mouse_area};
 
+use super::widget::{Layer, pictures};
 use crate::front::{App, Message};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let layers: Vec<(&image::Handle, f32)> = app
+    let layers: Vec<Layer> = app
         .workspace
         .active()
         .iter()
         .filter(|active| active.shows_picture())
-        .filter_map(|active| Some((app.stage.picture(active.id)?, active.opacity())))
+        .filter_map(|active| {
+            Some(Layer {
+                cue: active.id,
+                picture: app.stage.picture(active.id)?.clone(),
+                opacity: active.opacity(),
+            })
+        })
         .collect();
     let hidden = layers
         .iter()
-        .rposition(|&(_, opacity)| opacity >= 1.0)
+        .rposition(|layer| layer.opacity >= 1.0)
         .unwrap_or(0);
-    let pictures = layers[hidden..].iter().map(|&(picture, opacity)| {
-        image(picture.clone())
-            .width(Fill)
-            .height(Fill)
-            .content_fit(ContentFit::Contain)
-            .opacity(opacity)
-            .into()
-    });
-    mouse_area(stack(pictures).width(Fill).height(Fill))
+    let shown = layers.into_iter().skip(hidden).collect();
+    mouse_area(pictures(shown))
         .interaction(mouse::Interaction::Hidden)
         .into()
 }

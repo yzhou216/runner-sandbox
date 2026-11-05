@@ -15,18 +15,27 @@ use std::{
 
 use super::{
     PATIENCE,
-    movie::{movie, picture_number},
+    movie::{broken_movie, movie, picture_number},
 };
 use crate::back::{
     Command, Cue, CueId, CueList, Kind, Load, Media, Picture, Video, Workspace, load_files,
+    video::decoder::UNDECODABLE,
 };
 
 /// Returns a workspace in the directory of the video at `path`, with one
 /// list of one video cue that plays it, whose file has loaded
 fn showing(path: &Path) -> Workspace {
-    let cue = Cue::new(CueId(1), "1", Kind::Video, "Movie")
-        .file("movie.mp4")
-        .build();
+    showing_cue(
+        path,
+        Cue::new(CueId(1), "1", Kind::Video, "Movie")
+            .file("movie.mp4")
+            .build(),
+    )
+}
+
+/// Returns a workspace in the directory of the video at `path`, with one
+/// list of `cue`, whose file has loaded
+fn showing_cue(path: &Path, cue: Cue) -> Workspace {
     let directory = path.parent().expect("the video is in a directory");
     let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).directory(directory);
     let loads = load_files(Load::all(&workspace, workspace.unloaded()));
@@ -70,6 +79,33 @@ fn video_output_shows_the_pictures_of_a_run_and_lets_its_thread_go_once_it_stops
     assert!(video.runs.is_empty());
 }
 
+/// Syncs `video` with `workspace`, which keeps its clock where it is, until
+/// the next picture has arrived, and returns when it is due
+fn due(video: &mut Video, workspace: Workspace, started: Instant) -> (Workspace, Option<f64>) {
+    let (workspace, _) = video.sync(workspace);
+    match video.next_due(&workspace) {
+        None if started.elapsed() < PATIENCE => {
+            thread::sleep(Duration::from_millis(5));
+            due(video, workspace, started)
+        }
+        next => (workspace, next),
+    }
+}
+
+#[test]
+fn next_picture_of_a_run_comes_due_a_picture_after_the_one_it_shows() {
+    let (_directory, path) = movie(15, 5);
+    let mut video = Video::default();
+    let (playing, _) = synced(&mut video, showing(&path).apply(Command::Go { list: 0 }));
+    let (playing, next) = due(&mut video, playing, Instant::now());
+    assert!(
+        next.is_some_and(|next| (next * 30.0 - 1.0).abs() < 1e-6),
+        "{next:?}"
+    );
+    let (paused, _) = video.sync(playing.apply(Command::Pause(true)));
+    assert_eq!(video.next_due(&paused), None);
+}
+
 #[test]
 fn picture_that_the_next_go_starts_is_made_ready_ahead_for_its_run_to_take() {
     let (_directory, path) = movie(15, 5);
@@ -82,6 +118,22 @@ fn picture_that_the_next_go_starts_is_made_ready_ahead_for_its_run_to_take() {
     let (_, picture) = synced(&mut video, playing);
     assert!(picture.is_some());
     assert!(video.ready.is_empty());
+}
+
+#[test]
+fn run_that_loops_a_picture_that_cannot_be_decoded_ends_with_a_warning() {
+    let (_directory, path) = broken_movie(6, 3, &[0, 1, 2, 3, 4, 5]);
+    let looping = Cue::new(CueId(1), "1", Kind::Video, "Movie")
+        .file("movie.mp4")
+        .looping(true)
+        .build();
+    let mut video = Video::default();
+    let playing = showing_cue(&path, looping).apply(Command::Go { list: 0 });
+    let (ended, picture) = synced(&mut video, playing);
+    assert!(picture.is_none());
+    let cue = ended.cue(CueId(1)).expect("the cue is there");
+    assert_eq!(cue.media, Media::Failed(UNDECODABLE.to_owned()));
+    assert!(ended.active().is_empty());
 }
 
 #[test]

@@ -28,7 +28,7 @@ fn workspace(cues: Vec<Cue>) -> Workspace {
                 &cue.file,
                 Media::Loaded {
                     duration: 10.0,
-                    sound: true,
+                    sound: Some(10.0),
                 },
             )
         })

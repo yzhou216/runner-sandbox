@@ -42,9 +42,19 @@ const PARAMETER_SETS: [u8; 2] = [7, 8];
 /// `count` pictures, at most 25, that decoding can start at every
 /// `sync_every` pictures, with the path of the video
 pub(in crate::back) fn movie(count: usize, sync_every: u32) -> (TempDir, PathBuf) {
+    broken_movie(count, sync_every, &[])
+}
+
+/// Returns a test video as [`movie`] does, but whose pictures numbered in
+/// `broken` hold bytes that no decoder can read
+pub(in crate::back) fn broken_movie(
+    count: usize,
+    sync_every: u32,
+    broken: &[usize],
+) -> (TempDir, PathBuf) {
     let directory = TempDir::new().expect("a temporary directory can be made");
     let path = directory.path().join("movie.mp4");
-    write_movie(&path, count, sync_every);
+    write_movie(&path, count, sync_every, broken);
     (directory, path)
 }
 
@@ -56,8 +66,9 @@ pub(in crate::back) fn picture_number(pixels: &[u8]) -> usize {
     ((luma - first as f64) / step as f64).round().max(0.0) as usize
 }
 
-/// Encodes a test video and writes it to `path`
-fn write_movie(path: &Path, count: usize, sync_every: u32) {
+/// Encodes a test video and writes it to `path`, with the pictures numbered
+/// in `broken` garbled
+fn write_movie(path: &Path, count: usize, sync_every: u32, broken: &[usize]) {
     // Every picture, at a fixed quality, with sync samples where asked for
     let config = EncoderConfig::new()
         .skip_frames(false)
@@ -112,6 +123,11 @@ fn write_movie(path: &Path, count: usize, sync_every: u32) {
         .into_iter()
         .zip(0..)
         .try_for_each(|((sync, units), number)| {
+            let units = if broken.contains(&(number as usize)) {
+                units.iter().map(|unit| garbled(unit)).collect()
+            } else {
+                units
+            };
             let sample = Mp4Sample {
                 start_time: u64::from(number * duration),
                 duration,
@@ -123,6 +139,13 @@ fn write_movie(path: &Path, count: usize, sync_every: u32) {
         })
         .expect("the pictures go in");
     writer.write_end().expect("the video ends");
+}
+
+/// Returns a NAL unit with all but its header replaced by bytes that read
+/// as no slice, and that hold no start code either
+fn garbled(unit: &[u8]) -> Vec<u8> {
+    let header = unit.first().copied().unwrap_or_default();
+    [vec![header], vec![0x55; unit.len().saturating_sub(1)]].concat()
 }
 
 /// Returns the settings of the MP4 file of a test video

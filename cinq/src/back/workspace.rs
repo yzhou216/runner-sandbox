@@ -120,7 +120,7 @@ impl Workspace {
     /// Returns the directory to look in for a file for `cue` to play: the
     /// directory of the file it plays now, or else the one that relative
     /// paths start from
-    pub fn sound_directory(&self, cue: &Cue) -> PathBuf {
+    pub fn file_directory(&self, cue: &Cue) -> PathBuf {
         self.path(cue)
             .as_deref()
             .and_then(Path::parent)

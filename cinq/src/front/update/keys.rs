@@ -28,12 +28,13 @@ use crate::front::{
 impl App {
     /// Reads a key together with the keys typed before it, and carries out
     /// the command they complete.  A key held down repeats, apart from the
-    /// keys of GO and Panic, which act once a press, so that holding the
-    /// key of Panic does not cut a panic short.  While the help page is
-    /// open, the keys of the next and previous cue scroll it by as many
-    /// lines as the count, and those of the first and last cue go to its
-    /// top and its bottom.  Of the rest, only GO, Panic, and the keys that
-    /// show or hide the page act.
+    /// keys of GO, Panic, and fullscreen, which act once a press, so that
+    /// holding the key of Panic does not cut a panic short, nor holding that
+    /// of fullscreen toggle the stage window back and forth.  While the help
+    /// page is open, the keys of the next and previous cue scroll it by as
+    /// many lines as the count, and those of the first and last cue go to
+    /// its top and its bottom.  Of the rest, only GO, Panic, and the keys
+    /// that show or hide the page act.
     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
         let outcome = self.config.keymap.parse(&self.keys, press);
         let app = Self {
@@ -41,7 +42,7 @@ impl App {
             ..self
         };
         match outcome.action {
-            Some((action, _)) if repeat && action.acts_at_once() => (app, Task::none()),
+            Some((action, _)) if repeat && action.acts_once_a_press() => (app, Task::none()),
             Some((action @ (Action::Next | Action::Previous), count)) if app.help => {
                 let down = if action == Action::Next { 1.0 } else { -1.0 };
                 let lines = count.map_or(1.0, |count| count as f32);
@@ -66,9 +67,13 @@ impl App {
 
     /// Moves the keyboard focus.  Editing the name shows the Basics tab,
     /// which holds the Name field, and does nothing in show mode or without
-    /// a selection.
+    /// a selection.  No field takes the keyboard while the stage window has
+    /// it, since the keys typed there would never reach the field.
     pub(super) fn focused(self, focus: Focus) -> (Self, Task<Message>) {
         match focus {
+            Focus::Name | Focus::Next | Focus::Previous if self.stage.has_keyboard() => {
+                (self, Task::none())
+            }
             Focus::Name if self.editable() && self.selected.is_some() => (
                 Self {
                     tab: Tab::Basics,

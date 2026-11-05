@@ -58,8 +58,8 @@ pub enum Message {
     PauseAll,
     ResumeAll,
     Stop(CueId),
-    /// Time of a tick of the playback clock, or of a frame of the stage
-    /// window while its picture moves
+    /// Time of a tick of the playback clock, or of the moment that the
+    /// next picture of a video cue comes due
     Tick(Instant),
     Select(CueId),
     /// Moves the selection by a number of cues, downwards when positive
@@ -141,9 +141,15 @@ pub enum Message {
     /// Mouse button pressed anywhere in a window
     Clicked,
     /// Window changed size
-    Resized,
+    Resized(window::Id),
+    /// Window gained the keyboard
+    WindowFocused(window::Id),
     /// Toggles the stage window between fullscreen and a window
-    Fullscreen,
+    ToggleFullscreen,
+    /// Stage window toggled, into fullscreen or out of it
+    StageToggled {
+        fullscreen: bool,
+    },
     /// Window closed, as the operator closes it
     Closed(window::Id),
 }

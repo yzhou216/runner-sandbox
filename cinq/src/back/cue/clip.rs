@@ -4,6 +4,16 @@
 
 //! Part of a file that an audio or video cue plays
 
+use std::path::PathBuf;
+
+/// Part of a file that a run of an audio or video cue may start, which
+/// the sound and the video output make ready ahead of it
+#[derive(Debug, Clone, PartialEq)]
+pub struct Wanted {
+    pub(in crate::back) path: PathBuf,
+    pub(in crate::back) clip: Clip,
+}
+
 /// Part of its file that an audio or video cue plays, from `start` to `end`
 /// in seconds into the file, where `start` comes before `end`.  A clip
 /// that loops plays from its start again each time it reaches its end,

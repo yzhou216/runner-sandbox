@@ -53,7 +53,7 @@ impl Active {
     /// Returns how opaque the picture of a video cue is, from none at zero
     /// to whole at one: whole, apart from while a fade that stops the cue
     /// runs, as that of a panic does, when it falls with the progress of
-    /// the fade, so that the picture fades to black along with the sound
+    /// the fade, so that the picture fades out along with the sound
     pub fn opacity(&self) -> f32 {
         self.fade
             .filter(|fade| fade.then_stop)

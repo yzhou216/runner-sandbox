@@ -61,7 +61,7 @@ fn loading_ignores_a_file_that_has_been_replaced() {
         "sound.ogg",
         Media::Loaded {
             duration: 10.0,
-            sound: true,
+            sound: Some(10.0),
         },
     ));
     let cue = stale.cue(CueId(1)).unwrap();
@@ -74,7 +74,7 @@ fn loading_ignores_a_file_that_has_been_replaced() {
             "other.ogg",
             Media::Loaded {
                 duration: 10.0,
-                sound: true,
+                sound: Some(10.0),
             },
         ))
         .apply(GO)
@@ -139,7 +139,7 @@ fn chosen_sound_file_goes_by_its_path_from_the_show_when_it_is_there() {
 #[test]
 fn sound_files_are_looked_for_next_to_the_file_a_cue_plays() {
     let workspace = Workspace::new(Vec::new()).directory("/show");
-    let directory = |file: &str| workspace.sound_directory(&playing(file));
+    let directory = |file: &str| workspace.file_directory(&playing(file));
     assert_eq!(directory("sounds/storm.ogg"), Path::new("/show/sounds"));
     assert_eq!(directory("/music/storm.ogg"), Path::new("/music"));
     assert_eq!(directory(""), Path::new("/show"));

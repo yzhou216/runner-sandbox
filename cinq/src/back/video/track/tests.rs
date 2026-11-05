@@ -3,14 +3,52 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Tests of the times at which the samples of a track show, B-frames among
-//! them, and of the NAL units of samples as openh264 reads them
+//! them, of where decoding a part of the picture starts, in open groups of
+//! pictures as well, and of the NAL units of samples as openh264 reads them
 
 use super::{
     Sample, Track,
     annex::{annex_b, units},
-    timeline,
+    timing::{span, starts_group, timeline},
 };
 use crate::back::video::tests::movie::movie;
+
+/// Returns samples in the order of decoding, each of which shows at its
+/// number of pictures, a second each, and those of `syncs` can start
+/// decoding
+fn samples(shows: &[u32], syncs: &[usize]) -> Vec<Sample> {
+    shows
+        .iter()
+        .enumerate()
+        .map(|(index, &shows)| Sample {
+            shows: f64::from(shows),
+            sync: syncs.contains(&index),
+        })
+        .collect()
+}
+
+/// Returns a closed group of I, P, and two B-frames, then an open group
+/// whose two B-frames decode after its I-frame and show before it
+fn open_groups() -> Vec<Sample> {
+    samples(&[0, 3, 1, 2, 6, 4, 5, 9, 7, 8], &[0, 4])
+}
+
+#[test]
+fn decoding_starts_at_a_sync_sample_that_shows_no_later_than_the_first_picture() {
+    let groups = open_groups();
+    // Picture 4 decodes after the I-frame of its open group, which shows
+    // later, so decoding starts at the group before it
+    assert_eq!(span(&groups, 4.0, 5.5), Some((0, 6, 4.0)));
+    assert_eq!(span(&groups, 6.0, 7.5), Some((4, 8, 6.0)));
+}
+
+#[test]
+fn only_a_closed_group_owes_nothing_to_the_pictures_before_it() {
+    let groups = open_groups();
+    assert!(starts_group(&groups, 0));
+    assert!(!starts_group(&groups, 4));
+    assert!(!starts_group(&groups, 1));
+}
 
 #[test]
 fn samples_show_at_their_offsets_from_the_first_picture() {

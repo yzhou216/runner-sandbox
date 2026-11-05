@@ -84,8 +84,8 @@ Each cue is a table in the array *cue* of its list:
 
 *target*
 	Identity of the cue that a fade or stop cue acts on.
-	A fade cue acts on an audio or video cue, and a stop cue on any other
-	cue.
+	A fade cue acts on an audio or video cue, and a stop cue on any cue but
+	itself.
 
 *pre_wait*
 	Seconds between the cue firing and its action, which are none by
@@ -104,7 +104,7 @@ Each cue is a table in the array *cue* of its list:
 	What happens to the next cue once this one has fired: *manual*, the
 	default, leaves it waiting for GO, *continue* fires it once the
 	post-wait is over, and *follow* fires it once the action of this cue
-	ends, which that of an audio cue that loops never does.
+	ends, which that of an audio or video cue that loops never does.
 
 *level*
 	Level in dB that an audio or video cue plays at, which is 0 by default, or
@@ -140,11 +140,13 @@ plays on.
 Pausing holds the picture, and a cue that loops loops its picture with its
 sound.
 
-Closing the stage window hides it until a video cue fires again, while closing
-the main window quits *cinq*.
-The key of *fullscreen*, as *cinq*(5) describes, toggles the stage window
-between fullscreen and a window, and every other key acts the same in either
-window.
+Closing the stage window closes it until a video cue fires again, which opens
+it anew: as a window of its first size, wherever the platform puts it, or
+fullscreen if the key of *fullscreen* last made it fullscreen.
+Closing the main window quits *cinq*.
+The key of *fullscreen* toggles the stage window between fullscreen and a
+window, and the other keys act on the cue list from either window, as
+*cinq*(5) describes.
 
 # UNSAVED CHANGES
 
@@ -171,6 +173,21 @@ in place.
 The next time that the show opens, they come back as one change, which undo
 takes back to the show as saved.
 Saving the show, or taking back each of its changes, removes them.
+
+# BUGS
+
+The picture of a video cue follows the clock of the show, while its sound
+follows the clock of the audio device, so that over a long video the two drift
+apart by as much as the clocks do.
+Pausing a video leaves its sound a hundredth of a second ahead of its picture,
+the length of the fade that keeps a pause from clicking.
+
+The sound of a video plays the silence that AAC encoders put before and after
+it, which the file marks for players to skip, so that it comes a few
+hundredths of a second after its picture.
+
+A picture wider or taller than the largest texture of the GPU, as a video in
+4K is on some older GPUs, does not show.
 
 # EXAMPLES
 

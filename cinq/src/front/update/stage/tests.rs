@@ -3,14 +3,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Tests of the stage window: when it opens, what closing it and closing
-//! the main window do, and the pictures it keeps
+//! the main window do, the pictures it keeps, the keys while it has the
+//! keyboard, and the key that toggles it between fullscreen and a window
 
-use iced::window;
+use iced::{
+    keyboard::{Key, Modifiers, key::Named},
+    window,
+};
 
 use super::Stage;
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Media, Picture, Workspace},
-    front::{App, Message, view},
+    front::{App, Focus, Message, keymap::Press, view},
 };
 
 /// Returns the state of the interface with a show of `kind` cues, whose
@@ -24,7 +28,7 @@ fn show(kind: Kind) -> App {
         file: "movie.mp4".to_owned(),
         media: Media::Loaded {
             duration: 10.0,
-            sound: false,
+            sound: None,
         },
     };
     let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).apply(loaded);
@@ -71,6 +75,18 @@ fn closed_stage_window_stays_closed_until_a_video_cue_fires() {
 }
 
 #[test]
+fn stage_window_opens_again_as_the_operator_last_toggled_it() {
+    let (open, _) = show(Kind::Video).staged();
+    assert!(!open.stage.settings().fullscreen);
+    let (toggled, _) = open.handled(Message::StageToggled { fullscreen: true });
+    let stage = toggled.stage.window().expect("the stage window opens");
+    let (closed, _) = toggled.closed(stage);
+    assert!(closed.stage.settings().fullscreen);
+    let (windowed, _) = closed.handled(Message::StageToggled { fullscreen: false });
+    assert!(!windowed.stage.settings().fullscreen);
+}
+
+#[test]
 fn closing_the_main_window_quits() {
     let app = show(Kind::Video);
     let main = app.main.expect("the main window opens");
@@ -96,4 +112,48 @@ fn stage_draws_with_and_without_pictures() {
     let _ = view::stage::view(&playing);
     let stage = Stage::default().with_pictures(&playing.workspace, vec![(CueId(1), picture())]);
     let _ = view::stage::view(&App { stage, ..playing });
+}
+
+#[test]
+fn stage_window_changing_size_leaves_the_cue_list_as_it_is() {
+    let (open, _) = show(Kind::Video).staged();
+    let open = App {
+        selected: Some(CueId(1)),
+        ..open
+    };
+    let stage = open.stage.window().expect("the stage window opens");
+    let main = open.main.expect("the main window opens");
+    let (open, unmoved) = open.handled(Message::Resized(stage));
+    assert_eq!(unmoved.units(), 0);
+    let (_, revealing) = open.handled(Message::Resized(main));
+    assert_eq!(revealing.units(), 1);
+}
+
+#[test]
+fn no_field_takes_the_keyboard_while_the_stage_window_has_it() {
+    let (open, _) = show(Kind::Video).staged();
+    let stage = open.stage.window().expect("the stage window opens");
+    let main = open.main.expect("the main window opens");
+    let selected = App {
+        selected: Some(CueId(1)),
+        ..open
+    };
+    let (staged, _) = selected.handled(Message::WindowFocused(stage));
+    let (staged, naming) = staged.focused(Focus::Name);
+    let (staged, next) = staged.focused(Focus::Next);
+    let (staged, previous) = staged.focused(Focus::Previous);
+    assert_eq!((naming.units(), next.units(), previous.units()), (0, 0, 0));
+    let (back, _) = staged.handled(Message::WindowFocused(main));
+    let (_, naming) = back.focused(Focus::Name);
+    assert_eq!(naming.units(), 1);
+}
+
+#[test]
+fn key_of_fullscreen_held_down_toggles_the_stage_window_once() {
+    let (open, _) = show(Kind::Video).staged();
+    let f11 = Press::from_key(&Key::Named(Named::F11), Modifiers::empty()).expect("F11 is a key");
+    let (open, toggling) = open.typed(f11, false);
+    assert_eq!(toggling.units(), 1);
+    let (_, repeating) = open.typed(f11, true);
+    assert_eq!(repeating.units(), 0);
 }

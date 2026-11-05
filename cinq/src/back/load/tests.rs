@@ -57,7 +57,7 @@ fn video_file_loads_as_a_picture_for_a_video_cue_and_as_no_sound_for_an_audio_cu
             1,
             Media::Loaded {
                 duration: 0.5,
-                sound: false
+                sound: None
             }
         )
     );

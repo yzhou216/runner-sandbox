@@ -72,25 +72,23 @@ pub fn load_files(loads: Vec<Load>) -> Vec<Command> {
         .collect()
 }
 
-/// Reads how long a file plays for the kind of cue that plays it, or why
-/// it cannot be played.  The sound track of a video file has to play as
-/// well, since the cue plays it along with the picture, while a video file
-/// without one plays its picture alone.
+/// Reads how long a file plays for the kind of cue that plays it, and how
+/// long its sound plays, or why it cannot be played.  The sound track of a
+/// video file has to play as well, since the cue plays it along with the
+/// picture, while a video file without one plays its picture alone.
 fn probe((path, kind): &(PathBuf, Kind)) -> Media {
-    match kind {
-        Kind::Video => match video::probe(path) {
-            Media::Loaded {
-                duration,
-                sound: true,
-            } => match audio::probe(path) {
-                Media::Failed(reason) => Media::Failed(format!("its sound cannot play: {reason}")),
-                _ => Media::Loaded {
-                    duration,
-                    sound: true,
-                },
-            },
-            media => media,
-        },
-        _ => audio::probe(path),
+    let loaded = match kind {
+        Kind::Video => video::probe(path).and_then(|(duration, sound)| {
+            let sound = sound
+                .then(|| audio::probe(path))
+                .transpose()
+                .map_err(|reason| format!("its sound cannot play: {reason}"))?;
+            Ok((duration, sound))
+        }),
+        _ => audio::probe(path).map(|duration| (duration, Some(duration))),
+    };
+    match loaded {
+        Ok((duration, sound)) => Media::Loaded { duration, sound },
+        Err(reason) => Media::Failed(reason),
     }
 }

@@ -21,7 +21,7 @@ mod workspace;
 
 use std::time::Duration;
 
-use cue::Clip;
+use cue::{Clip, Wanted};
 
 pub use audio::{Audio, SOUND_FILES};
 pub use cue::{

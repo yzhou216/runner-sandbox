@@ -95,6 +95,14 @@ impl Action {
         Self::AT_ONCE.contains(&self)
     }
 
+    /// Returns whether a key of the action that is held down acts only
+    /// once: those of [`Action::AT_ONCE`], so that holding the key of Panic
+    /// does not cut a panic short, and that of fullscreen, which would
+    /// otherwise toggle the stage window back and forth
+    pub fn acts_once_a_press(self) -> bool {
+        self.acts_at_once() || self == Action::Fullscreen
+    }
+
     /// Returns whether the keys of the action act in a text field, as the
     /// keys of GO, Panic, the moves between fields, and those of opening and
     /// saving shows do
@@ -148,7 +156,7 @@ impl Action {
             Action::Open => Message::Open,
             Action::Save => Message::Save,
             Action::SaveAs => Message::SaveAs,
-            Action::Fullscreen => Message::Fullscreen,
+            Action::Fullscreen => Message::ToggleFullscreen,
             Action::Help => Message::ToggleHelp,
             Action::CloseHelp => Message::CloseHelp,
         }

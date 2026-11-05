@@ -45,21 +45,24 @@ impl Cinq {
         (cinq, Task::batch([opened.discard(), opening]))
     }
 
-    /// Applies one message, lets the sound and video output catch up with
+    /// Applies one message, lets the video and sound output catch up with
     /// the result, keeps the unsaved changes of the show, starts loading
     /// any file that the message named, and opens the stage window once the
     /// show holds a video cue.  This is the only place where state is
-    /// replaced, and the sound and video output and the keeper of unsaved
+    /// replaced, and the video and sound output and the keeper of unsaved
     /// changes are the only parts it calls that have side effects;
-    /// everything else builds new values.  A clock that the message starts
-    /// counts from now, so that its first tick counts only the time since.
-    /// Taking the state out of `self` instead of cloning it keeps updates
-    /// free of copies.
+    /// everything else builds new values.  The video output goes first, so
+    /// that a run whose picture cannot play has its sound stopped in the
+    /// same update.  A clock that the message starts counts from now, so
+    /// that its first tick counts only the time since.  Taking the state out
+    /// of `self` instead of cloning it keeps updates free of copies.
     pub(in crate::front) fn update(&mut self, message: Message) -> Task<Message> {
         let (app, task) = std::mem::take(&mut self.app).next(message);
-        let (workspace, pictures) = self.video.sync(self.audio.sync(app.workspace));
+        let (workspace, pictures) = self.video.sync(app.workspace);
+        let due = self.video.next_due(&workspace);
+        let workspace = self.audio.sync(workspace);
         let app = App {
-            stage: app.stage.with_pictures(&workspace, pictures),
+            stage: app.stage.with_pictures(&workspace, pictures).with_due(due),
             file_problem: self.keeper.keep(&app.show).or(app.file_problem),
             workspace,
             ..app
@@ -76,7 +79,7 @@ impl Cinq {
 
     /// Draws the window `window`: the stage window, or else the main window
     pub(in crate::front) fn view(&self, window: window::Id) -> Element<'_, Message> {
-        if self.app.stage.shows_in(window) {
+        if self.app.stage.is_window(window) {
             view::stage::view(&self.app)
         } else {
             view::view(&self.app)
@@ -88,7 +91,7 @@ impl Cinq {
     /// the main window, and the word stage in the stage window
     pub(in crate::front) fn title(&self, window: window::Id) -> String {
         let show = &self.app.show;
-        if self.app.stage.shows_in(window) {
+        if self.app.stage.is_window(window) {
             format!("{} stage - cinq", show.name())
         } else {
             format!("{}{} - cinq", show.name(), show.mark())

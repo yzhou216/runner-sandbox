@@ -196,7 +196,7 @@ impl Workspace {
     pub(super) fn changed(self, id: CueId, edit: Edit) -> Self {
         let plays = self.cue(id).is_some_and(|cue| cue.kind.plays_file());
         let workspace = match edit {
-            Edit::File(_) | Edit::Sound { .. } => self.stopped(id),
+            Edit::File(_) | Edit::FileAndName { .. } => self.stopped(id),
             Edit::Level(level) if plays => self.with_active(id, |active| match active.fade {
                 Some(fade) if fade.then_stop => active,
                 _ => Active {

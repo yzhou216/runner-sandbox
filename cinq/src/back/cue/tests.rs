@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Tests of typed levels, of the names that sound files give cues, of the
-//! clips that audio cues play, of the delay after which a looping cue
-//! carries its chain on, and of the level that counts as silence
+//! clips that audio and video cues play, along with the sound of a video
+//! cue, of the delay after which a looping cue carries its chain on, and of
+//! the level that counts as silence
 
 use super::*;
 
@@ -33,7 +34,7 @@ fn typed_level_past_either_end_or_half_typed_reads_as_none() {
 #[test]
 fn chosen_sound_file_names_a_cue_until_the_operator_names_it() {
     let chosen = |cue: Cue| cue.playing("sounds/thunder.wav".to_owned());
-    let thunder = Edit::Sound {
+    let thunder = Edit::FileAndName {
         file: "sounds/thunder.wav".to_owned(),
         name: "thunder".to_owned(),
     };
@@ -50,7 +51,7 @@ fn loaded(cue: Cue) -> Cue {
     Cue {
         media: Media::Loaded {
             duration: 10.0,
-            sound: true,
+            sound: Some(10.0),
         },
         ..cue
     }
@@ -131,4 +132,36 @@ fn audio_cue_that_loops_follows_on_to_nothing() {
 #[test]
 fn silence_is_where_kira_stops_making_sound() {
     assert_eq!(SILENCE, kira::Decibels::SILENCE.0);
+}
+
+/// Returns a video cue whose file has loaded as ten seconds of picture
+/// with nine and a half of sound, from `start`, looping or not
+fn video(start: f32, looping: bool) -> Cue {
+    Cue {
+        media: Media::Loaded {
+            duration: 10.0,
+            sound: Some(9.5),
+        },
+        ..Cue::new(CueId(1), "1", Kind::Video, "Movie")
+            .file("movie.mp4")
+            .start(start)
+            .looping(looping)
+            .build()
+    }
+}
+
+#[test]
+fn video_cue_that_loops_ends_with_its_sound_where_that_ends_first() {
+    let end = |cue: Cue| cue.clip().map(|clip| clip.end);
+    assert_eq!(end(video(0.0, true)), Some(9.5));
+    assert_eq!(end(video(0.0, false)), Some(10.0));
+    assert!(video(0.0, true).sounds());
+}
+
+#[test]
+fn video_cue_that_starts_past_the_end_of_its_sound_plays_its_picture_alone() {
+    let late = video(9.7, true);
+    assert!(!late.sounds());
+    let clip = late.clip().expect("the picture plays");
+    assert_eq!((clip.start as f32, clip.end), (9.7, 10.0));
 }

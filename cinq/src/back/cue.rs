@@ -17,7 +17,7 @@ use std::{ffi::OsStr, fmt, ops::RangeInclusive, path::Path};
 
 use bon::Builder;
 
-pub use clip::Clip;
+pub use clip::{Clip, Wanted};
 pub use edit::Edit;
 pub use kind::{Advance, Kind};
 pub use list::CueList;
@@ -126,7 +126,7 @@ impl Cue {
         let unnamed =
             self.name == Self::new_name(self.kind) || Some(self.name.as_str()) == stem(&self.file);
         match stem(&file) {
-            Some(name) if unnamed => Edit::Sound {
+            Some(name) if unnamed => Edit::FileAndName {
                 name: name.to_owned(),
                 file,
             },
@@ -143,14 +143,20 @@ impl Cue {
 
     /// Returns the part of its file that an audio or video cue plays: from
     /// its start time to its end time, or to the end of the file where that
-    /// comes first.  There is none for other kinds of cue, before the file
-    /// has loaded, or when the start is not before the end.
+    /// comes first.  A video cue that loops while its sound plays ends with
+    /// its sound, where that comes first, so that the sound loops with the
+    /// picture.  There is none for other kinds of cue, before the file has
+    /// loaded, or when the start is not before the end.
     pub(in crate::back) fn clip(&self) -> Option<Clip> {
         let Media::Loaded { duration, .. } = self.media else {
             return None;
         };
+        let length = match self.sound() {
+            Some(sound) if self.looping => duration.min(sound),
+            _ => duration,
+        };
         let start = self.start.value();
-        let end = self.end.time().map_or(duration, |end| end.min(duration));
+        let end = self.end.time().map_or(length, |end| end.min(length));
         (self.kind.plays_file() && start < end).then_some(Clip {
             start: start.into(),
             end: end.into(),
@@ -158,11 +164,24 @@ impl Cue {
         })
     }
 
-    /// Returns whether the file of the cue has loaded with sound to play,
-    /// as that of an audio cue always has, and that of a video cue has
-    /// unless it holds a picture alone
+    /// Returns how long the sound of the file of the cue plays, once the
+    /// file has loaded, when the clip of the cue starts before the sound
+    /// ends.  There is none for a video file with a picture alone.
+    fn sound(&self) -> Option<f32> {
+        match self.media {
+            Media::Loaded {
+                sound: Some(sound), ..
+            } => Some(sound).filter(|&sound| self.start.value() < sound),
+            _ => None,
+        }
+    }
+
+    /// Returns whether the clip of the cue has sound to play: that of an
+    /// audio cue always has, once its file has loaded, and that of a video
+    /// cue has unless its file holds a picture alone or its sound ends
+    /// before the clip starts
     pub fn sounds(&self) -> bool {
-        matches!(self.media, Media::Loaded { sound: true, .. })
+        self.sound().is_some()
     }
 
     /// Returns whether the cue is an audio or video cue that loops, and so
@@ -183,8 +202,8 @@ impl Cue {
     }
 
     /// Returns whether this cue can act on `other`.  Fade cues act on audio
-    /// and video cues, stop cues on any other cue, and the remaining kinds
-    /// on none.
+    /// and video cues, stop cues on any cue but themselves, and the
+    /// remaining kinds on none.
     pub fn can_target(&self, other: &Cue) -> bool {
         other.id != self.id
             && match self.kind {

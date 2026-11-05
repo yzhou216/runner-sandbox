@@ -74,7 +74,7 @@ fn video_cue_without_sound_still_fades_out_and_stops() {
         "movie.mp4",
         Media::Loaded {
             duration: 10.0,
-            sound: false,
+            sound: None,
         },
     );
     let continuing = Cue {

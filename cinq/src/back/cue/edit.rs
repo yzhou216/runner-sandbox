@@ -14,7 +14,7 @@ pub enum Edit {
     File(String),
     /// File of an audio or video cue together with the name it gives the
     /// cue, as choosing the file makes
-    Sound {
+    FileAndName {
         file: String,
         name: String,
     },
@@ -48,7 +48,7 @@ impl Cue {
                 media: Media::Unloaded,
                 ..self
             },
-            Edit::Sound { file, name } => Self {
+            Edit::FileAndName { file, name } => Self {
                 file,
                 name,
                 media: Media::Unloaded,
@@ -78,7 +78,7 @@ impl Cue {
             Edit::Number(_) => Edit::Number(self.number.clone()),
             Edit::Name(_) => Edit::Name(self.name.clone()),
             Edit::File(_) => Edit::File(self.file.clone()),
-            Edit::Sound { .. } => Edit::Sound {
+            Edit::FileAndName { .. } => Edit::FileAndName {
                 file: self.file.clone(),
                 name: self.name.clone(),
             },

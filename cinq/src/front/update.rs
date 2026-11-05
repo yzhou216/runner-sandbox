@@ -54,7 +54,8 @@ impl App {
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),
-            // Selection scrolls into view as it or the rows around it move
+            // Selection scrolls into view as it or the rows around it move,
+            // and as the main window changes size
             Message::Select(id) => return self.with_selection(id).revealed(),
             Message::Step(offset) => return self.stepped(offset).revealed(),
             Message::Row(row) => return self.at_row(row).revealed(),
@@ -65,7 +66,7 @@ impl App {
             Message::Delete(count) => return self.without_selected(count).revealed(),
             Message::Undo => return self.undone().revealed(),
             Message::Redo => return self.redone().revealed(),
-            Message::Resized => return self.revealed(),
+            Message::Resized(window) if self.main == Some(window) => return self.revealed(),
             Message::Recheck => return self.recheck(),
             Message::Open => return self.with_task(Self::choose_show),
             Message::Opened(read) => return self.opened(*read).revealed(),
@@ -75,7 +76,7 @@ impl App {
             Message::ChooseFile(id) => return self.with_task(|app| app.choose_cue_file(id)),
             Message::OpenLink(target) => return self.opening(move || open_link(&target)),
             Message::EditConfig(file) => return self.opening(move || edit_config(&file)),
-            Message::Fullscreen => return self.with_task(Self::fullscreen),
+            Message::ToggleFullscreen => return self.with_task(Self::toggle_fullscreen),
             Message::Closed(window) => return self.closed(window),
             // GO and Panic close the help page, so that the show is in view
             // as it runs or stops, and a selection that GO moves scrolls
@@ -96,8 +97,8 @@ impl App {
             Message::PauseAll => self.send(Command::Pause(true)),
             Message::ResumeAll => self.send(Command::Pause(false)),
             Message::Stop(id) => self.send(Command::Stop(id)),
-            // Ticks of the timer and the frames of the stage window may come
-            // out of order, and an earlier one counts no time
+            // Ticks of the timer and those that wake for pictures may come out
+            // of order, and an earlier one counts no time
             Message::Tick(now) => {
                 let elapsed = self
                     .last_tick
@@ -127,6 +128,16 @@ impl App {
                 ..self
             },
             Message::Clicked => self,
+            // Stage window holds no cue list to keep in view
+            Message::Resized(_) => self,
+            Message::WindowFocused(window) => Self {
+                stage: self.stage.with_keyboard_in(window),
+                ..self
+            },
+            Message::StageToggled { fullscreen } => Self {
+                stage: self.stage.toggled(fullscreen),
+                ..self
+            },
             Message::Edit(id, edit) => self.send(Command::Edit(id, edit)),
             Message::LevelTyped(cue, text) => {
                 let edit = parse_level(&text).map(|level| Command::Edit(cue, Edit::Level(level)));
@@ -198,7 +209,9 @@ impl App {
                 | Message::Rechecked(..)
                 | Message::LinkOpened(_)
                 | Message::Saved(_)
-                | Message::Resized
+                | Message::Resized(_)
+                | Message::WindowFocused(_)
+                | Message::StageToggled { .. }
         );
         let typing = passive || matches!(message, Message::Typed { .. });
         let clicked = matches!(message, Message::Clicked);

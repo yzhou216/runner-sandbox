@@ -8,17 +8,19 @@
 //! [`super::Audio::sync`] does, and makes the pictures match it.  Each run
 //! of a video cue gets a thread of its own from the moment GO fires it,
 //! which decodes the clip of the run a few pictures ahead of the clock of
-//! the run.  Each sync hands on the newest picture that the clock of each
-//! run has reached, so that the picture follows the clock of the show, as
-//! the sound does, and holds still while the run is paused.  The thread of
-//! a run that ends goes with it.  Ahead of that, the pictures that the next
-//! GO of each list may start are made ready, as their sounds are, since
-//! decoding has to start at the sync sample before the start of a clip, a
-//! few seconds before it in many files.  The workspace stays the only
-//! record of what should be seen, so a picture that cannot play goes back
-//! to it as a file that cannot be played.  Video files hold H.264 in MP4,
-//! whose tracks [`track`] reads, and which [`decoder`] decodes with Cisco's
-//! openh264.
+//! the run, and a run whose clip loops gets a second one, which decodes the
+//! next pass through the clip before the pass under way ends.  Each sync
+//! hands on the newest picture that the clock of each run has reached, so
+//! that the picture follows the clock of the show and holds still while
+//! the run is paused.  The sound follows the clock of the audio device
+//! instead, from which the clock of the show drifts over a long video, as
+//! cinq-show(5) tells.  The threads of a run that ends go with it.  Ahead of that, the pictures that the next GO of each list may
+//! start are made ready, as their sounds are, since decoding has to start
+//! at the sync sample before the start of a clip, a few seconds before it
+//! in many files.  The workspace stays the only record of what should be
+//! seen, so a picture that cannot play goes back to it as a file that
+//! cannot be played.  Video files hold H.264 in MP4, whose tracks [`track`]
+//! reads, and which [`decoder`] decodes with Cisco's openh264.
 
 mod decoder;
 mod player;
@@ -26,13 +28,13 @@ mod player;
 pub(super) mod tests;
 mod track;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use itertools::{Either, Itertools};
 
-use super::{Active, Clip, Command, Cue, CueId, Kind, Media, Problem, Workspace};
+use super::{Active, Command, Cue, CueId, Kind, Media, Problem, Wanted, Workspace};
 pub use decoder::Picture;
-use player::Player;
+use player::{Advanced, Player};
 pub(super) use track::probe;
 
 /// Endings of the names of the video files that the video output plays,
@@ -50,17 +52,6 @@ pub struct Video {
     ready: HashMap<CueId, (Wanted, Player)>,
 }
 
-/// Picture that a run may start: the part of a file that it plays
-#[derive(Debug, Clone, PartialEq)]
-struct Wanted {
-    path: PathBuf,
-    clip: Clip,
-}
-
-/// What syncing makes of the run of a video cue: its player, along with the
-/// picture that has come due, or why the picture cannot play
-type Synced = Result<(Player, Option<Picture>), String>;
-
 impl Video {
     /// Makes the pictures match the workspace.  Returns the workspace with
     /// the files whose picture cannot play, along with the pictures that
@@ -70,7 +61,7 @@ impl Video {
         // takes, stay behind and go at the end
         let mut ended = std::mem::take(&mut self.runs);
         let mut ready = std::mem::take(&mut self.ready);
-        let synced: Vec<(&Cue, u32, Synced)> = workspace
+        let advanced: Vec<(&Cue, u32, Advanced)> = workspace
             .active()
             .iter()
             .filter_map(|active| {
@@ -88,13 +79,13 @@ impl Video {
                             .filter(|(made, _)| Some(made) == wanted.as_ref())
                             .map(|(_, player)| player)
                     });
-                Some((cue, active.run, synced(wanted, active, player)))
+                Some((cue, active.run, moved_on(wanted, active, player)))
             })
             .collect();
         let (playing, failures): (Vec<_>, Vec<_>) =
-            synced
+            advanced
                 .into_iter()
-                .partition_map(|(cue, run, synced)| match synced {
+                .partition_map(|(cue, run, advanced)| match advanced {
                     Ok((player, picture)) => {
                         Either::Left(((cue.id, (run, player)), (cue.id, picture)))
                     }
@@ -106,17 +97,18 @@ impl Video {
                 });
         let (runs, pictures): (HashMap<_, _>, Vec<_>) = playing.into_iter().unzip();
         self.runs = runs;
-        self.ready = upcoming(&workspace)
-            .into_iter()
+        self.ready = workspace
+            .upcoming()
+            .filter(|(cue, _)| cue.kind == Kind::Video)
             .map(|(cue, wanted)| {
                 let player = ready
-                    .remove(&cue)
+                    .remove(&cue.id)
                     .filter(|(made, _)| *made == wanted)
                     .map_or_else(
                         || Player::start(wanted.path.clone(), wanted.clip),
                         |(_, player)| player,
                     );
-                (cue, (wanted, player))
+                (cue.id, (wanted, player))
             })
             .collect();
         let pictures = pictures
@@ -128,13 +120,30 @@ impl Video {
             pictures,
         )
     }
+
+    /// Returns how many seconds of the show clock pass before the next
+    /// picture of a video cue that plays and is not paused comes due, of
+    /// the pictures that have arrived ahead of their time, so that the
+    /// interface can wake to show it then
+    pub fn next_due(&self, workspace: &Workspace) -> Option<f64> {
+        self.runs
+            .iter()
+            .filter_map(|(&cue, (run, player))| {
+                let active = workspace
+                    .active_of(cue)
+                    .filter(|active| active.run == *run && !active.paused)
+                    .filter(|active| active.shows_picture())?;
+                Some(player.next_due()? - active.played())
+            })
+            .min_by(f64::total_cmp)
+    }
 }
 
-/// Syncs the run `active` of a video cue that plays `wanted`: keeps
+/// Returns the player of the run `active` of a video cue that plays
+/// `wanted`, moved on to the clock of the run once the pre-wait is over:
 /// `player`, the player of the run or the one made ready for it, or else
-/// starts one, and moves it on to the clock of the run once the pre-wait
-/// is over
-fn synced(wanted: Option<Wanted>, active: &Active, player: Option<Player>) -> Synced {
+/// one that starts now
+fn moved_on(wanted: Option<Wanted>, active: &Active, player: Option<Player>) -> Advanced {
     let player = match player {
         Some(player) => player,
         None => {
@@ -147,23 +156,4 @@ fn synced(wanted: Option<Wanted>, active: &Active, player: Option<Player>) -> Sy
     } else {
         Ok((player, None))
     }
-}
-
-/// Returns the pictures that the next GO of each list may start, each of a
-/// video cue, apart from the cues that GO skips
-fn upcoming(workspace: &Workspace) -> Vec<(CueId, Wanted)> {
-    workspace
-        .lists()
-        .iter()
-        .flat_map(|list| workspace.next_go(list))
-        .filter(|(cue, _)| cue.kind == Kind::Video)
-        .filter_map(|(cue, _)| {
-            let wanted = Wanted {
-                path: workspace.path(cue)?,
-                clip: cue.clip()?,
-            };
-            Some((cue.id, wanted))
-        })
-        .unique_by(|(cue, _)| *cue)
-        .collect()
 }

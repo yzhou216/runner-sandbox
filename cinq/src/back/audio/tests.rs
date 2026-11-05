@@ -15,10 +15,10 @@ use std::{
 use tempfile::TempDir;
 
 use super::{
-    preload::{Ask, Preloaded, Preloader, Wanted},
+    preload::{Ask, Preloaded, Preloader},
     upcoming,
 };
-use crate::back::{Advance, Clip, Command, Cue, CueId, CueList, Kind, Media, Workspace};
+use crate::back::{Advance, Clip, Command, Cue, CueId, CueList, Kind, Media, Wanted, Workspace};
 
 /// Returns an audio cue that plays `sound.wav`
 fn audio(id: u32) -> Cue {
@@ -38,7 +38,7 @@ fn loaded(cues: Vec<Cue>) -> Workspace {
             file: cue.file.clone(),
             media: Media::Loaded {
                 duration: 10.0,
-                sound: true,
+                sound: Some(10.0),
             },
         })
         .collect();
@@ -154,7 +154,7 @@ fn sound_of_a_video_cue_is_made_ready_unless_its_file_holds_none() {
         file: "movie.mp4".to_owned(),
         media: Media::Loaded {
             duration: 10.0,
-            sound: false,
+            sound: None,
         },
     };
     assert_eq!(upcoming_cues(&workspace.apply(silent)), [1]);

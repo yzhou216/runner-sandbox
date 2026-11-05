@@ -59,6 +59,9 @@ pub fn run(config_dir: Option<PathBuf>, show: Option<PathBuf>) -> iced::Result {
 /// Size that the main window opens at
 const MAIN_SIZE: Size = Size::new(1440.0, 900.0);
 
+/// Size that the stage window opens at, in the shape of most video
+const STAGE_SIZE: Size = Size::new(960.0, 540.0);
+
 /// Returns the settings of a window that opens `size` big, as the main
 /// window and the stage window do
 fn window_settings(size: Size) -> window::Settings {

@@ -11,7 +11,7 @@
 //! then waits on nothing.  A sound made ready that no run wants any more is
 //! let go, which ends its decoding.
 
-use std::{collections::HashMap, convert::Infallible, path::PathBuf, sync::mpsc, thread};
+use std::{collections::HashMap, convert::Infallible, sync::mpsc, thread};
 
 use kira::sound::{
     FromFileError, Sound, SoundData,
@@ -19,14 +19,7 @@ use kira::sound::{
 };
 
 use super::voice;
-use crate::back::{Clip, CueId};
-
-/// Sound that a run may start: the part of a file that it plays
-#[derive(Debug, Clone, PartialEq)]
-pub(super) struct Wanted {
-    pub(super) path: PathBuf,
-    pub(super) clip: Clip,
-}
+use crate::back::{CueId, Wanted};
 
 /// Sound made ready, which waits at the start of its clip with its first
 /// moments decoded, and which the audio manager only has to start

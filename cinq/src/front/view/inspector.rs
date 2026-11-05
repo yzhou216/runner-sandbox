@@ -118,7 +118,7 @@ fn time<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
 /// says so in their place.
 fn levels<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
     let label = match cue.kind {
-        Kind::Video if matches!(cue.media, Media::Loaded { sound: false, .. }) => {
+        Kind::Video if matches!(cue.media, Media::Loaded { sound: None, .. }) => {
             return text("The file of this cue holds no sound").into();
         }
         Kind::Audio | Kind::Video => "Level",

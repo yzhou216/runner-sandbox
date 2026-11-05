@@ -7,15 +7,18 @@
 //! [`button`](mod@button) acts on the press rather than the release,
 //! [`dropdown`](mod@dropdown) lets keys move through its menu,
 //! [`keep_keys`](mod@keep_keys) keeps the keys typed into its text fields
-//! from reaching the key bindings, and [`marked_row`](mod@marked_row) marks
-//! the selected row of a table.  All but the drop-down work around an iced
-//! widget with [`wrap`], while the drop-down draws itself in the look of
-//! iced's pick list.
+//! from reaching the key bindings, [`marked_row`](mod@marked_row) marks the
+//! selected row of a table, and [`pictures`](mod@pictures) draws the
+//! pictures of video cues, each in the first frame that shows it.  All but
+//! the drop-down and the pictures work around an iced widget with [`wrap`],
+//! while the drop-down draws itself in the look of iced's pick list, and the
+//! pictures draw through a shader of their own.
 
 mod button;
 mod dropdown;
 mod keep_keys;
 mod marked_row;
+mod pictures;
 mod wrap;
 
 use iced::{Event, Rectangle, mouse, touch};
@@ -24,6 +27,7 @@ pub use button::button;
 pub use dropdown::dropdown;
 pub use keep_keys::keep_keys;
 pub use marked_row::marked_row;
+pub use pictures::{Layer, pictures};
 
 /// Returns whether an event presses on the window, with the left mouse
 /// button or a finger

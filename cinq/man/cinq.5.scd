@@ -246,7 +246,9 @@ another sequence, and when it is bound without modifiers, whatever modifiers
 are held with it, unless the other of the two is bound to the key with those
 very modifiers.
 Holding either key down acts only once, so that holding the key of Panic does
-not cut a panic short, while every other key repeats as it is held.
+not cut a panic short.
+So does holding a key of *fullscreen*, which would otherwise toggle the stage
+window back and forth, while every other key repeats as it is held.
 
 # WHERE KEYS ACT
 
@@ -278,6 +280,12 @@ The menu of a drop-down list
 	The keys of *go* and *panic* act as they do everywhere and close the menu
 	as well.
 	The menu keeps every other key until it closes.
+
+While the stage window has the keyboard, as the window manager may leave it
+once the stage window opens, *edit*, *next_field*, and *previous_field* do
+nothing, since the keys typed there would never reach a field of the main
+window.
+A click on the main window gives it the keyboard.
 
 Show mode locks editing: *edit*, *add_below*, *add_above*, *move_down*,
 *move_up*, and *delete* do nothing in it, and *undo* and *redo* only move
@@ -380,6 +388,13 @@ page.
 	Toggle the stage window, which shows the pictures of video cues, between
 	fullscreen and a window, as *cinq-show*(5) describes.
 	It does nothing while the stage window is closed.
+; if darwin
+	Darwin keeps F11 for Show Desktop, a shortcut of Mission Control, so that
+	the key reaches *cinq* only once that shortcut is turned off in the
+	keyboard shortcuts of System Settings.
+	The green button at the top left of the stage window toggles it all the
+	same, as does any other key bound to *fullscreen*.
+; end
 
 *help*
 	Show the help page, or hide it.

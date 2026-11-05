@@ -6,18 +6,22 @@
 //! open, the selection after deleting or undo takes the selected cue away,
 //! the selection that follows standby, the sound file chosen for a new cue,
 //! a level typed halfway, a link of the help page that fails to open,
-//! loading the files of the show, and the window drawn before a show has
-//! opened
+//! loading the files of the show, ticks that come out of order, and the
+//! window drawn before a show has opened
 
-use std::ops::RangeInclusive;
+use std::{
+    ops::RangeInclusive,
+    time::{Duration, Instant},
+};
 
 use iced::{
     Task,
     keyboard::{Key, Modifiers, key::Named},
+    window,
 };
 
 use crate::{
-    back::{Cue, CueId, CueList, Kind, Load, Place, Workspace, load_files},
+    back::{Command, Cue, CueId, CueList, Kind, Load, Media, Phase, Place, Workspace, load_files},
     front::{App, Message, keymap::Press},
 };
 
@@ -151,7 +155,7 @@ fn level_typed_so_far_shows_until_the_operator_does_anything_else() {
     assert!(clicked.typed_level.is_some());
     let (typed, _) = clicked.next(typed("-6"));
     assert_eq!(typed.workspace.cue(CueId(1)).unwrap().level, -6.0);
-    let (resized, _) = typed.next(Message::Resized);
+    let (resized, _) = typed.next(Message::Resized(window::Id::unique()));
     assert!(resized.typed_level.is_some());
     let (moved, _) = resized.next(Message::Step(1));
     assert_eq!(moved.typed_level, None);
@@ -185,6 +189,43 @@ fn one_load_runs_at_a_time_until_what_it_found_comes_back() {
     let done = still.loaded(show, found);
     assert!(!done.loading);
     assert_eq!(done.workspace.unloaded().count(), 0);
+}
+
+#[test]
+fn ticks_out_of_order_count_each_moment_once_and_never_turn_the_clock_back() {
+    let app = show(Some(CueId(1)));
+    let loaded = Command::Loaded {
+        cue: CueId(1),
+        file: "sound.ogg".to_owned(),
+        media: Media::Loaded {
+            duration: 10.0,
+            sound: Some(10.0),
+        },
+    };
+    let workspace = app.workspace.apply(loaded);
+    let (playing, _) = App { workspace, ..app }.handled(Message::Go);
+    let start = Instant::now();
+    let at = |milliseconds| start + Duration::from_millis(milliseconds);
+    let (ticked, _) = App {
+        last_tick: Some(start),
+        ..playing
+    }
+    .next(Message::Tick(at(50)));
+    let (late, _) = ticked.next(Message::Tick(at(20)));
+    assert_eq!(late.last_tick, Some(at(50)));
+    let (ticked, _) = late.next(Message::Tick(at(75)));
+    assert_eq!(ticked.last_tick, Some(at(75)));
+    let phase = ticked
+        .workspace
+        .active_of(CueId(1))
+        .map(|active| active.phase());
+    let Some(Phase::Running { remaining }) = phase else {
+        panic!("the cue runs, but is {phase:?}");
+    };
+    assert!(
+        (remaining - 9.925).abs() < 1e-9,
+        "{remaining} seconds remain"
+    );
 }
 
 #[test]

@@ -58,9 +58,16 @@ if (Get-Process WWAHost -ErrorAction SilentlyContinue) {
 Stop-Process -Name wsl -Force -ErrorAction SilentlyContinue
 
 $cinq = Start-Process .\cinq.exe -ArgumentList "video.cinq.toml" -WorkingDirectory "$PWD\show" -RedirectStandardError "$PWD\err.txt" -PassThru
-Start-Sleep 10
-$main = [Windows]::Find($cinq.Id, ".toml - cinq")
-$stage = [Windows]::Find($cinq.Id, " stage - cinq")
+# Windows of cinq, which open late where Defender scans a program first
+$main = [IntPtr]::Zero
+$stage = [IntPtr]::Zero
+foreach ($second in 1..60) {
+  Start-Sleep 1
+  $main = [Windows]::Find($cinq.Id, ".toml - cinq")
+  $stage = [Windows]::Find($cinq.Id, " stage - cinq")
+  if ($main -ne [IntPtr]::Zero -and $stage -ne [IntPtr]::Zero) { break }
+}
+Start-Sleep 3
 "main $main, stage $stage"
 # Main window and stage side by side on the desktop of 1024x768
 [Windows]::SetWindowPos($main, [IntPtr]::Zero, 0, 0, 600, 740, 0x40) | Out-Null

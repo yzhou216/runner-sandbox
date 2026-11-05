@@ -8,7 +8,7 @@ use super::{
     Workspace,
     active::{Effect, Fade},
 };
-use crate::back::{Active, Cue, CueId, CueList, SILENCE};
+use crate::back::{Active, Cue, CueId, CueList, SILENCE, Wanted};
 
 /// Length in seconds of the fade-out that a panic starts
 pub(super) const PANIC_FADE: f64 = 1.0;
@@ -22,6 +22,22 @@ impl Workspace {
             .into_iter()
             .flat_map(move |standby| list.chain(standby))
             .filter(move |(cue, _)| self.problem(cue).is_none())
+    }
+
+    /// Returns the audio and video cues that the next GO of each list may
+    /// start, each with the part of a file that it plays, which the sound
+    /// and the video output make ready ahead
+    pub(in crate::back) fn upcoming(&self) -> impl Iterator<Item = (&Cue, Wanted)> {
+        self.lists
+            .iter()
+            .flat_map(|list| self.next_go(list))
+            .filter_map(|(cue, _)| {
+                let wanted = Wanted {
+                    path: self.path(cue)?,
+                    clip: cue.clip()?,
+                };
+                Some((cue, wanted))
+            })
     }
 
     /// Fires the standby cue of `list` together with its chain, then moves

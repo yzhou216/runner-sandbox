@@ -70,7 +70,7 @@ fn redo_puts_no_added_cue_that_has_played_back_on_standby() {
 
 #[test]
 fn undo_takes_back_the_name_that_a_chosen_sound_file_gave() {
-    let chosen = Edit::Sound {
+    let chosen = Edit::FileAndName {
         file: "thunder.wav".to_owned(),
         name: "thunder".to_owned(),
     };
@@ -128,7 +128,7 @@ fn undo_takes_back_only_the_setting_it_changed() {
             "sound.ogg",
             Media::Loaded {
                 duration: 20.0,
-                sound: true,
+                sound: Some(20.0),
             },
         ))
         .apply(Command::Undo);
@@ -138,7 +138,7 @@ fn undo_takes_back_only_the_setting_it_changed() {
         cue.media,
         Media::Loaded {
             duration: 20.0,
-            sound: true
+            sound: Some(20.0)
         }
     );
 }
