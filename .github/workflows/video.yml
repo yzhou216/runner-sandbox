@@ -52,103 +52,6 @@ jobs:
         with:
           name: aarch64
           path: aarch64
-  linux:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@main
-      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
-      # makes the installer of Nix 2.35.4 fail with permission denied
-      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
-      - uses: cachix/install-nix-action@master
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@main
-        with:
-          name: show
-          path: show
-      - run: nix build ./cinq && nix build --out-link tools nixpkgs#sway nixpkgs#wf-recorder nixpkgs#wtype nixpkgs#grim
-      - run: |
-          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          XDG_RUNTIME_DIR=$(mktemp -d)
-          export XDG_RUNTIME_DIR WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1
-          printf 'output HEADLESS-1 resolution 1920x1080\n' > sway.config
-          sway -c sway.config > sway.log 2>&1 &
-          sleep 5
-          WAYLAND_DISPLAY=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]' -printf '%f\n' | head -1)
-          export WAYLAND_DISPLAY
-          (cd show && timeout -k 5 60 ../result/bin/cinq video.cinq.toml > ../cinq.log 2>&1 &)
-          sleep 6
-          timeout -k 5 30 wf-recorder -D -f video.mp4 > recorder.log 2>&1 &
-          sleep 2
-          grim 1-opened.png
-          wtype -s 300 -k space
-          sleep 5
-          grim 2-playing.png
-          wtype -s 300 -k space
-          sleep 1
-          grim 3-fading.png
-          sleep 4
-          grim 4-faded.png
-          pkill -INT wf-recorder
-          sleep 3
-          echo "--- cinq"
-          cat cinq.log
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: linux
-          path: |
-            *.png
-            video.mp4
-          if-no-files-found: ignore
-  darwin:
-    needs: build
-    runs-on: macos-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@main
-      - uses: cachix/install-nix-action@master
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@main
-        with:
-          name: show
-          path: show
-      - run: nix build ./cinq
-      - run: |
-          open result/Applications/cinq.app --args "$PWD/show/video.cinq.toml"
-          sleep 10
-          # Main window and stage side by side, both in sight of the recording
-          osascript -e 'tell application "System Events" to tell process "cinq"' \
-            -e 'set position of window "video.cinq.toml - cinq" to {0, 30}' \
-            -e 'set size of window "video.cinq.toml - cinq" to {560, 700}' \
-            -e 'set position of window "video.cinq.toml stage - cinq" to {560, 30}' \
-            -e 'set size of window "video.cinq.toml stage - cinq" to {464, 300}' \
-            -e 'end tell' || echo "windows stay put"
-          sleep 2
-          screencapture -x 1-opened.png
-          screencapture -x -V 16 video.mov &
-          sleep 2
-          osascript -e 'tell application "System Events" to keystroke " "'
-          sleep 5
-          screencapture -x 2-playing.png
-          osascript -e 'tell application "System Events" to keystroke " "'
-          sleep 1
-          screencapture -x 3-fading.png
-          sleep 4
-          screencapture -x 4-faded.png
-          wait
-          pkill -x cinq
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: darwin
-          path: |
-            *.png
-            video.mov
-          if-no-files-found: ignore
   windows:
     needs: build
     timeout-minutes: 30
@@ -157,9 +60,7 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, arch: x86_64, show: show }
-          - { os: windows-latest, arch: x86_64, show: small }
           - { os: windows-11-arm, arch: aarch64, show: show }
-          - { os: windows-11-arm, arch: aarch64, show: small }
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf false
