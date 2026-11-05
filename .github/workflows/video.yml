@@ -16,7 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - uses: wimpysworld/nothing-but-nix@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -56,7 +58,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@main
-      - uses: wimpysworld/nothing-but-nix@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
