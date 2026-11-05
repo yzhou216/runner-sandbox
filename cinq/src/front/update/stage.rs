@@ -180,7 +180,19 @@ impl App {
                 keyboard: false,
                 ..self.stage
             };
-            (Self { stage, ..self }, Task::none())
+            let minimized = self
+                .minimized
+                .into_iter()
+                .filter(|minimized| *minimized != window)
+                .collect();
+            (
+                Self {
+                    stage,
+                    minimized,
+                    ..self
+                },
+                Task::none(),
+            )
         } else if self.main == Some(window) {
             (self, iced::exit())
         } else {

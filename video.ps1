@@ -18,6 +18,16 @@ public static class Windows {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr wparam, IntPtr lparam);
+  // Closes the visible windows whose title holds part, as the prompt of WSL
+  public static void CloseTitled(string part) {
+    EnumWindows((window, data) => {
+      var text = new StringBuilder(256);
+      GetWindowText(window, text, 256);
+      if (IsWindowVisible(window) && text.ToString().Contains(part)) { PostMessage(window, 0x10, IntPtr.Zero, IntPtr.Zero); }
+      return true;
+    }, IntPtr.Zero);
+  }
   public static IntPtr Find(uint process, string suffix) {
     IntPtr found = IntPtr.Zero;
     EnumWindows((window, data) => {
@@ -43,7 +53,15 @@ function Shoot($file) {
   $shot.Dispose()
 }
 
+# Prompt to update WSL, which windows-11-arm opens on its own in Windows
+# Terminal, where it takes the keys meant for cinq
+function Close-Prompt {
+  Stop-Process -Name wsl -Force -ErrorAction SilentlyContinue
+  [Windows]::CloseTitled("wsl.exe")
+}
+
 function Go($window) {
+  Close-Prompt
   [Windows]::SetForegroundWindow($window) | Out-Null
   Start-Sleep -Milliseconds 300
   [System.Windows.Forms.SendKeys]::SendWait(" ")
@@ -55,7 +73,7 @@ if (Get-Process WWAHost -ErrorAction SilentlyContinue) {
   Start-Sleep 2
   [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
 }
-Stop-Process -Name wsl -Force -ErrorAction SilentlyContinue
+Close-Prompt
 
 $cinq = Start-Process .\cinq.exe -ArgumentList "video.cinq.toml" -WorkingDirectory "$PWD\show" -RedirectStandardError "$PWD\err.txt" -PassThru
 # Windows of cinq, which open late where Defender scans a program first
@@ -68,6 +86,7 @@ foreach ($second in 1..60) {
   if ($main -ne [IntPtr]::Zero -and $stage -ne [IntPtr]::Zero) { break }
 }
 Start-Sleep 3
+Close-Prompt
 "main $main, stage $stage"
 # Main window and stage side by side on the desktop of 1024x768
 [Windows]::SetWindowPos($main, [IntPtr]::Zero, 0, 0, 600, 740, 0x40) | Out-Null

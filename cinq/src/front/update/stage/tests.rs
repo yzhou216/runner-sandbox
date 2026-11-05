@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Tests of the stage window: when it opens, what closing it and closing
-//! the main window do, the pictures it keeps, the keys while it has the
-//! keyboard, and the key that toggles it between fullscreen and a window
+//! the main window do, whether iced draws it once minimized, the pictures
+//! it keeps, the keys while it has the keyboard, and the key that toggles
+//! it between fullscreen and a window
 
 use iced::{
+    Size,
     keyboard::{Key, Modifiers, key::Named},
     window,
 };
@@ -14,7 +16,7 @@ use iced::{
 use super::Stage;
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Media, Picture, Workspace},
-    front::{App, Focus, Message, keymap::Press, view},
+    front::{App, Focus, MAIN_SIZE, Message, STAGE_SIZE, keymap::Press, view},
 };
 
 /// Returns the state of the interface with a show of `kind` cues, whose
@@ -123,10 +125,23 @@ fn stage_window_changing_size_leaves_the_cue_list_as_it_is() {
     };
     let stage = open.stage.window().expect("the stage window opens");
     let main = open.main.expect("the main window opens");
-    let (open, unmoved) = open.handled(Message::Resized(stage));
+    let (open, unmoved) = open.handled(Message::Resized(stage, STAGE_SIZE));
     assert_eq!(unmoved.units(), 0);
-    let (_, revealing) = open.handled(Message::Resized(main));
+    let (_, revealing) = open.handled(Message::Resized(main, MAIN_SIZE));
     assert_eq!(revealing.units(), 1);
+}
+
+#[test]
+fn stage_window_minimized_and_then_closed_is_no_longer_drawn() {
+    let (open, _) = show(Kind::Video).staged();
+    let stage = open.stage.window().expect("the stage window opens");
+    let main = open.main.expect("the main window opens");
+    assert_eq!(open.drawn_windows(), [main, stage]);
+    let (minimized, _) = open.handled(Message::Resized(stage, Size::ZERO));
+    assert_eq!(minimized.drawn_windows(), [main]);
+    let (closed, _) = minimized.handled(Message::Closed(stage));
+    assert!(closed.minimized.is_empty());
+    assert_eq!(closed.drawn_windows(), [main]);
 }
 
 #[test]

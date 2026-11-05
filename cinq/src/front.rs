@@ -119,6 +119,8 @@ struct App {
     main: Option<window::Id>,
     /// Stage window, with the pictures of the video cues that play
     stage: Stage,
+    /// Windows that are minimized, which iced does not draw
+    minimized: Vec<window::Id>,
     /// File of the show, and what it holds
     show: Show,
     /// What went wrong with show files last, until opening or saving one

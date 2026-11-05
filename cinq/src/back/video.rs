@@ -14,13 +14,14 @@
 //! that the picture follows the clock of the show and holds still while
 //! the run is paused.  The sound follows the clock of the audio device
 //! instead, from which the clock of the show drifts over a long video, as
-//! cinq-show(5) tells.  The threads of a run that ends go with it.  Ahead of that, the pictures that the next GO of each list may
-//! start are made ready, as their sounds are, since decoding has to start
-//! at the sync sample before the start of a clip, a few seconds before it
-//! in many files.  The workspace stays the only record of what should be
-//! seen, so a picture that cannot play goes back to it as a file that
-//! cannot be played.  Video files hold H.264 in MP4, whose tracks [`track`]
-//! reads, and which [`decoder`] decodes with Cisco's openh264.
+//! cinq-show(5) tells.  The threads of a run that ends go with it.  Ahead
+//! of that, the pictures that the next GO of each list may start are made
+//! ready, as their sounds are, since decoding has to start at the sync
+//! sample before the start of a clip, a few seconds before it in many
+//! files.  The workspace stays the only record of what should be seen, so
+//! a picture that cannot play goes back to it as a file that cannot be
+//! played.  Video files hold H.264 in MP4, whose tracks [`track`] reads,
+//! and which [`decoder`] decodes with Cisco's openh264.
 
 mod decoder;
 mod player;

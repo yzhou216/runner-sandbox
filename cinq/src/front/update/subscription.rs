@@ -4,11 +4,15 @@
 
 //! Subscriptions, which turn keys, clicks, the clock, the pictures of video
 //! cues as they come due, windows that gain the keyboard, change size, or
-//! close, and changes of the configuration file into messages
+//! close, and changes of the configuration file into messages.  The ticks
+//! of the clock wait on Windows for every window to draw, as [`pace`]
+//! tells.
+
+mod pace;
 
 use std::time::Duration;
 
-use iced::{Event, Subscription, event, keyboard, mouse, time, window};
+use iced::{Event, Size, Subscription, event, keyboard, mouse, time, window};
 use itertools::chain;
 
 use super::keys;
@@ -27,31 +31,69 @@ const SOONEST: Duration = Duration::from_millis(1);
 impl App {
     /// Listens for keys and clicks in either window, windows that gain the
     /// keyboard, change size, or close, and changes of the configuration,
-    /// for clock ticks while any cue is running, for the time at which the
-    /// next picture of a video cue comes due, so that it shows then whether
-    /// or not a tick falls there, and for the time to try again the files
-    /// that could not be played
+    /// for clock ticks while any cue is running, and sooner when the next
+    /// picture of a video cue comes due before the next tick, so that it
+    /// shows then, and for the time to try again the files that could not
+    /// be played
     pub(super) fn subscription(&self) -> Subscription<Message> {
-        let ticks = self.running().then(|| time::every(TICK).map(Message::Tick));
+        let tick = self.running().then_some(TICK);
         let picture = self
             .stage
             .due()
             .filter(|_| self.stage.window().is_some() && self.moving_pictures())
-            .map(|due| time::every(Duration::from_secs_f64(due).max(SOONEST)).map(Message::Tick));
+            .map(|due| Duration::from_secs_f64(due).max(SOONEST));
+        let ticks = chain!(tick, picture)
+            .min()
+            .map(|wait| pace::every(wait, self.paced_windows()).map(Message::Tick));
         let rechecks = (!self.rechecking && self.workspace.failed().next().is_some())
             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
         let always = [
             keyboard::listen().filter_map(keys::key_press),
             event::listen_with(clicked),
             event::listen_with(focused),
-            window::resize_events().map(|(window, _)| Message::Resized(window)),
+            window::resize_events().map(|(window, size)| Message::Resized(window, size)),
             window::close_events().map(Message::Closed),
         ];
         let reconfigured = self.config.source.file().map(|file| {
             Subscription::run_with(file.to_owned(), |file| keymap::config::watch(file.clone()))
                 .map(Message::Reconfigured)
         });
-        Subscription::batch(chain!(always, ticks, picture, rechecks, reconfigured))
+        Subscription::batch(chain!(always, ticks, rechecks, reconfigured))
+    }
+
+    /// Returns the windows whose drawing the ticks of the clock wait for:
+    /// on Windows, those that iced draws, and elsewhere none, since only
+    /// winit's event loop on Windows lets one window keep another from
+    /// drawing
+    fn paced_windows(&self) -> Vec<window::Id> {
+        if cfg!(windows) {
+            self.drawn_windows()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Returns the windows that iced draws, which are those open and not
+    /// minimized
+    pub(super) fn drawn_windows(&self) -> Vec<window::Id> {
+        [self.main, self.stage.window()]
+            .into_iter()
+            .flatten()
+            .filter(|window| !self.minimized.contains(window))
+            .collect()
+    }
+
+    /// Returns the state once `window` has changed to `size`, which counts
+    /// it as minimized while it has no size, as minimized windows have on
+    /// Windows
+    pub(super) fn resized(self, window: window::Id, size: Size) -> Self {
+        let minimized = self
+            .minimized
+            .into_iter()
+            .filter(|minimized| *minimized != window)
+            .chain((size.width == 0.0 || size.height == 0.0).then_some(window))
+            .collect();
+        Self { minimized, ..self }
     }
 }
 

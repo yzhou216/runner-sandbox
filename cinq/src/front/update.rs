@@ -66,7 +66,9 @@ impl App {
             Message::Delete(count) => return self.without_selected(count).revealed(),
             Message::Undo => return self.undone().revealed(),
             Message::Redo => return self.redone().revealed(),
-            Message::Resized(window) if self.main == Some(window) => return self.revealed(),
+            Message::Resized(window, size) if self.main == Some(window) => {
+                return self.resized(window, size).revealed();
+            }
             Message::Recheck => return self.recheck(),
             Message::Open => return self.with_task(Self::choose_show),
             Message::Opened(read) => return self.opened(*read).revealed(),
@@ -129,7 +131,7 @@ impl App {
             },
             Message::Clicked => self,
             // Stage window holds no cue list to keep in view
-            Message::Resized(_) => self,
+            Message::Resized(window, size) => self.resized(window, size),
             Message::WindowFocused(window) => Self {
                 stage: self.stage.with_keyboard_in(window),
                 ..self
@@ -209,7 +211,7 @@ impl App {
                 | Message::Rechecked(..)
                 | Message::LinkOpened(_)
                 | Message::Saved(_)
-                | Message::Resized(_)
+                | Message::Resized(..)
                 | Message::WindowFocused(_)
                 | Message::StageToggled { .. }
         );

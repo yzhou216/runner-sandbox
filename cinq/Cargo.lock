@@ -403,6 +403,7 @@ dependencies = [
  "strum",
  "tempfile",
  "time",
+ "tokio",
  "toml",
  "unicode-width",
 ]

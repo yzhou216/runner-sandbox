@@ -22,7 +22,7 @@ use iced::{
 
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Load, Media, Phase, Place, Workspace, load_files},
-    front::{App, Message, keymap::Press},
+    front::{App, MAIN_SIZE, Message, keymap::Press},
 };
 
 /// Returns the state of the interface with `selected` selected in a show of
@@ -155,7 +155,7 @@ fn level_typed_so_far_shows_until_the_operator_does_anything_else() {
     assert!(clicked.typed_level.is_some());
     let (typed, _) = clicked.next(typed("-6"));
     assert_eq!(typed.workspace.cue(CueId(1)).unwrap().level, -6.0);
-    let (resized, _) = typed.next(Message::Resized(window::Id::unique()));
+    let (resized, _) = typed.next(Message::Resized(window::Id::unique(), MAIN_SIZE));
     assert!(resized.typed_level.is_some());
     let (moved, _) = resized.next(Message::Step(1));
     assert_eq!(moved.typed_level, None);

@@ -8,7 +8,7 @@
 
 use std::{ffi::OsString, path::PathBuf, time::Instant};
 
-use iced::window;
+use iced::{Size, window};
 use strum::{Display, VariantArray};
 
 use super::{
@@ -140,8 +140,8 @@ pub enum Message {
     Saved(Saved),
     /// Mouse button pressed anywhere in a window
     Clicked,
-    /// Window changed size
-    Resized(window::Id),
+    /// Window changed size, to no size at all while it is minimized
+    Resized(window::Id, Size),
     /// Window gained the keyboard
     WindowFocused(window::Id),
     /// Toggles the stage window between fullscreen and a window
