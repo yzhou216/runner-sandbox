@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+version = 1
+
+[[annotations]] # Line ending samples, which comments would change
+path = ["lf/**"]
+SPDX-FileCopyrightText = "2026 Yiyu Zhou <yiyu@yiyuzhou.io>"
+SPDX-License-Identifier = "0BSD OR CC0-1.0"
