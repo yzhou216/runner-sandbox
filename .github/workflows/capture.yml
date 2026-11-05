@@ -103,25 +103,28 @@ jobs:
           Start-Process notepad
           Start-Sleep 5
           Get-Process notepad | Format-Table Id, SessionId, MainWindowTitle
+      - name: Install ffmpeg
+        run: |
+          choco install ffmpeg -y --no-progress > /dev/null
+          echo "installed in ${SECONDS}s"
       - name: Screenshot
         run: |
           mkdir capture
           pwsh -File screenshot.ps1 capture/screenshot.png
+          ffmpeg -loglevel error -f gdigrab -i desktop -frames:v 1 capture/screenshot-ffmpeg.png
           ls -l capture
-      - name: Dismiss the privacy prompt
+      - name: Dismiss the privacy prompt and the Start menu
         shell: pwsh
         run: |
-          Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize
-          $prompt = Get-Process -Name WWAHost, CloudExperienceHostBroker, UserOOBEBroker -ErrorAction SilentlyContinue
-          $prompt | Format-Table Id, ProcessName, StartTime -AutoSize
-          $prompt | Stop-Process -Force
+          Get-Process -Name WWAHost -ErrorAction SilentlyContinue | Stop-Process -Force -PassThru | Format-Table Id, ProcessName
           Start-Sleep 3
-          Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize
           ./screenshot.ps1 capture/after-dismiss.png
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+          Start-Sleep 2
+          ./screenshot.ps1 capture/after-escape.png
       - name: Video
         run: |
-          command -v ffmpeg || choco install ffmpeg -y --no-progress > /dev/null
-          echo "ffmpeg ready after ${SECONDS}s"
           ffmpeg -loglevel error -f gdigrab -framerate 15 -t 5 -i desktop -pix_fmt yuv420p capture/video.mp4
           ls -l capture
       - uses: actions/upload-artifact@v7
