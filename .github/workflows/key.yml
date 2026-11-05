@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Key
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          [ -n "$LLM_API_KEY" ] || { echo "LLM_API_KEY is empty"; exit 1; }
+          code=$(curl -sS -o key.json -w '%{http_code}' \
+            -H "Authorization: Bearer $LLM_API_KEY" https://openrouter.ai/api/v1/key)
+          echo "GET /api/v1/key: HTTP $code"
+          if [ "$code" = 200 ]; then jq -c '{is_free_tier: .data.is_free_tier}' key.json; else cat key.json; fi
+          [ "$code" = 200 ]
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: aryanbrite/openrabbit
+          ref: 0350c5ff79e6efb3ba92898a46a2e420ae1c526c
+          path: openrabbit
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Build OpenRabbit
+        working-directory: openrabbit
+        run: npm install --no-audit --no-fund && npm run build
+      - name: Review a sample diff
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: time node probe.mjs
