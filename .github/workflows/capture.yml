@@ -108,6 +108,16 @@ jobs:
           mkdir capture
           pwsh -File screenshot.ps1 capture/screenshot.png
           ls -l capture
+      - name: Dismiss the privacy prompt
+        shell: pwsh
+        run: |
+          Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize
+          $prompt = Get-Process -Name WWAHost, CloudExperienceHostBroker, UserOOBEBroker -ErrorAction SilentlyContinue
+          $prompt | Format-Table Id, ProcessName, StartTime -AutoSize
+          $prompt | Stop-Process -Force
+          Start-Sleep 3
+          Get-Process | Where-Object MainWindowTitle | Format-Table Id, ProcessName, MainWindowTitle -AutoSize
+          ./screenshot.ps1 capture/after-dismiss.png
       - name: Video
         run: |
           command -v ffmpeg || choco install ffmpeg -y --no-progress > /dev/null
