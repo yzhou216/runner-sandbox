@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 60
+    steps:
+      - name: Platform
+        run: |
+          uname -srm
+          grep PRETTY_NAME /etc/os-release
+          echo "cpus $(nproc)"
+          grep -m1 '^isa' /proc/cpuinfo || true
+          grep -m1 '^uarch' /proc/cpuinfo || true
+          free -h
+          df -h / "$GITHUB_WORKSPACE" /tmp
+          echo "user $(id -un), uid $(id -u), PID 1 $(cat /proc/1/comm)"
+          systemd-detect-virt -c || true
+          sudo -n true && echo "sudo: yes" || echo "sudo: no"
+          shopt -qo pipefail && echo "shell bash: pipefail on" || echo "shell bash: pipefail off"
+          for t in gcc clang python3 node go rustc cargo java docker podman curl xz zstd jq; do
+            p=$(command -v "$t") && echo "$t: $p" || echo "$t: missing"
+          done
+          docker info --format 'docker {{.ServerVersion}} {{.Architecture}}' || true
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+      - name: Nix
+        run: |
+          nix --version
+          # shellcheck disable=SC2016
+          nix build --no-link --print-out-paths --impure --expr \
+            'derivation { name = "probe"; system = builtins.currentSystem; builder = "/bin/sh"; args = [ "-c" "echo ok > $out" ]; }' |
+            xargs cat
+          time nix build nixpkgs#hello --dry-run 2>&1 | grep -E 'will be (built|fetched)' || true
