@@ -10,8 +10,11 @@ Throwaway repository where agents test on GitHub-hosted runners, one branch
 per session, as [SKILL.md](SKILL.md) describes.
 
 To use it, fork it, keep the fork public so that the runners stay free, enable
-workflows in the fork's Actions tab, and point agents at the fork.  Cloning it
-into an agent's skills directory also installs it as a skill.
+workflows in the fork's Actions tab, and point agents at the fork.  For
+riscv64 jobs, also install the
+[RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
+the fork.  Cloning it into an agent's skills directory also installs it as a
+skill.
 
 ## License
 

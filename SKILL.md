@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 name: runner-sandbox
-description: Run tests on GitHub-hosted runners (GNU/Linux, Windows, and Darwin, on x64 and arm64) through a public sandbox repository, one branch per session.  Use when work needs an operating system or architecture the local machine lacks, such as testing a Darwin program from GNU/Linux.
+description: Run tests on GitHub-hosted runners (GNU/Linux, Windows, and Darwin, on x64 and arm64) and RISE RISC-V runners through a public sandbox repository, one branch per session.  Use when work needs an operating system or architecture the local machine lacks, such as testing a Darwin program from GNU/Linux.
 ---
 
 # runner-sandbox
@@ -18,8 +18,8 @@ as the record of what was tested and as a worked example for later sessions.
 - This repository must stay public, which keeps the standard runners free.
   Everything pushed, logged, or uploaded is public too, so it must contain no
   secrets.
-- Use standard runners only.  Larger runners are billed even for public
-  repositories.
+- Use standard runners, or the RISE runners under Runners.  Larger runners
+  are billed even for public repositories.
 - Never commit to the default branch, merge into it, or touch another
   session's branch.
 - License files you write under `0BSD OR CC0-1.0`, with SPDX headers like the
@@ -110,6 +110,20 @@ its copy of the list as unknown.  What a label runs, such as the release
 behind a `-latest` label, is in the
 [runner-images](https://github.com/actions/runner-images) repository.
 
+For riscv64, the [RISE RISC-V runners](https://riscv-runners.riseproject.dev/)
+are free on a sandbox with the RISE GitHub App installed.  Choose a label
+marked generally available in RISE's
+[list of labels](https://riscv-runners.riseproject.dev/docs/getting-started/labels#labels).
+A runner has taken about two minutes to pick up a job; a job still queued
+after several minutes likely means the app is missing or the label is wrong,
+so cancel it with `gh run cancel` and tell your user.  List the label in
+`.github/actionlint.yaml` for `actionlint` to accept it:
+
+```yaml
+self-hosted-runner:
+  labels: [<label>]
+```
+
 ## Notes
 
 - Set `defaults.run.shell: bash` so every step runs Bash with `pipefail`, Git
@@ -123,9 +137,9 @@ behind a `-latest` label, is in the
   fetched with `gh run download`; use
   `gh api "repos/$repo/actions/artifacts/<id>/zip" > <file>`.
 - Nix installs with `cachix/install-nix-action` on GNU/Linux and Darwin
-  runners.  If a build needs more disk space than a GNU/Linux runner has
-  free, run `wimpysworld/nothing-but-nix` before it; otherwise skip it to
-  save time.
+  runners.  If a build needs more disk space than a GitHub-hosted GNU/Linux
+  runner has free, run `wimpysworld/nothing-but-nix` before it; otherwise skip
+  it to save time.
 
 ### Screenshots and videos
 
@@ -208,12 +222,21 @@ take a screenshot and five seconds of video.
   characters outside it; set `PYTHONUTF8=1`.
 - `TEMP` is the 8.3 short path `C:\Users\RUNNER~1\AppData\Local\Temp`, which
   Git Bash shows as `/tmp`, so resolve paths before comparing them.
-- The workspace is on `D:`, which has more free space than `C:`;
-  `windows-11-arm` has only `C:`.
-- `windows-11-arm` runs Git Bash as x64 under emulation, but PowerShell,
-  Python, and Go as arm64, and has Defender real-time protection on, unlike
-  the x64 labels.
-- On `windows-11-arm`, a privacy settings prompt has covered the desktop;
+- On x64, the workspace is on `D:`, which has more free space than `C:`.
+- On arm64, there is only `C:`, Git Bash runs as x64 under emulation while
+  PowerShell, Python, and Go run natively, and Defender real-time protection
+  is on.  A privacy settings prompt has also covered the desktop;
   `Stop-Process -Name WWAHost` closes it but opens the Start menu, which
-  Escape closes.  A prompt to update WSL has also appeared over other
-  windows.
+  Escape closes, and a prompt to update WSL has appeared over other windows.
+
+### RISC-V
+
+- RISE runners are Docker containers in which jobs run as `runner` with
+  `sudo`, and Docker works.  On the `scaleway-em-rv1` board, they have 4 CPUs
+  of `rv64imafdcsu`, which lacks the vector extension, 15 GiB of memory, and
+  76 GB of free disk.
+- `clang` and `node` are not on `PATH`, though JavaScript actions such as
+  `actions/checkout` run.
+- `cachix/install-nix-action` installs Nix, but cache.nixos.org has few
+  riscv64-linux builds: `nix build nixpkgs#hello --dry-run` lists 133
+  derivations to build.
