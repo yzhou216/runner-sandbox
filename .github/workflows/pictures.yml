@@ -144,7 +144,9 @@ jobs:
           screencapture -x opened.png
           screencapture -x -V 34 pictures.mov &
           sleep 2
-          press() { osascript -e "tell application \"System Events\" to $1"; }
+          # System Events can lose the stage for a moment while Darwin moves it
+          # between spaces, which the log tells rather than ending the step
+          press() { osascript -e "tell application \"System Events\" to $1" || echo "System Events failed: $1"; }
           grep '^[0-9]' steps.txt | while read -r delay action; do
             sleep "$delay"
             case $action in
@@ -153,7 +155,7 @@ jobs:
               fullscreen) press "tell process \"cinq\" to set value of attribute \"AXFullScreen\" of $stage to false" ;;
               panic) press 'key code 53' ;;
             esac
-            full=$(osascript -e "tell application \"System Events\" to tell process \"cinq\" to get value of attribute \"AXFullScreen\" of $stage" 2>&1)
+            full=$(osascript -e "tell application \"System Events\" to tell process \"cinq\" to get value of attribute \"AXFullScreen\" of $stage" 2>&1 || true)
             echo "$delay $action: stage fullscreen $full"
           done
           wait
