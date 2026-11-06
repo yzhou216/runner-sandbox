@@ -8,7 +8,8 @@
 # and GO fades it out, after which a video follows, whose picture shows its
 # own time and whose sound is a 440 Hz tone.  A screenshot is taken at each
 # step, steps.txt gives the time of each since the recording began, with the
-# processor time that cinq had used by then, and levels.txt gives the level
+# processor time that cinq had used by then, threads-*.txt give that of each
+# of its threads twice while the video plays, and levels.txt gives the level
 # of the recording and the pitch of a tone in it for each half second.
 #
 # Usage: play.sh CINQ SHOW OUT, with sway, grim, wtype, pulseaudio, pactl,
@@ -107,6 +108,18 @@ press() {
 windows() {
   swaymsg -t get_tree -r | tr -d ' \n' | grep -o '"app_id":"cinq"' | wc -l
 }
+# Writes the processor time of each thread of cinq so far, after its id and
+# name, to threads-$1.txt, from which two such files give what each thread
+# took between them
+threads() {
+  local task stat
+  for task in /proc/"$pid"/task/*; do
+    stat=$(cat "$task/stat" 2> /dev/null) || continue
+    printf '%s %s %s\n' "${task##*/}" "$(cat "$task/comm")" \
+      "$(echo "${stat##*) }" | awk -v tick="$tick" '{ printf "%.2f", ($12 + $13) / tick }')"
+  done > "$out/threads-$1.txt"
+  mark "threads $1"
+}
 
 (cd "$show" && exec "$cinq" riscv.cinq.toml) > "$out/cinq.log" 2>&1 &
 pid=$!
@@ -128,6 +141,7 @@ shot fading
 for i in 1 2 3 4 5 6; do
   sleep 1.5
   shot "video-$i"
+  case $i in 2 | 5) threads "video-$i" ;; esac
 done
 sleep 3
 shot ended

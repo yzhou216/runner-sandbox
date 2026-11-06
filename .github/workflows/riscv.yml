@@ -100,6 +100,9 @@ jobs:
           cp riscv.cinq.toml show/
           bash media.sh show
           bash play.sh cinq/target/release/cinq show out
+          # Again with iced drawing by itself, in software, rather than
+          # through what wgpu finds, which can be Mesa's llvmpipe
+          ICED_BACKEND=tiny-skia bash play.sh cinq/target/release/cinq show out-tiny-skia
       - if: always()
         name: Pack what the build made
         run: |
@@ -115,4 +118,5 @@ jobs:
             *.log
             cinq-riscv64.tar.gz
             out
+            out-tiny-skia
           if-no-files-found: ignore
