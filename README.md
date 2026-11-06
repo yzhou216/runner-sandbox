@@ -7,8 +7,8 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 # cinq: picture cues that go up fullscreen
 
 Recorded cinq with picture cues and a stage window that each GO of a
-picture or video cue makes fullscreen, from a snapshot of cinq's working
-tree in `cinq/`, running `pictures.cinq.toml` by the steps of `steps.txt`:
+picture or video cue makes fullscreen, from a snapshot of cinq in
+`cinq/`, running `pictures.cinq.toml` by the steps of `steps.txt`:
 GO puts a preshow picture up fullscreen, GO starts a film that covers it
 while a fade cue fades the picture out under it, the fullscreen key brings
 the stage back to a window, the film ends on black, GO puts the
@@ -27,7 +27,16 @@ intermission picture up fullscreen again, and a panic fades it out.
 
 ## Outcome
 
-Run 42190035036 (54d22a2): every job passed, and every recording shows the
+Run 42299944366 (fba1e48) records the commit rebased onto cinq's config.toml
+problems with miette (3b4c026): every job passed, Windows arm64 on its
+second attempt, after its first could not start ffmpeg, which Chocolatey
+had installed, before the walkthrough began.  The run before it,
+42294757320 (2cb5124), passed on GNU/Linux and Windows, and failed on
+Darwin when System Events could not find the stage for a moment right
+after it left fullscreen (-1728); the script now logs such a failure
+rather than ending the step, and the next step found the stage again.
+
+Run 42190035036 (54d22a2), before the rebase: every job passed, and every recording shows the
 whole walkthrough as intended.  The stage opens as a window, goes
 fullscreen with the first GO, shows the film over the preshow, comes back
 to a window with the fullscreen key while the film plays, stays black once
