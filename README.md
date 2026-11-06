@@ -36,12 +36,13 @@ Darwin when System Events could not find the stage for a moment right
 after it left fullscreen (-1728); the script now logs such a failure
 rather than ending the step, and the next step found the stage again.
 
-Run 42190035036 (54d22a2), before the rebase: every job passed, and every recording shows the
-whole walkthrough as intended.  The stage opens as a window, goes
-fullscreen with the first GO, shows the film over the preshow, comes back
-to a window with the fullscreen key while the film plays, stays black once
-the film ends, since the fade stopped the preshow, goes fullscreen again
-with the intermission, and fades to black with the panic.  The state of the
+Run 42190035036 (54d22a2), before the rebase: every job passed, and every
+recording shows the whole walkthrough as intended, as those of the runs
+after the rebase do.  The stage opens as a window, goes fullscreen with
+the first GO, shows the film over the preshow, comes back to a window with
+the fullscreen key while the film plays, stays black once the film ends,
+since the fade stopped the preshow, goes fullscreen again with the
+intermission, and fades to black with the panic.  The state of the
 stage that each step logs follows it: on GNU/Linux a step after the one
 that changes it, since sway applies fullscreen a moment after the key.
 
