@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "picture"
+name = "Preshow"
+file = "preshow.png"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "video"
+name = "Film"
+file = "film.mp4"
+advance = "continue"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "fade"
+name = "Preshow out"
+target = 1
+duration = 1.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "picture"
+name = "Intermission"
+file = "intermission.jpg"

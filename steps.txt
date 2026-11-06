@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Steps of the walkthrough of pictures.cinq.toml, each a number of seconds
+# to wait and then a key to press, by its action in cinq's vi keymap, or
+# nothing for wait
+3 go
+5 go
+4 fullscreen
+6 wait
+1 go
+4 panic
+4 wait
