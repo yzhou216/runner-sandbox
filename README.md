@@ -4,18 +4,45 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: picture cues that go up fullscreen
 
-Throwaway repository where agents test on GitHub-hosted runners, one branch
-per session, as [SKILL.md](SKILL.md) describes.
+Recorded cinq with picture cues and a stage window that each GO of a
+picture or video cue makes fullscreen, from a snapshot of cinq's working
+tree in `cinq/`, running `pictures.cinq.toml` by the steps of `steps.txt`:
+GO puts a preshow picture up fullscreen, GO starts a film that covers it
+while a fade cue fades the picture out under it, the fullscreen key brings
+the stage back to a window, the film ends on black, GO puts the
+intermission picture up fullscreen again, and a panic fades it out.
+`media.sh` makes the PNG, the JPEG, and the film with ffmpeg.
 
-To use it, fork it, keep the fork public so that the runners stay free, enable
-workflows in the fork's Actions tab, and point agents at the fork.  For
-riscv64 jobs, also install the
-[RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-the fork.  Cloning it into an agent's skills directory also installs it as a
-skill.
+- GNU/Linux (`ubuntu-latest`): headless sway with two outputs, a control
+  display and a projector that a `for_window` rule moves the stage to, each
+  recorded with `wf-recorder -o` and stacked side by side.
+- Darwin (`macos-latest`): one display; the fullscreen key is F11, which
+  Darwin keeps for Show Desktop, so the script sets `AXFullScreen` of the
+  stage window to false, as the green button does.
+- Windows (`windows-latest` and `windows-11-arm`): one display, with
+  `pictures.ps1`, which presses each key in whichever window of cinq is in
+  front, so that it never raises the main window over the fullscreen stage.
 
-## License
+## Outcome
 
-Licensed under `0BSD OR CC0-1.0`.
+Run 42190035036 (54d22a2): every job passed, and every recording shows the
+whole walkthrough as intended.  The stage opens as a window, goes
+fullscreen with the first GO, shows the film over the preshow, comes back
+to a window with the fullscreen key while the film plays, stays black once
+the film ends, since the fade stopped the preshow, goes fullscreen again
+with the intermission, and fades to black with the panic.  The state of the
+stage that each step logs follows it: on GNU/Linux a step after the one
+that changes it, since sway applies fullscreen a moment after the key.
+
+Notes for later sessions:
+
+- `screencapture -V` on Darwin gave the last frame of the movie a duration
+  of about 15 minutes, which ffmpeg's `fps` filter repeats to the end; cut
+  the encoding with `-t` at the length recorded.
+- On `windows-11-arm` the prompt to update WSL opened again a second after
+  the panic, over everything, so the recording that went to the user was
+  cut at 27.3 seconds.
+- Leaving fullscreen on Darwin restores the stage at the size it opened at,
+  not the size that the script gave it through System Events.
