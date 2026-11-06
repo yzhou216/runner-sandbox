@@ -4,9 +4,9 @@
 
 # Builds cinq natively on a RISE RISC-V runner with cargo and the Rust of
 # its image, first as it is and then with openh264-sys2 taught riscv64,
-# tests it, and plays riscv.cinq.toml in it by play.sh.  Beside that, lists
-# what a native Nix build of cinq would build there, since cache.nixos.org
-# holds few builds for riscv64-linux.
+# tests it, and plays riscv.cinq.toml in it by play.sh.  The job that lists
+# what a native Nix build would build there ran in the first run of this
+# branch alone, which a later run need not repeat.
 on: push
 permissions:
   contents: read
@@ -32,7 +32,11 @@ jobs:
       - name: Install what builds cinq
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev scdoc
+          # The image holds liboss4-salsa-asound2, the ALSA library of OSS 4,
+          # in place of ALSA's own, which libasound2-dev needs
+          apt-cache rdepends --installed liboss4-salsa-asound2 libasound2
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev scdoc \
+            liboss4-salsa-asound2-
       - id: restore
         uses: actions/cache/restore@v6
         with:
@@ -112,21 +116,3 @@ jobs:
             cinq-riscv64.tar.gz
             out
           if-no-files-found: ignore
-  nix:
-    runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-      - uses: cachix/install-nix-action@v31
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: List what a native Nix build of cinq would build
-        run: |
-          start=$SECONDS
-          nix build ./cinq --dry-run 2>&1 | tee dry-run.txt | grep 'will be'
-          echo "evaluated in $((SECONDS - start)) seconds"
-          grep -E -- '-(gcc|glibc|llvm|rustc|python3)-[0-9][^/]*\.drv$' dry-run.txt
-      - uses: actions/upload-artifact@v7
-        with:
-          name: nix
-          path: dry-run.txt
