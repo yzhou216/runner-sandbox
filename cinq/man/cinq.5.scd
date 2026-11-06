@@ -406,7 +406,13 @@ page.
 # DIAGNOSTICS
 
 Problems with the file show among the warnings in the sidebar, each after
-*config.toml:*, and the status bar counts them.
+*config.toml:*, or after *config.toml:3:* for a problem that lies on line 3 of
+the file, and the status bar counts them.
+Each time *cinq* reads the file, as it starts and after each change, it writes
+the problems to standard error as well, quoting the lines of the file around
+each problem that lies in a part of it, with that part marked.
+On a terminal, the problems of each reading take the place of those before on
+the screen, which clears once none are left, while a file takes them in turn.
 
 - A file that cannot be read, or that is not TOML, leaves the keys of the vi
   keymap.

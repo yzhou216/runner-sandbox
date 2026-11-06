@@ -14,6 +14,14 @@ use tempfile::TempDir;
 
 use super::*;
 
+/// Returns what each problem says
+fn messages(problems: &[config::Problem]) -> Vec<&str> {
+    problems
+        .iter()
+        .map(|problem| problem.message.as_str())
+        .collect()
+}
+
 #[test]
 fn file_chooses_a_keymap_and_replaces_the_keys_of_the_actions_it_names() {
     let (keymap, problems) = config::parse(
@@ -33,7 +41,7 @@ fn file_reports_what_it_cannot_use_and_keeps_the_rest() {
     let (keymap, problems) =
         config::parse("colour = 1\n[keys]\nfly = \"f\"\nnext = [\"Foo\", \"n\"]\nlast = \"1 G\"\n");
     assert_eq!(
-        problems,
+        messages(&problems),
         [
             "no setting is named `colour`",
             "no action is named `fly`",
@@ -56,7 +64,7 @@ fn file_that_is_not_toml_leaves_the_defaults() {
 fn file_reports_bindings_that_hide_others() {
     let (_, problems) = config::parse("[keys]\nhelp = \"g\"\n");
     assert_eq!(
-        problems,
+        messages(&problems),
         [
             "`g` comes first, so `g g` can never be typed",
             "`g` comes first, so `g t` can never be typed",
@@ -99,22 +107,22 @@ fn file_defines_keymaps_of_its_own_from_others_or_from_no_keys() {
 fn file_reports_what_is_wrong_with_its_keymaps() {
     // Keymap that is not there leaves vi
     let (keymap, problems) = config::parse("keymap = \"emacs\"\n");
-    assert_eq!(problems, ["no keymap is named `emacs`"]);
+    assert_eq!(messages(&problems), ["no keymap is named `emacs`"]);
     assert_eq!(keymap.name(), "vi");
     let (keymap, problems) =
         config::parse("keymap = \"a\"\n[keymaps.a]\nfrom = \"b\"\n[keymaps.b]\nfrom = \"a\"\n");
-    assert_eq!(problems, ["keymap a starts from itself"]);
+    assert_eq!(messages(&problems), ["keymap a starts from itself"]);
     assert_eq!(keymap.name(), "a");
     assert!(keymap.keys(Action::Go).is_empty());
     let (_, problems) = config::parse("[keymaps.vi]\ngo = \"F5\"\n");
     assert_eq!(
-        problems,
+        messages(&problems),
         ["keymaps.vi goes unused, since vi is a shipped keymap"]
     );
     let (_, problems) =
         config::parse("keymap = \"booth\"\n[keymaps.booth]\nfrom = \"emacs\"\nfly = \"f\"\n");
     assert_eq!(
-        problems,
+        messages(&problems),
         [
             "no keymap is named `emacs`",
             "keymaps.booth: no action is named `fly`",

@@ -46,11 +46,10 @@ pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
         .file_problem
         .as_deref()
         .map(|problem| text(problem).style(text::warning).into());
-    let settings = app.config.problems.iter().map(|problem| {
-        text(format!("config.toml: {problem}"))
-            .style(text::warning)
-            .into()
-    });
+    let settings = app
+        .config
+        .warnings()
+        .map(|warning| text(warning).style(text::warning).into());
     let count = warnings(app);
     // Warnings take the warning color of the theme while there are any
     let warned = text(format!("Warnings ({count})")).style(if count > 0 {

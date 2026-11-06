@@ -56,8 +56,10 @@ impl App {
             window::close_events().map(Message::Closed),
         ];
         let reconfigured = self.config.source.file().map(|file| {
-            Subscription::run_with(file.to_owned(), |file| keymap::config::watch(file.clone()))
-                .map(Message::Reconfigured)
+            Subscription::run_with(file.to_owned(), |file| {
+                keymap::config::watch(file.clone(), keymap::config::Errors::standard())
+            })
+            .map(Message::Reconfigured)
         });
         Subscription::batch(chain!(always, ticks, rechecks, reconfigured))
     }

@@ -16,7 +16,7 @@
 //! [`link`] opens the links of the help page, and [`subscription`] listens
 //! for the events that become messages.  The key bindings follow the
 //! configuration file as it changes, through
-//! [`keymap::config::watch`](fn@keymap::config::watch).
+//! [`keymap::config::watch`](fn@super::keymap::config::watch).
 
 mod cinq;
 mod editing;

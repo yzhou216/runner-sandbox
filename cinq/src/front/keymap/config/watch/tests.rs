@@ -3,15 +3,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Tests of watching the configuration file, whose keys follow the file as
-//! it comes, as an editor saves it, and as it goes
+//! it comes, as an editor saves it, and as it goes, whatever becomes of the
+//! problems written out
 
-use std::{fs, io, iter, path::PathBuf, sync::mpsc, thread, time::Duration};
+use std::{
+    fs,
+    io::{self, Write},
+    iter,
+    path::PathBuf,
+    sync::mpsc,
+    thread,
+    time::Duration,
+};
 
 use futures::executor;
 use iced::futures::{StreamExt, future};
 use tempfile::TempDir;
 
-use super::watch;
+use super::{Errors, watch};
 use crate::front::keymap::{
     Preset,
     config::{Config, Source},
@@ -36,17 +45,33 @@ fn defaults(config: &Config) -> bool {
     matches!(config.source, Source::Missing(_))
 }
 
-/// Watches `file` on a thread of its own, and returns what the watcher
-/// sends
-fn watched(file: PathBuf) -> mpsc::Receiver<Config> {
+/// Watches `file` on a thread of its own, writing problems to `errors`, and
+/// returns what the watcher sends
+fn watched(file: PathBuf, errors: Errors) -> mpsc::Receiver<Config> {
     let (sender, configs) = mpsc::channel();
     thread::spawn(move || {
-        executor::block_on(watch(file).for_each(|config| {
+        executor::block_on(watch(file, errors).for_each(|config| {
             let _ = sender.send(config);
             future::ready(())
         }));
     });
     configs
+}
+
+/// Standard error that takes nothing written to it, as a terminal paused
+/// with Control+s does
+struct Paused;
+
+impl Write for Paused {
+    fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+        loop {
+            thread::park();
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[test]
@@ -55,7 +80,7 @@ fn keys_follow_the_file_as_it_comes_changes_and_goes() -> io::Result<()> {
     // Directories of the file, which come later as well
     let directory = home.path().join("config").join("cinq");
     let file = directory.join("config.toml");
-    let configs = watched(file.clone());
+    let configs = watched(file.clone(), Errors::Log(Box::new(io::sink())));
     until(&configs, defaults);
     fs::create_dir_all(&directory)?;
     fs::write(&file, "keymap = \"cua\"\n")?;
@@ -75,7 +100,7 @@ fn reading_the_file_does_not_make_the_watcher_read_it_again() -> io::Result<()> 
     let home = TempDir::new()?;
     let file = home.path().join("config.toml");
     fs::write(&file, "keymap = \"cua\"\n")?;
-    let configs = watched(file);
+    let configs = watched(file, Errors::Log(Box::new(io::sink())));
     until(&configs, from_file(Preset::Cua));
     // Reading opens the file, which the watcher sees as well, so a watcher
     // that took the opening for a change would read the file over and over.
@@ -85,5 +110,19 @@ fn reading_the_file_does_not_make_the_watcher_read_it_again() -> io::Result<()> 
         .take(2)
         .count();
     assert!(again <= 1, "the watcher kept reading the file unasked");
+    Ok(())
+}
+
+#[test]
+fn keys_follow_the_file_while_standard_error_takes_nothing() -> io::Result<()> {
+    let home = TempDir::new()?;
+    let file = home.path().join("config.toml");
+    fs::write(&file, "colour = 1\n")?;
+    let configs = watched(file.clone(), Errors::Log(Box::new(Paused)));
+    // Problems of the first reading leave the thread that writes them
+    // waiting for good
+    until(&configs, |config| !config.problems.is_empty());
+    fs::write(&file, "keymap = \"cua\"\n")?;
+    until(&configs, from_file(Preset::Cua));
     Ok(())
 }

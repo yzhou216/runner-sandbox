@@ -10,18 +10,32 @@
 //! the directory that holds the file instead.  While that directory is
 //! missing, it watches the nearest one above that exists, so that making
 //! the directories and then the file comes through as well.  Each burst of
-//! changes reads the file once, after it settles.
+//! changes reads the file once, after it settles, and each reading writes
+//! out the problems with the file, which go to standard error in the
+//! program, as [`errors`] tells.
+//!
+//! The watch waits for changes on iced's executor, whose workers keep the
+//! clock ticking, and leaves reading and writing to threads: each reading
+//! of the file runs on a thread of its own, and a thread of the watch's own
+//! writes out the problems, since a write to standard error can wait
+//! without end, as it does while a terminal is paused with Control+s.
 
+mod errors;
 #[cfg(test)]
 mod tests;
 
 use std::{
     path::{Path, PathBuf},
+    thread,
     time::Duration,
 };
 
 use iced::{
-    futures::{SinkExt, Stream, StreamExt, channel::mpsc, future},
+    futures::{
+        SinkExt, Stream, StreamExt,
+        channel::{mpsc, oneshot},
+        future,
+    },
     stream,
 };
 use notify_debouncer_full::{
@@ -29,7 +43,9 @@ use notify_debouncer_full::{
     notify::{self, RecommendedWatcher, RecursiveMode},
 };
 
-use super::{Config, load};
+use super::{Config, Problem, load};
+pub use errors::Errors;
+use errors::warner;
 
 /// Time that changes must settle for before the file is read again, which
 /// lets an editor finish saving
@@ -40,17 +56,36 @@ type Watcher = Debouncer<RecommendedWatcher, RecommendedCache>;
 
 /// Returns the configuration that `file` holds once the watch is in place,
 /// so that no change made before goes unseen, and again after each change
-/// to the file.  When the file cannot be watched, the configuration comes
+/// to the file, and hands each to the thread that writes out its problems
+/// to `errors`.  When the file cannot be watched, the configuration comes
 /// once more, with a problem that tells why the changes do not apply.
-pub fn watch(file: PathBuf) -> impl Stream<Item = Config> {
+pub fn watch(file: PathBuf, errors: Errors) -> impl Stream<Item = Config> {
+    let warnings = warner(errors);
     stream::channel(1, async move |mut output| {
-        if let Err(error) = follow(&file, &mut output).await {
-            let config = load(Some(&file));
+        if let Err(error) = follow(&file, &mut output).await
+            && let Some(config) = loaded(&file).await
+        {
             let problem = format!("is not watched, so changes apply after a restart: {error}");
-            let problems = [config.problems, vec![problem]].concat();
+            let problems = [config.problems, vec![Problem::new(problem)]].concat();
             let _ = output.send(Config { problems, ..config }).await;
         }
     })
+    .inspect(move |config| {
+        // Thread lives as long as the way to it, so that sending cannot fail
+        let _ = warnings.send(config.clone());
+    })
+}
+
+/// Returns the configuration that `file` holds, read on a thread of its
+/// own, or nothing when the thread ends without an answer
+async fn loaded(file: &Path) -> Option<Config> {
+    let (sender, receiver) = oneshot::channel();
+    let file = file.to_owned();
+    thread::spawn(move || {
+        // Receiver has gone only when the watch has
+        let _ = sender.send(load(Some(&file)));
+    });
+    receiver.await.ok()
 }
 
 /// Sends the configuration that `file` holds to `output` once the watch is
@@ -65,7 +100,9 @@ async fn follow(file: &Path, output: &mut mpsc::Sender<Config>) -> notify::Resul
     let mut watched = None;
     loop {
         watched = rewatch(&mut watcher, watched.as_deref(), file)?;
-        let _ = output.send(load(Some(file))).await;
+        if let Some(config) = loaded(file).await {
+            let _ = output.send(config).await;
+        }
         let touched = (&mut events)
             .any(|result| future::ready(touches(&result, file)))
             .await;

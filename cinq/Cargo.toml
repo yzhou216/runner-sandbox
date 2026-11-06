@@ -53,6 +53,9 @@ kira = { version = "0.12", default-features = false, features = [
   "vorbis",
   "wav",
 ] }
+miette = { version = "7.6", default-features = false, features = [ # Problems of config.toml on standard error
+  "fancy-no-backtrace",
+] }
 mp4 = "0.14" # Tracks and samples of the files of video cues
 notify-debouncer-full = "0.7"
 open = "5.4"
