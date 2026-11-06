@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Builds cinq natively on a RISE RISC-V runner with cargo and the Rust of
+# its image, first as it is and then with openh264-sys2 taught riscv64,
+# tests it, and plays riscv.cinq.toml in it by play.sh.  Beside that, lists
+# what a native Nix build of cinq would build there, since cache.nixos.org
+# holds few builds for riscv64-linux.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  cargo:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 300
+    steps:
+      - name: Show the platform
+        run: |
+          uname -srm
+          grep PRETTY_NAME /etc/os-release
+          echo "cpus $(nproc)"
+          grep -m1 '^isa' /proc/cpuinfo || true
+          grep -m1 '^uarch' /proc/cpuinfo || true
+          free -h
+          rustc -vV
+          cargo -V
+      - uses: actions/checkout@v7
+      - name: Install what builds cinq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev scdoc
+      - id: restore
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            cinq/target/
+          key: cargo-riscv64-${{ hashFiles('cinq/Cargo.lock') }}
+      - name: Build cinq as it is
+        working-directory: cinq
+        run: |
+          start=$SECONDS
+          status=0
+          cargo build --release --locked --keep-going 2>&1 | tee ../build-as-is.log || status=$?
+          echo "cargo exited with $status after $((SECONDS - start)) seconds"
+          grep -n -A3 'Unknown target arch' ../build-as-is.log || true
+      - id: build
+        name: Build cinq with openh264-sys2 taught riscv64
+        working-directory: cinq
+        run: |
+          # openh264-sys2 0.9.9 panics on any architecture that its build
+          # script does not name; named, riscv64 builds the C++ of OpenH264
+          # without assembly, as every architecture but x86 and Arm does
+          cp -r ~/.cargo/registry/src/*/openh264-sys2-0.9.9 ../openh264-sys2
+          sed -i -e 's/^\( *\)Wasm32,\r$/&\n\1Riscv64,\r/' \
+            -e 's/^\( *\)"wasm32" => TargetArch::Wasm32,\r$/&\n\1"riscv64" => TargetArch::Riscv64,\r/' \
+            ../openh264-sys2/build.rs
+          test "$(grep -c Riscv64 ../openh264-sys2/build.rs)" = 2
+          printf '\n[patch.crates-io]\nopenh264-sys2 = { path = "../openh264-sys2" }\n' >> Cargo.toml
+          start=$SECONDS
+          cargo build --release --offline 2>&1 | tee ../build.log
+          echo "built in $((SECONDS - start)) seconds"
+          git diff --stat -- Cargo.lock
+          file target/release/cinq
+          ldd target/release/cinq
+          target/release/cinq --version
+      - name: Test cinq
+        continue-on-error: true
+        working-directory: cinq
+        run: |
+          start=$SECONDS
+          cargo test --release --offline 2>&1 | tee ../test.log
+          echo "tested in $((SECONDS - start)) seconds"
+      # Saved before the show plays, so that a push that changes only how it
+      # plays builds little
+      - if: always() && steps.build.outcome == 'success' && steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            cinq/target/
+          key: ${{ steps.restore.outputs.cache-primary-key }}
+      - name: Install what plays the show
+        run: |
+          sudo apt-get install -y --no-install-recommends sway grim wtype fonts-dejavu-core \
+            pulseaudio pulseaudio-utils libasound2-plugins ffmpeg
+      - name: Play the show
+        run: |
+          mkdir show
+          cp riscv.cinq.toml show/
+          bash media.sh show
+          bash play.sh cinq/target/release/cinq show out
+      - if: always()
+        name: Pack what the build made
+        run: |
+          mkdir -p pack/cinq-riscv64/bin
+          cp cinq/target/release/cinq pack/cinq-riscv64/bin/ || true
+          cp -r cinq/target/share pack/cinq-riscv64/ || true
+          tar -C pack -czf cinq-riscv64.tar.gz cinq-riscv64
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo
+          path: |
+            *.log
+            cinq-riscv64.tar.gz
+            out
+          if-no-files-found: ignore
+  nix:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: List what a native Nix build of cinq would build
+        run: |
+          start=$SECONDS
+          nix build ./cinq --dry-run 2>&1 | tee dry-run.txt | grep 'will be'
+          echo "evaluated in $((SECONDS - start)) seconds"
+          grep -E -- '-(gcc|glibc|llvm|rustc|python3)-[0-9][^/]*\.drv$' dry-run.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nix
+          path: dry-run.txt

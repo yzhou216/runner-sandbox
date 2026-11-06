@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+self-hosted-runner:
+  labels: [ubuntu-24.04-riscv]

@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Chord"
+file = "chord.flac"
+loop = true
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "fade"
+name = "Chord out"
+target = 1
+duration = 2.0
+advance = "follow"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "video"
+name = "Clock"
+file = "clock.mp4"
