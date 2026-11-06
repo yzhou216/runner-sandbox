@@ -26,39 +26,33 @@ pub(in crate::front::keymap) fn parse(text: &str) -> (Keymap, Vec<Problem>) {
     let table = match DeTable::parse(text) {
         Ok(table) => table.into_inner(),
         Err(error) => {
-            let problem = Problem::new(format!("is not TOML: {}", error.message()));
-            return (Keymap::default(), vec![problem.at(error.span())]);
+            let problem = Problem::at(error.span(), format!("is not TOML: {}", error.message()));
+            return (Keymap::default(), vec![problem]);
         }
     };
     let unknown = table
         .keys()
         .filter(|name| !SETTINGS.contains(&name.get_ref().as_ref()))
-        .map(|name| Problem::new(format!("no setting is named `{name}`")).at(name.span()));
+        .map(|name| Problem::at(name.span(), format!("no setting is named `{name}`")));
     let none = DeTable::new();
     let (keymaps, malformed) = match table.get("keymaps").map(spanned) {
         Some((DeValue::Table(keymaps), _)) => (keymaps, Vec::new()),
-        Some((_, span)) => (
-            &none,
-            vec![Problem::new("keymaps should be a table").at(span)],
-        ),
+        Some((_, span)) => (&none, vec![Problem::at(span, "keymaps should be a table")]),
         None => (&none, Vec::new()),
     };
     let shadowed = keymaps
         .keys()
         .filter(|name| name.get_ref().parse::<Preset>().is_ok())
         .map(|name| {
-            Problem::new(format!(
-                "keymaps.{name} goes unused, since {name} is a shipped keymap"
-            ))
-            .at(name.span())
+            let unused = format!("keymaps.{name} goes unused, since {name} is a shipped keymap");
+            Problem::at(name.span(), unused)
         });
-    // Default keymap, which no part of the text names
     let default = (Preset::default().name(), None);
     let ((name, named_at), unnamed) = match table.get("keymap").map(spanned) {
         Some((DeValue::String(name), span)) => ((name.as_ref(), Some(span)), None),
         Some((_, span)) => {
-            let problem = Problem::new("keymap should be the name of a keymap").at(span);
-            (default, Some(problem))
+            let unnamed = Problem::at(span, "keymap should be the name of a keymap");
+            (default, Some(unnamed))
         }
         None => (default, None),
     };
@@ -66,10 +60,7 @@ pub(in crate::front::keymap) fn parse(text: &str) -> (Keymap, Vec<Problem>) {
         .unwrap_or_else(|problem| (Keymap::default(), vec![problem]));
     let (keymap, unbound) = match table.get("keys").map(spanned) {
         Some((DeValue::Table(keys), _)) => bind(chosen, keys, ""),
-        Some((_, span)) => (
-            chosen,
-            vec![Problem::new("keys should be a table").at(span)],
-        ),
+        Some((_, span)) => (chosen, vec![Problem::at(span, "keys should be a table")]),
         None => (chosen, Vec::new()),
     };
     let problems = unknown
@@ -102,19 +93,24 @@ fn build(
     let entries = match keymaps.get(name).map(spanned) {
         Some((DeValue::Table(entries), _)) => entries,
         Some((_, span)) => {
-            return Err(Problem::new(format!("keymaps.{name} should be a table")).at(span));
+            let malformed = format!("keymaps.{name} should be a table");
+            return Err(Problem::at(span, malformed));
         }
-        None => return Err(Problem::new(format!("no keymap is named `{name}`")).at(named_at)),
+        None => {
+            let unknown = format!("no keymap is named `{name}`");
+            return Err(Problem::at(named_at, unknown));
+        }
     };
     if chain.contains(&name) {
-        return Err(Problem::new(format!("keymap {name} starts from itself")).at(named_at));
+        let looped = format!("keymap {name} starts from itself");
+        return Err(Problem::at(named_at, looped));
     }
     let chain = [chain, &[name]].concat();
     let start = match entries.get("from").map(spanned) {
         Some((DeValue::String(from), span)) => build(from, Some(span), keymaps, &chain),
         Some((_, span)) => {
-            let problem = format!("keymaps.{name}.from should be the name of a keymap");
-            Err(Problem::new(problem).at(span))
+            let unnamed = format!("keymaps.{name}.from should be the name of a keymap");
+            Err(Problem::at(span, unnamed))
         }
         None => Ok((Keymap::empty(name), Vec::new())),
     };
@@ -136,7 +132,10 @@ fn bind<'a>(
         .into_iter()
         .fold((keymap, Vec::new()), |(keymap, problems), (name, value)| {
             let (keymap, more) = entry(keymap, name, value);
-            let more = more.into_iter().map(|problem| problem.after(place));
+            let more = more.into_iter().map(|problem| Problem {
+                message: format!("{place}{}", problem.message),
+                ..problem
+            });
             (keymap, problems.into_iter().chain(more).collect())
         })
 }
@@ -150,8 +149,8 @@ fn entry(
     value: &Spanned<DeValue>,
 ) -> (Keymap, Vec<Problem>) {
     let Ok(action) = name.get_ref().parse::<Action>() else {
-        let problem = Problem::new(format!("no action is named `{name}`")).at(name.span());
-        return (keymap, vec![problem]);
+        let unknown = format!("no action is named `{name}`");
+        return (keymap, vec![Problem::at(name.span(), unknown)]);
     };
     let values = match value.get_ref() {
         DeValue::Array(values) => &values[..],
@@ -166,7 +165,7 @@ fn entry(
                 }
                 _ => Err(format!("{name} should be keys or a list of keys")),
             };
-            keys.map_err(|problem| Problem::new(problem).at(value.span()))
+            keys.map_err(|problem| Problem::at(value.span(), problem))
         })
         .partition_result();
     // Sequence listed twice binds it once

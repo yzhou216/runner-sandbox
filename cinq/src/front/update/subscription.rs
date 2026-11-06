@@ -55,7 +55,6 @@ impl App {
             window::resize_events().map(|(window, size)| Message::Resized(window, size)),
             window::close_events().map(Message::Closed),
         ];
-        // Problems with the configuration go to standard error as well
         let reconfigured = self.config.source.file().map(|file| {
             Subscription::run_with(file.to_owned(), |file| {
                 keymap::config::watch(file.clone(), keymap::config::Errors::standard())

@@ -130,13 +130,13 @@ sleep 8
 caption 'Fixing the action on line 7 and saving: the terminal now shows only the problem that is left'
 keys editor '7Gcwhelp' -k Escape ':w' -k Return
 sleep 7
-caption 'Fixing the key on line 10: the terminal says that no problems are left'
+caption 'Fixing the key on line 10: nothing is left to report, so the terminal clears'
 keys editor '10G' 'fFcwPageDown' -k Escape ':w' -k Return
 sleep 7
 caption 'Deleting a closing bracket: the file is no longer TOML, so cinq falls back to the vi keys (?: help)'
 keys editor '10G$x:w' -k Return
 sleep 8
-caption 'Undoing the deletion: no problems again, and the keys of the file apply (f: help)'
+caption 'Undoing the deletion: the terminal clears again, and the keys of the file apply (f: help)'
 keys editor 'u:w' -k Return
 sleep 5
 stop 1-editing
@@ -152,7 +152,7 @@ sleep 7
 caption 'Control+q resumes the terminal, which catches up with the file as it stands'
 keys terminal -M ctrl q -m ctrl
 sleep 6
-caption 'Fixing the mistake: no problems again'
+caption 'Fixing the mistake: the terminal clears again'
 keys editor 'u:w' -k Return
 sleep 5
 stop 2-paused

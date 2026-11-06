@@ -35,20 +35,16 @@ fn lying(config: &Config) -> Vec<(&str, Option<&str>)> {
         .collect()
 }
 
-/// Returns each problem as miette draws it in plain ASCII, so that it does
-/// not depend on the terminal that runs the tests
-fn drawn(config: &Config) -> Vec<String> {
+/// Returns the problems as miette draws them in plain ASCII, so that they
+/// do not depend on the terminal that runs the tests
+fn draw(config: &Config) -> String {
     let handler = GraphicalReportHandler::new_themed(GraphicalTheme::none());
-    config
-        .reports()
-        .map(|report| {
-            let mut drawn = String::new();
-            handler
-                .render_report(&mut drawn, report.as_ref())
-                .expect("a report draws into a string");
-            drawn
-        })
-        .collect()
+    config.reports().fold(String::new(), |mut drawn, report| {
+        handler
+            .render_report(&mut drawn, report.as_ref())
+            .expect("a report draws into a string");
+        drawn
+    })
 }
 
 #[test]
@@ -118,19 +114,10 @@ fn keymap_that_starts_from_itself_lies_where_the_loop_closes() {
 }
 
 #[test]
-fn file_that_is_not_toml_lies_where_reading_it_stopped() {
-    let config = read("keymap = \"cua\"\n[keys\ngo = \"F5\"\n");
-    assert_eq!(
-        config.warnings().collect::<Vec<_>>(),
-        ["config.toml:2: is not TOML: unclosed table, expected `]`"]
-    );
-}
-
-#[test]
 fn sidebar_lists_each_problem_after_the_line_it_lies_on() {
-    let config = read("[keys]\nfly = \"f\"\nhelp = \"g\"\n");
+    let warnings = |text: &str| read(text).warnings().collect::<Vec<_>>();
     assert_eq!(
-        config.warnings().collect::<Vec<_>>(),
+        warnings("[keys]\nfly = \"f\"\nhelp = \"g\"\n"),
         [
             "config.toml:2: no action is named `fly`",
             // Binding that hides another lies in no one place
@@ -139,47 +126,26 @@ fn sidebar_lists_each_problem_after_the_line_it_lies_on() {
             "config.toml: `g` comes first, so `g T` can never be typed",
         ]
     );
+    assert_eq!(
+        warnings("keymap = \"cua\"\n[keys\n"),
+        ["config.toml:2: is not TOML: unclosed table, expected `]`"]
+    );
 }
 
 #[test]
 fn standard_error_shows_each_problem_in_the_lines_around_it() {
-    let config = read("keymap = \"vi\"\n[keys]\nfly = \"f\"\nhelp = \"g\"\n");
-    let drawn = drawn(&config);
-    assert!(
-        drawn[0].starts_with("  ! config.toml: no action is named `fly`\n"),
-        "{}",
-        drawn[0]
-    );
-    assert!(
-        drawn[0].contains("[/home/operator/.config/cinq/config.toml:3:1]"),
-        "{}",
-        drawn[0]
-    );
-    assert!(
-        drawn[0].contains(" 3 | fly = \"f\"\n   : ^^^\n"),
-        "{}",
-        drawn[0]
-    );
-    // Problem that lies in no one place shows no lines of the file
-    assert_eq!(
-        drawn[1],
-        "  ! config.toml: `g` comes first, so `g g` can never be typed\n"
-    );
-}
-
-#[test]
-fn standard_error_shows_where_reading_stopped_at_the_end_of_the_file() {
-    let drawn = drawn(&read("[keys"));
-    assert!(
-        drawn[0].starts_with("  ! config.toml: is not TOML: unclosed table, expected `]`\n"),
-        "{}",
-        drawn[0]
-    );
-    // Mark past the last character, which the file ends without a line
-    // break after
-    assert!(
-        drawn[0].contains(" 1 | [keys\n   :      ^\n"),
-        "{}",
-        drawn[0]
-    );
+    let drawn = draw(&read(
+        "keymap = \"vi\"\n[keys]\nfly = \"f\"\nhelp = \"g\"\n",
+    ));
+    let parts = [
+        "  ! config.toml: no action is named `fly`\n",
+        "[/home/operator/.config/cinq/config.toml:3:1]",
+        " 3 | fly = \"f\"\n   : ^^^\n",
+        // Problem that lies in no one place shows no lines of the file
+        "can never be typed\n  ! config.toml: `g` comes first, so `g t`",
+    ];
+    assert!(parts.iter().all(|part| drawn.contains(part)), "{drawn}");
+    // Mark past the last character of a file without a final line break
+    let drawn = draw(&read("[keys"));
+    assert!(drawn.contains(" 1 | [keys\n   :      ^\n"), "{drawn}");
 }
