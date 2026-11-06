@@ -16,20 +16,20 @@ bar.  A band under each video captions each step.
 
 On a terminal, the problems of each reading of the file take the place of
 those before, so that the screen shows the problems of the file as it stands,
-and once none are left, `config.toml: no problems` says so.
+and once none are left, it clears: nothing means no problems.
 
 - `1-editing.mp4`, 52 seconds: cinq starts with two mistakes in the file and
   draws both with miette, each with the lines around it and the part that it
   lies in marked, while its sidebar lists them by line.  Fixing one leaves
-  the other alone on the screen, and fixing that leaves `config.toml: no
-  problems`.  Deleting a closing bracket shows that the file is not TOML,
-  with a mark past the end of the line, and cinq falls back to the vi keys;
-  undoing brings back the keys of the file.
+  the other alone on the screen, and fixing that clears it.  Deleting a
+  closing bracket shows that the file is not TOML, with a mark past the end
+  of the line, and cinq falls back to the vi keys; undoing clears the screen
+  and brings back the keys of the file.
 - `2-paused.mp4`, 32 seconds: Control+s pauses the output of the terminal.
   A save with a mistake reaches the window at once, while the paused terminal
   still shows the file as it was, since a thread of the watch's own writes to
   standard error.  Control+q resumes the terminal, which catches up with the
-  mistake, and fixing it leaves `config.toml: no problems` again.
+  mistake, and fixing it clears the screen again.
 
 `demo.sh` starts the sway session itself, so it ran the same on a GNU/Linux
 machine with the tools of `nix build --inputs-from ./cinq` before it ran
@@ -37,11 +37,13 @@ here.
 
 ## Outcome
 
-Run 42278773951 (a5fd4c1) passed, and both recordings show every step as the
+Run 42285729381 (f51ad0e) passed, and both recordings show every step as the
 captions tell it, with the file at `/home/runner/.config/cinq/config.toml`.
 The `videos` artifact of the run holds them, along with the times of the
 captions and the logs of sway, foot, and wf-recorder.
 
-Run 42262739356 (0f288fa) recorded the same steps before cinq replaced the
-problems on the screen, when the problems of each reading followed those
-before on the terminal, as they still do in a file.
+Earlier runs recorded earlier behavior: run 42262739356 (0f288fa), before cinq
+replaced the problems on the screen, when the problems of each reading
+followed those before on the terminal, as they still do in a file; and run
+42278773951 (a5fd4c1), when the screen said `config.toml: no problems` once
+none were left, rather than clearing.
