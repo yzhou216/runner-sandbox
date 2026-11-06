@@ -12,7 +12,7 @@
 //! the directories and then the file comes through as well.  Each burst of
 //! changes reads the file once, after it settles, and each reading writes
 //! out the problems with the file, which go to standard error in the
-//! program.
+//! program, as [`errors`] tells.
 //!
 //! The watch waits for changes on iced's executor, whose workers keep the
 //! clock ticking, and leaves reading and writing to threads: each reading
@@ -20,11 +20,11 @@
 //! writes out the problems, since a write to standard error can wait
 //! without end, as it does while a terminal is paused with Control+s.
 
+mod errors;
 #[cfg(test)]
 mod tests;
 
 use std::{
-    io::Write,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -44,6 +44,8 @@ use notify_debouncer_full::{
 };
 
 use super::{Config, Problem, load};
+pub use errors::Errors;
+use errors::warner;
 
 /// Time that changes must settle for before the file is read again, which
 /// lets an editor finish saving
@@ -54,10 +56,10 @@ type Watcher = Debouncer<RecommendedWatcher, RecommendedCache>;
 
 /// Returns the configuration that `file` holds once the watch is in place,
 /// so that no change made before goes unseen, and again after each change
-/// to the file, and hands each to the thread that writes its problems to
-/// `errors`.  When the file cannot be watched, the configuration comes once
-/// more, with a problem that tells why the changes do not apply.
-pub fn watch(file: PathBuf, errors: impl Write + Send + 'static) -> impl Stream<Item = Config> {
+/// to the file, and hands each to the thread that writes out its problems
+/// to `errors`.  When the file cannot be watched, the configuration comes
+/// once more, with a problem that tells why the changes do not apply.
+pub fn watch(file: PathBuf, errors: Errors) -> impl Stream<Item = Config> {
     let warnings = warner(errors);
     stream::channel(1, async move |mut output| {
         if let Err(error) = follow(&file, &mut output).await
@@ -72,28 +74,6 @@ pub fn watch(file: PathBuf, errors: impl Write + Send + 'static) -> impl Stream<
         // Thread lives as long as the way to it, so that sending cannot fail
         let _ = warnings.send(config.clone());
     })
-}
-
-/// Starts the thread of a watch that writes the problems of each
-/// configuration sent to it to `errors`, in the order sent, and returns the
-/// way to it, whose going ends the thread
-fn warner(mut errors: impl Write + Send + 'static) -> std::sync::mpsc::Sender<Config> {
-    let (sender, configs) = std::sync::mpsc::channel();
-    thread::spawn(move || configs.iter().for_each(|config| warn(&mut errors, &config)));
-    sender
-}
-
-/// Writes the problems with the configuration to `errors`, as miette draws
-/// them for standard error, so that a terminal that cinq was started from
-/// shows them
-fn warn(errors: &mut impl Write, config: &Config) {
-    let drawn: String = config
-        .reports()
-        .map(|report| format!("{report:?}\n"))
-        .collect();
-    // Sidebar lists the problems all the same, so a standard error that
-    // cannot be written to, such as a closed terminal, is no reason to stop
-    let _ = errors.write_all(drawn.as_bytes());
 }
 
 /// Returns the configuration that `file` holds, read on a thread of its

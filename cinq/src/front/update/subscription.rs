@@ -11,7 +11,7 @@
 
 mod pace;
 
-use std::{io, time::Duration};
+use std::time::Duration;
 
 use iced::{Event, Size, Subscription, event, keyboard, mouse, time, window};
 use itertools::chain;
@@ -58,7 +58,7 @@ impl App {
         // Problems with the configuration go to standard error as well
         let reconfigured = self.config.source.file().map(|file| {
             Subscription::run_with(file.to_owned(), |file| {
-                keymap::config::watch(file.clone(), io::stderr())
+                keymap::config::watch(file.clone(), keymap::config::Errors::standard())
             })
             .map(Message::Reconfigured)
         });

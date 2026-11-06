@@ -127,16 +127,16 @@ sleep 4
 keys terminal 'cinq' -k Return
 caption 'cinq draws each problem on standard error with miette, and lists it in its sidebar with its line'
 sleep 8
-caption 'Fixing the action on line 7 and saving: cinq reads the file again, binds help to f, and reports what is left'
+caption 'Fixing the action on line 7 and saving: the terminal now shows only the problem that is left'
 keys editor '7Gcwhelp' -k Escape ':w' -k Return
 sleep 7
-caption 'Fixing the key on line 10: nothing is left to report'
+caption 'Fixing the key on line 10: the terminal says that no problems are left'
 keys editor '10G' 'fFcwPageDown' -k Escape ':w' -k Return
 sleep 7
 caption 'Deleting a closing bracket: the file is no longer TOML, so cinq falls back to the vi keys (?: help)'
 keys editor '10G$x:w' -k Return
 sleep 8
-caption 'Undoing the deletion: the keys of the file apply again (f: help)'
+caption 'Undoing the deletion: no problems again, and the keys of the file apply (f: help)'
 keys editor 'u:w' -k Return
 sleep 5
 stop 1-editing
@@ -146,15 +146,15 @@ caption 'Control+s pauses the output of the terminal that cinq runs in'
 sleep 2
 keys terminal -M ctrl s -m ctrl
 sleep 3
-caption 'A save with a mistake reaches the window at once, while its report waits for the terminal'
+caption 'A save with a mistake reaches the window at once, while the paused terminal still shows the file as it was'
 keys editor '7Gcwhepl' -k Escape ':w' -k Return
-sleep 6
-caption 'Fixing it reaches the window too, while the terminal stays paused'
-keys editor 'u:w' -k Return
-sleep 5
-caption 'Control+q resumes the terminal, which shows the report that waited'
+sleep 7
+caption 'Control+q resumes the terminal, which catches up with the file as it stands'
 keys terminal -M ctrl q -m ctrl
 sleep 6
+caption 'Fixing the mistake: no problems again'
+keys editor 'u:w' -k Return
+sleep 5
 stop 2-paused
 
 swaymsg -q exit || true

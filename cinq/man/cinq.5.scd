@@ -410,6 +410,10 @@ the file, and the status bar counts them.
 Each time *cinq* reads the file, as it starts and after each change, it writes
 the problems to standard error as well, quoting the lines of the file around
 each problem that lies in a part of it, with that part marked.
+On a terminal, the problems of each reading take the place of those before on
+the screen, so that it shows those of the file as it stands while the file is
+edited, and once none are left, *config.toml: no problems* says so.
+Elsewhere, as in a file, the problems of each reading follow those before.
 
 - A file that cannot be read, or that is not TOML, leaves the keys of the vi
   keymap.
