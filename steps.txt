@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Steps of the walkthrough of usage.cinq.toml, each a number of seconds to
+# wait and then a key to press, by its action in cinq's vi keymap
+3 go
+4 go
+8 go
+4 help
+4 close_help
+2 go
+5 next_list
+2 go
+3 go
+5 panic
+5 end

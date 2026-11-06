@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[[list]]
+name = "Act 1"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Preshow music"
+file = "preshow.flac"
+loop = true
+level = -6.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "fade"
+name = "Preshow out"
+target = 1
+duration = 3.0
+advance = "follow"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "video"
+name = "Opening titles"
+file = "titles.mp4"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "fade"
+name = "Titles out"
+target = 3
+duration = 2.0
+advance = "follow"
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "video"
+name = "Scene"
+file = "scene.mp4"
+loop = true
+notes = "Loops until the next cue fades it out"
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "fade"
+name = "Scene out"
+target = 5
+duration = 3.0
+
+[[list]]
+name = "Act 2"
+
+[[list.cue]]
+id = 7
+number = "1"
+kind = "audio"
+name = "Bell"
+file = "bell.flac"
+loop = true
+
+[[list.cue]]
+id = 8
+number = "2"
+kind = "video"
+name = "Interval"
+file = "interval.mp4"
+loop = true
+
+[[list.cue]]
+id = 9
+number = "3"
+kind = "memo"
+name = "Escape is panic, which fades everything out"
