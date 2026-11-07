@@ -25,6 +25,7 @@ jobs:
             pkg install -y nix git perl5 bash
             nix --version
           run: |
+            chown -R root:wheel "$GITHUB_WORKSPACE" # Nix opens only repositories that the user owns
             sysctl -n hw.ncpu
             df -h /
             export NIX_CONFIG='experimental-features = nix-command flakes

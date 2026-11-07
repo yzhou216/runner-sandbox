@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 self-hosted-runner:
-  labels: [ubuntu-24.04-riscv]
+  labels: [ubuntu-24.04-riscv, ubuntu-26.04-riscv]

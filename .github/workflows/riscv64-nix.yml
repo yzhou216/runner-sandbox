@@ -2,10 +2,12 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Tells why the compiler of Nixpkgs' bootstrap tools for riscv64 crashed
-# on the RISE runner in run 42412315915: builds the bootstrap of Nixpkgs'
-# stdenv with Nix's sandbox and without it, and runs the bootstrap tools'
-# compiler outside Nix
+# Tells why the compiler of Nixpkgs' bootstrap tools for riscv64 crashes
+# on the RISE runner.  Run 42422671372 showed that it crashes outside Nix
+# as well, on gcc -v alone, on the board of ubuntu-24.04-riscv, whose
+# kernel is 5.10 and whose ISA reads rv64imafdcsu.  This runs it under gdb
+# there, reads the ISA that the bootstrap tools were built for, and tries
+# it on ubuntu-26.04-riscv, which may run another board.
 on:
   push:
     paths: [.github/workflows/riscv64-nix.yml]
@@ -16,9 +18,13 @@ defaults:
     shell: bash
 jobs:
   probe:
-    name: bootstrap of Nixpkgs on riscv64-linux
-    runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 240
+    name: bootstrap tools of Nixpkgs on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-riscv, ubuntu-26.04-riscv]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@main
       - uses: cachix/install-nix-action@master
@@ -26,37 +32,20 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           uname -a
-          grep -m1 -E '^(isa|uarch|mmu)' /proc/cpuinfo || true
-          grep -E '^(isa|uarch|mvendorid|marchid)' /proc/cpuinfo | sort -u
-          ulimit -a
-          nix config show | grep -E '^(sandbox|system-features|extra-platforms) '
-      - run: | # Stdenv, whose first builds crashed, with and without the sandbox
-          stdenv="(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.riscv64-linux.stdenv"
-          for sandbox in true false; do
-            echo "::group::sandbox $sandbox"
-            status=0
-            timeout 2400 nix build -L --keep-going --no-link --impure --option sandbox "$sandbox" --expr "$stdenv" 2>&1 \
-              | perl scripts/timed.pl "stdenv-sandbox-$sandbox.log" || status=$?
-            echo "ended with $status"
-            grep -m5 -E 'Segmentation|Illegal|signal|exit code 13[0-9]' "stdenv-sandbox-$sandbox.log" || true
-            echo "::endgroup::"
-          done
-      - run: | # Compiler of the bootstrap tools on its own
-          tools=$(ls -d /nix/store/*-bootstrap-tools | head -1)
+          grep -E '^(isa|uarch|mvendorid|marchid|mimpid|hart isa)' /proc/cpuinfo | sort -u
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends gdb binutils file
+      - run: | # Bootstrap tools as Nixpkgs fetches them, before the first build that crashes
+          nix build --no-link --keep-going --impure --expr "(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.riscv64-linux.stdenv" 2>&1 | tail -3 || true
+          tools=$(find /nix/store -maxdepth 1 -name "*-bootstrap-tools" -type d | head -1)
+          echo "tools=$tools" >> "$GITHUB_ENV"
           echo "$tools"
-          ls "$tools/bin" | head -40 | tr '\n' ' '
-          echo
-          printf 'int main(void) { return 0; }\n' > t.c
-          status=0
-          "$tools/bin/gcc" -v -std=c99 -O3 -o t t.c || status=$?
-          echo "gcc ended with $status"
-          [ -x t ] && ./t && echo "the program ran"
-          "$tools/bin/gcc" -O0 -o t0 t.c && ./t0 && echo "built at -O0 and ran" || echo "-O0 failed with $?"
-      - if: always()
-        run: gzip -f stdenv-sandbox-*.log
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: riscv64-bootstrap-logs
-          path: stdenv-sandbox-*.log.gz
-          if-no-files-found: ignore
+      - run: |
+          file "$tools/bin/gcc" "$tools/bin/bash" "$tools"/lib/ld-linux-*.so* || true
+          readelf -A "$tools/bin/gcc" | sed -n 1,20p
+          readelf -A "$tools"/lib/libc.so.6 | grep -i arch || true
+          "$tools/bin/bash" --version | head -1 || echo "bash ended with $?"
+          "$tools"/lib/ld-linux-riscv64-lp64d.so.1 --version | head -1 || echo "ld.so ended with $?"
+          "$tools/bin/gcc" --version || echo "gcc ended with $?"
+      - run: |
+          gdb -batch -ex run -ex bt -ex 'info registers pc' -ex 'x/6i $pc-8' -ex 'info sharedlibrary' --args "$tools/bin/gcc" --version 2>&1 | tail -40

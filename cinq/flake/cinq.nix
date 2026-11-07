@@ -23,15 +23,18 @@
 }:
 let
   inherit (stdenvNoCC.hostPlatform) isDarwin isFreeBSD isLinux;
-  # ALSA, which cpal plays sound through on GNU/Linux and FreeBSD, and
-  # which on FreeBSD takes the monotonic clock in place of Linux's raw
-  # one, as FreeBSD's own port of it does
+  # ALSA, which cpal plays sound through on GNU/Linux and FreeBSD.  On
+  # FreeBSD it takes the monotonic clock in place of Linux's raw one, as
+  # FreeBSD's own port of it does, and goes without the configuration of
+  # UCM and of topologies, which only Linux's devices use, and whose UCM
+  # takes coreutils, which Nixpkgs fails to build for FreeBSD on aarch64.
   alsa =
     if isFreeBSD then
       alsa-lib.overrideAttrs (old: {
         postPatch = (old.postPatch or "") + ''
           substituteInPlace src/ucm/main.c --replace-fail CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
         '';
+        postInstall = "";
       })
     else
       alsa-lib;
