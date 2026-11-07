@@ -91,33 +91,32 @@
       # Rust's standard library for, cross-builds from the package of the
       # flake itself, whose name Nixpkgs marks with the system's target
       nixpkgsCross = cross: cross.callPackage ./cinq.nix { inherit crate sourceDateEpoch installBundle; };
+      # cinq for other systems, each named after the system that it runs on,
+      # while the system of the flake is the one that builds it
+      builds = {
+        # cinq for Apple silicon, laid out as the package for Darwin is,
+        # which cargo cross-builds against the SDK that Nixpkgs fetches
+        # from Apple, linked by lld from the toolchain
+        aarch64-darwin = crossBuilt {
+          platform = lib.systems.elaborate "aarch64-darwin";
+          env = {
+            SDKROOT = "${pkgs.apple-sdk.src}";
+            CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER = "rust-lld";
+          };
+          install = release: ''
+            install -D ${release}/cinq "$out/bin/cinq"
+            cp -r target/share "$out"
+            ${installBundle}
+          '';
+        };
+        x86_64-windows = windows pkgs.pkgsCross.mingw-ucrt-x86_64-llvm;
+        aarch64-windows = windows pkgs.pkgsCross.mingw-ucrt-aarch64;
+        riscv64-linux = nixpkgsCross pkgs.pkgsCross.riscv64;
+        x86_64-freebsd = nixpkgsCross pkgs.pkgsCross.x86_64-freebsd;
+      };
     in
     {
-      # cinq for other systems, each named after the system that it runs on,
-      # while the system of the flake is the one that builds it, so that
-      # the system's own name stays with its native build
-      packages = lib.optionalAttrs pkgs.stdenvNoCC.hostPlatform.isLinux (
-        removeAttrs {
-          # cinq for Apple silicon, laid out as the package for Darwin is,
-          # which cargo cross-builds against the SDK that Nixpkgs fetches
-          # from Apple, linked by lld from the toolchain
-          aarch64-darwin = crossBuilt {
-            platform = lib.systems.elaborate "aarch64-darwin";
-            env = {
-              SDKROOT = "${pkgs.apple-sdk.src}";
-              CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER = "rust-lld";
-            };
-            install = release: ''
-              install -D ${release}/cinq "$out/bin/cinq"
-              cp -r target/share "$out"
-              ${installBundle}
-            '';
-          };
-          x86_64-windows = windows pkgs.pkgsCross.mingw-ucrt-x86_64-llvm;
-          aarch64-windows = windows pkgs.pkgsCross.mingw-ucrt-aarch64;
-          riscv64-linux = nixpkgsCross pkgs.pkgsCross.riscv64;
-          x86_64-freebsd = nixpkgsCross pkgs.pkgsCross.x86_64-freebsd;
-        } [ system ]
-      );
+      # All but the system's own, whose name stays with its native build
+      packages = lib.optionalAttrs pkgs.stdenvNoCC.hostPlatform.isLinux (removeAttrs builds [ system ]);
     };
 }

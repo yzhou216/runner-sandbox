@@ -127,10 +127,22 @@ fn touches(result: &DebounceEventResult, file: &Path) -> bool {
     }
 }
 
+/// Whether the watcher is kqueue's, which tells of a directory only the
+/// entries that come and go, and not of a file in it written in place
+const KQUEUE: bool = cfg!(any(
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "ios",
+    target_os = "netbsd",
+    target_os = "openbsd",
+));
+
 /// Watches the [`directory`] of `file` in place of the directory `watched`,
-/// and returns the directory now watched, or why it cannot be watched.  The
-/// watch goes in anew even when the directory is the same, since a
-/// directory that was deleted and made again takes its old watch with it.
+/// and with kqueue the file itself as well, which an editor may write in
+/// place, and returns the directory now watched, or why it cannot be
+/// watched.  The watch goes in anew even when the directory is the same,
+/// since a directory that was deleted and made again takes its old watch
+/// with it.
 fn rewatch(
     watcher: &mut Watcher,
     watched: Option<&Path>,
@@ -140,13 +152,20 @@ fn rewatch(
     if let Some(watched) = watched {
         let _ = watcher.unwatch(watched);
     }
-    directory(file)
+    let directory = directory(file)
         .map(|directory| {
             watcher
                 .watch(&directory, RecursiveMode::NonRecursive)
                 .map(|()| directory)
         })
-        .transpose()
+        .transpose()?;
+    if KQUEUE {
+        // File that is missing, or that another has replaced, comes and
+        // goes through the watch on its directory, so a failure is moot
+        let _ = watcher.unwatch(file);
+        let _ = watcher.watch(file, RecursiveMode::NonRecursive);
+    }
+    Ok(directory)
 }
 
 /// Returns the directory to watch for `file`: the nearest one on the way to
