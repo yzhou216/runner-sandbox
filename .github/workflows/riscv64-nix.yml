@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tells why the compiler of Nixpkgs' bootstrap tools for riscv64 crashed
+# on the RISE runner in run 42412315915: builds the bootstrap of Nixpkgs'
+# stdenv with Nix's sandbox and without it, and runs the bootstrap tools'
+# compiler outside Nix
+on:
+  push:
+    paths: [.github/workflows/riscv64-nix.yml]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    name: bootstrap of Nixpkgs on riscv64-linux
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          uname -a
+          grep -m1 -E '^(isa|uarch|mmu)' /proc/cpuinfo || true
+          grep -E '^(isa|uarch|mvendorid|marchid)' /proc/cpuinfo | sort -u
+          ulimit -a
+          nix config show | grep -E '^(sandbox|system-features|extra-platforms) '
+      - run: | # Stdenv, whose first builds crashed, with and without the sandbox
+          stdenv="(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.riscv64-linux.stdenv"
+          for sandbox in true false; do
+            echo "::group::sandbox $sandbox"
+            status=0
+            timeout 2400 nix build -L --keep-going --no-link --impure --option sandbox "$sandbox" --expr "$stdenv" 2>&1 \
+              | perl scripts/timed.pl "stdenv-sandbox-$sandbox.log" || status=$?
+            echo "ended with $status"
+            grep -m5 -E 'Segmentation|Illegal|signal|exit code 13[0-9]' "stdenv-sandbox-$sandbox.log" || true
+            echo "::endgroup::"
+          done
+      - run: | # Compiler of the bootstrap tools on its own
+          tools=$(ls -d /nix/store/*-bootstrap-tools | head -1)
+          echo "$tools"
+          ls "$tools/bin" | head -40 | tr '\n' ' '
+          echo
+          printf 'int main(void) { return 0; }\n' > t.c
+          status=0
+          "$tools/bin/gcc" -v -std=c99 -O3 -o t t.c || status=$?
+          echo "gcc ended with $status"
+          [ -x t ] && ./t && echo "the program ran"
+          "$tools/bin/gcc" -O0 -o t0 t.c && ./t0 && echo "built at -O0 and ran" || echo "-O0 failed with $?"
+      - if: always()
+        run: gzip -f stdenv-sandbox-*.log
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: riscv64-bootstrap-logs
+          path: stdenv-sandbox-*.log.gz
+          if-no-files-found: ignore

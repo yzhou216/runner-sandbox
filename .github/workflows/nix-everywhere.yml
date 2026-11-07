@@ -8,7 +8,9 @@
 # may take on GitHub's runners, with no cache but cache.nixos.org, and runs
 # each cross-built program on its own system.  freebsd-arches.yml, which
 # run 42410882955 ran, tried FreeBSD on aarch64 and riscv64 before.
-on: push
+on:
+  push:
+    paths: [cinq/**, scripts/**]
 permissions:
   contents: read
 defaults:
@@ -130,65 +132,3 @@ jobs:
           nix build ./cinq
           echo "took $((SECONDS - start)) seconds"
           nix shell nixpkgs#file -c file -L result/bin/cinq
-  native-riscv64-linux:
-    name: cinq built by Nix on riscv64-linux
-    runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 4320
-    steps:
-      - uses: actions/checkout@main
-      - uses: cachix/install-nix-action@master
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - run: |
-          nproc
-          free -g
-          df -h / /nix
-      - run: |
-          start=$SECONDS
-          status=0
-          nix build -L --keep-going ./cinq 2>&1 | perl scripts/timed.pl build.log || status=$?
-          echo "took $((SECONDS - start)) seconds, ending with $status"
-          perl scripts/summary.pl build.log
-          df -h / /nix
-          exit "$status"
-      - if: always()
-        run: gzip -f build.log
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: log-riscv64-linux-native
-          path: build.log.gz
-          if-no-files-found: ignore
-  native-x86_64-freebsd:
-    name: cinq built by Nix on x86_64-freebsd
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@main
-      - uses: vmactions/freebsd-vm@main
-        with:
-          mem: 13312
-          prepare: |
-            pkg install -y nix git perl5 bash
-            mkdir -p /usr/local/etc/nix
-            printf '%s\n' 'experimental-features = nix-command flakes' 'build-users-group =' 'sandbox = false' 'max-jobs = auto' 'cores = 0' > /usr/local/etc/nix/nix.conf
-            nix --version
-          run: |
-            sysctl -n hw.ncpu
-            df -h /
-            bash -o pipefail -c '
-              start=$SECONDS
-              status=0
-              timeout -s INT 19800 nix build -L --keep-going ./cinq 2>&1 | perl scripts/timed.pl build.log || status=$?
-              echo "took $((SECONDS - start)) seconds, ending with $status"
-              perl scripts/summary.pl build.log
-              df -h /
-              gzip -f build.log
-              exit "$status"
-            '
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: log-x86_64-freebsd-native
-          path: build.log.gz
-          if-no-files-found: ignore
