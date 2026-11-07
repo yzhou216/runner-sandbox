@@ -47,12 +47,16 @@ jobs:
           git clone -q https://github.com/yzhou216/cinq master
           git -C master checkout -q 01c6d31736d0162a44f20d3a90e27bfa46345882
           cd master
+          patch=(--config 'patch.crates-io.openh264-sys2.git="https://github.com/yzhou216/openh264-rs"'
+            --config 'patch.crates-io.openh264-sys2.branch="riscv64"')
+          # Lock file of master asks for openh264-sys2 0.9.9 from crates.io,
+          # which the 0.9.8 of the branch replaces only once it asks for that
+          cargo update "${patch[@]}" -p openh264-sys2 --precise 0.9.8
           # Dependencies that the two builds share build once, in one place
           start=$SECONDS
-          CARGO_TARGET_DIR=../cinq/target cargo build --release \
-            --config 'patch.crates-io.openh264-sys2.git="https://github.com/yzhou216/openh264-rs"' \
-            --config 'patch.crates-io.openh264-sys2.branch="riscv64"'
+          CARGO_TARGET_DIR=../cinq/target cargo build --release "${patch[@]}" 2>&1 | tee ../master-build.log
           echo "built in $((SECONDS - start)) seconds"
+          grep 'Compiling openh264-sys2' ../master-build.log
           cp ../cinq/target/release/cinq ../cinq-openh264
       - uses: actions/download-artifact@v7
         with:
