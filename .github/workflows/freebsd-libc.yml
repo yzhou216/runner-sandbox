@@ -4,9 +4,9 @@
 
 # Tells why FreeBSD's libthr that Nixpkgs builds for x86_64-freebsd on
 # aarch64-linux lacks pthread_create, as run 42424765022 showed, while the
-# one built on x86_64-linux has it: builds libthr on aarch64-linux, fetches
-# the log of Hydra's build on x86_64-linux from cache.nixos.org, and diffs
-# the two with the store hashes taken out
+# one built on x86_64-linux has it.  Run 42425333973 found the broken one
+# in cache.nixos.org, without a log, so this builds libthr again on each
+# system for the logs and the symbols of each.
 on:
   push:
     paths: [.github/workflows/freebsd-libc.yml]
@@ -17,41 +17,35 @@ defaults:
     shell: bash
 jobs:
   libthr:
-    name: libthr for x86_64-freebsd built on aarch64-linux and on x86_64-linux
-    runs-on: ubuntu-24.04-arm
+    name: libthr for x86_64-freebsd built on ${{ matrix.system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {system: x86_64-linux, os: ubuntu-latest}
+          - {system: aarch64-linux, os: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@main
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
-          flake="(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages"
-          arm=$(nix eval --raw --impure --expr "$flake.aarch64-linux.pkgsCross.x86_64-freebsd.freebsd.libthr.drvPath")
-          x86=$(nix eval --raw --impure --expr "$flake.x86_64-linux.pkgsCross.x86_64-freebsd.freebsd.libthr.drvPath")
-          echo "$arm"
-          echo "$x86"
-          nix build --no-link "$arm^out"
-          nix log "$arm" > arm.log
-          nix log "$x86" > x86.log
-          wc -l arm.log x86.log
-          normal() { sed -E 's|/nix/store/[a-z0-9]{32}-|/nix/store/H-|g; s/aarch64-unknown-linux-gnu|aarch64-linux/BUILD/g; s/x86_64-unknown-linux-gnu|x86_64-linux/BUILD/g' "$1"; }
-          normal arm.log > arm.norm
-          normal x86.log > x86.norm
-          diff x86.norm arm.norm | head -150 || true
-          echo "== lines about thr_create, the map, and the link"
-          grep -n -E 'thr_create|\.map|version-script|libthr\.so' arm.norm | head -20
-          out=$(nix build --no-link --print-out-paths "$arm^out")
-          nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$out/lib/libthr.so.3" | wc -l
-          nix build --no-link "$x86^out" && x86out=$(nix build --no-link --print-out-paths "$x86^out") \
-            && nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$x86out/lib/libthr.so.3" | wc -l
-          nix shell nixpkgs#llvmPackages.bintools -c sh -c "llvm-nm -D --defined-only '$out/lib/libthr.so.3' | awk '{print \$3}' | sort > arm.syms; llvm-nm -D --defined-only '$x86out/lib/libthr.so.3' | awk '{print \$3}' | sort > x86.syms"
-          echo "== symbols only the x86_64-linux build defines"
-          comm -23 x86.syms arm.syms | head -40
-      - if: always()
-        uses: actions/upload-artifact@main
+          drv=$(nix eval --raw --impure --expr "(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.${{ matrix.system }}.pkgsCross.x86_64-freebsd.freebsd.libthr.drvPath")
+          echo "$drv"
+          nix build --no-link "$drv^*"
+          nix build --no-link --rebuild -L "$drv^*" > rebuild.log 2>&1 || echo "the rebuild differs from the cache or failed"
+          tail -3 rebuild.log
+          nix log "$drv" > libthr.log
+          wc -l libthr.log
+          out=$(nix build --no-link --print-out-paths "$drv^out")
+          nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$out/lib/libthr.so.3" | awk '{print $3}' | sort > libthr.syms
+          wc -l libthr.syms
+          grep -c pthread_create libthr.syms || true
+      - uses: actions/upload-artifact@main
         with:
-          name: libthr-logs
+          name: libthr-${{ matrix.system }}
           path: |
-            arm.log
-            x86.log
-          if-no-files-found: ignore
+            libthr.log
+            libthr.syms
+            rebuild.log
