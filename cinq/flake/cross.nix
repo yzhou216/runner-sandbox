@@ -111,9 +111,17 @@
         };
         x86_64-windows = windows pkgs.pkgsCross.mingw-ucrt-x86_64-llvm;
         aarch64-windows = windows pkgs.pkgsCross.mingw-ucrt-aarch64;
+        x86_64-linux = nixpkgsCross pkgs.pkgsCross.gnu64;
+        aarch64-linux = nixpkgsCross pkgs.pkgsCross.aarch64-multiplatform;
         riscv64-linux = nixpkgsCross pkgs.pkgsCross.riscv64;
         x86_64-freebsd = nixpkgsCross pkgs.pkgsCross.x86_64-freebsd;
-        aarch64-freebsd = nixpkgsCross pkgs.pkgsCross.aarch64-freebsd; # Tried in the sandbox alone
+        # Rust's tier 3, which Nixpkgs leaves out of the platforms of what
+        # Rust builds, though it builds Rust's compiler for it
+        aarch64-freebsd = (nixpkgsCross pkgs.pkgsCross.aarch64-freebsd).overrideAttrs (old: {
+          meta = old.meta // {
+            platforms = [ "aarch64-freebsd" ];
+          };
+        });
       };
     in
     {

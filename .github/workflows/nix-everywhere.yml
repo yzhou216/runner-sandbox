@@ -1,0 +1,194 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tells whether Nix builds cinq for every system that it supports, cross-
+# built on x86_64 and on aarch64 GNU/Linux, and natively where a runner or
+# a virtual machine of the system exists, within the six hours that a job
+# may take on GitHub's runners, with no cache but cache.nixos.org, and runs
+# each cross-built program on its own system.  freebsd-arches.yml, which
+# run 42410882955 ran, tried FreeBSD on aarch64 and riscv64 before.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  cross:
+    name: cinq for ${{ matrix.host }} built on ${{ matrix.system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux]
+        host: [x86_64-linux, aarch64-linux, riscv64-linux, aarch64-darwin, x86_64-windows, aarch64-windows, x86_64-freebsd, aarch64-freebsd]
+        exclude:
+          - {system: x86_64-linux, host: x86_64-linux}
+          - {system: aarch64-linux, host: aarch64-linux}
+        include:
+          - {system: x86_64-linux, os: ubuntu-latest}
+          - {system: aarch64-linux, os: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          start=$SECONDS
+          status=0
+          nix build -L --keep-going ./cinq#${{ matrix.host }} 2>&1 | perl scripts/timed.pl build.log || status=$?
+          echo "took $((SECONDS - start)) seconds, ending with $status"
+          perl scripts/summary.pl build.log
+          exit "$status"
+      - run: |
+          mkdir out
+          if [ -e result/bin/cinq.exe ]; then
+            cp result/bin/cinq.exe out
+          elif [ "${{ matrix.host }}" = aarch64-darwin ]; then
+            tar -cf out/cinq.tar -C result .
+          else
+            readlink -f result > out/path.txt
+            nix-store -qR result | tar -cf out/closure.tar -T -
+          fi
+          ls -l out
+      - uses: actions/upload-artifact@main
+        with:
+          name: cinq-${{ matrix.host }}-built-on-${{ matrix.system }}
+          path: out
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: log-${{ matrix.host }}-built-on-${{ matrix.system }}
+          path: build.log
+          if-no-files-found: ignore
+  run:
+    name: cinq for ${{ matrix.host }} built on ${{ matrix.system }}, run on ${{ matrix.host }}
+    needs: cross
+    if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux]
+        host: [x86_64-linux, aarch64-linux, riscv64-linux, aarch64-darwin, x86_64-windows, aarch64-windows, x86_64-freebsd, aarch64-freebsd]
+        exclude:
+          - {system: x86_64-linux, host: x86_64-linux}
+          - {system: aarch64-linux, host: aarch64-linux}
+        include:
+          - {host: x86_64-linux, os: ubuntu-latest, kind: store}
+          - {host: aarch64-linux, os: ubuntu-24.04-arm, kind: store}
+          - {host: riscv64-linux, os: ubuntu-24.04-riscv, kind: store}
+          - {host: aarch64-darwin, os: macos-latest, kind: darwin}
+          - {host: x86_64-windows, os: windows-latest, kind: windows}
+          - {host: aarch64-windows, os: windows-11-arm, kind: windows}
+          - {host: x86_64-freebsd, os: ubuntu-latest, kind: freebsd, arch: x86_64}
+          - {host: aarch64-freebsd, os: ubuntu-latest, kind: freebsd, arch: aarch64}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@main
+        with:
+          name: cinq-${{ matrix.host }}-built-on-${{ matrix.system }}
+      - if: matrix.kind == 'store'
+        run: |
+          sudo tar -xf closure.tar -C /
+          cinq=$(cat path.txt)/bin/cinq
+          file "$cinq" || true
+          "$cinq" --version
+      - if: matrix.kind == 'darwin'
+        run: |
+          mkdir cinq
+          tar -xf cinq.tar -C cinq
+          file cinq/Applications/cinq.app/Contents/MacOS/cinq
+          cinq/bin/cinq --version
+      - if: matrix.kind == 'windows'
+        run: ./cinq.exe --version
+      - if: matrix.kind == 'freebsd'
+        uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          copyback: false
+          run: |
+            uname -m
+            tar -xf closure.tar -C /
+            cinq=$(cat path.txt)/bin/cinq
+            file "$cinq"
+            "$cinq" --version
+  native-aarch64-linux:
+    name: cinq built on aarch64-linux
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          start=$SECONDS
+          nix flake check ./cinq
+          nix build ./cinq
+          echo "took $((SECONDS - start)) seconds"
+          nix shell nixpkgs#file -c file -L result/bin/cinq
+  native-riscv64-linux:
+    name: cinq built by Nix on riscv64-linux
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 4320
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nproc
+          free -g
+          df -h / /nix
+      - run: |
+          start=$SECONDS
+          status=0
+          nix build -L --keep-going ./cinq 2>&1 | perl scripts/timed.pl build.log || status=$?
+          echo "took $((SECONDS - start)) seconds, ending with $status"
+          perl scripts/summary.pl build.log
+          df -h / /nix
+          exit "$status"
+      - if: always()
+        run: gzip -f build.log
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: log-riscv64-linux-native
+          path: build.log.gz
+          if-no-files-found: ignore
+  native-x86_64-freebsd:
+    name: cinq built by Nix on x86_64-freebsd
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@main
+      - uses: vmactions/freebsd-vm@main
+        with:
+          mem: 13312
+          prepare: |
+            pkg install -y nix git perl5 bash
+            mkdir -p /usr/local/etc/nix
+            printf '%s\n' 'experimental-features = nix-command flakes' 'build-users-group =' 'sandbox = false' 'max-jobs = auto' 'cores = 0' > /usr/local/etc/nix/nix.conf
+            nix --version
+          run: |
+            sysctl -n hw.ncpu
+            df -h /
+            bash -o pipefail -c '
+              start=$SECONDS
+              status=0
+              timeout -s INT 19800 nix build -L --keep-going ./cinq 2>&1 | perl scripts/timed.pl build.log || status=$?
+              echo "took $((SECONDS - start)) seconds, ending with $status"
+              perl scripts/summary.pl build.log
+              df -h /
+              gzip -f build.log
+              exit "$status"
+            '
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: log-x86_64-freebsd-native
+          path: build.log.gz
+          if-no-files-found: ignore
