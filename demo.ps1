@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Records demo.mp4 of cinq.exe, a console program whose manifest asks for no
+# Records demo.mkv of cinq.exe, a console program whose manifest asks for no
 # console of its own: opened from Explorer, it shows no console window; typed
 # into cmd, it prints there, redraws the problems of its config.toml as the
 # file changes, and keeps cmd waiting until it closes.  Writes the time of
@@ -98,20 +98,18 @@ $env:ICED_BACKEND = 'tiny-skia'
 
 (New-Object -ComObject Shell.Application).MinimizeAll()
 Start-Sleep 2
-$recorder = Start-Process ffmpeg -PassThru -NoNewWindow -RedirectStandardError ffmpeg.txt -ArgumentList '-y', '-f', 'gdigrab', '-framerate', '15', '-i', 'desktop', '-t', '150', '-pix_fmt', 'yuv420p', 'demo.mp4'
+$recorder = Start-Process ffmpeg -PassThru -NoNewWindow -RedirectStandardError ffmpeg.txt -ArgumentList '-y', '-f', 'gdigrab', '-framerate', '15', '-i', 'desktop', '-t', '150', '-pix_fmt', 'yuv420p', 'demo.mkv'
 $start = Get-Date
 Start-Sleep 2
 
-# Explorer, with cinq.exe selected, opens it as a double click would
-Caption "Explorer opens cinq.exe"
+# Explorer, showing cinq.exe, starts it as a double click does
+Caption "Explorer starts cinq.exe, as a double click does"
 Start-Process explorer.exe -ArgumentList "/select,`"$exe`""
 $folder = Wait-Window 0 (Split-Path -Leaf $PWD)
 Place $folder 0 520
 Start-Sleep 2
 $before = @(Get-Process cinq -ErrorAction SilentlyContinue).Id
-[Windows]::SetForegroundWindow($folder) | Out-Null
-Start-Sleep -Milliseconds 500
-[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+Start-Process explorer.exe -ArgumentList "`"$exe`""
 $cinq = Wait-New cinq $before
 $main = Wait-Window $cinq.Id " - cinq"
 Place $main 520 504
