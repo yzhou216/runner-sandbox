@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Cross-builds cinq.exe on GNU/Linux, a console program whose manifest asks
+# Windows for no console of its own, and records on Windows with demo.ps1
+# how Explorer starts it without a console while cmd shows its standard
+# error
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: nix build ./cinq#x86_64-windows-cross && cp result/bin/cinq.exe .
+      - uses: actions/upload-artifact@main
+        with:
+          name: cinq
+          path: cinq.exe
+  windows:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@main
+      - uses: actions/download-artifact@main
+        with:
+          name: cinq
+      - shell: pwsh
+        run: choco install ffmpeg -y --no-progress && ./demo.ps1
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: demo
+          path: |
+            demo.mp4
+            captions.tsv
+            ffmpeg.txt
+          if-no-files-found: ignore
