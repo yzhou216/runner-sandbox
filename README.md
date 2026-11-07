@@ -4,43 +4,41 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: the problems screen on GNU/Linux, Windows, and Darwin
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Records cinq (yzhou216/cinq 01c6d31 with the uncommitted work of the local
+branch `problems-screen`) showing the problems of `config.toml` on a screen of
+their own, the alternate screen that full-screen programs use.  Each reading
+draws its problems there in place of those before; the first reading without
+any switches back to what the terminal showed before; problems left when cinq
+ends, by its window or by Control+c, come back to that screen once.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+Each script shows the file in a terminal, starts cinq there, edits the file
+step by step, narrows the terminal while problems show, closes cinq with a
+problem left, starts it again, and presses Control+c.
 
-## Setup
+- `demo-linux.sh`: headless sway on `ubuntu-latest`, with vim editing the
+  file in one foot terminal and cinq running in another, cinq's window
+  floating in a gap kept free on the right.
+- `demo.ps1`: `windows-latest` (build 26100), with `cinq.exe` typed into cmd
+  in Windows Terminal, the file rewritten by the script, and gdigrab
+  recording.
+- `demo-darwin.sh`: `macos-latest`, with cinq typed into Terminal through
+  System Events after `open -a Terminal`, the file rewritten by the script,
+  and `screencapture -V` recording.
 
-Fork this repository, then clone it into the agent's skills directory:
+Each job uploads its recording and `captions.tsv`, the time of each step
+since the recording started, and the captions were burned in afterwards.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Outcome
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+Run 42355917900 passed on all three platforms, and the terminals showed the
+same at each step:
 
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- The problems replaced the terminal's contents, and each save redrew them.
+- Fixing the file brought back the output of `cat` or `type` and the command
+  line that started cinq.
+- Narrowing the terminal while problems showed redrew them at the new width,
+  with miette wrapping its messages to it, and left nothing behind.
+- Closing cinq's window, and pressing Control+c, each left the remaining
+  problem below the command line, followed by a new prompt.
