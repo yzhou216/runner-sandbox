@@ -117,8 +117,10 @@
                       freebsd.mkDerivation (
                         attrs
                         // {
+                          # Script rather than flags, since bmake splits
+                          # them off into flags of its own
                           env = {
-                            CPP = "${final.stdenv.cc.targetPrefix}cpp --target=${config}";
+                            CPP = final.buildPackages.writeShellScript "${config}-cpp" ''exec ${config}-cpp --target=${config} "$@"'';
                           }
                           // attrs.env or { };
                         }
