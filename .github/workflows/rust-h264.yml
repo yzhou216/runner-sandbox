@@ -2,83 +2,73 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Tells whether the picture of a video that falls behind on windows-11-arm
-# comes of rust_h264 or of drawing there: plays video.cinq.toml by
-# play.ps1 with cinq cross-built from the snapshot in cinq/, which decodes
-# with rust_h264, and from cinq's master at 01c6d31, which decodes with
-# openh264, each with iced's default renderer, which draws through WARP
-# there, and with ICED_BACKEND=tiny-skia, twice each.  The run before this
-# one, at 329a578, tested the rest.
+# Tells whether the picture of a video that falls behind on a RISE RISC-V
+# runner comes of rust_h264 or of drawing there: plays video.cinq.toml by
+# play.sh with cinq built from the snapshot in cinq/, which decodes with
+# rust_h264, and from cinq's master at 01c6d31, which decodes with openh264,
+# whose build script yzhou216/openh264-rs's branch riscv64 teaches riscv64,
+# each with iced's default renderer and with ICED_BACKEND=tiny-skia.  Run
+# 42337020892, at 329a578, tested the rest and made the show.
 on: push
 permissions:
   contents: read
+  actions: read
 defaults:
   run:
     shell: bash
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  riscv64:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v7
-      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
-      # made the installer of Nix 2.35.4 fail with permission denied
-      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
-      - uses: cachix/install-nix-action@v31
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cross-build cinq for Windows on Arm, with rust_h264 and with openh264
+      - name: Install what builds cinq and plays the show
         run: |
-          nix build --out-link new ./cinq#aarch64-windows-cross
-          nix build --out-link old github:yzhou216/cinq/01c6d31736d0162a44f20d3a90e27bfa46345882#aarch64-windows-cross
-          mkdir rust_h264 openh264
-          cp new/bin/cinq.exe rust_h264/
-          cp old/bin/cinq.exe openh264/
-      - name: Make the show
+          sudo apt-get update
+          # The image holds liboss4-salsa-asound2, the ALSA library of OSS 4,
+          # in place of ALSA's own, which libasound2-dev needs
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev scdoc \
+            liboss4-salsa-asound2- sway grim wtype fonts-dejavu-core pulseaudio \
+            pulseaudio-utils libasound2-plugins ffmpeg
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            cinq/target/
+          key: cargo-riscv64-rust-h264-${{ hashFiles('cinq/Cargo.lock') }}
+      - name: Build cinq with rust_h264
+        working-directory: cinq
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-          mkdir show
-          cp video.cinq.toml show/
-          bash media.sh show
-      - uses: actions/upload-artifact@v7
-        with:
-          name: rust_h264
-          path: rust_h264
-      - uses: actions/upload-artifact@v7
-        with:
-          name: openh264
-          path: openh264
-      - uses: actions/upload-artifact@v7
-        with:
-          name: show
-          path: show
-  play:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        decoder: [rust_h264, openh264]
-        backend: [default, tiny-skia]
-        attempt: [1, 2]
-    runs-on: windows-11-arm
-    timeout-minutes: 30
-    steps:
-      - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v7
-        with:
-          name: ${{ matrix.decoder }}
+          cargo build --release --locked
+          cp target/release/cinq ../cinq-rust_h264
+      - name: Build cinq's master with openh264
+        run: |
+          git clone -q https://github.com/yzhou216/cinq master
+          git -C master checkout -q 01c6d31736d0162a44f20d3a90e27bfa46345882
+          cd master
+          # Dependencies that the two builds share build once, in one place
+          start=$SECONDS
+          CARGO_TARGET_DIR=../cinq/target cargo build --release \
+            --config 'patch.crates-io.openh264-sys2.git="https://github.com/yzhou216/openh264-rs"' \
+            --config 'patch.crates-io.openh264-sys2.branch="riscv64"'
+          echo "built in $((SECONDS - start)) seconds"
+          cp ../cinq/target/release/cinq ../cinq-openh264
       - uses: actions/download-artifact@v7
         with:
           name: show
           path: show
-      - shell: pwsh
+          run-id: 42337020892
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Play the show with each build and each renderer
         run: |
-          if ("${{ matrix.backend }}" -eq "tiny-skia") { $env:ICED_BACKEND = "tiny-skia" }
-          ./play.ps1
+          for build in rust_h264 openh264; do
+            bash play.sh "cinq-$build" show "out-$build-default"
+            ICED_BACKEND=tiny-skia bash play.sh "cinq-$build" show "out-$build-tiny-skia"
+          done
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: windows-arm-${{ matrix.decoder }}-${{ matrix.backend }}-${{ matrix.attempt }}
-          path: out
+          name: riscv64-ab
+          path: out-*
           if-no-files-found: ignore
