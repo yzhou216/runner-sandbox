@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[package]
+name = "cinq-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bytemuck = "1"
+cpu-time = "1.0"
+mp4 = "0.14"
+rayon = "1.12"
+rust_h264 = "=0.6.1"
+tiny-skia = { version = "0.11.4", default-features = false, features = ["std", "simd"] }

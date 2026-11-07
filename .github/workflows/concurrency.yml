@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Looks for the parts of cinq's video output that would gain from more
+# threads, with rayon or otherwise: bench/ times the conversion of decoded
+# pictures to RGBA, passes through clips of x264 that bench/clips.sh makes,
+# and the drawing of each new picture with tiny-skia, each as cinq does it
+# at ec61ead and as it could, on every kind of runner.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: mkdir clips && bash bench/clips.sh clips
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clips
+          path: clips
+  bench:
+    needs: clips
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --manifest-path bench/Cargo.toml
+      - name: Benchmark
+        run: |
+          bench=bench/target/release/cinq-bench
+          {
+            echo "# ${{ matrix.os }}"
+            echo
+            # shellcheck disable=SC2016 # PowerShell expands $env itself
+            case $RUNNER_OS in
+              Linux) lscpu | grep -E '^(Model name|CPU\(s\)):' ;;
+              macOS) sysctl -n machdep.cpu.brand_string hw.ncpu ;;
+              Windows) powershell -NoProfile -Command '(Get-CimInstance Win32_Processor).Name; $env:NUMBER_OF_PROCESSORS' ;;
+            esac
+            echo
+            "$bench" convert
+            "$bench" draw
+            "$bench" pass clips/*.mp4
+          } | tee "bench-${{ matrix.os }}.md"
+          cat "bench-${{ matrix.os }}.md" >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-${{ matrix.os }}
+          path: bench-*.md
+          if-no-files-found: ignore
+  riscv64:
+    needs: clips
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - run: cargo build --release --manifest-path bench/Cargo.toml
+      - name: Benchmark
+        env:
+          BENCH_REPEAT: 1
+        run: |
+          bench=bench/target/release/cinq-bench
+          {
+            echo "# ubuntu-24.04-riscv"
+            echo
+            lscpu | grep -E '^(Model name|CPU\(s\)|ISA):' || true
+            echo
+            "$bench" convert
+            "$bench" draw
+            "$bench" pass clips/720p-noise.mp4 clips/1080p.mp4
+          } | tee bench-riscv64.md
+          cat bench-riscv64.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-riscv64
+          path: bench-*.md
+          if-no-files-found: ignore
