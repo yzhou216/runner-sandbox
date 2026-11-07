@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Tells why FreeBSD's libthr that Nixpkgs builds for x86_64-freebsd on
-# aarch64-linux lacks pthread_create, as run 42424765022 showed, while the
-# one built on x86_64-linux has it.  Run 42425333973 found the broken one
-# in cache.nixos.org, without a log, so this builds libthr again on each
-# system for the logs and the symbols of each.
+# aarch64-linux exports 7 symbols where the one built on x86_64-linux
+# exports 312, as run 42425472510 showed.  Both ran the same cpp and awk to
+# write Version.map, so this prints the map and the tools that wrote it.
 on:
   push:
     paths: [.github/workflows/freebsd-libc.yml]
@@ -31,21 +30,5 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
-          drv=$(nix eval --raw --impure --expr "(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.${{ matrix.system }}.pkgsCross.x86_64-freebsd.freebsd.libthr.drvPath")
-          echo "$drv"
-          nix build --no-link "$drv^*"
-          nix build --no-link --rebuild -L "$drv^*" > rebuild.log 2>&1 || echo "the rebuild differs from the cache or failed"
-          tail -3 rebuild.log
-          nix log "$drv" > libthr.log
-          wc -l libthr.log
-          out=$(nix build --no-link --print-out-paths "$drv^out")
-          nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$out/lib/libthr.so.3" | awk '{print $3}' | sort > libthr.syms
-          wc -l libthr.syms
-          grep -c pthread_create libthr.syms || true
-      - uses: actions/upload-artifact@main
-        with:
-          name: libthr-${{ matrix.system }}
-          path: |
-            libthr.log
-            libthr.syms
-            rebuild.log
+          nix build --no-link -L --impure --expr "import ./scripts/libthr-map.nix { flake = \"git+file://$PWD?dir=cinq\"; system = \"${{ matrix.system }}\"; }" 2>&1 \
+            | sed -n '/> Running phase: buildPhase/,/> Running phase: installPhase/p' | grep -a -v -E '> (---|x86_64-unknown-freebsd-(clang|ar|ranlib|objcopy)) ' | tail -120
