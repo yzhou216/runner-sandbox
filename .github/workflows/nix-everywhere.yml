@@ -54,6 +54,11 @@ jobs:
           else
             readlink -f result > out/path.txt
             nix-store -qR result | tar -cf out/closure.tar -T -
+            case "${{ matrix.host }}" in *-freebsd)
+              thr=$(nix-store -qR result | grep -m1 -E -- "-libthr-")
+              nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$thr/lib/libthr.so.3" > thr.syms
+              echo "libthr exports $(wc -l < thr.syms) symbols, pthread_create $(grep -c -w pthread_create thr.syms) times";;
+            esac
           fi
           ls -l out
       - uses: actions/upload-artifact@main

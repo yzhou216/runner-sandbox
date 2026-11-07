@@ -91,6 +91,44 @@
       # Rust's standard library for, cross-builds from the package of the
       # flake itself, whose name Nixpkgs marks with the system's target
       nixpkgsCross = cross: cross.callPackage ./cinq.nix { inherit crate sourceDateEpoch installBundle; };
+      # Nixpkgs of FreeBSD on the processor `cpu`.  FreeBSD's libraries
+      # write their symbol maps with clang's cpp, which Nixpkgs runs for
+      # the system that builds them rather than for FreeBSD, and which on
+      # another processor rejects FreeBSD's flags and writes nothing, so
+      # that libthr lost pthread_create.  There the cpp takes FreeBSD's
+      # target.
+      freebsd =
+        cpu:
+        let
+          config = "${cpu}-unknown-freebsd";
+        in
+        if pkgs.stdenv.hostPlatform.parsed.cpu.name == cpu then
+          pkgs.pkgsCross."${cpu}-freebsd"
+        else
+          import pkgs.path {
+            localSystem = pkgs.stdenv.hostPlatform;
+            crossSystem = { inherit config; };
+            crossOverlays = [
+              (final: prev: {
+                freebsd = prev.freebsd.overrideScope (
+                  _: freebsd: {
+                    mkDerivation = lib.makeOverridable (
+                      attrs:
+                      freebsd.mkDerivation (
+                        attrs
+                        // {
+                          env = {
+                            CPP = "${final.stdenv.cc.targetPrefix}cpp --target=${config}";
+                          }
+                          // attrs.env or { };
+                        }
+                      )
+                    );
+                  }
+                );
+              })
+            ];
+          };
       # cinq for other systems, each named after the system that it runs on,
       # while the system of the flake is the one that builds it
       builds = {
@@ -114,10 +152,10 @@
         x86_64-linux = nixpkgsCross pkgs.pkgsCross.gnu64;
         aarch64-linux = nixpkgsCross pkgs.pkgsCross.aarch64-multiplatform;
         riscv64-linux = nixpkgsCross pkgs.pkgsCross.riscv64;
-        x86_64-freebsd = nixpkgsCross pkgs.pkgsCross.x86_64-freebsd;
+        x86_64-freebsd = nixpkgsCross (freebsd "x86_64");
         # Rust's tier 3, which Nixpkgs leaves out of the platforms of what
         # Rust builds, though it builds Rust's compiler for it
-        aarch64-freebsd = (nixpkgsCross pkgs.pkgsCross.aarch64-freebsd).overrideAttrs (old: {
+        aarch64-freebsd = (nixpkgsCross (freebsd "aarch64")).overrideAttrs (old: {
           meta = old.meta // {
             platforms = [ "aarch64-freebsd" ];
           };
