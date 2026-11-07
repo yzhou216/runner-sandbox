@@ -3,19 +3,13 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Looks for the parts of cinq's video output that would gain from more
-# threads, with rayon or otherwise, and tests what came of it.  Runs
-# 42422493908 and 42423884592 timed the conversion of decoded pictures to
-# RGBA, passes through clips, the drawing of each new picture with
-# tiny-skia, and kernels of the conversion that vectorize.  This run tests
-# the snapshot in cinq/, cinq's master at ec61ead with its pictures
-# converted in words of two pixels: bench/ times its conversion and passes
-# through clips at realistic bitrates, and each runner runs its tests and
-# clippy and plays each clip in real time through the video output of
-# master, of the snapshot, and of the snapshot with rust_h264's threaded
-# decoder, by realtime/run.sh.  Run 42425289237 timed the conversion and
-# passes on a RISE RISC-V runner as well, and the passes elsewhere; this
-# run times only the conversion of the snapshot, whose rows are now whole
-# pairs, as H.264 crops them.
+# threads, with rayon or otherwise, and tests what came of it.  Earlier runs
+# of this branch timed them with bench/ (see README.md).  This run tests the
+# snapshot in cinq/, cinq's master at ec61ead with its pictures converted
+# in words of two pixels: each runner runs its tests beside those of
+# ec61ead, two of which fail on Windows, runs clippy, and plays each clip in
+# real time through the video output of ec61ead, of the snapshot, and of
+# the snapshot with rust_h264's threaded decoder, by realtime/run.sh.
 on: push
 permissions:
   contents: read
@@ -33,44 +27,6 @@ jobs:
         with:
           name: clips
           path: clips
-  bench:
-    needs: clips
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v7
-        with:
-          name: clips
-          path: clips
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release --manifest-path bench/Cargo.toml
-      - name: Benchmark
-        run: |
-          bench=bench/target/release/cinq-bench
-          {
-            echo "# ${{ matrix.os }}"
-            echo
-            # shellcheck disable=SC2016 # PowerShell expands $env itself
-            case $RUNNER_OS in
-              Linux) lscpu | grep -E '^(Model name|CPU\(s\)):' ;;
-              macOS) sysctl -n machdep.cpu.brand_string hw.ncpu ;;
-              Windows) powershell -NoProfile -Command '(Get-CimInstance Win32_Processor).Name; $env:NUMBER_OF_PROCESSORS' ;;
-            esac
-            echo
-            "$bench" kernels
-          } | tee "bench-${{ matrix.os }}.md"
-          cat "bench-${{ matrix.os }}.md" >> "$GITHUB_STEP_SUMMARY"
-      - if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: bench-${{ matrix.os }}
-          path: bench-*.md
-          if-no-files-found: ignore
   cinq:
     needs: clips
     strategy:
@@ -78,9 +34,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target-shared # Dependencies built once for every tree
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
@@ -93,17 +50,32 @@ jobs:
           components: clippy
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
-      - name: Test the snapshot
-        working-directory: cinq
+      - name: Test the snapshot, and cinq at ec61ead
         run: |
-          cargo test --release --locked 2>&1 | tee ../test.log
-          grep -E '^test result' ../test.log
+          git clone -q https://github.com/yzhou216/cinq base
+          git -C base checkout -q ec61eadfa4d75a258054d1967e2242f3abdd8fad
+          for tree in cinq base; do
+            (cd "$tree" && cargo test --release --locked 2>&1) > "test-$tree.log" || true
+            echo "$tree: $(grep -E '^test result' "test-$tree.log" | tr -d '\r' | tr '\n' ' ')"
+          done
+          failed() { grep -E '^test .* FAILED' "$1" | tr -d '\r' | sort; }
+          echo "failing at ec61ead:"
+          failed test-base.log
+          new=$(comm -23 <(failed test-cinq.log) <(failed test-base.log))
+          if [ -n "$new" ]; then
+            echo "failing with the snapshot alone:"
+            echo "$new"
+            exit 1
+          fi
+          grep -q '^test result' test-cinq.log
       - name: Clippy on the snapshot
+        if: '!cancelled()'
         working-directory: cinq
         run: |
           cargo clippy --release --locked --all-targets 2>&1 | tee ../clippy.log
           grep -A8 'video/decoder/color' ../clippy.log || echo "no warnings in color.rs"
       - name: Play the clips in real time
+        if: '!cancelled()'
         run: |
           {
             echo "# ${{ matrix.os }}"
@@ -115,7 +87,7 @@ jobs:
         with:
           name: cinq-${{ matrix.os }}
           path: |
-            test.log
+            test-*.log
             clippy.log
             realtime-*.txt
           if-no-files-found: ignore

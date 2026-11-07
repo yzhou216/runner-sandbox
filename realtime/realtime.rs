@@ -61,7 +61,8 @@ fn plays_in_real_time() {
         })
         .collect();
     println!(
-        "REALTIME {name}: {} pictures in {duration:.2} s, each second {each:?}",
-        shown.len()
+        "REALTIME {name}: {} pictures in {duration:.2} s, each second {each:?}, built in {}",
+        shown.len(),
+        env!("CARGO_MANIFEST_DIR"),
     );
 }

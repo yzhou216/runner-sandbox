@@ -136,7 +136,9 @@ fn decoded(
     // next of the times at which the samples of the pass show, which holds
     // only while every sample decodes to one picture
     let threads = thread::available_parallelism().map_or(1, std::num::NonZero::get);
-    let mut decoder = rust_h264::threading::ThreadedDecoder::new(threads);
+    // Reordering four pictures deep, enough for the B-frames of x264, rather
+    // than its default of sixteen, which holds back the first pictures
+    let mut decoder = rust_h264::threading::ThreadedDecoder::with_max_depth(threads, 4);
     track.parameter_sets().iter().for_each(|unit| {
         let _ = decoder.decode_nal(unit);
     });
