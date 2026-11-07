@@ -1,0 +1,195 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Tests of making the sounds of audio cues ready ahead, which need no
+//! audio device
+
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    thread,
+    time::Duration,
+};
+
+use tempfile::TempDir;
+
+use super::{
+    preload::{Ask, Preloaded, Preloader, Wanted},
+    upcoming,
+};
+use crate::back::{Advance, Clip, Command, Cue, CueId, CueList, Kind, Media, Workspace};
+
+/// Returns an audio cue that plays `sound.wav`
+fn audio(id: u32) -> Cue {
+    Cue::new(CueId(id), id.to_string(), Kind::Audio, "Sound")
+        .file("sound.wav")
+        .build()
+}
+
+/// Returns a workspace in `/show` with one list of `cues`, every file of
+/// which has loaded as ten seconds of sound
+fn loaded(cues: Vec<Cue>) -> Workspace {
+    let workspace = Workspace::new(vec![CueList::new("Main", cues)]).directory("/show");
+    let loads: Vec<Command> = workspace
+        .unloaded()
+        .map(|cue| Command::Loaded {
+            cue: cue.id,
+            file: cue.file.clone(),
+            media: Media::Loaded {
+                duration: 10.0,
+                sound: Some(10.0),
+            },
+        })
+        .collect();
+    loads.into_iter().fold(workspace, Workspace::apply)
+}
+
+/// Returns the cues of the sounds that runs may start next, in order
+fn upcoming_cues(workspace: &Workspace) -> Vec<u32> {
+    upcoming(workspace)
+        .into_iter()
+        .map(|ask| ask.cue.0)
+        .collect()
+}
+
+/// Returns the ask for the sound of cue 1 that `wanted` describes, at no
+/// change of level
+fn ask(wanted: &Wanted) -> Ask {
+    Ask {
+        cue: CueId(1),
+        wanted: wanted.clone(),
+        level: 0.0,
+    }
+}
+
+/// Returns a tenth of a second of silence as a WAV file: mono, in 16 bits,
+/// at 8000 frames a second
+fn silence() -> Vec<u8> {
+    let data: u32 = 1600;
+    [
+        b"RIFF".as_slice(),
+        &(36 + data).to_le_bytes(),
+        b"WAVE",
+        b"fmt ",
+        &16_u32.to_le_bytes(),
+        &1_u16.to_le_bytes(),
+        &1_u16.to_le_bytes(),
+        &8000_u32.to_le_bytes(),
+        &16000_u32.to_le_bytes(),
+        &2_u16.to_le_bytes(),
+        &16_u16.to_le_bytes(),
+        b"data",
+        &data.to_le_bytes(),
+        &vec![0; 1600],
+    ]
+    .concat()
+}
+
+/// Returns the whole of a tenth of a second of sound in `path` as wanted
+fn whole(path: &Path) -> Wanted {
+    Wanted {
+        path: path.to_owned(),
+        clip: Clip {
+            start: 0.0,
+            end: 0.1,
+            looping: false,
+        },
+    }
+}
+
+/// Returns a temporary directory that holds a tenth of a second of silence,
+/// with the whole of that sound as wanted
+fn silent_file() -> (TempDir, Wanted) {
+    let directory = TempDir::new().expect("a temporary directory can be made");
+    let file = directory.path().join("silence.wav");
+    fs::write(&file, silence()).expect("the file can be written");
+    (directory, whole(&file))
+}
+
+/// Returns what `preloader` made for `cue`, once its thread has made it,
+/// waiting five seconds at most
+fn made(
+    preloader: &mut Preloader,
+    cue: CueId,
+    wanted: &Wanted,
+) -> Option<Result<Preloaded, String>> {
+    (0..500).find_map(|_| {
+        preloader.collect();
+        let made = preloader.take(cue, wanted);
+        if made.is_none() {
+            thread::sleep(Duration::from_millis(10));
+        }
+        made
+    })
+}
+
+#[test]
+fn sounds_made_ready_are_those_of_the_next_go_and_of_runs_yet_to_sound() {
+    let continuing = Cue {
+        advance: Advance::Continue,
+        post_wait: 2.0.into(),
+        ..audio(1)
+    };
+    let workspace = loaded(vec![continuing, audio(2), audio(3)]);
+    assert_eq!(upcoming_cues(&workspace), [1, 2]);
+    let fired = workspace.apply(Command::Go { list: 0 });
+    assert_eq!(upcoming_cues(&fired), [2, 3]);
+    let wanted = upcoming(&fired).remove(0).wanted;
+    assert_eq!(wanted.path, PathBuf::from("/show/sound.wav"));
+}
+
+#[test]
+fn sound_of_a_video_cue_is_made_ready_unless_its_file_holds_none() {
+    let video = |id: u32| {
+        Cue::new(CueId(id), id.to_string(), Kind::Video, "Movie")
+            .file("movie.mp4")
+            .advance(Advance::Continue)
+            .build()
+    };
+    let workspace = loaded(vec![video(1), video(2)]);
+    assert_eq!(upcoming_cues(&workspace), [1, 2]);
+    let silent = Command::Loaded {
+        cue: CueId(2),
+        file: "movie.mp4".to_owned(),
+        media: Media::Loaded {
+            duration: 10.0,
+            sound: None,
+        },
+    };
+    assert_eq!(upcoming_cues(&workspace.apply(silent)), [1]);
+}
+
+#[test]
+fn sound_wanted_is_made_ready_on_a_thread_of_its_own() {
+    let (_directory, wanted) = silent_file();
+    let mut preloader = Preloader::new();
+    preloader.want(vec![ask(&wanted)]);
+    let made = made(&mut preloader, CueId(1), &wanted);
+    assert!(matches!(made, Some(Ok(_))));
+}
+
+#[test]
+fn sound_that_cannot_be_made_ready_tells_why() {
+    let wanted = whole(Path::new("/nowhere/gone.wav"));
+    let mut preloader = Preloader::new();
+    preloader.want(vec![ask(&wanted)]);
+    let made = made(&mut preloader, CueId(1), &wanted);
+    assert!(matches!(&made, Some(Err(reason)) if reason == "file not found"));
+}
+
+#[test]
+fn sound_no_longer_wanted_is_let_go() {
+    let (_directory, wanted) = silent_file();
+    let mut preloader = Preloader::new();
+    preloader.want(vec![ask(&wanted)]);
+    let other = Ask {
+        cue: CueId(2),
+        ..ask(&wanted)
+    };
+    preloader.want(vec![other]);
+    // Thread makes what it is asked for in order, so the first sound has
+    // come back once the second has
+    assert!(made(&mut preloader, CueId(2), &wanted).is_some());
+    assert!(preloader.take(CueId(1), &wanted).is_none());
+}

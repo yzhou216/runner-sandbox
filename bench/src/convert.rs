@@ -145,3 +145,33 @@ pub fn kernels() {
     });
     println!();
 }
+
+/// Prints how long cinq's own conversion of a high-definition picture
+/// takes, strips on threads included, at ec61ead and in the snapshot in the
+/// sandbox, and whether the two give the same bytes
+pub fn snapshot() {
+    println!("## cinq's conversion of high definition, at ec61ead and in the snapshot");
+    println!();
+    println!("| size | ec61ead ms | ec61ead CPU ms | snapshot ms | snapshot CPU ms | same bytes |");
+    println!("| --- | --- | --- | --- | --- | --- |");
+    SIZES.iter().skip(1).for_each(|&(width, height)| {
+        let picture = noise(width, height);
+        let before = Stats::measure(Duration::from_millis(800), 400, || {
+            std::hint::black_box(converted_with(&picture, Way::Scoped, Kernel::Now));
+        });
+        let after = Stats::measure(Duration::from_millis(800), 400, || {
+            std::hint::black_box(crate::snapshot::rgba(&picture));
+        });
+        let same =
+            crate::snapshot::rgba(&picture).pixels == converted_with(&picture, Way::Scoped, Kernel::Now);
+        println!(
+            "| {width}x{height} | {:.2} | {:.2} | {:.2} | {:.2} | {} |",
+            before.median(),
+            before.cpu,
+            after.median(),
+            after.cpu,
+            if same { "yes" } else { "NO" },
+        );
+    });
+    println!();
+}

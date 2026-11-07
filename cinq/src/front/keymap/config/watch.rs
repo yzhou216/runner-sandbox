@@ -1,0 +1,171 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Watching the configuration file, so that the keys follow it while the
+//! program runs
+//!
+//! Editors often save a file by writing another and renaming it over the
+//! first, which ends any watch on the file itself, so the watcher watches
+//! the directory that holds the file instead.  While that directory is
+//! missing, it watches the nearest one above that exists, so that making
+//! the directories and then the file comes through as well.  Each burst of
+//! changes reads the file once, after it settles, and each reading writes
+//! out the problems with the file, which go to standard error in the
+//! program, as [`errors`] tells.
+//!
+//! The watch waits for changes on iced's executor, whose workers keep the
+//! clock ticking, and leaves reading and writing to threads: each reading
+//! of the file runs on a thread of its own, and a thread of the watch's own
+//! writes out the problems, since a write to standard error can wait
+//! without end, as it does while a terminal is paused with Control+s.
+
+mod errors;
+#[cfg(test)]
+mod tests;
+
+use std::{
+    iter,
+    path::{Path, PathBuf},
+    thread,
+    time::Duration,
+};
+
+use iced::{
+    futures::{
+        SinkExt, Stream, StreamExt,
+        channel::{mpsc, oneshot},
+        future,
+    },
+    stream,
+};
+use notify_debouncer_full::{
+    DebounceEventResult, Debouncer, RecommendedCache, new_debouncer,
+    notify::{self, RecommendedWatcher, RecursiveMode},
+};
+
+use super::{Config, Problem, load};
+use errors::warner;
+pub use errors::{Errors, guard, restore};
+
+/// Time that changes must settle for before the file is read again, which
+/// lets an editor finish saving
+const SETTLE: Duration = Duration::from_millis(200);
+
+type Watcher = Debouncer<RecommendedWatcher, RecommendedCache>;
+
+/// Returns the configuration that `file` holds once the watch is in place,
+/// so that no change made before goes unseen, and again after each change
+/// to the file, and hands each to the thread that writes out its problems
+/// to `errors`.  When the file cannot be watched, the configuration comes
+/// once more, with a problem that tells why the changes do not apply.
+pub fn watch(file: PathBuf, errors: Errors) -> impl Stream<Item = Config> {
+    let warnings = warner(errors);
+    stream::channel(1, async move |mut output| {
+        if let Err(error) = follow(&file, &mut output).await
+            && let Some(config) = loaded(&file).await
+        {
+            let problem = format!("is not watched, so changes apply after a restart: {error}");
+            let problems = [config.problems, vec![Problem::new(problem)]].concat();
+            let _ = output.send(Config { problems, ..config }).await;
+        }
+    })
+    .inspect(move |config| {
+        // Thread lives as long as the way to it, so that sending cannot fail
+        let _ = warnings.send(config.clone());
+    })
+}
+
+/// Returns the configuration that `file` holds, read on a thread of its
+/// own, or nothing when the thread ends without an answer
+async fn loaded(file: &Path) -> Option<Config> {
+    let (sender, receiver) = oneshot::channel();
+    let file = file.to_owned();
+    thread::spawn(move || {
+        // Receiver has gone only when the watch has
+        let _ = sender.send(load(Some(&file)));
+    });
+    receiver.await.ok()
+}
+
+/// Sends the configuration that `file` holds to `output` once the watch is
+/// in place and again after each change to the file, or returns why the
+/// file cannot be watched
+async fn follow(file: &Path, output: &mut mpsc::Sender<Config>) -> notify::Result<()> {
+    let (sender, mut events) = mpsc::unbounded();
+    let mut watcher = new_debouncer(SETTLE, None, move |result| {
+        // Channel closes only once the stream has gone
+        let _ = sender.unbounded_send(result);
+    })?;
+    let mut watched = None;
+    loop {
+        watched = rewatch(&mut watcher, watched.as_deref(), file)?;
+        let names = names(file, watched.as_deref());
+        if let Some(config) = loaded(file).await {
+            let _ = output.send(config).await;
+        }
+        let touched = (&mut events)
+            .any(|result| future::ready(touches(&result, &names)))
+            .await;
+        if !touched {
+            return Ok(());
+        }
+    }
+}
+
+/// Returns the paths that changes to `file` can come by: its own, and the
+/// one past every symbolic link of `watched`, the directory on the way to it
+/// that is watched, which is how FSEvents on Darwin reports them
+fn names(file: &Path, watched: Option<&Path>) -> Vec<PathBuf> {
+    let real = watched.and_then(|directory| {
+        let rest = file.strip_prefix(directory).ok()?;
+        directory.canonicalize().ok().map(|real| real.join(rest))
+    });
+    iter::once(file.to_owned()).chain(real).collect()
+}
+
+/// Returns whether a burst of changes touches the file that goes by
+/// `names`, or a directory on the way to it.  Opening a file, which reading
+/// it does, changes nothing.  A watch that failed may have missed a change,
+/// so it counts as touching the file.
+fn touches(result: &DebounceEventResult, names: &[PathBuf]) -> bool {
+    match result {
+        Ok(events) => events
+            .iter()
+            .filter(|event| !event.kind.is_access())
+            .flat_map(|event| &event.paths)
+            .any(|path| names.iter().any(|name| name.starts_with(path))),
+        Err(_) => true,
+    }
+}
+
+/// Watches the [`directory`] of `file` in place of the directory `watched`,
+/// and returns the directory now watched, or why it cannot be watched.  The
+/// watch goes in anew even when the directory is the same, since a
+/// directory that was deleted and made again takes its old watch with it.
+fn rewatch(
+    watcher: &mut Watcher,
+    watched: Option<&Path>,
+    file: &Path,
+) -> notify::Result<Option<PathBuf>> {
+    // Directory that has gone took its watch with it, so a failure is moot
+    if let Some(watched) = watched {
+        let _ = watcher.unwatch(watched);
+    }
+    directory(file)
+        .map(|directory| {
+            watcher
+                .watch(&directory, RecursiveMode::NonRecursive)
+                .map(|()| directory)
+        })
+        .transpose()
+}
+
+/// Returns the directory to watch for `file`: the nearest one on the way to
+/// it that exists, which is the one that holds it once that is there
+fn directory(file: &Path) -> Option<PathBuf> {
+    file.ancestors()
+        .skip(1)
+        .find(|directory| directory.is_dir())
+        .map(Path::to_owned)
+}

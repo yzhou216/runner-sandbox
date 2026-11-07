@@ -13,7 +13,8 @@
 //! - `threaded`: as `pipelined`, with rust_h264's `ThreadedDecoder`, which
 //!   decodes several pictures at once, on one thread for each core
 //!
-//! Each with cinq's kernel of the conversion and with `lanes`.
+//! Each with cinq's kernel of the conversion at ec61ead, `now`, or with
+//! `pairs`, which the snapshot in the sandbox takes.
 
 use std::{
     fs::File,
@@ -51,13 +52,12 @@ enum Arrangement {
 struct Variant(Arrangement, Kernel);
 
 impl Variant {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 5] = [
         Self(Arrangement::Now, Kernel::Now),
-        Self(Arrangement::Pipelined, Kernel::Now),
+        Self(Arrangement::Now, Kernel::Pairs),
+        Self(Arrangement::Pipelined, Kernel::Pairs),
         Self(Arrangement::Threaded, Kernel::Now),
-        Self(Arrangement::Now, Kernel::Lanes),
-        Self(Arrangement::Pipelined, Kernel::Lanes),
-        Self(Arrangement::Threaded, Kernel::Lanes),
+        Self(Arrangement::Threaded, Kernel::Pairs),
     ];
 
     fn name(self) -> String {

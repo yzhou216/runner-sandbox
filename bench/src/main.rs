@@ -9,6 +9,10 @@
 
 mod color;
 mod convert;
+// Conversion of the snapshot of cinq in the sandbox, as cinq builds it
+#[path = "../../cinq/src/back/video/decoder/color.rs"]
+#[allow(dead_code)]
+mod snapshot;
 mod draw;
 mod pass;
 mod stats;
@@ -21,7 +25,10 @@ fn main() {
     match arguments.split_first() {
         Some((command, _)) if command == "convert" => convert::run(),
         Some((command, _)) if command == "draw" => draw::run(),
-        Some((command, _)) if command == "kernels" => convert::kernels(),
+        Some((command, _)) if command == "kernels" => {
+            convert::kernels();
+            convert::snapshot();
+        }
         Some((command, clips)) if command == "pass" => pass::run(clips),
         _ => {
             eprintln!("usage: cinq-bench convert | kernels | draw | pass CLIP...");

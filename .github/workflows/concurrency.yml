@@ -3,13 +3,16 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Looks for the parts of cinq's video output that would gain from more
-# threads, with rayon or otherwise: bench/ times the conversion of decoded
-# pictures to RGBA, passes through clips of x264 that bench/clips.sh makes,
-# and the drawing of each new picture with tiny-skia, each as cinq does it
-# at ec61ead and as it could, on every kind of runner.  Run 42422493908
-# timed the conversion, the drawing, and passes through clips far past the
-# bitrates of real video; this run times kernels of the conversion that
-# vectorize on x86-64, and passes through clips at realistic bitrates.
+# threads, with rayon or otherwise, and tests what came of it.  Runs
+# 42422493908 and 42423884592 timed the conversion of decoded pictures to
+# RGBA, passes through clips, the drawing of each new picture with
+# tiny-skia, and kernels of the conversion that vectorize.  This run tests
+# the snapshot in cinq/, cinq's master at ec61ead with its pictures
+# converted in words of two pixels: bench/ times its conversion and passes
+# through clips at realistic bitrates, and each runner runs its tests and
+# clippy and plays each clip in real time through the video output of
+# master, of the snapshot, and of the snapshot with rust_h264's threaded
+# decoder, by realtime/run.sh.
 on: push
 permissions:
   contents: read
@@ -56,30 +59,63 @@ jobs:
               Windows) powershell -NoProfile -Command '(Get-CimInstance Win32_Processor).Name; $env:NUMBER_OF_PROCESSORS' ;;
             esac
             echo
-            if [ "$RUNNER_OS" = macOS ]; then
-              "$bench" convert
-            fi
             "$bench" kernels
             BENCH_REPEAT=2 "$bench" pass clips/*.mp4
           } | tee "bench-${{ matrix.os }}.md"
           cat "bench-${{ matrix.os }}.md" >> "$GITHUB_STEP_SUMMARY"
-      - name: Time the kernels built for x86-64-v3, with AVX2
-        if: runner.arch == 'X64'
-        env:
-          RUSTFLAGS: -C target-cpu=x86-64-v3
-          CARGO_TARGET_DIR: bench/target-v3
-        run: |
-          cargo build --release --manifest-path bench/Cargo.toml
-          {
-            echo "# ${{ matrix.os }}, x86-64-v3"
-            echo
-            bench/target-v3/release/cinq-bench kernels
-          } | tee "bench-${{ matrix.os }}-v3.md"
       - if: always()
         uses: actions/upload-artifact@v7
         with:
           name: bench-${{ matrix.os }}
           path: bench-*.md
+          if-no-files-found: ignore
+  cinq:
+    needs: clips
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
+      - name: Test the snapshot
+        working-directory: cinq
+        run: |
+          cargo test --release --locked 2>&1 | tee ../test.log
+          grep -E '^test result' ../test.log
+      - name: Clippy on the snapshot
+        working-directory: cinq
+        run: |
+          cargo clippy --release --locked --all-targets 2>&1 | tee ../clippy.log
+          grep -A8 'video/decoder/color' ../clippy.log || echo "no warnings in color.rs"
+      - name: Play the clips in real time
+        run: |
+          {
+            echo "# ${{ matrix.os }}"
+            echo
+            bash realtime/run.sh clips
+          } 2>&1 | tee "realtime-${{ matrix.os }}.txt"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cinq-${{ matrix.os }}
+          path: |
+            test.log
+            clippy.log
+            realtime-*.txt
           if-no-files-found: ignore
   riscv64:
     needs: clips
