@@ -13,7 +13,9 @@
 # clippy and plays each clip in real time through the video output of
 # master, of the snapshot, and of the snapshot with rust_h264's threaded
 # decoder, by realtime/run.sh.  Run 42425289237 timed the conversion and
-# passes on a RISE RISC-V runner as well.
+# passes on a RISE RISC-V runner as well, and the passes elsewhere; this
+# run times only the conversion of the snapshot, whose rows are now whole
+# pairs, as H.264 crops them.
 on: push
 permissions:
   contents: read
@@ -61,7 +63,6 @@ jobs:
             esac
             echo
             "$bench" kernels
-            BENCH_REPEAT=2 "$bench" pass clips/*.mp4
           } | tee "bench-${{ matrix.os }}.md"
           cat "bench-${{ matrix.os }}.md" >> "$GITHUB_STEP_SUMMARY"
       - if: always()

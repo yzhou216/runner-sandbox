@@ -131,24 +131,18 @@ fn converted_rows(picture: &Frame, matrix: Matrix, first: usize, pixels: &mut [u
             let lumas = &picture.y[row * width..][..width];
             let blues = &picture.u[row / 2 * chroma_width..];
             let reds = &picture.v[row / 2 * chroma_width..];
-            let (pairs, odd) = line.as_chunks_mut::<8>();
-            let (luma_pairs, odd_luma) = lumas.as_chunks::<2>();
-            pairs
+            // H.264 crops a picture whose colors four pixels share to an
+            // even width, so that each row is made of whole pairs
+            line.as_chunks_mut::<8>()
+                .0
                 .iter_mut()
-                .zip(luma_pairs)
+                .zip(lumas.as_chunks::<2>().0)
                 .zip(blues.iter().zip(reds))
                 .for_each(|((pair, &[left, right]), (&blue, &red))| {
                     let chroma = Chroma::new(matrix, blue, red);
                     let words = u64::from(chroma.rgba(left)) | u64::from(chroma.rgba(right)) << 32;
                     *pair = words.to_le_bytes();
                 });
-            // Last pixel of a row of odd width, which has its differences
-            // to itself
-            if let [luma] = odd_luma {
-                let shared = luma_pairs.len();
-                let chroma = Chroma::new(matrix, blues[shared], reds[shared]);
-                odd.copy_from_slice(&chroma.rgba(*luma).to_le_bytes());
-            }
         });
 }
 
