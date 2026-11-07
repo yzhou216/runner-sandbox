@@ -58,6 +58,8 @@ function Mark($step) {
 }
 
 function Shoot($name) {
+  Close-Prompt
+  Start-Sleep -Milliseconds 200
   $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $shot = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
   $graphics = [System.Drawing.Graphics]::FromImage($shot)
