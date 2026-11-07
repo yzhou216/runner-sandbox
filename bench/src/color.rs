@@ -150,3 +150,160 @@ impl Chroma {
         ]
     }
 }
+
+/// Kernels that convert the rows of a picture, which all give the same
+/// bytes
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Kernel {
+    /// cinq's at ec61ead, a pixel at a time, as `converted_rows` does
+    Now,
+    /// Two pixels at a time, each packed into a word, and the pair stored
+    /// at once
+    Pairs,
+    /// Sixteen pixels at a time in arrays, which LLVM vectorizes whole
+    Lanes,
+}
+
+impl Kernel {
+    pub const ALL: [Self; 3] = [Self::Now, Self::Pairs, Self::Lanes];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Now => "now",
+            Self::Pairs => "pairs",
+            Self::Lanes => "lanes",
+        }
+    }
+
+    fn rows(self, picture: &Frame, first: usize, pixels: &mut [u8]) {
+        match self {
+            Self::Now => converted_rows(picture, BT709, first, pixels),
+            Self::Pairs => pairs_rows(picture, BT709, first, pixels),
+            Self::Lanes => lanes_rows(picture, BT709, first, pixels),
+        }
+    }
+}
+
+/// Returns the pixels of `picture` in RGBA, converted with `kernel` the
+/// way `way` tells
+pub fn converted_with(picture: &Frame, way: Way, kernel: Kernel) -> Vec<u8> {
+    let (width, height) = (picture.width as usize, picture.height as usize);
+    let mut pixels = vec![0; width * height * 4];
+    let rows = height.div_ceil(*STRIPS).max(1);
+    match way {
+        Way::Serial => kernel.rows(picture, 0, &mut pixels),
+        Way::Scoped => thread::scope(|scope| {
+            pixels
+                .chunks_mut(rows * width * 4)
+                .enumerate()
+                .for_each(|(strip, pixels)| {
+                    scope.spawn(move || kernel.rows(picture, strip * rows, pixels));
+                });
+        }),
+        Way::RayonStrips => pixels
+            .par_chunks_mut(rows * width * 4)
+            .enumerate()
+            .for_each(|(strip, pixels)| kernel.rows(picture, strip * rows, pixels)),
+        Way::RayonRows => pixels
+            .par_chunks_mut(BAND * width * 4)
+            .enumerate()
+            .for_each(|(band, pixels)| kernel.rows(picture, band * BAND, pixels)),
+    }
+    pixels
+}
+
+impl Chroma {
+    /// Returns the RGBA of a pixel of luma `luma` with these differences,
+    /// packed into a word with red in its lowest byte
+    #[inline(always)]
+    fn word(self, luma: u8) -> u32 {
+        let luma = 298 * (i32::from(luma) - 16) + 128;
+        let channel = |value: i32| (value >> 8).clamp(0, 255) as u32;
+        channel(luma + self.red)
+            | channel(luma + self.green) << 8
+            | channel(luma + self.blue) << 16
+            | 0xff00_0000
+    }
+}
+
+fn pairs_rows(picture: &Frame, matrix: Matrix, first: usize, pixels: &mut [u8]) {
+    let width = picture.width as usize;
+    let chroma_width = picture.chroma_width() as usize;
+    pixels
+        .chunks_exact_mut(width * 4)
+        .zip(first..)
+        .for_each(|(line, row)| {
+            let lumas = &picture.y[row * width..][..width];
+            let blues = &picture.u[row / 2 * chroma_width..][..width.div_ceil(2)];
+            let reds = &picture.v[row / 2 * chroma_width..][..width.div_ceil(2)];
+            let (pairs, last) = line.as_chunks_mut::<8>();
+            let (luma_pairs, last_luma) = lumas.as_chunks::<2>();
+            pairs
+                .iter_mut()
+                .zip(luma_pairs)
+                .zip(blues.iter().zip(reds))
+                .for_each(|((pair, &[left, right]), (&blue, &red))| {
+                    let chroma = Chroma::new(matrix, blue, red);
+                    let words = u64::from(chroma.word(left)) | u64::from(chroma.word(right)) << 32;
+                    *pair = words.to_le_bytes();
+                });
+            if let (Some(&luma), Some(&blue), Some(&red)) =
+                (last_luma.first(), blues.last(), reds.last())
+            {
+                last.copy_from_slice(&Chroma::new(matrix, blue, red).word(luma).to_le_bytes());
+            }
+        });
+}
+
+/// Pixels that [`Kernel::Lanes`] converts at once
+const LANES: usize = 16;
+
+fn lanes_rows(picture: &Frame, matrix: Matrix, first: usize, pixels: &mut [u8]) {
+    let width = picture.width as usize;
+    let chroma_width = picture.chroma_width() as usize;
+    pixels
+        .chunks_exact_mut(width * 4)
+        .zip(first..)
+        .for_each(|(line, row)| {
+            let lumas = &picture.y[row * width..][..width];
+            let blues = &picture.u[row / 2 * chroma_width..][..width.div_ceil(2)];
+            let reds = &picture.v[row / 2 * chroma_width..][..width.div_ceil(2)];
+            let (blocks, rest) = line.as_chunks_mut::<{ LANES * 4 }>();
+            let (luma_blocks, _) = lumas.as_chunks::<LANES>();
+            let (blue_blocks, _) = blues.as_chunks::<{ LANES / 2 }>();
+            let (red_blocks, _) = reds.as_chunks::<{ LANES / 2 }>();
+            blocks
+                .iter_mut()
+                .zip(luma_blocks)
+                .zip(blue_blocks.iter().zip(red_blocks))
+                .for_each(|((out, lumas), (blues, reds))| {
+                    let lumas: [i32; LANES] = std::array::from_fn(|i| i32::from(lumas[i]));
+                    let blues: [i32; LANES] = std::array::from_fn(|i| i32::from(blues[i / 2]) - 128);
+                    let reds: [i32; LANES] = std::array::from_fn(|i| i32::from(reds[i / 2]) - 128);
+                    let words: [u32; LANES] = std::array::from_fn(|i| {
+                        let luma = 298 * (lumas[i] - 16) + 128;
+                        let channel = |value: i32| (value >> 8).clamp(0, 255) as u32;
+                        channel(luma + matrix.red_of_red * reds[i])
+                            | channel(
+                                luma + matrix.green_of_blue * blues[i] + matrix.green_of_red * reds[i],
+                            ) << 8
+                            | channel(luma + matrix.blue_of_blue * blues[i]) << 16
+                            | 0xff00_0000
+                    });
+                    out.as_chunks_mut::<4>()
+                        .0
+                        .iter_mut()
+                        .zip(words)
+                        .for_each(|(pixel, word)| *pixel = word.to_le_bytes());
+                });
+            let done = blocks.len() * LANES;
+            rest.as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(done..)
+                .for_each(|(pixel, column)| {
+                    let chroma = Chroma::new(matrix, blues[column / 2], reds[column / 2]);
+                    *pixel = chroma.word(lumas[column]).to_le_bytes();
+                });
+        });
+}

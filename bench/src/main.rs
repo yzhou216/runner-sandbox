@@ -21,9 +21,10 @@ fn main() {
     match arguments.split_first() {
         Some((command, _)) if command == "convert" => convert::run(),
         Some((command, _)) if command == "draw" => draw::run(),
+        Some((command, _)) if command == "kernels" => convert::kernels(),
         Some((command, clips)) if command == "pass" => pass::run(clips),
         _ => {
-            eprintln!("usage: cinq-bench convert | draw | pass CLIP...");
+            eprintln!("usage: cinq-bench convert | kernels | draw | pass CLIP...");
             std::process::exit(2);
         }
     }

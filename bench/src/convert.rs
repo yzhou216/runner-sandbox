@@ -12,7 +12,7 @@ use rust_h264::decoder::{ChromaFormat, Frame};
 
 use crate::{
     SIZES,
-    color::{STRIPS, Way, convert_into, converted},
+    color::{Kernel, STRIPS, Way, convert_into, converted, converted_with},
     stats::Stats,
 };
 
@@ -104,4 +104,44 @@ fn paced(picture: &Frame, way: Way) -> Stats {
         })
         .collect();
     Stats::new(times, cpu.elapsed())
+}
+
+/// Prints how long each kernel takes, alone and on rayon's pool, and
+/// whether it gives the bytes that cinq's does, at even sizes and odd ones
+pub fn kernels() {
+    println!("## Kernels of the conversion, {} strips", *STRIPS);
+    println!();
+    let odd = noise(641, 361);
+    let reference = converted_with(&odd, Way::Serial, Kernel::Now);
+    Kernel::ALL.iter().for_each(|&kernel| {
+        let same = [Way::Serial, Way::RayonStrips]
+            .iter()
+            .all(|&way| converted_with(&odd, way, kernel) == reference);
+        println!("- {} at 641x361: {}", kernel.name(), if same { "same bytes" } else { "DIFFERENT BYTES" });
+    });
+    println!();
+    println!("| size | kernel | same bytes | serial ms | rayon-strips ms | rayon-strips CPU ms |");
+    println!("| --- | --- | --- | --- | --- | --- |");
+    SIZES.iter().for_each(|&(width, height)| {
+        let picture = noise(width, height);
+        let reference = converted_with(&picture, Way::Serial, Kernel::Now);
+        Kernel::ALL.iter().for_each(|&kernel| {
+            let same = converted_with(&picture, Way::RayonStrips, kernel) == reference;
+            let serial = Stats::measure(Duration::from_millis(800), 400, || {
+                std::hint::black_box(converted_with(&picture, Way::Serial, kernel));
+            });
+            let pooled = Stats::measure(Duration::from_millis(800), 400, || {
+                std::hint::black_box(converted_with(&picture, Way::RayonStrips, kernel));
+            });
+            println!(
+                "| {width}x{height} | {} | {} | {:.2} | {:.2} | {:.2} |",
+                kernel.name(),
+                if same { "yes" } else { "NO" },
+                serial.median(),
+                pooled.median(),
+                pooled.cpu,
+            );
+        });
+    });
+    println!();
 }

@@ -6,7 +6,10 @@
 # threads, with rayon or otherwise: bench/ times the conversion of decoded
 # pictures to RGBA, passes through clips of x264 that bench/clips.sh makes,
 # and the drawing of each new picture with tiny-skia, each as cinq does it
-# at ec61ead and as it could, on every kind of runner.
+# at ec61ead and as it could, on every kind of runner.  Run 42422493908
+# timed the conversion, the drawing, and passes through clips far past the
+# bitrates of real video; this run times kernels of the conversion that
+# vectorize on x86-64, and passes through clips at realistic bitrates.
 on: push
 permissions:
   contents: read
@@ -53,11 +56,25 @@ jobs:
               Windows) powershell -NoProfile -Command '(Get-CimInstance Win32_Processor).Name; $env:NUMBER_OF_PROCESSORS' ;;
             esac
             echo
-            "$bench" convert
-            "$bench" draw
-            "$bench" pass clips/*.mp4
+            if [ "$RUNNER_OS" = macOS ]; then
+              "$bench" convert
+            fi
+            "$bench" kernels
+            BENCH_REPEAT=2 "$bench" pass clips/*.mp4
           } | tee "bench-${{ matrix.os }}.md"
           cat "bench-${{ matrix.os }}.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Time the kernels built for x86-64-v3, with AVX2
+        if: runner.arch == 'X64'
+        env:
+          RUSTFLAGS: -C target-cpu=x86-64-v3
+          CARGO_TARGET_DIR: bench/target-v3
+        run: |
+          cargo build --release --manifest-path bench/Cargo.toml
+          {
+            echo "# ${{ matrix.os }}, x86-64-v3"
+            echo
+            bench/target-v3/release/cinq-bench kernels
+          } | tee "bench-${{ matrix.os }}-v3.md"
       - if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -85,9 +102,8 @@ jobs:
             echo
             lscpu | grep -E '^(Model name|CPU\(s\)|ISA):' || true
             echo
-            "$bench" convert
-            "$bench" draw
-            "$bench" pass clips/720p-noise.mp4 clips/1080p.mp4
+            "$bench" kernels
+            "$bench" pass clips/1080p.mp4 clips/1080p30-grain.mp4
           } | tee bench-riscv64.md
           cat bench-riscv64.md >> "$GITHUB_STEP_SUMMARY"
       - if: always()

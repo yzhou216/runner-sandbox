@@ -8,11 +8,12 @@
 //!
 //! - `now`: cinq at ec61ead, which decodes each sample and converts its
 //!   picture on the thread of the pass, high definition on scoped threads
-//! - `rayon`: the same, with the conversion on rayon's pool
 //! - `pipelined`: the conversion of each picture on a thread of its own,
 //!   with rayon's pool, while the thread of the pass decodes the next
 //! - `threaded`: as `pipelined`, with rust_h264's `ThreadedDecoder`, which
 //!   decodes several pictures at once, on one thread for each core
+//!
+//! Each with cinq's kernel of the conversion and with `lanes`.
 
 use std::{
     fs::File,
@@ -34,29 +35,38 @@ use rust_h264::{
     threading::ThreadedDecoder,
 };
 
-use crate::color::{Way, converted};
+use crate::color::{Kernel, Way, converted_with};
 
 /// Pictures that the thread of a pass decodes ahead, as in cinq
 const AHEAD: usize = 2;
 
 #[derive(Debug, Clone, Copy)]
-enum Variant {
+enum Arrangement {
     Now,
-    Rayon,
     Pipelined,
     Threaded,
 }
 
-impl Variant {
-    const ALL: [Self; 4] = [Self::Now, Self::Rayon, Self::Pipelined, Self::Threaded];
+#[derive(Debug, Clone, Copy)]
+struct Variant(Arrangement, Kernel);
 
-    fn name(self) -> &'static str {
-        match self {
-            Self::Now => "now",
-            Self::Rayon => "rayon",
-            Self::Pipelined => "pipelined",
-            Self::Threaded => "threaded",
-        }
+impl Variant {
+    const ALL: [Self; 6] = [
+        Self(Arrangement::Now, Kernel::Now),
+        Self(Arrangement::Pipelined, Kernel::Now),
+        Self(Arrangement::Threaded, Kernel::Now),
+        Self(Arrangement::Now, Kernel::Lanes),
+        Self(Arrangement::Pipelined, Kernel::Lanes),
+        Self(Arrangement::Threaded, Kernel::Lanes),
+    ];
+
+    fn name(self) -> String {
+        let arrangement = match self.0 {
+            Arrangement::Now => "now",
+            Arrangement::Pipelined => "pipelined",
+            Arrangement::Threaded => "threaded",
+        };
+        format!("{arrangement}, {}", self.1.name())
     }
 }
 
@@ -118,7 +128,7 @@ pub fn run(paths: &[String]) {
         let name = path.file_stem().unwrap_or_default().to_string_lossy();
         let clip = Arc::new(read(path));
         // Warms the file cache, the allocator, and rayon's pool
-        let _ = pass(&clip, Variant::Pipelined);
+        let _ = pass(&clip, Variant(Arrangement::Pipelined, Kernel::Now));
         // Best of three, or of BENCH_REPEAT, as other jobs on the host come
         // and go
         let repeat = std::env::var("BENCH_REPEAT")
@@ -147,10 +157,11 @@ fn pass(clip: &Arc<Clip>, variant: Variant) -> (usize, f64, f64) {
     let start = Instant::now();
     let cpu = ProcessTime::now();
     let pictures = match variant {
-        Variant::Now => decoding(clip, |frame| converted(&frame, now_way(&frame))),
-        Variant::Rayon => decoding(clip, |frame| converted(&frame, Way::RayonStrips)),
-        Variant::Pipelined => converting(decoding(clip, |frame| frame)),
-        Variant::Threaded => converting(threaded(clip)),
+        Variant(Arrangement::Now, kernel) => {
+            decoding(clip, move |frame| converted_with(&frame, now_way(&frame), kernel))
+        }
+        Variant(Arrangement::Pipelined, kernel) => converting(decoding(clip, |frame| frame), kernel),
+        Variant(Arrangement::Threaded, kernel) => converting(threaded(clip), kernel),
     };
     let count = pictures.iter().count();
     (
@@ -226,12 +237,12 @@ fn threaded(clip: &Arc<Clip>) -> Receiver<Frame> {
 
 /// Converts the pictures of `frames` on a thread of its own, with rayon's
 /// pool, while the pictures after them decode
-fn converting(frames: Receiver<Frame>) -> Receiver<Vec<u8>> {
+fn converting(frames: Receiver<Frame>, kernel: Kernel) -> Receiver<Vec<u8>> {
     let (sender, receiver) = mpsc::sync_channel(AHEAD);
     thread::spawn(move || {
         let _ = frames
             .into_iter()
-            .try_for_each(|frame| sender.send(converted(&frame, Way::RayonStrips)));
+            .try_for_each(|frame| sender.send(converted_with(&frame, Way::RayonStrips, kernel)));
     });
     receiver
 }
