@@ -19,12 +19,9 @@ use crate::{
 /// running cues fit in the sidebar at once
 const BAR: f32 = 10.0;
 
-/// Returns the sidebar `width` wide
 pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
     let workspace = &app.workspace;
     let lists = workspace.lists().iter().enumerate().map(|(index, list)| {
-        // Count of cues in brackets, as the headings count running cues and
-        // warnings
         radio(
             format!("{} ({})", list.name, list.cues.len()),
             index,
@@ -51,7 +48,6 @@ pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
         .warnings()
         .map(|warning| text(warning).style(text::warning).into());
     let count = warnings(app);
-    // Warnings take the warning color of the theme while there are any
     let warned = text(format!("Warnings ({count})")).style(if count > 0 {
         text::warning
     } else {
@@ -91,8 +87,6 @@ pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
     .into()
 }
 
-/// Shows a running cue with its progress, and the level of an audio or
-/// video cue that sounds
 fn active_cue<'a>(active: &Active, cue: &Cue) -> Element<'a, Message> {
     column![
         row![

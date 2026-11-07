@@ -13,19 +13,56 @@ mod player;
 mod runs;
 mod still;
 
-use std::{fs, path::Path, sync::Arc, time::Duration};
+use std::{
+    fs,
+    path::Path,
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
 
 use super::{
     decoder::{self, Sent, UNDECODABLE},
     probe,
 };
-use crate::back::Clip;
+use crate::back::{Clip, Cue, CueId, CueList, Load, Picture, Video, Workspace, load_files};
 use movie::{RATE, broken_movie, movie, picture_number};
 
 /// Longest that a test waits for a thread to decode a picture
 const PATIENCE: Duration = Duration::from_secs(10);
 
-/// Returns the clip from `start` to `end` seconds into a file
+/// Returns a workspace in the directory of the file at `path`, with one
+/// list of `cue`, whose file has loaded
+fn showing_cue(path: &Path, cue: Cue) -> Workspace {
+    let directory = path.parent().expect("the file is in a directory");
+    let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).directory(directory);
+    let loads = load_files(Load::all(&workspace, workspace.unloaded()));
+    loads.into_iter().fold(workspace, Workspace::apply)
+}
+
+/// Syncs `video` with `workspace` until a picture comes due or the
+/// workspace no longer runs the cue, and returns the workspace, along with
+/// the picture
+fn synced(video: &mut Video, workspace: Workspace) -> (Workspace, Option<(CueId, Picture)>) {
+    synced_since(video, workspace, Instant::now())
+}
+
+/// Goes on with [`synced`], which started at `started`
+fn synced_since(
+    video: &mut Video,
+    workspace: Workspace,
+    started: Instant,
+) -> (Workspace, Option<(CueId, Picture)>) {
+    let (workspace, pictures) = video.sync(workspace);
+    match pictures.into_iter().next() {
+        None if started.elapsed() < PATIENCE && !workspace.active().is_empty() => {
+            thread::sleep(Duration::from_millis(5));
+            synced_since(video, workspace, started)
+        }
+        picture => (workspace, picture),
+    }
+}
+
 fn clip(start: f64, end: f64, looping: bool) -> Clip {
     Clip {
         start,

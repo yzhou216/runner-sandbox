@@ -13,7 +13,6 @@
 
 use std::iter;
 
-/// Sample of a track
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(in crate::back::video) struct Sample {
     /// Seconds into the picture at which the sample shows

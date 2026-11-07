@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Cues that GO has fired, kept as bookkeeping without side effects, with
-//! what they do once their pre-wait is over and the fades they make, which
-//! [`effect`] describes, and what audio and video cues play and what
-//! picture and video cues show, which [`playing`] tells
+//! Cues that GO has fired, with what they do and the fades they make in
+//! [`effect`], and what they play and show in [`playing`]
 //!
 //! Time here is counted in seconds as `f64`, since a clock that adds a
 //! tick forty times a second for an hour would drift by seconds in `f32`.
@@ -37,15 +35,13 @@ pub struct Active {
     pub paused: bool,
     /// Level in dB an audio or video cue plays at
     pub level: f32,
-    /// Fade under way on the level
     pub fade: Option<Fade>,
-    /// Seconds of pre-wait
     pub(super) pre_wait: f64,
     /// Seconds that the action takes after the pre-wait, or that one pass
     /// of a clip that loops takes
     pub(super) length: f64,
     pub(super) effect: Effect,
-    /// Whether the action has begun, which happens once the pre-wait is over
+    /// Whether the action has begun, so that a fade or stop cue acts once
     pub(super) started: bool,
 }
 
@@ -81,6 +77,7 @@ impl Active {
                     remaining: length,
                     length,
                     then_stop: cue.stop_target,
+                    opacity: 1.0,
                 },
             },
             (Kind::Stop, Some(target)) => Effect::Stop(target),
@@ -141,13 +138,10 @@ impl Active {
         self.elapsed < 0.0
     }
 
-    /// Returns whether the action is due to begin, which it is once the
-    /// pre-wait is over
     pub(super) fn due(&self) -> bool {
         !self.started && self.elapsed >= self.pre_wait
     }
 
-    /// Returns the cue with its action begun if it is due to begin
     pub(super) fn begun(self) -> Self {
         Self {
             started: self.started || self.due(),
@@ -155,19 +149,15 @@ impl Active {
         }
     }
 
-    /// Returns whether a fade that stops the cue has ended
     pub(super) fn faded_out(&self) -> bool {
         self.fade
             .is_some_and(|fade| fade.then_stop && fade.remaining <= 0.0)
     }
 
-    /// Returns whether the action is over, which that of a picture cue, or
-    /// of a cue that loops, never is
     pub(super) fn finished(&self) -> bool {
         !self.endless() && self.elapsed >= self.pre_wait + self.length
     }
 
-    /// Returns the cue `seconds` later, or unchanged while it is paused
     pub(super) fn advanced(self, seconds: f64) -> Self {
         if self.paused {
             self
@@ -177,6 +167,18 @@ impl Active {
                 ..self
             }
             .faded(seconds)
+        }
+    }
+
+    /// Returns the cue with `fade` on its level, whose picture fades from as
+    /// opaque as it is now
+    pub(super) fn under(self, fade: Fade) -> Self {
+        Self {
+            fade: Some(Fade {
+                opacity: self.opacity(),
+                ..fade
+            }),
+            ..self
         }
     }
 

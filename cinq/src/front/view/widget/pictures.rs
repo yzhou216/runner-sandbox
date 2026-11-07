@@ -32,7 +32,6 @@ use iced::{
 
 use crate::{back::CueId, front::Message};
 
-/// Picture of a cue, and how opaque it shows over the pictures under it
 #[derive(Debug, Clone)]
 pub struct Layer {
     pub cue: CueId,
@@ -45,7 +44,6 @@ pub fn pictures<'a>(layers: Vec<Layer>) -> Element<'a, Message> {
     Element::new(Pictures(layers))
 }
 
-/// Pictures of a region, from the bottom up
 struct Pictures(Vec<Layer>);
 
 impl Widget<Message, Theme, Renderer> for Pictures {
@@ -53,7 +51,13 @@ impl Widget<Message, Theme, Renderer> for Pictures {
         Size::new(Length::Fill, Length::Fill)
     }
 
-    // State of the shader, which keeps none
+    // Unit state for the shader to read as it draws, under a tag of its own,
+    // since iced would keep the missing state of a stateless widget that was
+    // here before, whose tag is that of a unit
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<Self>()
+    }
+
     fn state(&self) -> tree::State {
         tree::State::new(())
     }
@@ -121,8 +125,6 @@ fn rgba(picture: &image::Handle) -> Option<(Size<u32>, &[u8])> {
     (filled && !pixels.is_empty()).then(|| (Size::new(*width, *height), pixels.as_ref()))
 }
 
-/// Returns the part of `bounds` that a picture of `size` fills: in the
-/// middle, and as large as `bounds` holds it whole
 fn fitted(bounds: Rectangle, size: Size<u32>) -> Rectangle {
     let size = Size::new(size.width as f32, size.height as f32);
     let fitted = ContentFit::Contain.fit(size, bounds.size());

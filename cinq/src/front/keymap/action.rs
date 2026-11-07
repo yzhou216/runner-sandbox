@@ -47,12 +47,10 @@ pub enum Action {
 }
 
 impl Action {
-    /// Returns the name of the action in the configuration file
     pub fn name(self) -> &'static str {
         self.into()
     }
 
-    /// Returns what the action does, as the help page tells it
     pub fn description(self) -> &'static str {
         match self {
             Action::Go => "GO: fire the standby cue and its chain",
@@ -90,7 +88,6 @@ impl Action {
     /// and the help page alike
     pub(super) const AT_ONCE: [Action; 2] = [Action::Go, Action::Panic];
 
-    /// Returns whether the action is one of [`Action::AT_ONCE`]
     pub fn acts_at_once(self) -> bool {
         Self::AT_ONCE.contains(&self)
     }
@@ -103,9 +100,6 @@ impl Action {
         self.acts_at_once() || self == Action::Fullscreen
     }
 
-    /// Returns whether the keys of the action act in a text field, as the
-    /// keys of GO, Panic, the moves between fields, and those of opening and
-    /// saving shows do
     pub(super) fn acts_in_fields(self) -> bool {
         self.acts_at_once()
             || matches!(
@@ -118,8 +112,6 @@ impl Action {
             )
     }
 
-    /// Returns whether the action acts while the help page is open, as GO,
-    /// Panic, and the actions that show and hide the page do
     pub fn acts_over_help(self) -> bool {
         self.acts_at_once() || matches!(self, Action::Help | Action::CloseHelp)
     }

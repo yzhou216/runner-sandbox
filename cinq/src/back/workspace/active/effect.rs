@@ -20,8 +20,11 @@ pub struct Fade {
     pub(in crate::back) remaining: f64,
     /// Seconds that the whole fade takes
     pub(in crate::back) length: f64,
-    /// Whether the faded cue stops once the fade ends
     pub(in crate::back) then_stop: bool,
+    /// Opacity of the picture of the faded cue as the fade starts, which is
+    /// less than whole where the fade takes over from one that stops the
+    /// cue, so that the picture fades on from where it was
+    pub(in crate::back) opacity: f32,
 }
 
 impl Fade {
@@ -64,7 +67,6 @@ pub(in crate::back) enum Effect {
 }
 
 impl Effect {
-    /// Returns the clip that an audio or video cue plays
     pub(in crate::back) fn clip(self) -> Option<Clip> {
         match self {
             Effect::Sound(clip) | Effect::Video { clip, .. } => Some(clip),
@@ -81,8 +83,6 @@ impl Effect {
         }
     }
 
-    /// Returns what the stage window shows of the file of a video or
-    /// picture cue
     pub(in crate::back) fn shown(self) -> Option<Shown> {
         match self {
             Effect::Video { clip, .. } => Some(Shown::Clip(clip)),
@@ -91,8 +91,6 @@ impl Effect {
         }
     }
 
-    /// Returns whether the effect plays or shows a file, as those of audio,
-    /// video, and picture cues do
     pub(in crate::back) fn plays(self) -> bool {
         self.clip().is_some() || self == Effect::Picture
     }

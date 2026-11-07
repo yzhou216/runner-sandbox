@@ -44,8 +44,6 @@ pub struct Keeper {
 }
 
 impl Keeper {
-    /// Returns a keeper of unsaved changes in `unsaved_directory`, and
-    /// starts its thread, which runs until the keeper goes
     pub fn new(unsaved_directory: Option<PathBuf>) -> Self {
         let (jobs, waiting) = mpsc::channel();
         let (failed, failures) = mpsc::channel();

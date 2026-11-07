@@ -51,7 +51,6 @@ impl Workspace {
         }
     }
 
-    /// Returns the workspace with a change made to it recorded
     pub(in crate::back::workspace) fn recorded(self, change: Change) -> Self {
         Self {
             history: self.history.recorded(change),
@@ -104,7 +103,6 @@ impl Workspace {
         }
     }
 
-    /// Puts a cue back at its place in its list
     fn with_placed(self, placed: Placed) -> Self {
         self.with_list(placed.list, |cues| {
             cues.with_cue_at(placed.index, placed.cue)

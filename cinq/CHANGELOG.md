@@ -21,9 +21,20 @@ Major changes and improvements in each release of cinq, newest first.
   while any are left, as a pager's text does, so that fixing the file brings
   back the prompt and what came before it instead of a cleared screen.
   Problems still left when cinq ends stay on the terminal.
-- On FreeBSD and the other BSDs, the keys follow `config.toml` when an
-  editor writes it in place, and not only when it renames another file over
-  it.
+- A picture fading out no longer jumps back to whole when a panic, or
+  another fade that stops its cue, takes over; it fades on from where it
+  was.
+- Video 1280 pixels wide that is cropped below 720 lines, such as
+  letterboxed high definition, shows in the colors of high definition.
+- On Darwin, cinq follows the changes to `config.toml` in a directory
+  reached through a symbolic link, such as one under `/tmp`.
+- A cue that GO fires right after a sound or video that could not play
+  ended the last running cue no longer starts ahead by the time spent idle.
+- Choosing again the file that a running audio or video cue plays, or
+  typing its name with a space around it, leaves the cue playing.
+- On FreeBSD and the other BSDs, cinq follows the changes that an editor
+  writes into `config.toml` in place, and not only those that rename another
+  file over it.
 
 ## v0.1.1
 

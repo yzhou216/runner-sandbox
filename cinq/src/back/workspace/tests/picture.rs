@@ -37,14 +37,6 @@ fn showing(cues: Vec<Cue>) -> Workspace {
     pictures.into_iter().fold(workspace(cues), Workspace::apply)
 }
 
-/// Returns how opaque the picture of cue `id` is
-fn opacity(workspace: &Workspace, id: u32) -> f32 {
-    workspace
-        .active_of(CueId(id))
-        .expect("the cue runs")
-        .opacity()
-}
-
 #[test]
 fn picture_cue_shows_until_something_stops_it() {
     let shown = showing(vec![picture(1)])

@@ -41,20 +41,15 @@ impl Kind {
         matches!(self, Kind::Fade | Kind::Wait)
     }
 
-    /// Returns whether cues of this kind play a file: audio cues play its
-    /// sound, and video cues its picture along with its sound
     pub fn plays_file(self) -> bool {
         matches!(self, Kind::Audio | Kind::Video)
     }
 
-    /// Returns whether cues of this kind name a file: those that play one,
-    /// and picture cues, which show one
     pub fn has_file(self) -> bool {
         self.plays_file() || self == Kind::Picture
     }
 
-    /// Returns whether cues of this kind show in the stage window: video
-    /// cues, and picture cues
+    /// Returns whether cues of this kind show in the stage window
     pub fn on_stage(self) -> bool {
         matches!(self, Kind::Video | Kind::Picture)
     }

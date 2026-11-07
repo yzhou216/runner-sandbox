@@ -82,11 +82,8 @@ impl Source {
     }
 }
 
-/// Returns the file that may hold the configuration: `config.toml` in
-/// `directory`, when one is given, or else `cinq/config.toml` in the
-/// platform's configuration directory, as the dirs crate finds it, if it
-/// has one.  The directory goes by its absolute path, which the watcher
-/// reports changes by.
+/// Returns the file that may hold the configuration.  The directory goes by
+/// its absolute path, which the watcher reports changes by.
 pub fn file(directory: Option<&Path>) -> Option<PathBuf> {
     directory
         .map(|directory| path::absolute(directory).unwrap_or_else(|_| directory.to_owned()))
@@ -94,8 +91,6 @@ pub fn file(directory: Option<&Path>) -> Option<PathBuf> {
         .map(|directory| directory.join("config.toml"))
 }
 
-/// Text of a configuration file that [`make`] makes: a line that points
-/// to the manual page of the file, and nothing that changes a key
 const MADE: &str = "# Key bindings of cinq, which the manual page cinq(5) describes\n";
 
 /// Makes the configuration file `file`, along with the directories that it

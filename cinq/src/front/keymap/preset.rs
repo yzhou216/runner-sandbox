@@ -29,7 +29,6 @@ pub enum Preset {
 }
 
 impl Preset {
-    /// Returns the name of the keymap in the configuration file
     pub(super) fn name(self) -> &'static str {
         self.into()
     }

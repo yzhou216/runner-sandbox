@@ -4,19 +4,11 @@
 
 //! Cue list, one row per cue, under a header that stays in view
 //!
-//! The selected row stands out on the background of the selection, and its
-//! radio button marks it too.  The selection only drives the inspector,
-//! while the State column marks the standby cue that GO fires as NEXT.
-//! Each column is as wide as its title or its longest text, counted in the
-//! columns of the monospace font, of which a wide character such as one of
-//! Chinese takes two, so that the header, a table of its own above the rows
-//! that scroll, lines up with them.  The number makes room for its radio
-//! button as well, the target wraps past [`TARGET_ROOM`] columns of the
-//! font, and the state keeps the width of [`STATE_ROOM`] while cues run.
-//! The name takes the room that the other columns leave, and when the list
-//! is too narrow for a name to be read, the columns of the waits, of what
-//! follows, of the kind of cue, and of its target give way, those empty in
-//! every row first, since the inspector shows them all.
+//! The selection only drives the inspector, while the State column marks
+//! the standby cue that GO fires as NEXT.  Widths are counted in columns of
+//! the monospace font, of which a wide character such as one of Chinese
+//! takes two, so that the header, a table of its own above the rows that
+//! scroll, lines up with them.
 
 mod columns;
 
@@ -37,27 +29,23 @@ use crate::{
 };
 use columns::{Column, state};
 
-/// Width of the scroll bar, which the list sets and leaves free at its
-/// right, so that the bar covers no text and the rows keep the width of the
-/// header with or without the bar
+/// Width of the scroll bar, which the list leaves free at its right, so
+/// that the bar covers no text and the rows keep the width of the header
+/// with or without the bar
 const SCROLL_BAR: f32 = 10.0;
 
-/// Space above and below the text of each row, which is iced's own padding
-/// for tables
+/// iced's own vertical padding of table cells
 const ROW_PADDING: f32 = 5.0;
 
-/// Space on either side of the text of each cell, which is iced's own
-/// padding for tables, and which both tables set, since the widths of the
-/// columns count it
+/// iced's own horizontal padding of table cells, which both tables set,
+/// since the widths of the columns count it
 const CELL_PADDING: f32 = 10.0;
 
 /// Width of the line between columns, which both tables set as well
 const SEPARATOR: f32 = 1.0;
 
-/// Space that each column takes besides its text
 const CELL_SPACE: f32 = 2.0 * CELL_PADDING + SEPARATOR;
 
-/// Width of iced's radio button and the space after it, before its label
 const RADIO: f32 = Radio::<Message>::DEFAULT_SIZE + Radio::<Message>::DEFAULT_SPACING;
 
 /// Fewest columns of the font that the list keeps for a name before any
@@ -77,9 +65,6 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     responsive(move |size| list(app, size.width - SCROLL_BAR)).into()
 }
 
-/// Draws the cue list `room` wide: a header, and under it the rows, which
-/// scroll in a table of their own that has no header, or a word on adding
-/// a cue while the list has none
 fn list<'a>(app: &'a App, room: f32) -> Element<'a, Message> {
     let fitting = fitting(app, room);
     let table = |titled: bool, cues: &'a [Cue]| {
@@ -101,7 +86,6 @@ fn list<'a>(app: &'a App, room: f32) -> Element<'a, Message> {
     };
     column![
         container(header).padding(free),
-        // Line under the header, which the rows scroll under
         rule::horizontal(1),
         scrollable(container(rows).padding(free))
             .direction(scrollable::Direction::Vertical(
@@ -115,8 +99,6 @@ fn list<'a>(app: &'a App, room: f32) -> Element<'a, Message> {
     .into()
 }
 
-/// Tells how to add a cue to a list that has none, or that show mode locks
-/// editing
 fn empty(app: &App) -> Element<'_, Message> {
     let hint = match app.config.keymap.key(Action::AddBelow) {
         _ if !app.editable() => "No cues yet.  Leave show mode to add one.".to_owned(),
@@ -128,10 +110,10 @@ fn empty(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// Returns the columns that a list `room` wide shows, each with its width:
-/// every column, unless that leaves a name less room than [`NAME_ROOM`]
-/// columns of the font, when the yielding columns give way in turn, those
-/// without text in any row first, as they tell nothing
+/// Returns the columns that a list `room` wide shows, each with its width.
+/// When showing them all leaves a name less than [`NAME_ROOM`] columns of
+/// the font, the yielding columns give way in turn, those without text in
+/// any row first, as they tell nothing, and the inspector shows them all.
 fn fitting(app: &App, room: f32) -> Vec<(Column, Option<f32>)> {
     let list = app.current();
     let all: Vec<(Column, Option<f32>)> = Column::VARIANTS
@@ -160,8 +142,6 @@ fn fitting(app: &App, room: f32) -> Vec<(Column, Option<f32>)> {
     )
 }
 
-/// Returns `column` at `width`, or taking the room left without one, under
-/// its title, or with no header for the rows under the header
 fn table_column<'a>(
     app: &'a App,
     column: Column,
@@ -177,8 +157,8 @@ fn table_column<'a>(
         .width(width.map_or(Fill, Length::Fixed))
 }
 
-/// Returns the cell of `cue` in `column`, padded above and below, which
-/// selects the cue when clicked anywhere
+/// Returns the cell of `cue` in `column`, padded inside rather than by the
+/// table, so that a click anywhere in it selects the cue
 fn cell<'a>(app: &'a App, column: Column, cue: &'a Cue) -> Element<'a, Message> {
     let list = app.current();
     let content: Element<'a, Message> = match column {

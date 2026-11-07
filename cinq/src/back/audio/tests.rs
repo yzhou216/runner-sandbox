@@ -15,10 +15,10 @@ use std::{
 use tempfile::TempDir;
 
 use super::{
-    preload::{Ask, Preloaded, Preloader},
+    preload::{Ask, Preloaded, Preloader, Wanted},
     upcoming,
 };
-use crate::back::{Advance, Clip, Command, Cue, CueId, CueList, Kind, Media, Wanted, Workspace};
+use crate::back::{Advance, Clip, Command, Cue, CueId, CueList, Kind, Media, Workspace};
 
 /// Returns an audio cue that plays `sound.wav`
 fn audio(id: u32) -> Cue {

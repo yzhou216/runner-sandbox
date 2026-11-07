@@ -32,11 +32,10 @@ use iced::{Element, Padding, advanced::Shell, widget::button};
 use crate::front::{Message, keymap::Keymap};
 use menu::{Choice, Shared};
 
-/// Space around the text of the list and of each option of its menu, which
-/// iced's buttons and pick lists leave too
+/// Padding of the list and of each option of its menu, as iced's pick list
+/// pads them
 const PADDING: Padding = button::DEFAULT_PADDING;
 
-/// Drop-down list of options, one of which may be chosen
 pub struct Dropdown<'a, T> {
     options: Vec<T>,
     selected: Option<T>,
@@ -45,9 +44,7 @@ pub struct Dropdown<'a, T> {
     keymap: &'a Keymap,
 }
 
-/// Returns a drop-down list of `options` with `selected` chosen, which
-/// sends the message that `on_select` makes of the option picked.  The keys
-/// of `keymap` move through its menu.
+/// Returns a drop-down list whose menu the keys of `keymap` move through
 pub fn dropdown<'a, T>(
     options: impl Into<Vec<T>>,
     selected: Option<T>,
@@ -64,7 +61,6 @@ pub fn dropdown<'a, T>(
 }
 
 impl<T: PartialEq> Dropdown<'_, T> {
-    /// Returns the list showing `placeholder` while no option is chosen
     pub fn placeholder(self, placeholder: impl Into<String>) -> Self {
         Self {
             placeholder: Some(placeholder.into()),
@@ -72,8 +68,6 @@ impl<T: PartialEq> Dropdown<'_, T> {
         }
     }
 
-    /// Opens the menu with the highlight on the chosen option, unless there
-    /// is no option, and keeps the event that opens it
     fn open(&self, choice: Choice<'_, T>, shell: &mut Shell<'_, Message>)
     where
         T: Clone,
@@ -85,15 +79,12 @@ impl<T: PartialEq> Dropdown<'_, T> {
         shell.request_redraw();
     }
 
-    /// Returns the place of the chosen option among the options
     fn chosen(&self) -> Option<usize> {
         self.options
             .iter()
             .position(|option| Some(option) == self.selected.as_ref())
     }
 
-    /// Returns the options together with the highlight of the menu, through
-    /// which the list acts on its menu
     fn choice<'b>(&'b self, shared: &'b Shared) -> Choice<'b, T> {
         Choice::new(&self.options, &*self.on_select, self.keymap, shared)
     }

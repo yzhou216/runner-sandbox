@@ -18,8 +18,6 @@ use crate::{
     },
 };
 
-/// Inspector field, one per row of a form, which goes by its name, apart
-/// from the target of an audio, video, or picture cue, which is its file
 #[derive(Debug, Clone, Copy, IntoStaticStr)]
 pub(super) enum Field {
     Number,
@@ -44,34 +42,30 @@ impl Field {
         }
     }
 
-    /// Returns the input for this field.  It is disabled when editing is
-    /// locked or when the value does not apply to the cue, such as the
-    /// post-wait of an auto-follow cue.  Values that come from elsewhere,
-    /// such as how long an audio cue plays, show in a disabled field too.
-    /// The file of an audio, video, or picture cue can be typed, or chosen
-    /// in the desktop's file chooser, and a time that reads as no time
-    /// stands out.
+    /// Returns the input for this field, disabled when the value does not
+    /// apply to the cue, such as the post-wait of an auto-follow cue, which
+    /// ignores it
     pub(super) fn input<'a>(self, app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
         let id = cue.id;
         let editable = app.editable();
-        let field =
-            |value: &str, applies: bool, edit: fn(String) -> Edit| -> Element<'a, Message> {
-                let input = text_input(self.placeholder(cue), value)
-                    .on_input_maybe(
-                        (editable && applies).then_some(move |text| Message::Edit(id, edit(text))),
-                    )
-                    .style(theme::field(self.valid(cue)));
-                match self {
-                    Field::Name => input.id(NAME).into(),
-                    _ => input.into(),
-                }
-            };
+        let applies = !matches!(self, Field::PostWait) || cue.advance != Advance::Follow;
+        let field = |value: &str, edit: fn(String) -> Edit| -> Element<'a, Message> {
+            let input = text_input(self.placeholder(cue), value)
+                .on_input_maybe(
+                    (editable && applies).then_some(move |text| Message::Edit(id, edit(text))),
+                )
+                .style(theme::field(self.valid(cue)));
+            match self {
+                Field::Name => input.id(NAME).into(),
+                _ => input.into(),
+            }
+        };
         match self {
-            Field::Number => field(&cue.number, true, Edit::Number),
-            Field::Name => field(&cue.name, true, Edit::Name),
+            Field::Number => field(&cue.number, Edit::Number),
+            Field::Name => field(&cue.name, Edit::Name),
             Field::Target => match cue.kind {
                 Kind::Audio | Kind::Video | Kind::Picture => row![
-                    field(&cue.file, true, Edit::File),
+                    field(&cue.file, Edit::File),
                     button("Choose").on_press_maybe(editable.then_some(Message::ChooseFile(id))),
                 ]
                 .spacing(SPACING)
@@ -84,19 +78,13 @@ impl Field {
                 ),
                 Kind::Wait | Kind::Memo => shown(""),
             },
-            Field::Notes => field(&cue.notes, true, Edit::Notes),
-            Field::PreWait => field(cue.pre_wait.text(), true, |text| Edit::PreWait(text.into())),
+            Field::Notes => field(&cue.notes, Edit::Notes),
+            Field::PreWait => field(cue.pre_wait.text(), |text| Edit::PreWait(text.into())),
             Field::Duration if cue.kind.has_duration() => {
-                field(cue.duration.text(), true, |text| {
-                    Edit::Duration(text.into())
-                })
+                field(cue.duration.text(), |text| Edit::Duration(text.into()))
             }
             Field::Duration => shown(&format::action(cue)),
-            Field::PostWait => field(
-                cue.post_wait.text(),
-                cue.advance != Advance::Follow,
-                |text| Edit::PostWait(text.into()),
-            ),
+            Field::PostWait => field(cue.post_wait.text(), |text| Edit::PostWait(text.into())),
             Field::Then if editable => dropdown(
                 Advance::VARIANTS,
                 Some(cue.advance),
@@ -105,13 +93,13 @@ impl Field {
             )
             .into(),
             Field::Then => shown(&cue.advance.to_string()),
-            Field::Start => field(cue.start.text(), true, |text| Edit::Start(text.into())),
-            Field::End => field(cue.end.text(), true, |text| Edit::End(text.into())),
+            Field::Start => field(cue.start.text(), |text| Edit::Start(text.into())),
+            Field::End => field(cue.end.text(), |text| Edit::End(text.into())),
         }
     }
 
     /// Returns whether the text of the field reads as a value, which only
-    /// the text of a time can fail to
+    /// a time can fail to
     fn valid(self, cue: &Cue) -> bool {
         match self {
             Field::PreWait => cue.pre_wait.is_valid(),
@@ -123,7 +111,6 @@ impl Field {
         }
     }
 
-    /// Returns the hint an empty field shows
     fn placeholder(self, cue: &Cue) -> &'static str {
         match self {
             Field::Target if cue.kind == Kind::Audio => "path of a sound file",
@@ -141,8 +128,6 @@ fn shown<'a>(value: &str) -> Element<'a, Message> {
     text_input("", value).into()
 }
 
-/// Menu of the cues that a fade or stop cue can act on, each shown by its
-/// number and name
 fn target_menu<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
     let id = cue.id;
     let targets: Vec<&Cue> = app

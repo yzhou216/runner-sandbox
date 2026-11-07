@@ -31,14 +31,14 @@ impl Keymap {
         let (digits, command) = split_count(&keys);
         let count = digits
             .iter()
-            .try_fold(0_usize, |count, key| {
-                count.checked_mul(10)?.checked_add(key.digit()?)
-            })
-            .filter(|&count| count > 0);
+            .filter_map(|key| key.digit())
+            .fold(0, |count: usize, digit| {
+                count.saturating_mul(10).saturating_add(digit)
+            });
         match self.find(command) {
             Some(action) => Outcome {
                 pending: Vec::new(),
-                action: Some((action, count)),
+                action: Some((action, Some(count).filter(|&count| count > 0))),
             },
             None if self.bound().any(|(_, bound)| bound.starts_with(command)) => Outcome {
                 pending: keys,
@@ -73,8 +73,6 @@ impl Keymap {
         self.alone(press).is_some_and(Action::acts_in_fields)
     }
 
-    /// Returns whether a key acts at once as GO or Panic, as
-    /// [`Action::acts_at_once`] tells
     pub fn acts_at_once(&self, press: Press) -> bool {
         self.alone(press).is_some_and(Action::acts_at_once)
     }
@@ -101,7 +99,6 @@ impl Keymap {
         })
     }
 
-    /// Returns the action bound to `keys`
     fn find(&self, keys: &[Press]) -> Option<Action> {
         self.bound()
             .find_map(|(action, bound)| (bound == keys).then_some(action))

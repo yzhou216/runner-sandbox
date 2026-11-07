@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Inspector, which shows every setting of the selected cue on three tabs
-//!
-//! Its fields are read-only in show mode, and they keep the keys typed
-//! into them.
 
 mod field;
 
@@ -62,7 +59,6 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     )
 }
 
-/// Settings of a cue on the open tab, under the name of the cue
 fn inspected<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
     let fields = match app.tab {
         Tab::Basics => row(BASICS.map(|fields| form(app, cue, fields)))
@@ -82,7 +78,6 @@ fn inspected<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
         .into()
 }
 
-/// Table of labelled inspector fields
 fn form<'a>(app: &'a App, cue: &'a Cue, fields: &[Field]) -> Element<'a, Message> {
     table::table(
         [
@@ -94,8 +89,6 @@ fn form<'a>(app: &'a App, cue: &'a Cue, fields: &[Field]) -> Element<'a, Message
     .into()
 }
 
-/// Part of its file that an audio or video cue plays, and whether it
-/// loops, which become read-only in show mode
 fn time<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
     match cue.kind {
         Kind::Picture => {
@@ -116,10 +109,6 @@ fn time<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
         .into()
 }
 
-/// Level of an audio or video cue, or the level a fade cue fades to, on a
-/// slider and in a field that takes the level typed in dB, which become
-/// read-only in show mode.  A video cue whose file holds a picture alone
-/// says so in their place.
 fn levels<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
     let label = match cue.kind {
         Kind::Video if matches!(cue.media, Media::Loaded { sound: None, .. }) => {

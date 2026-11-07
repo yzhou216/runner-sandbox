@@ -34,7 +34,6 @@ pub(super) type Advanced = Result<(Player, Option<Picture>), String>;
 pub(super) struct Player {
     path: PathBuf,
     shown: Shown,
-    /// Number of the pass under way, counted from none
     pass: u32,
     /// Pictures of the pass under way, each with the time of the run at
     /// which it is due, until the clip ends, as one that loops never does

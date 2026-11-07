@@ -14,9 +14,6 @@ use unicode_width::UnicodeWidthStr;
 use super::{SPACING, theme};
 use crate::front::{App, Message, keymap::written};
 
-/// Returns a box in the bottom right corner that lists each key that can
-/// come next with what it does, while a command waits for more and the
-/// help page is closed
 pub(super) fn view(app: &App) -> Option<Element<'_, Message>> {
     if app.help {
         return None;

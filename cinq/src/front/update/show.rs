@@ -13,9 +13,7 @@
 //! cinq, which the next opening of the show reads, so that neither closing
 //! the window, nor opening another show, nor a crash loses them.  The kept
 //! changes come back as one change, which undo takes back to the show as
-//! saved, so that nothing has to ask first.  [`opening`] puts a show on
-//! screen, [`saving`] writes it to its file, [`keeper`] keeps its unsaved
-//! changes, and [`file`](mod@file) writes the files that hold both.
+//! saved, so that nothing has to ask first.
 
 mod file;
 mod keeper;
@@ -37,7 +35,6 @@ use crate::front::{App, Message, read};
 use file::kept_file;
 pub use keeper::Keeper;
 
-/// Ending of the name of a show file, which is TOML
 const EXTENSION: &str = "cinq.toml";
 
 /// Show on screen, with the file that holds it
@@ -57,19 +54,16 @@ pub struct Show {
 }
 
 impl Show {
-    /// Returns whether the show holds changes that its file does not
     pub fn unsaved(&self) -> bool {
         self.text != self.saved
     }
 
     /// Returns the mark that follows the name of the show while it has
-    /// unsaved changes, or nothing
+    /// unsaved changes
     pub fn mark(&self) -> &'static str {
         if self.unsaved() { " (unsaved)" } else { "" }
     }
 
-    /// Returns the name that the show goes by: the name of its file, or
-    /// `untitled` while it has none
     pub fn name(&self) -> Cow<'_, str> {
         self.file
             .as_deref()
@@ -77,7 +71,6 @@ impl Show {
             .map_or(Cow::Borrowed("untitled"), |name| name.to_string_lossy())
     }
 
-    /// Returns the serial number of the opening that brought the show
     pub(super) fn id(&self) -> u64 {
         self.id
     }
@@ -136,7 +129,6 @@ pub struct Saved {
     file: PathBuf,
     /// Show as the file holds it now
     text: String,
-    /// Why saving failed, if it did
     result: Result<(), String>,
 }
 
@@ -149,8 +141,6 @@ pub(super) fn unsaved_directory() -> Option<PathBuf> {
         .map(|directory| directory.join("cinq").join("unsaved"))
 }
 
-/// Starts reading the show in `file`, or a new show without one, along with
-/// the unsaved changes kept for it in `unsaved_directory`
 pub(super) fn open(file: Option<PathBuf>, unsaved_directory: Option<PathBuf>) -> Task<Message> {
     on_own_thread(move || Read::new(file, unsaved_directory.as_deref()))
         .map(|read| Message::Opened(Box::new(read)))

@@ -159,6 +159,29 @@ fn edit_that_changes_nothing_leaves_a_running_cue_playing_and_nothing_to_undo() 
 }
 
 #[test]
+fn choosing_the_file_that_a_running_cue_plays_leaves_it_playing() {
+    let unnamed = Cue {
+        name: "New Audio cue".to_owned(),
+        ..audio(1)
+    };
+    let running = workspace(vec![unnamed]).apply(GO);
+    let chosen = running
+        .cue(CueId(1))
+        .unwrap()
+        .playing("sound.ogg".to_owned());
+    let workspace = running
+        .apply(Command::Edit(CueId(1), chosen))
+        .apply(Command::Edit(
+            CueId(1),
+            Edit::File(" sound.ogg\n".to_owned()),
+        ));
+    let cue = workspace.cue(CueId(1)).unwrap();
+    assert_eq!(cue.name, "sound");
+    assert_eq!(workspace.problem(cue), None);
+    assert!(workspace.active_of(CueId(1)).is_some());
+}
+
+#[test]
 fn editing_a_running_cue_leaves_the_run_under_way() {
     let workspace = workspace(vec![audio(1)])
         .apply(GO)

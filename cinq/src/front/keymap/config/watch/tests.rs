@@ -113,6 +113,32 @@ fn reading_the_file_does_not_make_the_watcher_read_it_again() -> io::Result<()> 
     Ok(())
 }
 
+#[cfg(unix)]
+#[test]
+fn changes_by_the_real_path_of_a_linked_directory_touch_the_file() -> io::Result<()> {
+    use std::{os::unix::fs::symlink, time::Instant};
+
+    use notify_debouncer_full::{
+        DebouncedEvent,
+        notify::{Event, EventKind, event::CreateKind},
+    };
+
+    use super::{names, touches};
+
+    let home = TempDir::new()?;
+    let real = home.path().join("real");
+    fs::create_dir(&real)?;
+    let link = home.path().join("link");
+    symlink(&real, &link)?;
+    let file = link.join("config.toml");
+    // FSEvents on Darwin reports a change past every symbolic link
+    let event = Event::new(EventKind::Create(CreateKind::File))
+        .add_path(real.canonicalize()?.join("config.toml"));
+    let burst = Ok(vec![DebouncedEvent::new(event, Instant::now())]);
+    assert!(touches(&burst, &names(&file, Some(&link))));
+    Ok(())
+}
+
 #[test]
 fn keys_follow_the_file_while_standard_error_takes_nothing() -> io::Result<()> {
     let home = TempDir::new()?;

@@ -4,13 +4,8 @@
 
 //! Help page, which lists every key binding over the rest of the window
 //!
-//! The page links to the list of key values and to the configuration file,
-//! each of which opens in the program that the desktop opens it with, apart
-//! from the configuration file on Darwin, which opens in the default text
-//! editor.  The link makes a configuration file that is not there yet.  The
-//! page ends with the notice of the license of cinq.  The keys of the next
-//! and previous cue scroll it, and those of the first and last cue go to its
-//! top and its bottom.
+//! The keys of the next and previous cue scroll it, and those of the first
+//! and last cue go to its top and its bottom.
 
 use std::ffi::OsString;
 
@@ -32,14 +27,12 @@ use crate::front::{
 /// Widest that the page grows, so that its lines stay easy to read
 const WIDTH: f32 = 960.0;
 
-/// Space above and below the text of each row of the table
+/// Space above and below the text of each row of the table, closer than in
+/// the cue list, so that the page fits the window without scrolling
 const ROW_GAP: f32 = 2.0;
 
-/// List of the key values of the W3C UI Events specification
 const KEY_VALUES: &str = "https://www.w3.org/TR/uievents-key/";
 
-/// Licenses of the Free Software Foundation, to which the notice of the
-/// license of cinq points
 const LICENSES: &str = "https://www.gnu.org/licenses/";
 
 /// Notice of the license of cinq, as the README gives it, whose last
@@ -62,16 +55,38 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         ],
         Action::VARIANTS.iter().copied(),
     )
-    // Rows closer than those of the cue list, so that the page fits the
-    // window without scrolling
     .padding_y(ROW_GAP);
+    let example = keymap
+        .key(Action::Next)
+        .map_or_else(String::new, |keys| format!(", as in 3 {keys}"));
     let key_values = paragraph(
         "The manual page cinq(5) describes config.toml, where keys go by their W3C UI Events key values, listed at ",
         link(KEY_VALUES, OsString::from(KEY_VALUES)),
         ", apart from the space bar, which is Space.",
         Message::OpenLink,
     );
-    let source = match &app.config.source {
+    let page = column![
+        text(format!("Keys of the {} keymap", keymap.name())).size(24),
+        bindings,
+        text(format!("A count typed before a key repeats a move{example}, deletes as many cues, and picks the row for the first and last cue.")),
+        text("The keys of GO and Panic act at once, even halfway through another command."),
+        source(&app.config.source),
+        key_values,
+    ]
+    .extend(app.link_problem.as_deref().map(|why| text(why).into()))
+    .extend(notice())
+    .push(button("Close").on_press(Message::CloseHelp))
+    .spacing(SPACING);
+    let page = container(scrollable(page).id(HELP).spacing(0))
+        .style(container::bordered_box)
+        .padding(SPACING)
+        .max_width(WIDTH);
+    // Clicks beside the page close it, and the page keeps its own clicks
+    opaque(mouse_area(center(opaque(page))).on_press(Message::CloseHelp))
+}
+
+fn source(source: &Source) -> Element<'_, Message> {
+    match source {
         Source::File(file) => paragraph(
             "These keys come from ",
             link(file.display().to_string(), file.clone()),
@@ -85,43 +100,21 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             Message::EditConfig,
         ),
         Source::NoDirectory => text("These are the default keys.").into(),
-    };
-    let example = keymap
-        .key(Action::Next)
-        .map_or_else(String::new, |keys| format!(", as in 3 {keys}"));
-    let [free, warranty, copy] = NOTICE;
-    let notice = [
-        text(free).into(),
-        text(warranty).into(),
-        paragraph(
-            copy,
-            link(LICENSES, OsString::from(LICENSES)),
-            ".",
-            Message::OpenLink,
-        ),
-    ];
-    let page = column![
-        text(format!("Keys of the {} keymap", keymap.name())).size(24),
-        bindings,
-        text(format!("A count typed before a key repeats a move{example}, deletes as many cues, and picks the row for the first and last cue.")),
-        text("The keys of GO and Panic act at once, even halfway through another command."),
-        source,
-        key_values,
-    ]
-    .extend(app.link_problem.as_deref().map(|why| text(why).into()))
-    .extend(notice)
-    .push(button("Close").on_press(Message::CloseHelp))
-    .spacing(SPACING);
-    let page = container(scrollable(page).id(HELP).spacing(0))
-        .style(container::bordered_box)
-        .padding(SPACING)
-        .max_width(WIDTH);
-    // Clicks beside the page close it, and the page keeps its own clicks
-    opaque(mouse_area(center(opaque(page))).on_press(Message::CloseHelp))
+    }
 }
 
-/// Returns a paragraph of `before`, `link`, and `after`, whose link `open`
-/// turns into the message that opens what it names
+fn notice<'a>() -> [Element<'a, Message>; 3] {
+    let [free, warranty, copy] = NOTICE;
+    let licenses = link(LICENSES, OsString::from(LICENSES));
+    [
+        text(free).into(),
+        text(warranty).into(),
+        paragraph(copy, licenses, ".", Message::OpenLink),
+    ]
+}
+
+/// Returns a paragraph whose link `open` turns into the message that opens
+/// what it names
 fn paragraph<'a, Link: Clone + 'static>(
     before: &'a str,
     link: Span<'a, Link>,
@@ -133,8 +126,6 @@ fn paragraph<'a, Link: Clone + 'static>(
         .into()
 }
 
-/// Returns `label` as a link to `target`, in the color of links and
-/// underlined, as links usually are
 fn link<'a, Link>(label: impl IntoFragment<'a>, target: Link) -> Span<'a, Link> {
     span(label).link(target).color(theme::LINK).underline(true)
 }

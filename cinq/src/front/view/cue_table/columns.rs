@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! Columns of the cue list: the text of each cell, the width of each
-//! column, and the state of a cue, in the color of what it needs
+//! column, and the state of a cue
 
 use iced::{Theme, widget::text};
 use strum::{IntoStaticStr, VariantArray};
@@ -15,7 +15,6 @@ use crate::{
     front::view::{char_width, format},
 };
 
-/// Column of the cue list, which goes by its name, apart from the number
 #[derive(Debug, Clone, Copy, PartialEq, Eq, VariantArray, IntoStaticStr)]
 pub(super) enum Column {
     #[strum(serialize = "#")]
@@ -31,8 +30,8 @@ pub(super) enum Column {
 }
 
 impl Column {
-    /// Columns that give way in turn when the list is too narrow to leave a
-    /// name room to be read, after those that are empty in every row
+    /// Columns that give way in turn, the first to go first, when the list
+    /// is too narrow to leave a name room to be read
     pub(super) const YIELDING: [Column; 5] = [
         Column::Post,
         Column::Pre,
@@ -45,7 +44,6 @@ impl Column {
         self.into()
     }
 
-    /// Returns the text of the cell of `cue` in this column
     pub(super) fn text(self, workspace: &Workspace, list: &CueList, cue: &Cue) -> String {
         match self {
             Column::Number => cue.number.clone(),
@@ -60,15 +58,13 @@ impl Column {
         }
     }
 
-    /// Returns whether the column has text in any row of `list`
     pub(super) fn holds_text(self, workspace: &Workspace, list: &CueList) -> bool {
         list.cues
             .iter()
             .any(|cue| !self.text(workspace, list, cue).is_empty())
     }
 
-    /// Returns the width of the column, as wide as its title or its longest
-    /// cell, or none for the name, which takes the room left
+    /// Returns none for the name, which takes the room left
     pub(super) fn width(self, workspace: &Workspace, list: &CueList) -> Option<f32> {
         let widest = || {
             list.cues
@@ -87,14 +83,10 @@ impl Column {
     }
 }
 
-/// Describes a cue in the State column, in the color of what it needs: red
-/// while it cannot play, yellow while it is paused, green while it runs,
-/// and blue while it waits on standby for GO.  A cue that cannot play names
-/// what it lacks, a file or a target, or else is BROKEN, as when its file
-/// cannot be played or its start is not before its end.  A file that is
-/// still loading stops the cue from playing too, but it needs nothing but
-/// time.  The list of running cues tells more of each, such as where a
-/// paused cue stopped.
+/// Describes a cue in the State column, in the color of what it needs.  A
+/// file that is still loading stops the cue from playing, but it needs
+/// nothing but time.  The list of running cues tells more of each, such as
+/// where a paused cue stopped.
 pub(super) fn state(
     workspace: &Workspace,
     list: &CueList,

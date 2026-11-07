@@ -65,7 +65,6 @@ fn created_in(directory: &Path) -> io::Result<tempfile::NamedTempFile> {
         .tempfile_in(directory)
 }
 
-/// Returns a new, empty file in `directory`
 #[cfg(not(unix))]
 fn created_in(directory: &Path) -> io::Result<tempfile::NamedTempFile> {
     tempfile::NamedTempFile::new_in(directory)

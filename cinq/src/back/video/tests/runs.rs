@@ -16,10 +16,10 @@ use std::{
 use super::{
     PATIENCE,
     movie::{broken_movie, movie, picture_number},
+    showing_cue, synced,
 };
 use crate::back::{
-    Command, Cue, CueId, CueList, Kind, Load, Media, Picture, Video, Workspace, load_files,
-    video::decoder::UNDECODABLE,
+    Command, Cue, CueId, Kind, Media, Video, Workspace, video::decoder::UNDECODABLE,
 };
 
 /// Returns a workspace in the directory of the video at `path`, with one
@@ -31,38 +31,6 @@ fn showing(path: &Path) -> Workspace {
             .file("movie.mp4")
             .build(),
     )
-}
-
-/// Returns a workspace in the directory of the video at `path`, with one
-/// list of `cue`, whose file has loaded
-fn showing_cue(path: &Path, cue: Cue) -> Workspace {
-    let directory = path.parent().expect("the video is in a directory");
-    let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).directory(directory);
-    let loads = load_files(Load::all(&workspace, workspace.unloaded()));
-    loads.into_iter().fold(workspace, Workspace::apply)
-}
-
-/// Syncs `video` with `workspace` until a picture comes due or the
-/// workspace no longer runs the cue, and returns the workspace, along with
-/// the picture
-fn synced(video: &mut Video, workspace: Workspace) -> (Workspace, Option<(CueId, Picture)>) {
-    synced_since(video, workspace, Instant::now())
-}
-
-/// Goes on with [`synced`], which started at `started`
-fn synced_since(
-    video: &mut Video,
-    workspace: Workspace,
-    started: Instant,
-) -> (Workspace, Option<(CueId, Picture)>) {
-    let (workspace, pictures) = video.sync(workspace);
-    match pictures.into_iter().next() {
-        None if started.elapsed() < PATIENCE && !workspace.active().is_empty() => {
-            thread::sleep(Duration::from_millis(5));
-            synced_since(video, workspace, started)
-        }
-        picture => (workspace, picture),
-    }
 }
 
 #[test]

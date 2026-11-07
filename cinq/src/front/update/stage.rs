@@ -46,7 +46,6 @@ use crate::{
 /// that runs
 #[derive(Default)]
 pub struct Stage {
-    /// Window while it is open
     window: Option<window::Id>,
     /// Whether the operator closed the window, which keeps it closed until
     /// a picture or video cue fires
@@ -66,29 +65,22 @@ pub struct Stage {
 }
 
 impl Stage {
-    /// Returns the stage window while it is open
     pub fn window(&self) -> Option<window::Id> {
         self.window
     }
 
-    /// Returns how many seconds of the show clock pass before the next
-    /// picture of a video cue that plays comes due, once it has arrived
     pub fn due(&self) -> Option<f64> {
         self.due
     }
 
-    /// Returns the stage with its next picture due in `due` seconds of the
-    /// show clock, or with none due
     pub(in crate::front) fn with_due(self, due: Option<f64>) -> Self {
         Self { due, ..self }
     }
 
-    /// Returns whether `window` is the stage window
     pub fn is_window(&self, window: window::Id) -> bool {
         self.window == Some(window)
     }
 
-    /// Returns whether the stage window has the keyboard
     pub fn has_keyboard(&self) -> bool {
         self.keyboard
     }
@@ -101,8 +93,6 @@ impl Stage {
         }
     }
 
-    /// Returns the newest picture of the picture or video cue `cue`, if it
-    /// has one
     pub fn picture(&self, cue: CueId) -> Option<&image::Handle> {
         self.pictures.get(&cue)
     }

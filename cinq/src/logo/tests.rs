@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Tests of the logo: the geometry that declares it, and the SVG that it is
-//! written as
+//! Tests of the logo
 
 use super::*;
 
-/// Returns whether `point` lies within a hundredth of `x` and `y`
 fn near(point: Point, x: f64, y: f64) -> bool {
     (point.x - x).abs() < 0.01 && (point.y - y).abs() < 0.01
 }

@@ -21,7 +21,7 @@ use std::{
     io::{self, IsTerminal, Write},
     iter, panic, process,
     sync::{
-        Mutex, MutexGuard, PoisonError,
+        Mutex, MutexGuard, PoisonError, TryLockError,
         mpsc::{self, RecvTimeoutError},
     },
     thread,
@@ -60,8 +60,6 @@ pub enum Errors {
 }
 
 impl Errors {
-    /// Returns standard error, as a screen when it is a terminal that can
-    /// switch screens, which one that calls itself dumb cannot
     pub fn standard() -> Self {
         if switchable() {
             Self::Screen
@@ -80,9 +78,16 @@ pub fn guard() {
     }
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
-        // Thread that panics while it holds the lock would wait for itself
-        if let Ok(mut shown) = SHOWN.try_lock() {
-            restored(&mut shown);
+        // Panics on other threads, such as those that decode video, leave
+        // the program running
+        if thread::current().name() == Some("main") {
+            match SHOWN.try_lock() {
+                Ok(mut shown) => restored(&mut shown),
+                Err(TryLockError::Poisoned(poisoned)) => restored(&mut poisoned.into_inner()),
+                // Thread that panics while it holds the lock would wait for
+                // itself
+                Err(TryLockError::WouldBlock) => {}
+            }
         }
         hook(info);
     }));

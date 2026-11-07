@@ -29,13 +29,11 @@ use crate::front::{
     },
 };
 
-/// Options of a menu, one to a row
 pub(super) struct Rows<'b, T> {
     pub(super) choice: Choice<'b, T>,
 }
 
 impl<T> Rows<'_, T> {
-    /// Returns the row under the cursor
     fn under(
         &self,
         cursor: mouse::Cursor,
@@ -63,8 +61,6 @@ impl<T: ToString + Clone> Widget<Message, Theme, Renderer> for Rows<'_, T> {
         layout::Node::new(limits.resolve(Length::Fill, Length::Shrink, Size::new(0.0, height)))
     }
 
-    /// Draws the rows in view, the highlighted one in the colors of a
-    /// selection
     fn draw(
         &self,
         _tree: &Tree,
@@ -151,7 +147,6 @@ impl<T: ToString + Clone> Widget<Message, Theme, Renderer> for Rows<'_, T> {
     }
 }
 
-/// Height of a row of the menu: a line of text with the padding around it
 pub(super) fn row_height(renderer: &Renderer) -> f32 {
     line_height(renderer) + PADDING.y()
 }

@@ -5,17 +5,7 @@
 //! Part of a file that an audio or video cue plays, and what the stage
 //! window shows of the file of a video or picture cue
 
-use std::path::PathBuf;
-
 use super::{Cue, Kind, Media};
-
-/// Part of a file that a run of an audio or video cue may start, which
-/// the sound output makes ready ahead of it
-#[derive(Debug, Clone, PartialEq)]
-pub struct Wanted {
-    pub(in crate::back) path: PathBuf,
-    pub(in crate::back) clip: Clip,
-}
 
 /// Part of its file that an audio or video cue plays, from `start` to `end`
 /// in seconds into the file, where `start` comes before `end`.  A clip
@@ -28,9 +18,7 @@ pub struct Clip {
     pub(in crate::back) looping: bool,
 }
 
-/// What the stage window shows of the file of a cue: the pictures of the
-/// clip of a video cue, or the one picture of a picture cue, which holds
-/// still
+/// What the stage window shows of the file of a video or picture cue
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Shown {
     Clip(Clip),
@@ -38,7 +26,6 @@ pub enum Shown {
 }
 
 impl Clip {
-    /// Returns how long one pass through the clip lasts
     pub(in crate::back) fn length(&self) -> f64 {
         self.end - self.start
     }
@@ -79,9 +66,8 @@ impl Cue {
         })
     }
 
-    /// Returns what the stage window shows of the file of the cue: the clip
-    /// of a video cue, or the picture of a picture cue, once its file has
-    /// loaded.  There is none for other kinds of cue.
+    /// Returns what the stage window shows of the file of the cue, once the
+    /// file has loaded
     pub(in crate::back) fn shown(&self) -> Option<Shown> {
         match self.kind {
             Kind::Video => self.clip().map(Shown::Clip),
@@ -111,8 +97,6 @@ impl Cue {
         self.sound().is_some()
     }
 
-    /// Returns whether the cue is an audio or video cue that loops, and so
-    /// plays until something stops it
     pub fn loops(&self) -> bool {
         self.kind.plays_file() && self.looping
     }

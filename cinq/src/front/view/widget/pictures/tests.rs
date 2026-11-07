@@ -2,9 +2,17 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use iced::{Point, Rectangle, Size, widget::image};
+//! Tests of where a picture fits in its region, of which pictures draw,
+//! and of the state that the shader reads
 
-use super::{fitted, rgba};
+use iced::{
+    Element, Point, Rectangle, Size,
+    advanced::widget::{Tree, tree},
+    widget::{image, space},
+};
+
+use super::{fitted, pictures, rgba};
+use crate::front::Message;
 
 #[test]
 fn wide_picture_spans_the_width_in_the_middle_of_the_height() {
@@ -33,4 +41,12 @@ fn picture_whose_pixels_fall_short_or_that_is_empty_draws_nothing() {
     let empty = image::Handle::from_rgba(0, 2, Vec::new());
     assert_eq!(rgba(&short), None);
     assert_eq!(rgba(&empty), None);
+}
+
+#[test]
+fn pictures_drawn_where_a_stateless_widget_was_have_the_state_that_the_shader_reads() {
+    let space: Element<'_, Message> = space().into();
+    let mut tree = Tree::new(space.as_widget());
+    tree.diff(pictures(Vec::new()).as_widget());
+    assert!(matches!(tree.state, tree::State::Some(_)));
 }

@@ -3,20 +3,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! State that iced keeps for a drop-down list from one frame to the next,
-//! through which the keys that move between fields focus the list
+//! which keeps the labels that set the width of the list, and through
+//! which the keys that move between fields focus the list
 
-use iced::advanced::{
-    text::paragraph,
-    widget::{Tree, operation::Focusable},
+use iced::{
+    Renderer,
+    advanced::{
+        text::paragraph,
+        widget::{Tree, operation::Focusable},
+    },
 };
 
-use super::menu::Shared;
+use super::{label::label, menu::Shared};
 use crate::front::view::Paragraph;
 
-/// State of a drop-down list
 pub(super) struct State {
-    /// Whether the menu is open and where its highlight is, which the menu
-    /// shares while it is open
     pub(super) shared: Shared,
     /// Whether the list has the keyboard, which it has only until its menu
     /// opens
@@ -29,6 +30,27 @@ pub(super) struct State {
     pub(super) placeholder: paragraph::Plain<Paragraph>,
     /// State of the widgets of the menu, which outlives each opening
     pub(super) menu: Tree,
+}
+
+impl State {
+    pub(super) fn widest<T: ToString>(
+        &mut self,
+        renderer: &Renderer,
+        options: &[T],
+        placeholder: Option<&str>,
+    ) -> f32 {
+        let width = |plain: &mut paragraph::Plain<Paragraph>, name: &str| {
+            plain.update(label(renderer, name, f32::INFINITY));
+            plain.min_width()
+        };
+        self.labels.resize_with(options.len(), Default::default);
+        self.labels
+            .iter_mut()
+            .zip(options)
+            .map(|(plain, option)| width(plain, &option.to_string()))
+            .chain(placeholder.map(|placeholder| width(&mut self.placeholder, placeholder)))
+            .fold(0.0, f32::max)
+    }
 }
 
 impl Focusable for State {

@@ -41,7 +41,6 @@ pub fn button<'a>(content: impl Into<Element<'a, Message>>) -> Button<'a> {
 }
 
 impl Button<'_> {
-    /// Returns the button sending `message` when pressed
     pub fn on_press(self, message: Message) -> Self {
         self.on_press_maybe(Some(message))
     }
@@ -55,7 +54,6 @@ impl Button<'_> {
         }
     }
 
-    /// Returns the button at the width given
     pub fn width(self, width: impl Into<Length>) -> Self {
         Self {
             look: self.look.width(width),
@@ -79,8 +77,6 @@ impl<'a> From<Button<'a>> for Element<'a, Message> {
     }
 }
 
-/// Sends the message of a button on the press, which the iced button
-/// inside never sees
 struct OnPress(Option<Message>);
 
 impl Intercept for OnPress {

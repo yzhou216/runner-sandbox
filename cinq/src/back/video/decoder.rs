@@ -67,7 +67,6 @@ pub(super) enum Sent {
     Picture(Frame),
     /// Pass is over, and every picture of it has been sent
     Ended,
-    /// Picture cannot play, for the given reason
     Failed(String),
 }
 
@@ -113,7 +112,7 @@ fn decoded(
     let Some((from, to, first)) = track.span(clip.start, clip.end) else {
         return Ok(0);
     };
-    let passed = f64::from(pass) * (clip.end - clip.start);
+    let passed = f64::from(pass) * clip.length();
     // Pictures that show at their times, of which those that belong to the
     // clip go to the player, after the `sent` that went before them
     let send = |pictures: Vec<(f64, Decoded)>, sent: usize| {

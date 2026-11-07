@@ -61,14 +61,11 @@ pub fn run(config_dir: Option<PathBuf>, show: Option<PathBuf>) -> iced::Result {
     ran
 }
 
-/// Size that the main window opens at
 const MAIN_SIZE: Size = Size::new(1440.0, 900.0);
 
-/// Size that the stage window opens at, in the shape of most video
+/// Shape of most video
 const STAGE_SIZE: Size = Size::new(960.0, 540.0);
 
-/// Returns the settings of a window that opens `size` big, as the main
-/// window and the stage window do
 fn window_settings(size: Size) -> window::Settings {
     window::Settings {
         size,
@@ -105,10 +102,8 @@ fn no_wayland() -> Option<iced::Error> {
     })
 }
 
-/// Interface together with the sound and video output, which play what the
-/// interface shows, and the keeper of the unsaved changes of the show.
-/// These stay apart from the state of the interface, since they are the
-/// parts with side effects, which only [`Cinq::update`] reaches.
+/// Interface state together with the parts that have side effects, which
+/// stay apart from it so that only [`Cinq::update`] reaches them
 struct Cinq {
     app: App,
     audio: Audio,
@@ -122,12 +117,9 @@ struct App {
     workspace: Workspace,
     /// Main window, once it has been asked for, whose closing quits cinq
     main: Option<window::Id>,
-    /// Stage window, with the pictures of the picture and video cues that
-    /// run
     stage: Stage,
     /// Windows that are minimized, which iced does not draw
     minimized: Vec<window::Id>,
-    /// File of the show, and what it holds
     show: Show,
     /// What went wrong with show files last, until opening or saving one
     /// succeeds
@@ -138,7 +130,6 @@ struct App {
     /// Directory that keeps the unsaved changes of shows, if the platform
     /// has one
     unsaved_directory: Option<PathBuf>,
-    /// Why the audio device could not be opened, if it could not
     audio_error: Option<String>,
     /// Index of the cue list shown in the main table
     list: usize,
@@ -152,7 +143,6 @@ struct App {
     new_kind: Kind,
     /// Time of the last clock tick, or `None` while the clock is stopped
     last_tick: Option<Instant>,
-    /// Key bindings, and where they came from
     config: Config,
     /// Keys of a command typed so far, such as a count or the `g` of `g g`
     keys: Vec<Press>,

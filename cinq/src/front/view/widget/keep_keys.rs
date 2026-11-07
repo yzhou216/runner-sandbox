@@ -33,8 +33,6 @@ use crate::front::{
     keymap::{Keymap, Press},
 };
 
-/// Keeps the keys typed into the fields of `content`, apart from the keys
-/// that `keymap` lets act in fields
 pub fn keep_keys<'a>(
     content: impl Into<Element<'a, Message>>,
     keymap: &'a Keymap,
@@ -42,7 +40,6 @@ pub fn keep_keys<'a>(
     wrap(content, Keep(keymap))
 }
 
-/// Keeps the keys that a focused field let through
 struct Keep<'a>(&'a Keymap);
 
 impl Intercept for Keep<'_> {

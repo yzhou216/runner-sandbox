@@ -4,10 +4,8 @@
 
 //! Problems with the configuration file, and where in its text they lie
 //!
-//! The sidebar lists each problem after the name of the file and the line
-//! that the problem lies on.  The watcher writes each to standard error as
-//! miette draws it, with the lines of the file around it and the part that
-//! it lies in marked, so that a terminal that cinq was started from shows
+//! The sidebar lists them, and the watcher writes them to standard error as
+//! miette draws them, so that a terminal that cinq was started from shows
 //! what is wrong with the file each time it is read.
 
 #[cfg(test)]
@@ -19,8 +17,6 @@ use miette::{LabeledSpan, MietteDiagnostic, NamedSource, Report, Severity};
 
 use super::Config;
 
-/// Problem with the configuration file, which leaves the keys of the
-/// keymap in place
 #[derive(Debug, Clone)]
 pub struct Problem {
     /// What is wrong, written to follow the name of the file
@@ -31,13 +27,10 @@ pub struct Problem {
 }
 
 impl Problem {
-    /// Returns a problem that lies in no part of the text in particular
     pub fn new(message: impl Into<String>) -> Self {
         Self::at(None, message)
     }
 
-    /// Returns a problem that lies in `span` of the text, or in no part of
-    /// it without one
     pub fn at(span: impl Into<Option<Range<usize>>>, message: impl Into<String>) -> Self {
         Self {
             message: message.into(),

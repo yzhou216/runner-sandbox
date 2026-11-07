@@ -91,12 +91,9 @@ pub enum Message {
     ChooseFile(CueId),
     /// File chosen for an audio, video, or picture cue
     FileChosen(CueId, PathBuf),
-    /// Takes back the latest change to the cues
     Undo,
-    /// Makes again the change that undo took back last
     Redo,
     Focus(Focus),
-    /// Shows the help page with every key binding, or hides it
     ToggleHelp,
     CloseHelp,
     /// Key that no widget kept, whether typed outside any text field or one
@@ -123,7 +120,6 @@ pub enum Message {
     /// Opens the configuration file in the program that the desktop opens
     /// it with, making it first when it is not there yet
     EditConfig(PathBuf),
-    /// Why opening a link failed, if it did
     LinkOpened(Result<(), String>),
     /// Asks which show to open
     Open,
@@ -136,13 +132,11 @@ pub enum Message {
     SaveAs,
     /// Saves the show in a file that the operator chose
     SaveTo(PathBuf),
-    /// What saving the show found
     Saved(Saved),
     /// Mouse button pressed anywhere in a window
     Clicked,
     /// Window changed size, to no size at all while it is minimized
     Resized(window::Id, Size),
-    /// Window gained the keyboard
     WindowFocused(window::Id),
     /// Toggles the stage window between fullscreen and a window
     ToggleFullscreen,

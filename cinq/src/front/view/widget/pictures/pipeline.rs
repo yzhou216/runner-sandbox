@@ -27,7 +27,6 @@ use screen::Screen;
 /// height of its region that it spans, its opacity, and padding
 const PLACEMENT: u64 = 16;
 
-/// Pictures of a region, from the bottom up, as the GPU draws them
 #[derive(Debug)]
 pub struct Pictures(pub Vec<Layer>);
 
@@ -58,7 +57,6 @@ impl shader::Primitive for Pictures {
     }
 }
 
-/// Shader of the pictures, along with the texture of each cue that shows
 pub struct Pipeline {
     render: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
@@ -159,9 +157,6 @@ impl shader::Pipeline for Pipeline {
 }
 
 impl Pipeline {
-    /// Fills the texture of each cue of `layers` with its picture, places
-    /// the picture within `bounds`, and lets go of the textures of the cues
-    /// that no longer show
     fn prepare(
         &mut self,
         device: &wgpu::Device,
@@ -194,7 +189,6 @@ impl Pipeline {
     }
 }
 
-/// Returns the binding `index` of the shader, which `stages` see
 fn binding(
     index: u32,
     stages: wgpu::ShaderStages,

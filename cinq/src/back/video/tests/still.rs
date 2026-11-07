@@ -9,16 +9,14 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    thread,
-    time::{Duration, Instant},
 };
 
 use image::{Rgb, RgbImage, Rgba, RgbaImage};
 use tempfile::TempDir;
 
-use super::PATIENCE;
+use super::{showing_cue, synced};
 use crate::back::{
-    Command, Cue, CueId, CueList, Kind, Load, Picture, Video, Workspace, load_files,
+    Command, Cue, CueId, Kind, Video, Workspace,
     video::{
         decoder::Sent,
         probe_still,
@@ -41,27 +39,12 @@ fn slide(color: Rgba<u8>) -> (TempDir, PathBuf) {
 /// Returns a workspace in the directory of the picture at `path`, with one
 /// list of one picture cue that shows it, whose file has loaded
 fn showing(path: &Path) -> Workspace {
-    let directory = path.parent().expect("the picture is in a directory");
-    let cue = Cue::new(CueId(1), "1", Kind::Picture, "Slide")
-        .file("slide.png")
-        .build();
-    let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).directory(directory);
-    let loads = load_files(Load::all(&workspace, workspace.unloaded()));
-    loads.into_iter().fold(workspace, Workspace::apply)
-}
-
-/// Syncs `video` with `workspace` until a picture comes due, and returns
-/// the workspace, along with the picture
-fn synced(video: &mut Video, workspace: Workspace) -> (Workspace, Option<(CueId, Picture)>) {
-    let started = Instant::now();
-    let (workspace, pictures) = video.sync(workspace);
-    match pictures.into_iter().next() {
-        None if started.elapsed() < PATIENCE => {
-            thread::sleep(Duration::from_millis(5));
-            synced(video, workspace)
-        }
-        picture => (workspace, picture),
-    }
+    showing_cue(
+        path,
+        Cue::new(CueId(1), "1", Kind::Picture, "Slide")
+            .file("slide.png")
+            .build(),
+    )
 }
 
 #[test]

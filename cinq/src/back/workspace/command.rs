@@ -52,9 +52,7 @@ pub enum Command {
 }
 
 impl Command {
-    /// Returns whether the command edits the show, as show mode forbids:
-    /// adding, deleting, moving, or editing cues, or putting kept cue lists
-    /// in place of those of the show
+    /// Returns whether the command edits the show, which show mode forbids
     pub fn edits(&self) -> bool {
         matches!(
             self,

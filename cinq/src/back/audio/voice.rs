@@ -17,12 +17,10 @@ use kira::{
 use super::preload::Preloaded;
 use crate::back::{Active, Clip, TICK};
 
-/// Time a sound takes to reach a level the workspace asks for.  It lasts
-/// two ticks of the playback clock, so fades move smoothly from one tick to
-/// the next.
+/// Time a sound takes to reach a level the workspace asks for, which
+/// outlasts a tick so that fades move smoothly from one tick to the next
 const GLIDE: Duration = TICK.saturating_mul(2);
 
-/// Sound of one run of an audio or video cue
 pub(super) struct Voice {
     pub(super) run: u32,
     sound: StreamingSoundHandle<FromFileError>,
@@ -73,7 +71,6 @@ impl Voice {
         Ok(Self::of(sound, active))
     }
 
-    /// Returns the voice of `sound`, which plays at the level of `active`
     fn of(sound: StreamingSoundHandle<FromFileError>, active: &Active) -> Self {
         Self {
             run: active.run,

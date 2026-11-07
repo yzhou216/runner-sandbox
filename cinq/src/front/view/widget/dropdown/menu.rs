@@ -35,8 +35,8 @@ use crate::front::{
 };
 pub(super) use overlay::Menu;
 
-/// Whether a menu is open and where its highlight is, which the drop-down
-/// list keeps for the menu
+/// State of the menu, which the list keeps in cells, since the list and its
+/// open menu both act on it
 #[derive(Default)]
 pub(super) struct Shared {
     open: Cell<bool>,
@@ -86,15 +86,12 @@ impl<'b, T> Choice<'b, T> {
 }
 
 impl<T: Clone> Choice<'_, T> {
-    /// Opens the menu with the highlight on `row`, which it scrolls into
-    /// view
     pub(super) fn open(&self, row: Option<usize>) {
         self.shared.open.set(true);
         self.shared.highlight.set(row);
         self.shared.reveal.set(true);
     }
 
-    /// Carries out what a key does while the menu is open
     pub(super) fn press(&self, key: &Key, press: Option<Press>, shell: &mut Shell<'_, Message>) {
         match reply(self.keymap, key, press) {
             Reply::Step(offset) => {
@@ -120,8 +117,6 @@ impl<T: Clone> Choice<'_, T> {
         shell.request_redraw();
     }
 
-    /// Sends the message of the option in `row`, if there is one, and
-    /// closes the menu
     fn pick(&self, row: Option<usize>, shell: &mut Shell<'_, Message>) {
         if let Some(option) = row.and_then(|row| self.options.get(row)) {
             shell.publish((self.on_select)(option.clone()));
@@ -136,7 +131,6 @@ impl<T: Clone> Choice<'_, T> {
 enum Reply {
     /// Moves the highlight by a number of options, downwards when positive
     Step(isize),
-    /// Picks the highlighted option, which closes the menu
     Pick,
     /// Lets the key act and closes the menu, as the keys of GO and Panic do
     Close,
@@ -144,8 +138,8 @@ enum Reply {
     Keep,
 }
 
-/// Decides what a key does while the menu is open, given the press it
-/// makes, when the key bindings can name it
+/// Decides what a key does, given the press it makes when the key bindings
+/// can name it
 fn reply(keymap: &Keymap, key: &Key, press: Option<Press>) -> Reply {
     match (press.and_then(|press| keymap.alone(press)), key) {
         (Some(Action::Next), _) => Reply::Step(1),

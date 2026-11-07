@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Tests of the command line and its shell completions, of the desktop
-//! entry that runs it, and of the share directory and the app bundle for
-//! Darwin that the build lays out
+//! Tests of the command line, of the desktop entry that runs it, and of
+//! what the build lays out
 
 use std::path::{Path, PathBuf};
 
@@ -14,7 +13,6 @@ use clap_complete_nushell::Nushell;
 
 use super::Cli;
 
-/// Desktop entry, through which application launchers list cinq
 const DESKTOP_ENTRY: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/share/applications/cinq.desktop"
@@ -40,7 +38,6 @@ fn completions_of_every_shell_offer_the_options() {
     assert!(lacking.is_empty(), "{lacking:?} offer no --config-dir");
 }
 
-/// Returns the completions of the command line that `generator` writes
 fn script(generator: impl Generator) -> String {
     let mut script = Vec::new();
     clap_complete::generate(generator, &mut Cli::command(), "cinq", &mut script);
@@ -64,7 +61,7 @@ fn desktop_entry_names_describes_and_runs_cinq_as_its_manifest_does() {
 fn build_lays_out_the_share_directory_of_a_prefix() {
     // Build that finds no `.cargo/config.toml`, as one run from another
     // directory, lays out nothing
-    let Some(share) = option_env!("CINQ_SHARE_DIR") else {
+    let Some(share) = option_env!("CINQ_SHARE_DIR").filter(|share| !share.is_empty()) else {
         return;
     };
     let missing: Vec<&str> = [
@@ -93,7 +90,9 @@ fn build_lays_out_the_share_directory_of_a_prefix() {
 #[test]
 fn build_for_darwin_lays_out_the_app_bundle_beside_the_share_directory() {
     // Builds for other systems lay out no bundle
-    let Some(share) = option_env!("CINQ_SHARE_DIR").filter(|_| cfg!(target_os = "macos")) else {
+    let Some(share) = option_env!("CINQ_SHARE_DIR")
+        .filter(|share| !share.is_empty() && cfg!(target_os = "macos"))
+    else {
         return;
     };
     let contents = Path::new(share)

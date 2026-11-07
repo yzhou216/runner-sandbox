@@ -8,12 +8,8 @@
 //! The logo is declared here shape by shape, from the back of the stage to
 //! the front, on a square grid [`SIZE`] units across whose y axis points
 //! down, as that of SVG does.  Angles are in degrees, clockwise from the
-//! right.  kurbo does the geometry, and [`svg`] writes the shapes as an SVG
-//! document, which the build script draws as the icon of the desktop entry.
-//! [`geometry`] holds the helpers that the shapes are declared with, and
-//! [`layer`] paints each shape as a path of the document.  The program
-//! itself leaves this module out: only the build script and the tests
-//! compile it.
+//! right.  The program itself leaves this module out: only the build script
+//! and the tests compile it.
 
 mod geometry;
 mod layer;
@@ -25,7 +21,6 @@ use kurbo::{Affine, BezPath, Circle, Ellipse, ParamCurve, PathEl, Point, QuadBez
 use geometry::{arch, around, at, curve_to, line_to, move_to, scallop};
 use layer::Layer;
 
-/// Width and height of the grid that the logo is drawn on
 const SIZE: f64 = 128.0;
 
 /// Farthest that the Bézier curves standing for arcs and ellipses stray
@@ -55,7 +50,6 @@ const GAPS: [f64; 3] = [2.8, 4.0, 3.4];
 /// Size that the name is set at, of the size that it is lettered at
 const NAME_SCALE: f64 = 0.8;
 
-/// Returns the logo as an SVG document
 pub fn svg() -> String {
     let left = [curtain(), folds(), cord()];
     let right = left.clone().map(Layer::mirrored);

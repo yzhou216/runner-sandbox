@@ -4,21 +4,13 @@
 
 //! Update cycle, which applies each message to the interface state
 //!
-//! Each concern of the update has a module of its own: [`cinq`] reaches
-//! the parts with side effects, [`navigation`] moves the selection,
-//! switches lists, and fires GO, [`editing`] adds, moves, and deletes cues,
-//! chooses their files, and undoes and redoes changes, [`keys`] reads keys
-//! and moves the keyboard focus, [`scroll`] keeps the selected cue in view
-//! whenever the selection moves, [`loading`] loads the files of audio,
-//! video, and picture cues and tries again those that could not be played,
-//! [`show`](mod@show) opens and saves shows and keeps their unsaved changes,
-//! [`stage`] opens the stage window and keeps the pictures it shows,
-//! [`link`] opens the links of the help page, and [`subscription`] listens
-//! for the events that become messages.  The key bindings follow the
+//! Each concern of the update has a module of its own, and only [`cinq`]
+//! reaches the parts with side effects.  The key bindings follow the
 //! configuration file as it changes, through
 //! [`keymap::config::watch`](fn@super::keymap::config::watch).
 
 mod cinq;
+mod clock;
 mod editing;
 mod keys;
 mod link;
@@ -36,13 +28,12 @@ use std::thread;
 use iced::{Task, futures::channel::oneshot};
 
 use super::{App, Message};
-use crate::back::{Command, Edit, TICK, parse_level};
+use crate::back::{Command, Edit, parse_level};
 use link::{edit_config, open_link};
 pub(super) use show::{Keeper, Read, Saved, Show};
 pub(super) use stage::Stage;
 
 impl App {
-    /// Returns the state along with the task that `task` starts from it
     fn with_task(self, task: impl FnOnce(&Self) -> Task<Message>) -> (Self, Task<Message>) {
         let task = task(&self);
         (self, task)
@@ -99,17 +90,7 @@ impl App {
             Message::PauseAll => self.send(Command::Pause(true)),
             Message::ResumeAll => self.send(Command::Pause(false)),
             Message::Stop(id) => self.send(Command::Stop(id)),
-            // Ticks of the timer and those that wake for pictures may come out
-            // of order, and an earlier one counts no time
-            Message::Tick(now) => {
-                let elapsed = self
-                    .last_tick
-                    .map_or(TICK, |last| now.saturating_duration_since(last));
-                Self {
-                    last_tick: Some(self.last_tick.map_or(now, |last| last.max(now))),
-                    ..self.send(Command::Tick(elapsed.as_secs_f64()))
-                }
-            }
+            Message::Tick(now) => self.ticked(now),
             // Nothing without a selected cue, as the toolbar's button does
             Message::StandbySelected => {
                 let standby = self.selected_here().map(|cue| Command::Standby {
@@ -183,8 +164,6 @@ impl App {
         if changes { app.with_text() } else { app }
     }
 
-    /// Hands each of `commands` to the back end in turn, as [`App::send`]
-    /// does
     fn send_all(self, commands: impl IntoIterator<Item = Command>) -> Self {
         commands.into_iter().fold(self, Self::send)
     }
@@ -194,10 +173,8 @@ impl App {
     /// command typed halfway, so that a stray `d` cannot wait through a
     /// click and an edit to delete a cue.  A level typed so far gives way to
     /// the level of its cue as well, apart from a click, which can land in
-    /// its own field.  The clock stops with the last running cue, so that
-    /// time spent idle or paused never reaches the next tick, and a link
-    /// that failed to open is forgotten once the help page that holds it
-    /// closes.
+    /// its own field.  A link that failed to open is forgotten once the help
+    /// page that holds it closes.
     fn next(self, message: Message) -> (Self, Task<Message>) {
         let passive = matches!(
             message,
@@ -219,7 +196,6 @@ impl App {
         };
         let (app, task) = app.handled(message);
         let app = Self {
-            last_tick: app.last_tick.filter(|_| app.running()),
             link_problem: app.link_problem.filter(|_| app.help),
             ..app
         };

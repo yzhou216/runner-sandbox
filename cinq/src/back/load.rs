@@ -2,15 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Loading the files that audio, video, and picture cues name, which reads
-//! them
+//! Loading the files that audio, video, and picture cues name
 //!
 //! [`load_files`] finds how long each file plays, or why it cannot be
-//! played, without decoding it: the sound output reads sound files, and the
-//! video output reads video files, along with their sound tracks, which the
-//! sound output then reads in turn, and picture files, of which it reads
-//! the header alone.  Reading can block on a slow drive, so the interface
-//! runs it off its own thread.
+//! played, without decoding it.  Reading can block on a slow drive, so the
+//! interface runs it off its own thread.
 
 #[cfg(test)]
 mod tests;
@@ -22,8 +18,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use super::{Command, Cue, CueId, Kind, Media, Workspace, audio, video};
 
-/// File of an audio, video, or picture cue to load: the file as the cue
-/// names it, where it is, and the kind of cue that plays or shows it
+/// File of an audio, video, or picture cue to load
 #[derive(Debug)]
 pub struct Load {
     cue: CueId,
@@ -52,8 +47,7 @@ impl Load {
 /// Reads the files of `loads`, and returns the commands that record what
 /// reading found.  Each distinct file is read once for each kind of cue
 /// that plays it, and the files are read in parallel, which shortens
-/// opening a large show whose files are not cached yet.  Reading can block
-/// on a slow drive.
+/// opening a large show whose files are not cached yet.
 pub fn load_files(loads: Vec<Load>) -> Vec<Command> {
     // Collected first, so that rayon reads no file or a single one on this
     // thread instead of waking its pool
@@ -77,8 +71,7 @@ pub fn load_files(loads: Vec<Load>) -> Vec<Command> {
 /// Reads how long a file plays for the kind of cue that plays it, and how
 /// long its sound plays, or why it cannot be played.  The sound track of a
 /// video file has to play as well, since the cue plays it along with the
-/// picture, while a video file without one plays its picture alone.  A
-/// picture file plays for no time and holds no sound.
+/// picture, while a video file without one plays its picture alone.
 fn probe((path, kind): &(PathBuf, Kind)) -> Media {
     let loaded = match kind {
         Kind::Video => video::probe(path).and_then(|(duration, sound)| {

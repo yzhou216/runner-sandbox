@@ -6,7 +6,6 @@
 
 use crate::back::{Cue, CueId, Edit, Kind, Media, Place, items::replaced_where};
 
-/// Named list of cues with its own standby position
 #[derive(Debug, Clone)]
 pub struct CueList {
     pub name: String,

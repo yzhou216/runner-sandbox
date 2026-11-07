@@ -48,7 +48,7 @@ pub struct Placed {
 }
 
 /// Standby of a list before and after a change moved it
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Standby {
     pub list: usize,
     pub before: Option<CueId>,

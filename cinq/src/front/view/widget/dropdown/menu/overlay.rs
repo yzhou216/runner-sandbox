@@ -26,7 +26,6 @@ use super::{
 };
 use crate::front::{Message, keymap::Press, reveal, view::widget::pressed};
 
-/// Menu of the options of a drop-down list
 pub(in crate::front::view::widget::dropdown) struct Menu<'b, T> {
     choice: Choice<'b, T>,
     /// State of the scrollable, kept in the state of the list

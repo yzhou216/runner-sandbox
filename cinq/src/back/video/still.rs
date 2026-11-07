@@ -11,7 +11,7 @@
 
 use std::{
     fs::File,
-    io::{self, BufReader},
+    io::BufReader,
     path::{Path, PathBuf},
     sync::mpsc::{self, Receiver},
     thread,
@@ -19,7 +19,10 @@ use std::{
 
 use image::{DynamicImage, ImageDecoder, ImageError, ImageReader};
 
-use super::decoder::{Frame, Picture, Sent};
+use super::{
+    decoder::{Frame, Picture, Sent},
+    unreadable,
+};
 
 /// Why a file that holds no picture that the video output decodes cannot
 /// show
@@ -86,15 +89,6 @@ fn on_black(pixels: &[u8]) -> Vec<u8> {
             [laid(red), laid(green), laid(blue), u8::MAX]
         })
         .collect()
-}
-
-/// Tells why a picture file cannot be read, as the video output tells it
-/// of a video file
-fn unreadable(error: io::Error) -> String {
-    match error.kind() {
-        io::ErrorKind::NotFound => "file not found".to_owned(),
-        _ => error.to_string(),
-    }
 }
 
 /// Tells why a picture cannot be read or decoded: as the image crate tells

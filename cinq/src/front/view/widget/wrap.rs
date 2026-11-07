@@ -35,7 +35,6 @@ pub trait Intercept {
         true
     }
 
-    /// Handles an event after the content has seen it
     fn after(
         &self,
         _content: &mut Element<'_, Message>,
@@ -47,7 +46,6 @@ pub trait Intercept {
     ) {
     }
 
-    /// Draws under the content, which draws itself over what this draws
     fn under(&self, _layout: Layout<'_>, _renderer: &mut Renderer) {}
 
     /// Tells an operation about the content, before the content tells it
@@ -55,13 +53,11 @@ pub trait Intercept {
     fn operate(&self, _layout: Layout<'_>, _operation: &mut dyn Operation) {}
 }
 
-/// Content with an [`Intercept`] around its events
 struct Wrap<'a, I> {
     content: Element<'a, Message>,
     intercept: I,
 }
 
-/// Returns `content` with `intercept` around its events
 pub fn wrap<'a>(
     content: impl Into<Element<'a, Message>>,
     intercept: impl Intercept + 'a,

@@ -46,7 +46,6 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         .into()
 }
 
-/// Draws the bar `width` wide, with as many hints as fit beside the status.
 /// Hints grow to the left, so that the keys typed so far come and go
 /// without moving the rest.
 fn bar(app: &App, width: f32) -> Element<'_, Message> {
@@ -66,8 +65,7 @@ fn bar(app: &App, width: f32) -> Element<'_, Message> {
 }
 
 /// Returns the hints joined, each one whole, without as many of those
-/// that give way as it takes for the rest to fit in `room` columns, or
-/// without all of them when even that is too many
+/// that give way as it takes for the rest to fit in `room` columns
 fn fitted(hints: &[(Option<Action>, String)], room: usize) -> String {
     giving_way(
         &YIELDING,
@@ -82,9 +80,6 @@ fn fitted(hints: &[(Option<Action>, String)], room: usize) -> String {
     )
 }
 
-/// Returns the parts of the status, each with the color that makes it
-/// stand out, if it does: unsaved changes, show mode, which locks editing,
-/// and any warnings stand out
 fn status(app: &App) -> Vec<text::Span<'_>> {
     let count = warnings(app);
     let mode = if app.editable() {
@@ -103,8 +98,8 @@ fn status(app: &App) -> Vec<text::Span<'_>> {
     ]
 }
 
-/// Returns the hints in the order they show, each with the action whose
-/// keys it names when it can give way
+/// Returns the hints, each with the action whose keys it names when it can
+/// give way
 fn hints(app: &App) -> Vec<(Option<Action>, String)> {
     let keymap = &app.config.keymap;
     let key =
@@ -140,7 +135,6 @@ fn notice(app: &App) -> Option<String> {
     next.map(|_| answered(told, &app.config.keymap, action))
 }
 
-/// Returns the text with its first letter in upper case
 fn capitalized(text: &str) -> String {
     text.chars()
         .take(1)

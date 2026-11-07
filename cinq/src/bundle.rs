@@ -6,11 +6,8 @@
 //! program in it
 //!
 //! A bundle is a directory, cinq.app, that Finder shows and opens as one
-//! program.  Its Info.plist names the program, and its icon is the logo
-//! drawn at each size that Darwin shows icons at.  The program goes in
-//! `Contents/MacOS`, which a package fills, since the build script runs
-//! before the program is linked.  The program itself leaves this module out:
-//! only the build script and the tests compile it.
+//! program.  The program itself leaves this module out: only the build
+//! script and the tests compile it.
 
 #[cfg(test)]
 mod tests;
@@ -40,8 +37,6 @@ const ICONS: [IconType; 10] = [
     IconType::RGBA32_512x512_2x,
 ];
 
-/// Returns Info.plist, which tells Darwin the name, identifier, and version
-/// of cinq
 pub fn info_plist() -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -75,8 +70,6 @@ pub fn info_plist() -> String {
     )
 }
 
-/// Returns the icon as an icns file, which holds the logo as each of
-/// [`ICONS`]
 pub fn icns() -> io::Result<Vec<u8>> {
     let logo = Tree::from_str(&logo::svg(), &Options::default()).map_err(io::Error::other)?;
     let mut icon = IconFamily::new();
@@ -88,7 +81,6 @@ pub fn icns() -> io::Result<Vec<u8>> {
     Ok(file)
 }
 
-/// Returns `logo` drawn `pixels` across, as an image for the icon
 fn drawn(logo: &Tree, pixels: u32) -> io::Result<Image> {
     let mut pixmap = Pixmap::new(pixels, pixels).expect("no icon is empty");
     let scale = pixels as f32 / logo.size().width();

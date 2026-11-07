@@ -113,6 +113,7 @@
         aarch64-windows = windows pkgs.pkgsCross.mingw-ucrt-aarch64;
         riscv64-linux = nixpkgsCross pkgs.pkgsCross.riscv64;
         x86_64-freebsd = nixpkgsCross pkgs.pkgsCross.x86_64-freebsd;
+        aarch64-freebsd = nixpkgsCross pkgs.pkgsCross.aarch64-freebsd; # Tried in the sandbox alone
       };
     in
     {

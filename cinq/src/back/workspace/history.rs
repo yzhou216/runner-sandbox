@@ -62,16 +62,12 @@ impl History {
         }
     }
 
-    /// Takes the change that undo takes back next off its list and onto the
-    /// list of redo
     fn undoing(self) -> (Self, Option<Change>) {
         let (undo, redo, change) = moved(self.undo, self.redo);
         let turn = change.as_ref().map_or(self.turn, |_| Some(Turn::Undone));
         (Self { undo, redo, turn }, change)
     }
 
-    /// Takes the change that redo makes again next off its list and onto
-    /// the list of undo
     fn redoing(self) -> (Self, Option<Change>) {
         let (redo, undo, change) = moved(self.redo, self.undo);
         let turn = change.as_ref().map_or(self.turn, |_| Some(Turn::Redone));

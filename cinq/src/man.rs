@@ -7,30 +7,19 @@
 //!
 //! cinq(1) comes from the command line, which clap_mangen renders.  cinq(5)
 //! and cinq-show(5) come from their scdoc sources, of which the build keeps
-//! only the parts for the platform, for scdoc to render in turn.  The pages
-//! differ by platform only in where the configuration file and the unsaved
-//! changes are, which the dirs crate decides, in the program that opens the
-//! configuration file, in the Wayland compositor that the window needs on
-//! GNU/Linux and the BSDs, and in the clock that waits for the windows to
-//! draw on Windows.  The program itself leaves this module out: only the
-//! build script and the tests compile it.
+//! only the parts for the platform, for scdoc to render in turn.  The
+//! program itself leaves this module out: only the build script and the
+//! tests compile it.
 
+mod command;
 #[cfg(test)]
 mod tests;
 
-use std::io::{self, Write};
-
-use clap::CommandFactory;
-use clap_mangen::{
-    Man,
-    roff::{Inline, Roff, bold, italic, line_break, roman},
-};
 use strum::{IntoStaticStr, VariantArray};
 
-use super::cli::Cli;
+pub use command::command_page;
 
-/// Pages that scdoc renders, by name, with their sources: cinq(5), of the
-/// configuration file, and cinq-show(5), of show files
+/// Pages that scdoc renders, by name, with their sources
 pub const SCDOC: [(&str, &str); 2] = [
     (
         "cinq.5",
@@ -50,19 +39,6 @@ const IF: &str = "; if ";
 /// which the source is for every platform again
 const END: &str = "; end";
 
-/// Section of cinq(1) as clap_mangen renders it
-type Section = fn(&Man, &mut dyn Write) -> io::Result<()>;
-
-/// Sections of cinq(1) that clap_mangen derives from the command line, in
-/// the order of man-pages(7)
-const SECTIONS: [Section; 5] = [
-    Man::render_title,
-    Man::render_name_section,
-    Man::render_synopsis_section,
-    Man::render_description_section,
-    Man::render_options_section,
-];
-
 /// Platform, as far as the manual pages tell platforms apart: by where the
 /// dirs crate finds the configuration directory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, VariantArray, IntoStaticStr)]
@@ -78,8 +54,8 @@ pub enum Platform {
 }
 
 impl Platform {
-    /// Returns the platform of a target, which Rust names by its
-    /// `target_os`, as the dirs crate tells targets apart
+    /// Returns the platform of `target_os`, as the dirs crate tells targets
+    /// apart
     pub fn of(target_os: &str) -> Self {
         match target_os {
             "windows" => Platform::Windows,
@@ -114,87 +90,6 @@ impl Platform {
     }
 }
 
-/// Renders cinq(1) for `platform`, dated `date`: the sections that
-/// clap_mangen derives from the command line, then those that it cannot.
-/// Each section comes with the same preamble, which defines the
-/// apostrophe, and the page keeps it only once.
-pub fn command_page(platform: Platform, date: &str) -> String {
-    let command = Cli::command();
-    // man-pages(7) starts the summary in the NAME section in lower case
-    let summary = command
-        .get_about()
-        .map_or_else(String::new, |about| uncapitalized(&about.to_string()));
-    // Notice that --version prints after the version, with its link on a
-    // line of its own, so that roff neither hyphenates the link nor spreads
-    // out the words before it
-    let notice = command
-        .get_long_version()
-        .and_then(|version| version.split_once('\n'))
-        .map_or_else(String::new, |(_, notice)| notice.replace(" <", "\n<"));
-    let man = Man::new(command.about(summary))
-        .date(date)
-        .manual("General Commands Manual");
-    let mut page = Vec::new();
-    SECTIONS
-        .iter()
-        .try_for_each(|render| render(&man, &mut page))
-        .and_then(|()| epilogue(platform, &notice).to_writer(&mut page))
-        .expect("writing to memory does not fail");
-    let preamble = Roff::new().render();
-    let body = String::from_utf8(page).expect("the page is UTF-8");
-    format!("{preamble}{}", body.replace(&preamble, ""))
-}
-
-/// Returns the sections of cinq(1) that clap_mangen cannot derive from the
-/// command line: the variables that name the Wayland compositor where
-/// `platform` needs one, the configuration file and the directory of
-/// unsaved changes of `platform`, the copyright `notice`, and the pages to
-/// see also
-fn epilogue(platform: Platform, notice: &str) -> Roff {
-    // Lines of the notice, each after a line break but the first
-    let notice: Vec<Inline> = notice
-        .lines()
-        .flat_map(|line| [line_break(), roman(line)])
-        .skip(1)
-        .collect();
-    let mut roff = Roff::new();
-    if platform == Platform::Xdg {
-        roff.control("SH", ["ENVIRONMENT"])
-            .control("TP", [])
-            .text([bold("WAYLAND_DISPLAY"), roman(", "), bold("WAYLAND_SOCKET")])
-            .text([
-                roman("Wayland compositor that the window opens on, which "),
-                bold("cinq"),
-                roman(" needs, since it does not run on X11."),
-            ]);
-    }
-    roff.control("SH", ["FILES"])
-        .control("TP", [])
-        .text([italic(platform.config_file())])
-        .text([
-            roman("The configuration file, which "),
-            bold("cinq"),
-            roman("(5) describes."),
-        ])
-        .control("TP", [])
-        .text([italic(platform.unsaved_directory())])
-        .text([
-            roman("Directory that keeps the unsaved changes of shows, which "),
-            bold("cinq-show"),
-            roman("(5) describes."),
-        ])
-        .control("SH", ["COPYRIGHT"])
-        .text(notice)
-        .control("SH", ["SEE ALSO"])
-        .text([
-            bold("cinq"),
-            roman("(5), "),
-            bold("cinq-show"),
-            roman("(5)"),
-        ]);
-    roff
-}
-
 /// Returns the scdoc `source` of a page for `platform`, without the parts
 /// for other platforms, and without the lines that mark the parts
 pub fn for_platform(source: &str, platform: Platform) -> String {
@@ -217,14 +112,5 @@ pub fn for_platform(source: &str, platform: Platform) -> String {
         })
         .flatten()
         .flat_map(|line| [line, "\n"])
-        .collect()
-}
-
-/// Returns the text with its first letter in lower case
-fn uncapitalized(text: &str) -> String {
-    text.chars()
-        .take(1)
-        .flat_map(char::to_lowercase)
-        .chain(text.chars().skip(1))
         .collect()
 }

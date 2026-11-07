@@ -61,8 +61,8 @@ pub const LINK: Color = BLUE_WARMER;
 /// stays legible
 pub const SELECTION: Color = BG_HL_LINE;
 
-/// Colors of the roles of iced's palette, which iced's widget styles draw
-/// with, and which spans of rich text take as they are
+/// Colors of the roles of iced's palette, which spans of rich text take as
+/// they are
 pub const PALETTE: Palette = Palette {
     background: BG_MAIN,
     text: FG_MAIN,
@@ -72,7 +72,6 @@ pub const PALETTE: Palette = Palette {
     danger: RED,
 };
 
-/// Returns the theme of the whole interface
 pub fn modus_vivendi() -> Theme {
     Theme::custom_with_fn("Modus Vivendi", PALETTE, |_| extended())
 }
@@ -125,31 +124,23 @@ fn extended() -> Extended {
     }
 }
 
-/// Draws a button in modus-vivendi's button colors
 pub fn button(theme: &Theme, status: Status) -> Style {
     painted(theme, status, BG_ACTIVE)
 }
 
-/// Draws the GO button on modus-vivendi's intense green, the color of going
-/// ahead
 pub fn go(theme: &Theme, status: Status) -> Style {
     painted(theme, status, BG_GREEN_INTENSE)
 }
 
-/// Draws the Panic button on modus-vivendi's intense red, the color of
-/// stopping
 pub fn panic(theme: &Theme, status: Status) -> Style {
     painted(theme, status, BG_RED_INTENSE)
 }
 
-/// Returns the style of a text field: iced's default, or [`invalid`] while
-/// its text reads as no valid value
 pub fn field(valid: bool) -> fn(&Theme, text_input::Status) -> text_input::Style {
     if valid { text_input::default } else { invalid }
 }
 
-/// Draws a text field in iced's default style, with the border in red, the
-/// color of failure, so that a mistake shows as it is typed
+/// Draws the border in red, so that a mistake shows as it is typed
 fn invalid(theme: &Theme, status: text_input::Status) -> text_input::Style {
     let style = text_input::default(theme, status);
     text_input::Style {
@@ -158,9 +149,8 @@ fn invalid(theme: &Theme, status: text_input::Status) -> text_input::Style {
     }
 }
 
-/// Draws a button on `background`, on the hover background while hovered,
-/// and in the dim colors of an inactive button while disabled.  Apart from
-/// color it is iced's default style.
+/// Draws a button in iced's default style but for its colors, which stay
+/// opaque while it is disabled
 fn painted(theme: &Theme, status: Status, background: Color) -> Style {
     let (background, text) = match status {
         Status::Active | Status::Pressed => (background, FG_MAIN),

@@ -35,10 +35,7 @@ use super::{
 use crate::front::{
     Message,
     keymap::Press,
-    view::{
-        Paragraph,
-        widget::{pointer_over, pressed},
-    },
+    view::widget::{pointer_over, pressed},
 };
 
 impl<'a, T: ToString + PartialEq + Clone + 'a> Widget<Message, Theme, Renderer>
@@ -72,24 +69,7 @@ impl<'a, T: ToString + PartialEq + Clone + 'a> Widget<Message, Theme, Renderer>
         limits: &layout::Limits,
     ) -> layout::Node {
         let state = tree.state.downcast_mut::<State>();
-        let width = |plain: &mut paragraph::Plain<Paragraph>, name: &str| {
-            plain.update(label(renderer, name, f32::INFINITY));
-            plain.min_width()
-        };
-        state
-            .labels
-            .resize_with(self.options.len(), Default::default);
-        let widest = state
-            .labels
-            .iter_mut()
-            .zip(&self.options)
-            .map(|(plain, option)| width(plain, &option.to_string()))
-            .chain(
-                self.placeholder
-                    .as_deref()
-                    .map(|placeholder| width(&mut state.placeholder, placeholder)),
-            )
-            .fold(0.0, f32::max);
+        let widest = state.widest(renderer, &self.options, self.placeholder.as_deref());
         // Room for the arrow, which is about as wide as the text is high
         let arrow = renderer.default_size().0 + PADDING.left;
         let intrinsic = Size::new(widest + arrow, line_height(renderer));

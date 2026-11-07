@@ -29,8 +29,6 @@ pub use keep_keys::keep_keys;
 pub use marked_row::marked_row;
 pub use pictures::{Layer, pictures};
 
-/// Returns whether an event presses on the window, with the left mouse
-/// button or a finger
 fn pressed(event: &Event) -> bool {
     matches!(
         event,
@@ -39,8 +37,6 @@ fn pressed(event: &Event) -> bool {
     )
 }
 
-/// Returns the cursor of something to click while the cursor is over
-/// `bounds`, and the default cursor elsewhere
 fn pointer_over(cursor: mouse::Cursor, bounds: Rectangle) -> mouse::Interaction {
     if cursor.is_over(bounds) {
         mouse::Interaction::Pointer

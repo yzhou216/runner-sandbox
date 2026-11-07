@@ -8,8 +8,6 @@ use iced::{Size, advanced::image, wgpu};
 
 use super::{PLACEMENT, Pipeline};
 
-/// Texture of the pictures of a cue, along with the placement of the
-/// picture and the bindings that draw it
 pub(super) struct Screen {
     /// Picture that the texture holds, once it holds one
     picture: Option<image::Id>,
@@ -19,7 +17,6 @@ pub(super) struct Screen {
 }
 
 impl Screen {
-    /// Returns a texture of `extent` that holds no picture yet
     pub(super) fn new(pipeline: &Pipeline, device: &wgpu::Device, extent: wgpu::Extent3d) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("cinq picture"),
@@ -64,8 +61,6 @@ impl Screen {
         }
     }
 
-    /// Returns the texture holding `picture`, whose pixels are `pixels`,
-    /// which it takes in only if it holds another picture
     pub(super) fn filled(
         self,
         queue: &wgpu::Queue,
@@ -92,12 +87,12 @@ impl Screen {
         }
     }
 
-    /// Places the picture in the middle of its region, spanning `span` of
-    /// its width and height, at `opacity`
+    /// Places the picture in the middle of its region, spanning the share
+    /// `span` of its width and height
     pub(super) fn place(&self, queue: &wgpu::Queue, span: Size, opacity: f32) {
         let placement: Vec<u8> = [span.width, span.height, opacity, 0.0]
-            .iter()
-            .flat_map(|value| value.to_ne_bytes())
+            .into_iter()
+            .flat_map(f32::to_ne_bytes)
             .collect();
         queue.write_buffer(&self.placement, 0, &placement);
     }

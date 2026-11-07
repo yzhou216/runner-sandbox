@@ -117,10 +117,9 @@ impl Workspace {
     }
 
     /// Returns the file that `cue` plays as a show file in `directory`
-    /// names it:
-    /// an absolute path as it is, and a relative one from `directory`
-    /// rather than from the directory of the workspace, or as an absolute
-    /// path without one
+    /// names it: an absolute path as it is, and a relative one from
+    /// `directory` rather than from the directory of the workspace, or as
+    /// an absolute path without one
     fn written_file(&self, cue: &Cue, directory: Option<&Path>) -> String {
         let Some(name) = cue.file_name() else {
             return String::new();

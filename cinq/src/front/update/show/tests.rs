@@ -19,10 +19,8 @@ use crate::back::{Command, CueId, Edit, Kind, Place};
 /// Show file of one list of one memo cue
 const SHOW: &str = "[[list]]\nname = \"Main\"\n\n[[list.cue]]\nid = 1\nnumber = \"1\"\nkind = \"memo\"\nname = \"Note\"\n";
 
-/// File of the storm show, in `/shows`
 const STORM: &str = "/shows/storm.cinq.toml";
 
-/// File of the calm show, in `/shows`
 const CALM: &str = "/shows/calm.cinq.toml";
 
 /// Returns what reading the show in `file` found: `text` in its file, and

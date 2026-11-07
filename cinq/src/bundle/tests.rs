@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Tests of the app bundle: the version that Info.plist gives, and the icon
+//! Tests of the app bundle
 
 use super::*;
 

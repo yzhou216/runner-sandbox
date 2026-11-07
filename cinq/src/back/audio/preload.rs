@@ -11,7 +11,7 @@
 //! then waits on nothing.  A sound made ready that no run wants any more is
 //! let go, which ends its decoding.
 
-use std::{collections::HashMap, convert::Infallible, sync::mpsc, thread};
+use std::{collections::HashMap, convert::Infallible, path::PathBuf, sync::mpsc, thread};
 
 use kira::sound::{
     FromFileError, Sound, SoundData,
@@ -19,7 +19,14 @@ use kira::sound::{
 };
 
 use super::voice;
-use crate::back::{CueId, Wanted};
+use crate::back::{Clip, CueId};
+
+/// Part of a file that a run of an audio or video cue may start
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Wanted {
+    pub(super) path: PathBuf,
+    pub(super) clip: Clip,
+}
 
 /// Sound made ready, which waits at the start of its clip with its first
 /// moments decoded, and which the audio manager only has to start
@@ -37,7 +44,7 @@ impl SoundData for Preloaded {
     }
 }
 
-/// Sound for the thread to make ready: that of a cue, at a level
+/// Sound for the thread to make ready
 pub(super) struct Ask {
     pub(super) cue: CueId,
     pub(super) wanted: Wanted,
@@ -49,11 +56,8 @@ type Made = (CueId, Wanted, Result<Preloaded, String>);
 
 /// Thread that makes sounds ready, with the sounds that it has made
 pub(super) struct Preloader {
-    /// Way to the thread, which ends once the preloader goes
     asks: mpsc::Sender<Ask>,
-    /// Sounds that the thread has made since they were last collected
     made: mpsc::Receiver<Made>,
-    /// Sounds ready to start, or why they cannot start, by cue
     ready: HashMap<CueId, (Wanted, Result<Preloaded, String>)>,
     /// Sounds asked for and not made yet, by cue
     asked: HashMap<CueId, Wanted>,
@@ -103,9 +107,8 @@ impl Preloader {
             .map(|(_, sound)| sound)
     }
 
-    /// Makes ready the sounds of `upcoming`, each of a cue and at a level,
-    /// apart from those that are ready or asked for already, and lets go of
-    /// any other
+    /// Makes ready the sounds of `upcoming`, apart from those that are ready
+    /// or asked for already, and lets go of any other
     pub(super) fn want(&mut self, upcoming: Vec<Ask>) {
         let wants = |cue: &CueId, sound: &Wanted| {
             upcoming

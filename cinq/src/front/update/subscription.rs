@@ -2,9 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Subscriptions, which turn keys, clicks, the clock, the pictures of video
-//! cues as they come due, windows that gain the keyboard, change size, or
-//! close, and changes of the configuration file into messages
+//! Subscriptions, which turn events into messages
 //!
 //! On Windows, the ticks of the clock wait for every window to draw, as
 //! [`pace`] tells.
@@ -76,8 +74,6 @@ impl App {
         }
     }
 
-    /// Returns the windows that iced draws, which are those open and not
-    /// minimized
     pub(super) fn drawn_windows(&self) -> Vec<window::Id> {
         [self.main, self.stage.window()]
             .into_iter()
@@ -93,8 +89,6 @@ impl App {
         self.with_minimized(window, size.width == 0.0 || size.height == 0.0)
     }
 
-    /// Returns the state with `window` among the minimized windows, or
-    /// apart from them
     pub(super) fn with_minimized(self, window: window::Id, minimized: bool) -> Self {
         let minimized = self
             .minimized
@@ -112,7 +106,6 @@ fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<
     matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_))).then_some(Message::Clicked)
 }
 
-/// Reports the window that gains the keyboard
 fn focused(event: Event, _status: event::Status, id: window::Id) -> Option<Message> {
     matches!(event, Event::Window(window::Event::Focused)).then_some(Message::WindowFocused(id))
 }

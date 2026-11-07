@@ -5,10 +5,7 @@
 //! Interface together with the parts that have side effects: the sound and
 //! video output, the keeper of unsaved changes, and the windows
 
-use std::{
-    path::{Path, PathBuf},
-    time::Instant,
-};
+use std::path::{Path, PathBuf};
 
 use iced::{Element, Subscription, Task, window};
 
@@ -45,18 +42,13 @@ impl Cinq {
         (cinq, Task::batch([opened.discard(), opening]))
     }
 
-    /// Applies one message, lets the video and sound output catch up with
-    /// the result, keeps the unsaved changes of the show, starts loading
-    /// any file that the message named, and opens the stage window once the
-    /// show holds a picture or video cue, or makes it fullscreen once GO
-    /// fires one.  This is the only place where state is replaced, and the
-    /// video and sound output and the keeper of unsaved changes are the only
-    /// parts it calls that have side effects; everything else builds new
-    /// values.  The video output goes first, so that a run whose picture
-    /// cannot play has its sound stopped in the same update.  A clock that
-    /// the message starts counts from now, so that its first tick counts
-    /// only the time since.  Taking the state out of `self` instead of
-    /// cloning it keeps updates free of copies.
+    /// Applies one message and lets the parts with side effects catch up.
+    /// This is the only place where state is replaced, and the video and
+    /// sound output and the keeper of unsaved changes are the only parts it
+    /// calls that have side effects; everything else builds new values.
+    /// The video output goes first, so that a run whose picture cannot play
+    /// has its sound stopped in the same update.  Taking the state out of
+    /// `self` instead of cloning it keeps updates free of copies.
     pub(in crate::front) fn update(&mut self, message: Message) -> Task<Message> {
         let (app, task) = std::mem::take(&mut self.app).next(message);
         let (workspace, pictures) = self.video.sync(app.workspace);
@@ -67,18 +59,14 @@ impl Cinq {
             file_problem: self.keeper.keep(&app.show).or(app.file_problem),
             workspace,
             ..app
-        };
-        let app = App {
-            last_tick: app.last_tick.or_else(|| app.running().then(Instant::now)),
-            ..app
-        };
+        }
+        .clocked();
         let (app, load) = app.load();
         let (app, stage) = app.staged();
         self.app = app;
         Task::batch([task, load, stage])
     }
 
-    /// Draws the window `window`: the stage window, or else the main window
     pub(in crate::front) fn view(&self, window: window::Id) -> Element<'_, Message> {
         if self.app.stage.is_window(window) {
             view::stage::view(&self.app)
@@ -87,9 +75,6 @@ impl Cinq {
         }
     }
 
-    /// Returns the title of the window `window`: the name of the show and
-    /// the name of the program, along with the mark of unsaved changes in
-    /// the main window, and the word stage in the stage window
     pub(in crate::front) fn title(&self, window: window::Id) -> String {
         let show = &self.app.show;
         if self.app.stage.is_window(window) {

@@ -37,7 +37,6 @@ fn workspace(cues: Vec<Cue>) -> Workspace {
     loads.into_iter().fold(workspace, Workspace::apply)
 }
 
-/// Returns the command that records what loading `file` for a cue found
 fn loaded(id: u32, file: &str, media: Media) -> Command {
     Command::Loaded {
         cue: CueId(id),
@@ -46,17 +45,15 @@ fn loaded(id: u32, file: &str, media: Media) -> Command {
     }
 }
 
-/// Returns the command that adds a cue of `kind` to the list at `list`
 fn add(list: usize, kind: Kind, at: Place) -> Command {
     Command::Add { list, kind, at }
 }
 
-/// Returns the command that moves cue `id` by `by` places in its list
 fn moving(id: u32, by: isize) -> Command {
     Command::Move { cue: CueId(id), by }
 }
 
-/// Returns the identities of the cues of the first list, in order
+/// Returns the identities of the cues of the first list
 fn ids(workspace: &Workspace) -> Vec<u32> {
     workspace.lists()[0]
         .cues
@@ -76,7 +73,6 @@ fn audio(id: u32) -> Cue {
         .build()
 }
 
-/// Returns an audio cue that plays `file`
 fn playing(file: &str) -> Cue {
     Cue {
         file: file.to_owned(),
@@ -92,7 +88,6 @@ fn continuing(id: u32) -> Cue {
     }
 }
 
-/// Returns an audio cue that auto-continues after a post-wait
 fn continuing_after(id: u32, post_wait: f32) -> Cue {
     Cue {
         post_wait: post_wait.into(),
@@ -110,6 +105,13 @@ fn fade_out(id: u32) -> Cue {
 
 fn level(workspace: &Workspace, id: u32) -> Option<f32> {
     workspace.active_of(CueId(id)).map(|active| active.level)
+}
+
+fn opacity(workspace: &Workspace, id: u32) -> f32 {
+    workspace
+        .active_of(CueId(id))
+        .expect("the cue runs")
+        .opacity()
 }
 
 const GO: Command = Command::Go { list: 0 };

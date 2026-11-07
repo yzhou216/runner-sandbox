@@ -18,7 +18,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     let standby = list.standby.and_then(|id| app.workspace.cue(id));
     // Summary keeps to three lines, each cut short at the edge rather than
     // wrapped, so that the parts below stay where they are as standby moves
-    let [title, notes, chain] = standby.map_or_else(
+    let lines = standby.map_or_else(
         || {
             [
                 "Standby: end of list".to_owned(),
@@ -39,8 +39,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
             ]
         },
     );
-    let [title, notes, chain] =
-        [title, notes, chain].map(|line| text(line).wrapping(Wrapping::None));
+    let [title, notes, chain] = lines.map(|line| text(line).wrapping(Wrapping::None));
     let summary = column![title.size(24), notes, chain];
     let paused = app.workspace.active().iter().any(|active| active.paused);
     row![

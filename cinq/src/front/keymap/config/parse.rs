@@ -17,11 +17,8 @@ use toml::{
 use super::Problem;
 use crate::front::keymap::{Action, Keymap, Preset, binding};
 
-/// Settings that the file can hold
 const SETTINGS: [&str; 3] = ["keymap", "keymaps", "keys"];
 
-/// Reads the text of a configuration file into key bindings, along with
-/// what was wrong with it
 pub(in crate::front::keymap) fn parse(text: &str) -> (Keymap, Vec<Problem>) {
     let table = match DeTable::parse(text) {
         Ok(table) => table.into_inner(),

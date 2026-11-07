@@ -4,24 +4,25 @@
 
 //! Sound output, where the back end has side effects
 //!
-//! [`Audio::sync`] runs after every change to the workspace and makes the
-//! sound match it: it starts the audio and video cues that the workspace
-//! has sounding, follows their level and pause state, and stops the sounds
-//! whose cue has stopped.  The workspace stays the only record of what
-//! should be heard, so a sound that cannot start goes back to it as a file
-//! that cannot be played.  Ahead of that, a thread of its own makes ready
-//! the sounds that runs may start next, so that GO waits on no file.  The
-//! sound of a video file plays as that of a sound file does, from the
-//! file's sound track, along with the silence that AAC encoders put around
-//! the sound, since the decoder reads no edit list, which marks that
-//! silence for players to skip.
+//! [`Audio::sync`] runs after every change to the workspace.  The workspace
+//! stays the only record of what should be heard, so a sound that cannot
+//! start goes back to it as a file that cannot be played.  A thread of its
+//! own makes ready the sounds that runs may start next, so that GO waits on
+//! no file.  The sound of a video file plays from the file's sound track,
+//! along with the silence that AAC encoders put around the sound, since the
+//! decoder reads no edit list, which marks that silence for players to
+//! skip.
 
 mod preload;
 #[cfg(test)]
 mod tests;
 mod voice;
 
-use std::{collections::HashMap, io, path::Path};
+use std::{
+    collections::HashMap,
+    io,
+    path::{Path, PathBuf},
+};
 
 use itertools::Itertools;
 use kira::{
@@ -29,21 +30,17 @@ use kira::{
     sound::{FromFileError, streaming::StreamingSoundData},
 };
 
-use super::{Active, Clip, Command, Cue, CueId, Media, Problem, Wanted, Workspace};
-use preload::{Ask, Preloader};
+use super::{Active, Clip, Command, Cue, CueId, Media, Problem, Workspace};
+use preload::{Ask, Preloader, Wanted};
 use voice::Voice;
 
 /// Endings of the names of the sound files that the sound output plays,
 /// which the features of kira in `Cargo.toml` decide
 pub const SOUND_FILES: [&str; 5] = ["flac", "m4a", "mp3", "ogg", "wav"];
 
-/// Sound output for a workspace
 pub struct Audio {
-    /// Audio device, or the reason it could not be opened
     output: Result<AudioManager, String>,
-    /// Sounds of the audio and video cues that are sounding
     voices: HashMap<CueId, Voice>,
-    /// Sounds that runs may start next, made ready ahead
     preloader: Preloader,
 }
 
@@ -59,7 +56,6 @@ impl Audio {
         }
     }
 
-    /// Returns why the audio device could not be opened, if it could not
     pub fn error(&self) -> Option<&str> {
         self.output.as_ref().err().map(String::as_str)
     }
@@ -107,23 +103,10 @@ impl Audio {
         let (voices, failures) = sounding
             .into_iter()
             .map(|(id, (cue, active, clip))| {
-                // Voice that plays already, or else the sound made ready
-                // ahead if there is one, or else the file opened now
-                let voice = kept.remove(&id).map_or_else(
-                    || {
-                        let path = workspace
-                            .path(cue)
-                            .ok_or_else(|| Problem::NoFile.to_string())?;
-                        let wanted = Wanted { path, clip };
-                        match preloader.take(id, &wanted) {
-                            Some(Ok(preloaded)) => Voice::start(manager, preloaded, active),
-                            // Sound that could not be made ready, whose
-                            // file may have come back since
-                            _ => Voice::open(manager, &wanted.path, active, clip),
-                        }
-                    },
-                    Ok,
-                );
+                let voice = match kept.remove(&id) {
+                    Some(voice) => Ok(voice),
+                    None => started(manager, preloader, workspace.path(cue), active, clip),
+                };
                 voice
                     .map(|voice| (id, voice.followed(active)))
                     .map_err(|reason| Command::Loaded {
@@ -138,10 +121,28 @@ impl Audio {
     }
 }
 
-/// Returns the sounds that runs may start next, each of a cue and with the
-/// level to make it ready at: those of the runs that GO has fired that have
-/// yet to sound, then those of the cues that the next GO of each list
-/// fires, apart from the cues that GO skips
+/// Starts the sound of a run, from the sound made ready ahead if there is
+/// one
+fn started(
+    manager: &mut AudioManager,
+    preloader: &mut Preloader,
+    path: Option<PathBuf>,
+    active: &Active,
+    clip: Clip,
+) -> Result<Voice, String> {
+    let path = path.ok_or_else(|| Problem::NoFile.to_string())?;
+    let wanted = Wanted { path, clip };
+    match preloader.take(active.id, &wanted) {
+        Some(Ok(sound)) => Voice::start(manager, sound, active),
+        // Sound that could not be made ready, whose file may have come back
+        // since
+        _ => Voice::open(manager, &wanted.path, active, clip),
+    }
+}
+
+/// Returns the sounds that runs may start next: first those of the runs
+/// that GO has fired and that have yet to sound, which start soonest, then
+/// those of the next GO of each list
 fn upcoming(workspace: &Workspace) -> Vec<Ask> {
     let fired = workspace.active().iter().filter_map(|active| {
         let clip = active.pending()?;

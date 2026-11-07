@@ -6,25 +6,20 @@
 //!
 //! [`Video::sync`] runs after every change to the workspace, as
 //! [`super::Audio::sync`] does, and makes the pictures match it.  Each run
-//! of a video cue gets a thread of its own from the moment GO fires it,
-//! which decodes the clip of the run a few pictures ahead of the clock of
-//! the run, and a run whose clip loops gets a second one, which decodes the
-//! next pass through the clip before the pass under way ends.  Each run of
-//! a picture cue gets a thread that decodes its one picture.  Each sync
-//! hands on the newest picture that the clock of each run has reached, so
-//! that the picture follows the clock of the show and holds still while
-//! the run is paused.  The sound follows the clock of the audio device
-//! instead, from which the clock of the show drifts over a long video, as
-//! cinq-show(5) tells.  The threads of a run that ends go with it.  Ahead
-//! of that, the pictures that the next GO of each list may start are made
-//! ready, as their sounds are, since decoding has to start at the sync
-//! sample before the start of a clip, a few seconds before it in many
-//! files, and a large picture file takes a moment to decode.  The
-//! workspace stays the only record of what should be seen, so a picture
-//! that cannot play goes back to it as a file that cannot be played.  Video
-//! files hold H.264 in MP4, whose tracks [`track`] reads, and which
-//! [`decoder`] decodes with rust_h264, while picture files hold PNG or
-//! JPEG, which [`still`] decodes.
+//! of a video or picture cue gets a [`Player`] from the moment GO fires it,
+//! and each sync hands on the newest picture that the clock of each run has
+//! reached, so that the picture follows the clock of the show and holds
+//! still while the run is paused.  The sound follows the clock of the audio
+//! device instead, from which the clock of the show drifts over a long
+//! video, as cinq-show(5) tells.  The pictures that the next GO of each
+//! list may start are made ready ahead, as their sounds are, since decoding
+//! has to start at the sync sample before the start of a clip, a few
+//! seconds before it in many files, and a large picture file takes a moment
+//! to decode.  The workspace stays the only record of what should be seen,
+//! so a picture that cannot play goes back to it as a file that cannot be
+//! played.  Video files hold H.264 in MP4, whose tracks [`track`] reads,
+//! and which [`decoder`] decodes with rust_h264, while picture files hold
+//! PNG or JPEG, which [`still`] decodes.
 
 mod decoder;
 mod player;
@@ -33,11 +28,11 @@ mod still;
 pub(super) mod tests;
 mod track;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf};
 
 use itertools::{Either, Itertools};
 
-use super::{Active, Command, Cue, CueId, Media, Problem, Shown, Workspace};
+use super::{Active, Command, CueId, Media, Problem, Shown, Workspace};
 pub use decoder::Picture;
 use player::{Advanced, Player};
 pub(super) use still::probe as probe_still;
@@ -51,22 +46,19 @@ pub const VIDEO_FILES: [&str; 3] = ["m4v", "mov", "mp4"];
 /// as PNG and JPEG name them
 pub const PICTURE_FILES: [&str; 3] = ["jpeg", "jpg", "png"];
 
-/// File that a run of a video or picture cue may show, and what the stage
-/// window shows of it
+/// What a player decodes, which one made ready ahead has to match for a
+/// run to take it
 #[derive(Debug, Clone, PartialEq)]
 struct Showing {
     path: PathBuf,
     shown: Shown,
 }
 
-/// Video output for a workspace
 #[derive(Default)]
 pub struct Video {
-    /// Pictures of the runs of video and picture cues that GO has fired, by
-    /// cue, each with the serial number of its run
+    /// Players of the runs, each with the serial number of its run
     runs: HashMap<CueId, (u32, Player)>,
-    /// Pictures that the next GO may start, made ready ahead, by cue, each
-    /// with the file that it shows and what of it
+    /// Players made ready ahead for the next GO
     ready: HashMap<CueId, (Showing, Player)>,
 }
 
@@ -79,7 +71,7 @@ impl Video {
         // takes, stay behind and go at the end
         let mut ended = std::mem::take(&mut self.runs);
         let mut ready = std::mem::take(&mut self.ready);
-        let advanced: Vec<(&Cue, u32, Advanced)> = workspace
+        let ((runs, pictures), failures): ((HashMap<_, _>, Vec<_>), Vec<_>) = workspace
             .active()
             .iter()
             .filter_map(|active| {
@@ -99,21 +91,17 @@ impl Video {
                     });
                 Some((cue, active.run, moved_on(showing, active, player)))
             })
-            .collect();
-        let (playing, failures): (Vec<_>, Vec<_>) =
-            advanced
-                .into_iter()
-                .partition_map(|(cue, run, advanced)| match advanced {
-                    Ok((player, picture)) => {
-                        Either::Left(((cue.id, (run, player)), (cue.id, picture)))
-                    }
-                    Err(reason) => Either::Right(Command::Loaded {
-                        cue: cue.id,
-                        file: cue.file.clone(),
-                        media: Media::Failed(reason),
-                    }),
-                });
-        let (runs, pictures): (HashMap<_, _>, Vec<_>) = playing.into_iter().unzip();
+            .partition_map(|(cue, run, advanced)| match advanced {
+                Ok((player, picture)) => Either::Left((
+                    (cue.id, (run, player)),
+                    picture.map(|picture| (cue.id, picture)),
+                )),
+                Err(reason) => Either::Right(Command::Loaded {
+                    cue: cue.id,
+                    file: cue.file.clone(),
+                    media: Media::Failed(reason),
+                }),
+            });
         self.runs = runs;
         self.ready = workspace
             .upcoming()
@@ -132,13 +120,9 @@ impl Video {
                 Some((cue.id, (showing, player)))
             })
             .collect();
-        let pictures = pictures
-            .into_iter()
-            .filter_map(|(cue, picture)| Some((cue, picture?)))
-            .collect();
         (
             failures.into_iter().fold(workspace, Workspace::apply),
-            pictures,
+            pictures.into_iter().flatten().collect(),
         )
     }
 
@@ -165,16 +149,21 @@ impl Video {
 /// over: `player`, the player of the run or the one made ready for it, or
 /// else one that starts now
 fn moved_on(showing: Option<Showing>, active: &Active, player: Option<Player>) -> Advanced {
-    let player = match player {
-        Some(player) => player,
-        None => {
-            let showing = showing.ok_or_else(|| Problem::NoFile.to_string())?;
-            Player::start(showing.path, showing.shown)
-        }
-    };
+    let player = player
+        .or_else(|| showing.map(|showing| Player::start(showing.path, showing.shown)))
+        .ok_or_else(|| Problem::NoFile.to_string())?;
     if active.shows_picture() {
         player.advanced(active.played())
     } else {
         Ok((player, None))
+    }
+}
+
+/// Tells why a video or picture file cannot be read, in the words that the
+/// sound output uses for a sound file
+fn unreadable(error: io::Error) -> String {
+    match error.kind() {
+        io::ErrorKind::NotFound => "file not found".to_owned(),
+        _ => error.to_string(),
     }
 }

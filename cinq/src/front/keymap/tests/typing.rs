@@ -14,6 +14,9 @@ fn counts_repeat_motions() {
     assert_eq!(action("3 ArrowUp"), Some((Action::Previous, Some(3))));
     assert_eq!(action("Control+n"), Some((Action::Next, None)));
     assert_eq!(action("2 Control+p"), Some((Action::Previous, Some(2))));
+    // Count past the largest that a usize holds
+    let most = format!("{}j", "9 ".repeat(20));
+    assert_eq!(action(&most), Some((Action::Next, Some(usize::MAX))));
 }
 
 #[test]

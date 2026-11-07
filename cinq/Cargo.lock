@@ -394,7 +394,7 @@ dependencies = [
  "itertools",
  "keyboard-types",
  "kira",
- "kurbo 0.10.4",
+ "kurbo 0.13.1",
  "miette",
  "mp4",
  "notify-debouncer-full",

@@ -7,11 +7,11 @@
 //! Playback here is bookkeeping without side effects: fired cues count
 //! time, fades move levels, and stop cues end other cues.  The audio output
 //! in [`super::Audio`] turns the result into sound, and the video output in
-//! [`super::Video`] into pictures.  A [`Command`] asks for
-//! each change, and an [`Active`] records each cue that GO has fired.  The
-//! rules of playback live in [`playback`] and [`stopping`], those that
-//! change the cue lists in [`editing`], undo and redo in [`history`], show
-//! files in [`show`], and why cues cannot play in [`problems`].
+//! [`super::Video`] into pictures.  A [`Command`] asks for each change, and
+//! an [`Active`] records each cue that GO has fired.  The rules of playback
+//! live in [`playback`] and [`stopping`], those that change the cue lists
+//! in [`editing`], undo and redo in [`history`], show files in [`show`],
+//! and why cues cannot play in [`problems`].
 
 mod active;
 mod command;
@@ -51,11 +51,9 @@ pub struct Workspace {
     /// identity, so that a show whose identities run out adds no cue
     /// rather than one that shares an identity
     next_id: u64,
-    /// Serial number the next fired cue receives
     next_run: u32,
     /// Directory that relative file paths start from
     directory: PathBuf,
-    /// Changes to the cues that undo and redo act on
     history: History,
 }
 
@@ -65,7 +63,6 @@ impl Default for Workspace {
     }
 }
 
-/// Returns the identity after the highest that `lists` hold
 fn next_id(lists: &[CueList]) -> u64 {
     lists
         .iter()
@@ -75,8 +72,6 @@ fn next_id(lists: &[CueList]) -> u64 {
         .unwrap_or(1)
 }
 
-/// Returns `lists`, or one empty list named Main in place of none, so that
-/// a show always holds a list
 fn listed(lists: Vec<CueList>) -> Vec<CueList> {
     if lists.is_empty() {
         vec![CueList::new("Main", Vec::new())]
@@ -86,8 +81,6 @@ fn listed(lists: Vec<CueList>) -> Vec<CueList> {
 }
 
 impl Workspace {
-    /// Creates a workspace in edit mode with nothing playing, holding
-    /// `lists`, or one empty list without any
     pub fn new(lists: Vec<CueList>) -> Self {
         let lists = listed(lists);
         Self {
@@ -111,8 +104,6 @@ impl Workspace {
         }
     }
 
-    /// Returns where the file that `cue` names is, or none when it names no
-    /// file
     pub(in crate::back) fn path(&self, cue: &Cue) -> Option<PathBuf> {
         cue.file_name().map(|name| self.directory.join(name))
     }
@@ -149,7 +140,6 @@ impl Workspace {
         &self.active
     }
 
-    /// Returns whether editing is locked for a performance
     pub fn show_mode(&self) -> bool {
         self.show_mode
     }
@@ -168,8 +158,6 @@ impl Workspace {
         self.cues().find(|cue| cue.id == id)
     }
 
-    /// Returns the cue that `cue` targets, as a fade or stop cue does, if
-    /// the workspace holds it
     pub fn target(&self, cue: &Cue) -> Option<&Cue> {
         cue.target.and_then(|id| self.cue(id))
     }
@@ -184,8 +172,6 @@ impl Workspace {
         self.active.iter().find(|active| active.id == id)
     }
 
-    /// Returns the identities of the cues that GO has fired that `test`
-    /// accepts
     fn active_where(&self, test: impl Fn(&Active) -> bool) -> Vec<CueId> {
         self.active
             .iter()

@@ -9,10 +9,9 @@ use super::Workspace;
 use crate::back::{Cue, Kind, Media, Problem};
 
 impl Workspace {
-    /// Returns the reason a cue cannot play, if there is one
     pub fn problem<'a>(&self, cue: &'a Cue) -> Option<Problem<'a>> {
-        match (cue.kind, &cue.media) {
-            (Kind::Audio | Kind::Video | Kind::Picture, media) => match media {
+        match cue.kind {
+            Kind::Audio | Kind::Video | Kind::Picture => match &cue.media {
                 _ if cue.file_name().is_none() => Some(Problem::NoFile),
                 Media::Unloaded => Some(Problem::NotLoaded),
                 Media::Failed(reason) => Some(Problem::LoadFailed(reason)),
@@ -21,28 +20,25 @@ impl Workspace {
                 }
                 Media::Loaded { .. } => None,
             },
-            (Kind::Fade | Kind::Stop, _) => match self.target(cue) {
+            Kind::Fade | Kind::Stop => match self.target(cue) {
                 Some(target) if cue.can_target(target) => None,
                 _ => Some(Problem::NoTarget),
             },
-            (Kind::Wait | Kind::Memo, _) => None,
+            Kind::Wait | Kind::Memo => None,
         }
     }
 
-    /// Returns every cue that cannot play, with the reason
     pub fn problems(&self) -> impl Iterator<Item = (&Cue, Problem<'_>)> {
         self.cues()
             .filter_map(|cue| self.problem(cue).map(|problem| (cue, problem)))
     }
 
-    /// Returns the audio, video, and picture cues whose file has not been
-    /// loaded
     pub fn unloaded(&self) -> impl Iterator<Item = &Cue> {
         self.files_where(|media| *media == Media::Unloaded)
     }
 
     /// Returns the audio, video, and picture cues whose file could not be
-    /// played
+    /// played, to try again
     pub fn failed(&self) -> impl Iterator<Item = &Cue> {
         self.files_where(|media| matches!(media, Media::Failed(_)))
     }

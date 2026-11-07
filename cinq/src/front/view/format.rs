@@ -13,14 +13,13 @@ use itertools::Itertools;
 
 use crate::back::{Active, Advance, Change, Cue, CueList, Edit, Kind, Media, Phase, Workspace};
 
-/// Formats seconds as `m:ss.s`, the way the cue list shows times
+/// Formats seconds as `m:ss.s`
 fn clock(seconds: f64) -> String {
     let tenths = (seconds.max(0.0) * 10.0).round() as u32;
     format!("{}:{:02}.{}", tenths / 600, tenths / 10 % 60, tenths % 10)
 }
 
-/// Formats a pre-wait or post-wait, leaving zero blank so that real waits
-/// stand out
+/// Leaves zero blank, so that real waits stand out
 pub fn wait(seconds: f64) -> String {
     if seconds > 0.0 {
         clock(seconds)
@@ -29,10 +28,8 @@ pub fn wait(seconds: f64) -> String {
     }
 }
 
-/// Formats the length of a cue's action: the length of the clip for an
-/// audio or video cue, marked when it loops, a hold for a picture cue,
-/// which shows until something stops it, a question mark while the file
-/// of either has yet to load, and a dash for instant cues
+/// Formats the length of a cue's action, or a hold for a picture cue, whose
+/// action lasts until something stops it
 pub fn action(cue: &Cue) -> String {
     let length = clock(cue.action().into());
     match (cue.kind, &cue.media) {
@@ -46,7 +43,7 @@ pub fn action(cue: &Cue) -> String {
     }
 }
 
-/// Formats the post-wait, leaving it blank for auto-follow, which ignores it
+/// Leaves the post-wait blank for auto-follow, which ignores it
 pub fn post_wait(cue: &Cue) -> String {
     if cue.advance == Advance::Follow {
         String::new()
@@ -55,7 +52,7 @@ pub fn post_wait(cue: &Cue) -> String {
     }
 }
 
-/// Returns the short label of the Then column, blank for manual cues
+/// Returns the short label of the Then column
 pub fn advance(advance: Advance) -> &'static str {
     match advance {
         Advance::Manual => "",
@@ -64,9 +61,8 @@ pub fn advance(advance: Advance) -> &'static str {
     }
 }
 
-/// Describes what a cue acts on: the file name of an audio, video, or
-/// picture cue, or the number of the cue that a fade or stop cue targets,
-/// or its quoted name when it has no number
+/// Describes what a cue acts on: its file name without the directory, or
+/// the cue that it targets
 pub fn target(workspace: &Workspace, cue: &Cue) -> String {
     match cue.kind {
         Kind::Audio | Kind::Video | Kind::Picture => cue
@@ -78,8 +74,7 @@ pub fn target(workspace: &Workspace, cue: &Cue) -> String {
     }
 }
 
-/// Formats a level in dB with its sign, without the unit, as the level
-/// field holds it
+/// Formats a level in dB without the unit, as the level field holds it
 pub fn decibels(db: f32) -> String {
     format!("{db:+.1}")
 }
@@ -90,10 +85,6 @@ pub fn count(number: usize, noun: &str) -> String {
     format!("{number} {noun}{plural}")
 }
 
-/// Describes where an active cue is in its lifetime: how soon its action
-/// starts, after the chain that fired it and its own pre-wait, how long it
-/// has left, or that it loops or shows its picture until something stops
-/// it
 pub fn phase(active: &Active) -> String {
     match active.phase() {
         Phase::Scheduled { starts_in: wait } | Phase::PreWait { remaining: wait } => {
@@ -105,9 +96,7 @@ pub fn phase(active: &Active) -> String {
     }
 }
 
-/// Describes an active cue in full for the list of running cues: whether
-/// it is paused, where it is in its lifetime, whether a fade is changing
-/// its level, and the level of an audio or video cue that sounds
+/// Describes an active cue in full for the list of running cues
 pub fn activity(active: &Active, cue: &Cue) -> String {
     let paused = if active.paused { "paused, " } else { "" };
     let fading = active.fade.map_or("", |_| ", fading");
@@ -183,8 +172,6 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
     }
 }
 
-/// Names a cue by its number, or by its name in quotes when it has no
-/// number
 fn number(cue: &Cue) -> String {
     if cue.number.trim().is_empty() {
         format!("\"{}\"", cue.name)

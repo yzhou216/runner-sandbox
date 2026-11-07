@@ -13,13 +13,11 @@ use iced::{
 
 use super::PADDING;
 
-/// Returns the height of a line of text in the list and its menu
 pub(super) fn line_height(renderer: &Renderer) -> f32 {
     f32::from(text::LineHeight::default().to_absolute(renderer.default_size()))
 }
 
-/// Returns a label on one line, in the font and size of the list and its
-/// menu, to draw from its top left corner at [`start`]
+/// Returns a label to draw from its top left corner at [`start`]
 pub(super) fn label<C>(renderer: &Renderer, content: C, width: f32) -> Text<C> {
     Text {
         content,
@@ -34,11 +32,9 @@ pub(super) fn label<C>(renderer: &Renderer, content: C, width: f32) -> Text<C> {
     }
 }
 
-/// Returns the top left corner of a label inside `bounds`, past the left
-/// padding and centred on the height.  Labels go by their top left corner
-/// rather than by their middle, as iced's own pick list draws them, since
-/// iced's software renderer redraws a changed text only below and to the
-/// right of the point it is drawn at.
+/// Labels go by their top left corner rather than by their middle, as
+/// iced's own pick list draws them, since iced's software renderer redraws
+/// a changed text only below and to the right of the point it is drawn at.
 pub(super) fn start(renderer: &Renderer, bounds: Rectangle) -> Point {
     Point::new(
         bounds.x + PADDING.left,

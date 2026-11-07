@@ -56,11 +56,12 @@ impl<T> Order<T> {
     /// has gone out.
     pub(super) fn decoded(self, place: usize, picture: Option<T>) -> (Vec<(f64, T)>, Self) {
         // Samples that show next, up to the first that has yet to decode
-        let ready = self.showing[self.next..]
-            .iter()
-            .take_while(|&&sample| sample <= place)
-            .count();
-        let turn = &self.showing[self.next..self.next + ready];
+        let next = self.next
+            + self.showing[self.next..]
+                .iter()
+                .take_while(|&&sample| sample <= place)
+                .count();
+        let turn = &self.showing[self.next..next];
         let (due, held): (BTreeMap<usize, T>, _) = self
             .held
             .into_iter()
@@ -71,7 +72,6 @@ impl<T> Order<T> {
             .map(|(sample, picture)| (self.shows[sample], picture))
             .sorted_by(|(a, _), (b, _)| a.total_cmp(b))
             .collect();
-        let next = self.next + ready;
         (due, Self { next, held, ..self })
     }
 }

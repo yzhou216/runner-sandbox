@@ -81,7 +81,7 @@ impl Press {
                 Name::Named(named) if MODIFIERS.contains(&named) => return None,
                 key => (key, modifiers.shift()),
             },
-            _ => return None,
+            Key::Unidentified => return None,
         };
         Some(Self {
             key,
@@ -91,7 +91,6 @@ impl Press {
         })
     }
 
-    /// Returns the same key without modifiers
     pub(super) fn bare(self) -> Self {
         Self {
             ctrl: false,

@@ -33,8 +33,6 @@ impl App {
         .with_task(|app| read(loads, app.show.id(), Message::Loaded))
     }
 
-    /// Records what loading the files of the show of identity `show` found,
-    /// unless another show has taken its place since
     pub(super) fn loaded(self, show: u64, found: Vec<Command>) -> Self {
         Self {
             loading: false,
@@ -56,8 +54,6 @@ impl App {
         .with_task(|app| read(loads, app.show.id(), Message::Rechecked))
     }
 
-    /// Records what reading again the files of the show of identity `show`
-    /// found, unless another show has taken its place since
     pub(super) fn rechecked(self, show: u64, found: Vec<Command>) -> Self {
         Self {
             rechecking: false,

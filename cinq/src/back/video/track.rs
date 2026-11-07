@@ -19,16 +19,12 @@
 mod tests;
 mod timing;
 
-use std::{
-    fs::File,
-    io::{self, BufReader},
-    iter,
-    path::Path,
-};
+use std::{fs::File, io::BufReader, iter, path::Path};
 
 use mp4::{MediaType, Mp4Reader, TrackType};
 use rust_h264::nal::{NalUnit, parse_avcc};
 
+use super::unreadable;
 pub(super) use timing::Sample;
 use timing::timeline;
 
@@ -50,7 +46,6 @@ const PARAMETER_LENGTH: usize = 4;
 /// H.264 track of a video file, ready to read
 pub(super) struct Track {
     reader: Mp4Reader<BufReader<File>>,
-    /// Identity of the track in its file
     id: u32,
     /// Samples in the order they decode
     pub(super) samples: Vec<Sample>,
@@ -61,7 +56,6 @@ pub(super) struct Track {
     parameters: Vec<u8>,
     /// Seconds that the picture lasts
     pub(super) duration: f64,
-    /// Whether the file holds a sound track besides
     sound: bool,
 }
 
@@ -77,10 +71,7 @@ impl Track {
     /// Opens the video file at `path` and reads the tables of its first
     /// H.264 track, or tells why it cannot be played
     pub(super) fn open(path: &Path) -> Result<Self, String> {
-        let file = File::open(path).map_err(|error| match error.kind() {
-            io::ErrorKind::NotFound => "file not found".to_owned(),
-            _ => error.to_string(),
-        })?;
+        let file = File::open(path).map_err(unreadable)?;
         let size = file.metadata().map_err(|error| error.to_string())?.len();
         let reader =
             Mp4Reader::read_header(BufReader::new(file), size).map_err(|_| NO_VIDEO.to_owned())?;

@@ -17,7 +17,7 @@ use std::{ffi::OsStr, fmt, ops::RangeInclusive, path::Path};
 
 use bon::Builder;
 
-pub use clip::{Clip, Shown, Wanted};
+pub use clip::{Clip, Shown};
 pub use edit::Edit;
 pub use kind::{Advance, Kind};
 pub use list::CueList;
@@ -30,7 +30,6 @@ pub const SILENCE: f32 = -60.0;
 /// Loudest level in dB that the operator can give a cue
 pub const LOUDEST: f32 = 12.0;
 
-/// Levels in dB that the operator can give a cue
 pub const LEVELS: RangeInclusive<f32> = SILENCE..=LOUDEST;
 
 /// Returns the level in dB that `text` reads as, with its unit or without
@@ -49,7 +48,8 @@ pub fn parse_level(text: &str) -> Option<f32> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CueId(pub u32);
 
-/// One cue of a cue list, which displays as its number and name
+/// One cue of a cue list, which displays as its number and name, or as its
+/// name alone when it has no number
 ///
 /// [`Cue::new`] takes the settings every cue needs and returns a builder
 /// for the rest, which `build` finishes.  By default a cue has no target,
@@ -71,7 +71,6 @@ pub struct Cue {
     /// File that an audio or video cue plays, or that a picture cue shows
     #[builder(default, into)]
     pub file: String,
-    /// What loading the file found
     #[builder(skip)]
     pub media: Media,
     /// Time in the file at which an audio or video cue starts
@@ -109,12 +108,15 @@ pub struct Cue {
 
 impl fmt::Display for Cue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.number, self.name)
+        if self.number.trim().is_empty() {
+            f.write_str(&self.name)
+        } else {
+            write!(f, "{} {}", self.number, self.name)
+        }
     }
 }
 
 impl Cue {
-    /// Returns the name that a new cue of `kind` goes by
     fn new_name(kind: Kind) -> String {
         format!("New {kind} cue")
     }
@@ -186,8 +188,6 @@ impl Cue {
     }
 }
 
-/// Returns the name of a file without its directory and its ending, or
-/// none when there is no such name
 fn stem(file: &str) -> Option<&str> {
     Path::new(file.trim()).file_stem().and_then(OsStr::to_str)
 }

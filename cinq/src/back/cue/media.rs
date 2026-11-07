@@ -26,21 +26,16 @@ pub enum Media {
 /// Reason a cue cannot play, which displays as the warnings list shows it
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub enum Problem<'a> {
-    /// Audio, video, or picture cue has no file
     #[strum(to_string = "no file set")]
     NoFile,
-    /// File of an audio, video, or picture cue has not been loaded yet
     #[strum(to_string = "file not loaded")]
     NotLoaded,
-    /// Loading the file of an audio, video, or picture cue failed for the
-    /// given reason
     #[strum(transparent)]
     LoadFailed(&'a str),
     /// Audio or video cue starts at or after its end, or past the end of
     /// its file, so it has nothing to play
     #[strum(to_string = "starts at or after its end")]
     EmptyClip,
-    /// Fade or stop cue has no cue it can act on
     #[strum(to_string = "no target cue")]
     NoTarget,
 }

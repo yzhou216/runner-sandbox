@@ -61,7 +61,6 @@ impl Press {
 }
 
 impl fmt::Display for Press {
-    /// Writes the press as the configuration file does
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         HELD.iter()
             .zip([self.ctrl, self.alt, self.shift])

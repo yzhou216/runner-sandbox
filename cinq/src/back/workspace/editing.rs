@@ -87,6 +87,9 @@ impl Workspace {
             .filter_map(|&id| self.place_of(id))
             .sorted_by_key(|placed| (placed.list, placed.index))
             .collect();
+        if cues.is_empty() {
+            return self;
+        }
         // Standby of each list that loses a cue, before it does
         let before: Vec<(usize, Option<CueId>)> = cues
             .iter()
@@ -94,7 +97,7 @@ impl Workspace {
             .dedup()
             .map(|list| (list, self.lists[list].standby))
             .collect();
-        let workspace = self.removed(ids.iter().copied());
+        let workspace = self.removed(cues.iter().map(|placed| placed.cue.id));
         let standby = before
             .into_iter()
             .map(|(list, before)| Standby {
@@ -103,11 +106,7 @@ impl Workspace {
                 after: workspace.lists[list].standby,
             })
             .collect();
-        if cues.is_empty() {
-            workspace
-        } else {
-            workspace.recorded(Change::Deleted { cues, standby })
-        }
+        workspace.recorded(Change::Deleted { cues, standby })
     }
 
     /// Moves a cue within its list by `by` places, downwards when positive,
@@ -189,14 +188,18 @@ impl Workspace {
     }
 
     /// Edits a cue without recording the edit, as undo and redo edit it.
-    /// A running audio or video cue stops when it gets a new file, and it
+    /// A running cue stops when it gets another file, which has yet to
+    /// load, while a file name that leads to the same file, such as the
+    /// one chosen again, leaves it playing.  A running audio or video cue
     /// takes a new level at once, which ends a fade on it.  A cue that a
     /// panic or a fade is stopping keeps fading out, so that no edit brings
     /// it back.
     pub(super) fn changed(self, id: CueId, edit: Edit) -> Self {
-        let plays = self.cue(id).is_some_and(|cue| cue.kind.plays_file());
+        let Some(cue) = self.cue(id) else {
+            return self;
+        };
+        let (path, plays) = (self.path(cue), cue.kind.plays_file());
         let workspace = match edit {
-            Edit::File(_) | Edit::FileAndName { .. } => self.stopped(id),
             Edit::Level(level) if plays => self.with_active(id, |active| match active.fade {
                 Some(fade) if fade.then_stop => active,
                 _ => Active {
@@ -206,8 +209,18 @@ impl Workspace {
                 },
             }),
             _ => self,
-        };
-        workspace.with_list_of(id, |cues| cues.edited(id, edit))
+        }
+        .with_list_of(id, |cues| cues.edited(id, edit));
+        let refiled = workspace
+            .cue(id)
+            .is_some_and(|cue| workspace.path(cue) != path);
+        if refiled {
+            workspace
+                .stopped(id)
+                .with_list_of(id, |cues| cues.loaded(id, Media::Unloaded))
+        } else {
+            workspace
+        }
     }
 
     /// Records what loading the file of a cue found, unless the cue has
@@ -225,7 +238,6 @@ impl Workspace {
         workspace.with_list_of(id, |cues| cues.loaded(id, media))
     }
 
-    /// Returns a cue with its place in the lists
     fn place_of(&self, id: CueId) -> Option<Placed> {
         self.lists.iter().enumerate().find_map(|(list, cues)| {
             cues.position(id).map(|index| Placed {

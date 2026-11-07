@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Geometry that the shapes of the logo are declared with: arches, points
-//! and arcs of circles, scallops, and the elements of paths
+//! Geometry that the shapes of the logo are declared with
 
 use std::f64::consts::PI;
 
@@ -13,11 +12,10 @@ use kurbo::{Arc, Circle, PathEl, Point, QuadBez, Vec2};
 /// grid halfway along, arching up or sagging down
 pub(super) fn arch(from: (f64, f64), middle: f64, to: (f64, f64)) -> QuadBez {
     let (from, to) = (Point::from(from), Point::from(to));
-    let control = Point::new((from.x + to.x) / 2.0, 2.0 * middle - (from.y + to.y) / 2.0);
-    QuadBez::new(from, control, to)
+    let half = from.midpoint(to);
+    QuadBez::new(from, Point::new(half.x, 2.0 * middle - half.y), to)
 }
 
-/// Returns the point of `circle` at `angle`
 pub(super) fn at(circle: Circle, angle: f64) -> Point {
     circle.center + Vec2::from_angle(angle.to_radians()) * circle.radius
 }
@@ -47,18 +45,14 @@ pub(super) fn scallop(from: Point, to: Point, depth: f64) -> Arc {
     )
 }
 
-/// Returns the element of a path that starts a subpath at `start`
 pub(super) fn move_to(start: impl Into<Point>) -> PathEl {
     PathEl::MoveTo(start.into())
 }
 
-/// Returns the element of a path that draws a line to `end`
 pub(super) fn line_to(end: impl Into<Point>) -> PathEl {
     PathEl::LineTo(end.into())
 }
 
-/// Returns the element of a path that draws a cubic Bézier curve to `end`,
-/// which bends toward the control points `first` and `second`
 pub(super) fn curve_to<P: Into<Point>>(first: P, second: P, end: P) -> PathEl {
     PathEl::CurveTo(first.into(), second.into(), end.into())
 }
