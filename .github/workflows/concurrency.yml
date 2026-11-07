@@ -12,7 +12,8 @@
 # through clips at realistic bitrates, and each runner runs its tests and
 # clippy and plays each clip in real time through the video output of
 # master, of the snapshot, and of the snapshot with rust_h264's threaded
-# decoder, by realtime/run.sh.
+# decoder, by realtime/run.sh.  Run 42425289237 timed the conversion and
+# passes on a RISE RISC-V runner as well.
 on: push
 permissions:
   contents: read
@@ -116,35 +117,4 @@ jobs:
             test.log
             clippy.log
             realtime-*.txt
-          if-no-files-found: ignore
-  riscv64:
-    needs: clips
-    runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v7
-        with:
-          name: clips
-          path: clips
-      - run: cargo build --release --manifest-path bench/Cargo.toml
-      - name: Benchmark
-        env:
-          BENCH_REPEAT: 1
-        run: |
-          bench=bench/target/release/cinq-bench
-          {
-            echo "# ubuntu-24.04-riscv"
-            echo
-            lscpu | grep -E '^(Model name|CPU\(s\)|ISA):' || true
-            echo
-            "$bench" kernels
-            "$bench" pass clips/1080p.mp4 clips/1080p30-grain.mp4
-          } | tee bench-riscv64.md
-          cat bench-riscv64.md >> "$GITHUB_STEP_SUMMARY"
-      - if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: bench-riscv64
-          path: bench-*.md
           if-no-files-found: ignore

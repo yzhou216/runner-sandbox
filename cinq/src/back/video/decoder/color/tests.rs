@@ -111,7 +111,7 @@ fn picture_cropped_to_no_width_converts_to_no_pixels() {
 fn each_pixel_of_a_pair_or_alone_at_the_end_of_a_row_takes_its_colors() {
     // Rows of eighteen pairs and a pixel alone, of lumas and differences
     // across their whole range
-    let (width, lines) = (37, 7);
+    let (width, lines): (u32, u32) = (37, 7);
     let values = |count: u32, step: u32| (0..count).map(move |index| (index * step % 256) as u8);
     let shared = width.div_ceil(2) * lines.div_ceil(2);
     let picture = Frame {
