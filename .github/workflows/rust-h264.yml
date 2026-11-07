@@ -1,0 +1,286 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tests cinq with rust_h264 in place of openh264, from the snapshot of its
+# working tree in cinq/.  Nix builds it on GNU/Linux and Darwin, which runs
+# its tests, and cross-builds it for Windows, and cargo builds and tests it
+# as it is on a RISE RISC-V runner.  Each then plays video.cinq.toml, and
+# screenshots show the picture of its video, which shows its own time.
+# compare/ checks every picture that rust_h264 and openh264 decode from
+# clips that x264 makes against FFmpeg, and times both, on each platform.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Make the clips and the show
+        run: |
+          mkdir clips show
+          bash compare/clips.sh clips
+          cp video.cinq.toml show/
+          bash media.sh show
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - uses: actions/upload-artifact@v7
+        with:
+          name: show
+          path: show
+  compare:
+    needs: media
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --manifest-path compare/Cargo.toml
+      - name: Compare the decoders
+        run: |
+          for clip in clips/*.mp4; do
+            compare/target/release/compare-h264 "$clip" "${clip%.mp4}.framemd5" | tee -a compare.txt
+          done
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compare-${{ matrix.os }}
+          path: compare.txt
+          if-no-files-found: ignore
+  linux:
+    needs: media
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # made the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: show
+          path: show
+      - name: Build cinq, which runs its tests, and cross-build it for Windows
+        run: |
+          nix build -L ./cinq > build.log 2>&1 || { tail -60 build.log; exit 1; }
+          grep -E '^cinq> test result' build.log
+          nix shell nixpkgs#binutils -c readelf -d result/bin/cinq | grep NEEDED
+          nix build --out-link windows ./cinq#x86_64-windows-cross ./cinq#aarch64-windows-cross
+          mkdir x86_64 aarch64
+          cp windows/bin/cinq.exe x86_64/
+          cp windows-1/bin/cinq.exe aarch64/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: x86_64
+          path: x86_64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: aarch64
+          path: aarch64
+      - name: Play the show
+        run: |
+          tools=$(nix build --inputs-from ./cinq --no-link --print-out-paths \
+            nixpkgs#sway nixpkgs#grim nixpkgs#wtype nixpkgs#pulseaudio nixpkgs#ffmpeg)
+          PATH=$(for tool in $tools; do if [ -d "$tool/bin" ]; then printf '%s/bin:' "$tool"; fi; done)$PATH
+          ALSA_PLUGIN_DIR=$(nix build --inputs-from ./cinq --no-link --print-out-paths nixpkgs#alsa-plugins)/lib/alsa-lib
+          export PATH ALSA_PLUGIN_DIR
+          bash play.sh result/bin/cinq show out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          path: |
+            build.log
+            out
+          if-no-files-found: ignore
+  darwin:
+    needs: media
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: show
+          path: show
+      - name: Build cinq, which runs its tests
+        run: |
+          nix build -L ./cinq > build.log 2>&1 || { tail -60 build.log; exit 1; }
+          grep -E '^cinq> test result' build.log
+          otool -L result/Applications/cinq.app/Contents/MacOS/cinq
+      - name: Play the show
+        run: |
+          mkdir out
+          start=$(perl -MTime::HiRes=time -e 'printf "%.2f", time')
+          # Notes a step with the seconds since cinq started
+          mark() {
+            perl -MTime::HiRes=time -e 'printf "%6.2f s  %s\n", time - $ARGV[0], $ARGV[1]' "$start" "$1" |
+              tee -a out/steps.txt
+          }
+          shot() {
+            screencapture -x "out/$1.png"
+            mark "shot $1"
+          }
+          go() {
+            osascript -e 'tell application "System Events" to keystroke " "'
+            mark "key space"
+          }
+          open result/Applications/cinq.app --args "$PWD/show/video.cinq.toml"
+          sleep 10
+          shot opened
+          go
+          sleep 4
+          shot chord
+          go
+          sleep 1
+          shot fading
+          for number in 1 2 3 4 5 6; do
+            sleep 1.5
+            shot "video-$number"
+          done
+          sleep 3
+          shot ended
+          pgrep -x cinq
+          pkill -x cinq
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: darwin
+          path: |
+            build.log
+            out
+          if-no-files-found: ignore
+  windows:
+    needs: linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: windows-latest, arch: x86_64}
+          - {os: windows-11-arm, arch: aarch64}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ matrix.arch }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: show
+          path: show
+      - shell: pwsh
+        run: ./play.ps1
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-${{ matrix.arch }}
+          path: out
+          if-no-files-found: ignore
+  riscv64:
+    needs: media
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 300
+    steps:
+      - name: Show the platform
+        run: |
+          uname -srm
+          grep PRETTY_NAME /etc/os-release
+          rustc -vV
+      - uses: actions/checkout@v7
+      - name: Install what builds cinq
+        run: |
+          sudo apt-get update
+          # The image holds liboss4-salsa-asound2, the ALSA library of OSS 4,
+          # in place of ALSA's own, which libasound2-dev needs
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev scdoc \
+            liboss4-salsa-asound2-
+      - id: restore
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            cinq/target/
+          key: cargo-riscv64-rust-h264-${{ hashFiles('cinq/Cargo.lock') }}
+      - id: build
+        name: Build cinq as it is
+        working-directory: cinq
+        run: |
+          start=$SECONDS
+          cargo build --release --locked 2>&1 | tee ../build.log
+          echo "built in $((SECONDS - start)) seconds"
+          ldd target/release/cinq
+          target/release/cinq --version
+      - name: Test cinq
+        working-directory: cinq
+        run: |
+          start=$SECONDS
+          cargo test --release --locked 2>&1 | tee ../test.log
+          echo "tested in $((SECONDS - start)) seconds"
+      - if: always() && steps.build.outcome == 'success' && steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            cinq/target/
+          key: ${{ steps.restore.outputs.cache-primary-key }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - name: Compare the decoders
+        run: |
+          # openh264-sys2 from the branch that names riscv64 in its build
+          # script, which no release of it does yet
+          cargo build --release --manifest-path compare/Cargo.toml \
+            --config 'patch.crates-io.openh264-sys2.git="https://github.com/yzhou216/openh264-rs"' \
+            --config 'patch.crates-io.openh264-sys2.branch="riscv64"'
+          for clip in clips/*.mp4; do
+            compare/target/release/compare-h264 "$clip" "${clip%.mp4}.framemd5" | tee -a compare.txt
+          done
+      - name: Install what plays the show
+        run: |
+          sudo apt-get install -y --no-install-recommends sway grim wtype fonts-dejavu-core \
+            pulseaudio pulseaudio-utils libasound2-plugins ffmpeg
+      - uses: actions/download-artifact@v7
+        with:
+          name: show
+          path: show
+      - name: Play the show
+        run: |
+          bash play.sh cinq/target/release/cinq show out
+          ICED_BACKEND=tiny-skia bash play.sh cinq/target/release/cinq show out-tiny-skia
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: riscv64
+          path: |
+            *.log
+            compare.txt
+            out
+            out-tiny-skia
+          if-no-files-found: ignore

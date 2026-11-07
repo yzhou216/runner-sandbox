@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[package]
+name = "compare-h264"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+md5 = "0.8"
+mp4 = "0.14"
+openh264 = "0.9.9"
+rust_h264 = "0.6.1"
+
+[profile.release]
+debug = false
