@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tells why programs that Nixpkgs cross-builds for x86_64-freebsd on
+# aarch64-linux lack pthread_create, which coreutils and alsa-lib failed
+# for in runs 42412315915 and 42423036697, while those built on
+# x86_64-linux link: compares FreeBSD's libc of Nixpkgs, as each builds it,
+# and the checks of alsa-lib's configure for threads
+on:
+  push:
+    paths: [.github/workflows/freebsd-libc.yml]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  libc:
+    name: FreeBSD's libc built on ${{ matrix.system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {system: x86_64-linux, os: ubuntu-latest}
+          - {system: aarch64-linux, os: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          fb="(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.${{ matrix.system }}.pkgsCross.x86_64-freebsd"
+          echo "fb=$fb" >> "$GITHUB_ENV"
+          libc=$(nix build --no-link --print-out-paths --impure --expr "$fb.stdenv.cc.libc")
+          echo "$libc"
+          ls -la "$libc/lib" | grep -E 'libc\.|thr|pthread|libsys' || true
+          for f in "$libc"/lib/libc.so "$libc"/lib/libpthread.so "$libc"/lib/libthr.so; do
+            echo "== $f"
+            if file -L "$f" | grep -q text; then cat "$f"; else file -L "$f"; fi
+          done
+          nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$libc"/lib/libc.so.7 | grep -w -E 'pthread_create|pthread_join|_pthread_create' || echo "libc.so.7 defines no pthread_create"
+          nix shell nixpkgs#llvmPackages.bintools -c llvm-nm -D --defined-only "$libc"/lib/libthr.so.3 | grep -w -E 'pthread_create' || echo "libthr.so.3 defines no pthread_create"
+          nix derivation show "$fb.stdenv.cc.libc" --impure 2>/dev/null | grep -o '"[a-z]*Flags[^]]*' | head -5 || true
+      - run: | # Configure of alsa-lib, kept where it fails
+          status=0
+          nix build --no-link -L --keep-failed --impure --expr "$fb.alsa-lib" > alsa.log 2>&1 || status=$?
+          echo "alsa-lib ended with $status"
+          grep -E 'pthread|-lthr|threads' alsa.log | head -20
+          for log in $(sudo find /tmp /nix/var -maxdepth 4 -name config.log -path '*alsa-lib*' 2>/dev/null); do
+            echo "== $log"
+            sudo grep -n -i -B2 -A8 'pthread' "$log" | head -60
+          done

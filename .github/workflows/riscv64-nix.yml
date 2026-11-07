@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04-riscv, ubuntu-26.04-riscv]
+        os: [ubuntu-24.04-riscv] # ubuntu-26.04-riscv waited without a runner in run 42423036804
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install -y -q --no-install-recommends gdb binutils file
       - run: | # Bootstrap tools as Nixpkgs fetches them, before the first build that crashes
           nix build --no-link --keep-going --impure --expr "(builtins.getFlake \"git+file://$PWD?dir=cinq\").inputs.nixpkgs.legacyPackages.riscv64-linux.stdenv" 2>&1 | tail -3 || true
-          tools=$(find /nix/store -maxdepth 1 -name "*-bootstrap-tools" -type d | head -1)
+          tools=$(find /nix/store -maxdepth 1 -type d -name "*-bootstrap-tools" | grep -E "/[a-z0-9]{32}-bootstrap-tools$" | head -1)
           echo "tools=$tools" >> "$GITHUB_ENV"
           echo "$tools"
       - run: |

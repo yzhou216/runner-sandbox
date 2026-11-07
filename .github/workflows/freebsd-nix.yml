@@ -22,13 +22,14 @@ jobs:
         with:
           mem: 13312
           prepare: |
-            pkg install -y nix git perl5 bash
+            pkg install -y nix git perl5 bash ca_root_nss
             nix --version
           run: |
             chown -R root:wheel "$GITHUB_WORKSPACE" # Nix opens only repositories that the user owns
             sysctl -n hw.ncpu
             df -h /
             export NIX_CONFIG='experimental-features = nix-command flakes
+            ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt
             build-users-group =
             sandbox = false
             max-jobs = auto
