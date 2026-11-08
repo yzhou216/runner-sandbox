@@ -11,7 +11,9 @@
 # found that the bootstrap tools' find aborts in configurePhase, on
 # find . -iname ltmain.sh -print0, and run 42440065618 that it aborts on
 # --version as well, along with xargs, sed, and tar, while grep and bash
-# run (run 42440261391), so this tries clean environments and truss.
+# run (run 42440261391).  It aborts in clean environments too, before
+# truss can attach (run 42440426066), so this runs it through its loader
+# and compares its program headers with those of grep.
 on:
   push:
     paths: [.github/workflows/freebsd-nix.yml]
@@ -58,12 +60,14 @@ jobs:
             ldd "$find_"
             cd /tmp
             "$find_" --version; echo "find --version ended with $?"
-            echo "== environments"
-            env -i "$find_" --version > /dev/null; echo "env -i: $?"
-            env -i LANG=C.UTF-8 "$find_" --version > /dev/null; echo "LANG=C.UTF-8: $?"
-            env -i LC_ALL=C "$find_" --version > /dev/null; echo "LC_ALL=C: $?"
-            echo "== truss of find --version"
-            truss "$find_" --version 2>&1 | tail -45
+            echo "== find through its loader"
+            "$archive/libexec/ld-elf.so.1" "$find_" --version | head -1; echo "ended with $?"
+            for tool in find grep; do
+              echo "== program headers of $tool"
+              readelf -lW "$archive/bin/$tool" | sed -n "/Program Headers/,/Section to Segment/p"
+            done
+            echo "== kernel"
+            dmesg | tail -10
             echo "== other bootstrap tools"
             for tool in xargs grep sed tar; do "$archive/bin/$tool" --version > /dev/null 2>&1; echo "$tool ended with $?"; done
             exit 0
