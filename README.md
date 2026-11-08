@@ -4,43 +4,31 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: the ReactOS port, run in ReactOS 0.4.16
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Checked cinq's port to ReactOS, branch `reactos` of yzhou216/cinq at
+0729168, which adds `src/reactos/` and `.#i686-windows`.  The `build` job
+builds `github:yzhou216/cinq/<commit>#i686-windows` and `vm/runner.c` with
+the same MinGW, `imports` lists what ReactOS 0.4.16 and the x86 nightly
+0.4.17-dev-1340-gfaa2d03 lack of their imports, and `vm` installs ReactOS
+0.4.16 unattended in QEMU with KVM, as the earlier branch
+`cinq/2026-11-08-reactos` describes.  There `vm/run.cmd` runs cinq through
+`RUNNER.EXE`, whose results go to COM1, and `vm/keys.sh` types into cinq's
+window through QEMU's monitor: `o` to add a cue, `Control+s`, `show`, and
+Enter to save the show, then `Control+o` and Escape.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## Outcome
 
-## Setup
+Run 42497131564 (d5accc4) passed on `ubuntu-latest`:
 
-Fork this repository, then clone it into the agent's skills directory:
+- `CINQ.EXE` and `RUNNER.EXE` lack no imports on either image.
+- `cinq --version` printed its version and exited 0.
+- cinq's window drew correctly, `o` added an audio cue, `Control+s` showed
+  the save dialog, which saved `show.cinq.toml` in My Documents and named
+  the window after it, and `Control+o` showed the open dialog, which listed
+  the show (`vm` artifact: `results.txt`, `reactos.mp4`, `shots.tar`).  cinq
+  ran until stopped, after 150 seconds.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+cinq's own CI on the same commit passed every workflow, including the
+32-bit build on x86_64-linux and aarch64-linux, which `windows-latest`
+started with `--version`.
