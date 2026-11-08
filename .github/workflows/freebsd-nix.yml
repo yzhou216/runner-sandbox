@@ -2,52 +2,60 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Tells whether Nix from FreeBSD's packages builds cinq natively on
-# x86_64-freebsd within the six hours of a job, with no cache but
-# cache.nixos.org, which holds no build for FreeBSD.  Run 42412315915 tried
-# it with a nix.conf that Nix did not read.
+# Tells what aborts with exit code 134 when Nix from FreeBSD's packages
+# builds Nixpkgs' stdenv for x86_64-freebsd natively, as every builder with
+# structured attributes did in run 42424765105: the smallest derivation with
+# structured attributes and without, built by FreeBSD's own bash, then one
+# of the bootstrap's builds that aborted, kept, with the kernel's record of
+# the program that aborted and a backtrace from its core
 on:
   push:
     paths: [.github/workflows/freebsd-nix.yml]
 permissions:
   contents: read
 jobs:
-  native:
-    name: cinq built by Nix on x86_64-freebsd
+  probe:
+    name: Nix from FreeBSD's packages, aborting builders
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@main
       - uses: vmactions/freebsd-vm@main
         with:
           mem: 13312
+          copyback: false
           prepare: |
-            pkg install -y nix git perl5 bash ca_root_nss
+            pkg install -y nix git bash ca_root_nss gdb
             nix --version
           run: |
-            chown -R root:wheel "$GITHUB_WORKSPACE" # Nix opens only repositories that the user owns
-            sysctl -n hw.ncpu
-            df -h /
+            chown -R root:wheel "$GITHUB_WORKSPACE"
+            freebsd-version
+            sysctl kern.corefile kern.coredump
             export NIX_CONFIG='experimental-features = nix-command flakes
-            ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt
             build-users-group =
             sandbox = false
-            max-jobs = auto
-            cores = 0'
-            nix config show | grep -E '^(experimental-features|build-users-group|sandbox|max-jobs|cores|system) '
-            bash -o pipefail -c '
-              start=$SECONDS
-              status=0
-              timeout -s INT 19800 nix build -L --keep-going ./cinq 2>&1 | perl scripts/timed.pl build.log || status=$?
-              echo "took $((SECONDS - start)) seconds, ending with $status"
-              perl scripts/summary.pl build.log
-              df -h /
-              gzip -f build.log
-              exit "$status"
-            '
-      - if: always()
-        uses: actions/upload-artifact@main
-        with:
-          name: log-x86_64-freebsd-native
-          path: build.log.gz
-          if-no-files-found: ignore
+            ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt'
+            for s in false true; do
+              echo "== structured attributes: $s"
+              nix build --no-link -L --print-out-paths --impure --expr "import ./scripts/structured.nix { structured = $s; }" && echo "built" || echo "failed with $?"
+            done
+            drv=$(nix eval --raw ./cinq#packages.x86_64-freebsd.cinq.drvPath)
+            flags=$(nix-store -qR "$drv" | grep -m1 -- '-add-flags.sh.drv$')
+            echo "== $flags"
+            nix derivation show "$flags" | head -c 3000
+            echo
+            dmesg -c > /dev/null 2>&1 || true
+            nix build --no-link -L --keep-failed "$flags^*" 2>&1 | tail -40 || true
+            echo "== kernel"
+            dmesg | tail -20
+            echo "== kept builds"
+            ls -la /tmp/nix-build-* 2>/dev/null | head -40
+            for core in $(find /tmp/nix-build-* /tmp -maxdepth 3 -name '*.core' 2>/dev/null); do
+              echo "== $core"
+              program=$(file "$core" | sed -n "s/.*from '\([^ ']*\).*/\1/p")
+              echo "program $program"
+              file "$core"
+              bin=$(find /nix/store -maxdepth 3 -type f -path "*/bin/$(basename "${program:-bash}")" | head -1)
+              echo "binary $bin"
+              gdb -batch -ex bt "$bin" "$core" 2>&1 | tail -25
+            done
