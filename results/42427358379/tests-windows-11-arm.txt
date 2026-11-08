@@ -1,0 +1,6 @@
+cinq: test result: FAILED. 244 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.09s
+test back::workspace::tests::show::relative_sound_files_go_from_wherever_the_file_is ... FAILED
+test front::keymap::tests::file::file_is_in_the_directory_named_on_the_command_line_or_else_that_of_the_platform ... FAILED
+base: test result: FAILED. 244 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.09s
+test back::workspace::tests::show::relative_sound_files_go_from_wherever_the_file_is ... FAILED
+test front::keymap::tests::file::file_is_in_the_directory_named_on_the_command_line_or_else_that_of_the_platform ... FAILED

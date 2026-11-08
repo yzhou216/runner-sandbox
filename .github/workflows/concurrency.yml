@@ -58,7 +58,7 @@ jobs:
             (cd "$tree" && cargo test --release --locked 2>&1) > "test-$tree.log" || true
             echo "$tree: $(grep -E '^test result' "test-$tree.log" | tr -d '\r' | tr '\n' ' ')"
           done
-          failed() { grep -E '^test .* FAILED' "$1" | tr -d '\r' | sort; }
+          failed() { grep -E '^test .* \.\.\. FAILED' "$1" | tr -d '\r' | sort || true; }
           echo "failing at ec61ead:"
           failed test-base.log
           new=$(comm -23 <(failed test-cinq.log) <(failed test-base.log))

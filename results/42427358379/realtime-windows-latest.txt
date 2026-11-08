@@ -1,0 +1,31 @@
+# windows-latest
+round 1  base  cpu 0.000 0.030  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 1  change  cpu 0.015 0.046  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 1  threaded  cpu 0.000 0.030  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 1  base  cpu 0.000 0.030  REALTIME 1080p30-grain.mp4: 167 pictures in 6.00 s, each second [30, 28, 26, 28, 27, 28], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 1  change  cpu 0.030 0.030  REALTIME 1080p30-grain.mp4: 173 pictures in 6.00 s, each second [30, 28, 29, 30, 26, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 1  threaded  cpu 0.015 0.015  REALTIME 1080p30-grain.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 1  base  cpu 0.015 0.000  REALTIME 1080p60-grain.mp4: 174 pictures in 4.00 s, each second [53, 48, 34, 39], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 1  change  cpu 0.046 0.015  REALTIME 1080p60-grain.mp4: 178 pictures in 4.00 s, each second [53, 47, 37, 41], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 1  threaded  cpu 0.046 0.000  REALTIME 1080p60-grain.mp4: 240 pictures in 4.00 s, each second [60, 60, 60, 60], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 1  base  cpu 0.015 0.030  REALTIME 2160p.mp4: 59 pictures in 4.00 s, each second [18, 14, 13, 14], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 1  change  cpu 0.000 0.015  REALTIME 2160p.mp4: 62 pictures in 4.00 s, each second [18, 16, 14, 14], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 1  threaded  cpu 0.000 0.077  REALTIME 2160p.mp4: 120 pictures in 4.00 s, each second [30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 1  base  cpu 0.030 0.000  REALTIME 2160p30-grain.mp4: 39 pictures in 3.00 s, each second [10, 15, 14], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 1  change  cpu 0.015 0.015  REALTIME 2160p30-grain.mp4: 39 pictures in 3.00 s, each second [12, 14, 13], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 1  threaded  cpu 0.015 0.015  REALTIME 2160p30-grain.mp4: 65 pictures in 3.00 s, each second [29, 19, 17], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 2  base  cpu 0.015 0.031  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 2  change  cpu 0.000 0.030  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 2  threaded  cpu 0.030 0.015  REALTIME 1080p.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 2  base  cpu 0.015 0.000  REALTIME 1080p30-grain.mp4: 170 pictures in 6.00 s, each second [30, 28, 28, 28, 26, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 2  change  cpu 0.031 0.030  REALTIME 1080p30-grain.mp4: 173 pictures in 6.00 s, each second [30, 28, 32, 28, 27, 28], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 2  threaded  cpu 0.031 0.015  REALTIME 1080p30-grain.mp4: 180 pictures in 6.00 s, each second [30, 30, 30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 2  base  cpu 0.031 0.030  REALTIME 1080p60-grain.mp4: 175 pictures in 4.00 s, each second [51, 50, 35, 39], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 2  change  cpu 0.015 0.015  REALTIME 1080p60-grain.mp4: 182 pictures in 4.00 s, each second [53, 48, 37, 44], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 2  threaded  cpu 0.030 0.030  REALTIME 1080p60-grain.mp4: 240 pictures in 4.00 s, each second [60, 60, 60, 60], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 2  base  cpu 0.030 0.015  REALTIME 2160p.mp4: 63 pictures in 4.00 s, each second [19, 16, 13, 15], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 2  change  cpu 0.000 0.030  REALTIME 2160p.mp4: 66 pictures in 4.00 s, each second [19, 16, 16, 15], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 2  threaded  cpu 0.015 0.015  REALTIME 2160p.mp4: 120 pictures in 4.00 s, each second [30, 30, 30, 30], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
+round 2  base  cpu 0.015 0.030  REALTIME 2160p30-grain.mp4: 38 pictures in 3.00 s, each second [10, 15, 13], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\base
+round 2  change  cpu 0.000 0.015  REALTIME 2160p30-grain.mp4: 37 pictures in 3.00 s, each second [12, 14, 11], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\change
+round 2  threaded  cpu 0.015 0.046  REALTIME 2160p30-grain.mp4: 65 pictures in 3.00 s, each second [29, 18, 18], built in D:\a\runner-sandbox\runner-sandbox\realtime-work\threaded
