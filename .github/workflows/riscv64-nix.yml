@@ -7,7 +7,8 @@
 # as well, on gcc -v alone, on the board of ubuntu-24.04-riscv, whose
 # kernel is 5.10 and whose ISA reads rv64imafdcsu.  This runs it under gdb
 # there, reads the ISA that the bootstrap tools were built for, and tries
-# it on ubuntu-26.04-riscv, which may run another board.
+# it on ubuntu-26.04-riscv, which may run another board.  Now it reads the
+# program headers of gcc and runs it through its loader.
 on:
   push:
     paths: [.github/workflows/riscv64-nix.yml]
@@ -40,12 +41,9 @@ jobs:
           tools=$(find /nix/store -maxdepth 1 -type d -name "*-bootstrap-tools" | grep -E "/[a-z0-9]{32}-bootstrap-tools$" | head -1)
           echo "tools=$tools" >> "$GITHUB_ENV"
           echo "$tools"
-      - run: |
-          file "$tools/bin/gcc" "$tools/bin/bash" "$tools"/lib/ld-linux-*.so* || true
-          readelf -A "$tools/bin/gcc" | sed -n 1,20p
-          readelf -A "$tools"/lib/libc.so.6 | grep -i arch || true
-          "$tools/bin/bash" --version | head -1 || echo "bash ended with $?"
-          "$tools"/lib/ld-linux-riscv64-lp64d.so.1 --version | head -1 || echo "ld.so ended with $?"
-          "$tools/bin/gcc" --version || echo "gcc ended with $?"
-      - run: |
-          gdb -batch -ex run -ex bt -ex 'info registers pc' -ex 'x/6i $pc-8' -ex 'info sharedlibrary' --args "$tools/bin/gcc" --version 2>&1 | tail -40
+      - run: | # Program headers, which on FreeBSD overlapped where patchelf grew the first segment (run 42440632319)
+          for tool in gcc bash; do
+            echo "== $tool"
+            readelf -lW "$tools/bin/$tool" | sed -n "/Program Headers/,/Section to Segment/p"
+          done
+          "$tools"/lib/ld-linux-riscv64-lp64d.so.1 "$tools/bin/gcc" --version | head -1; echo "gcc through its loader ended with $?"
