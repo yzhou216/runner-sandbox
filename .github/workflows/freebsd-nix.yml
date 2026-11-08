@@ -9,7 +9,8 @@
 # of the bootstrap's builds that aborted, kept, with the kernel's record of
 # the program that aborted and a backtrace from its core.  Run 42439851240
 # found that the bootstrap tools' find aborts in configurePhase, on
-# find . -iname ltmain.sh -print0, so this runs that find by hand.
+# find . -iname ltmain.sh -print0, and run 42440065618 that it aborts on
+# --version as well, so this traces it and reads its core.
 on:
   push:
     paths: [.github/workflows/freebsd-nix.yml]
@@ -52,19 +53,16 @@ jobs:
             find_=$archive/bin/find
             echo "== $find_"
             file "$find_"
-            "$find_" --version | head -1 || echo "version ended with $?"
-            mkdir -p /tmp/probe && cd /tmp/probe && touch a b
-            for args in ". -print" ". -name a" ". -iname a" ". -iname a -print0"; do
-              echo "== find $args"
-              $find_ $args > /dev/null; echo "ended with $?"
-            done
-            echo "== ktrace of find . -iname a"
-            ktrace -f /tmp/find.ktrace $find_ . -iname a > /dev/null || true
-            kdump -f /tmp/find.ktrace | tail -40
+            set +e
+            ldd "$find_"
+            cd /tmp
+            "$find_" --version; echo "find --version ended with $?"
+            echo "== ktrace of find --version"
+            ktrace -f /tmp/find.ktrace "$find_" --version; kdump -f /tmp/find.ktrace | tail -60
             echo "== backtrace"
-            $find_ . -iname a > /dev/null || true
-            core=$(ls /tmp/probe/*.core 2>/dev/null | head -1)
+            core=$(ls /tmp/*.core 2>/dev/null | head -1)
             echo "core $core"
-            [ -n "$core" ] && gdb -batch -ex bt "$find_" "$core" 2>&1 | tail -30
-            echo "== locale"
-            env LC_ALL=C $find_ . -iname a > /dev/null; echo "LC_ALL=C ended with $?"
+            [ -n "$core" ] && gdb -batch -ex bt -ex "info sharedlibrary" "$find_" "$core" 2>&1 | tail -40
+            echo "== other bootstrap tools"
+            for tool in xargs grep sed tar; do "$archive/bin/$tool" --version > /dev/null 2>&1; echo "$tool ended with $?"; done
+            exit 0
