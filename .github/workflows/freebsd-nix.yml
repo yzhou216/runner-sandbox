@@ -7,7 +7,9 @@
 # structured attributes did in run 42424765105: the smallest derivation with
 # structured attributes and without, built by FreeBSD's own bash, then one
 # of the bootstrap's builds that aborted, kept, with the kernel's record of
-# the program that aborted and a backtrace from its core
+# the program that aborted and a backtrace from its core.  Run 42439851240
+# found that the bootstrap tools' find aborts in configurePhase, on
+# find . -iname ltmain.sh -print0, so this runs that find by hand.
 on:
   push:
     paths: [.github/workflows/freebsd-nix.yml]
@@ -45,17 +47,24 @@ jobs:
             nix derivation show "$flags" | head -c 3000
             echo
             dmesg -c > /dev/null 2>&1 || true
-            nix build --no-link -L --keep-failed "$flags^*" 2>&1 | tail -40 || true
-            echo "== kernel"
-            dmesg | tail -20
-            echo "== kept builds"
-            ls -la /tmp/nix-build-* 2>/dev/null | head -40
-            for core in $(find /tmp/nix-build-* /tmp -maxdepth 3 -name '*.core' 2>/dev/null); do
-              echo "== $core"
-              program=$(file "$core" | sed -n "s/.*from '\([^ ']*\).*/\1/p")
-              echo "program $program"
-              file "$core"
-              bin=$(find /nix/store -maxdepth 3 -type f -path "*/bin/$(basename "${program:-bash}")" | head -1)
-              echo "binary $bin"
-              gdb -batch -ex bt "$bin" "$core" 2>&1 | tail -25
+            nix build --no-link -L --keep-failed "$flags^*" 2>&1 | grep -a -E "Abort|keeping|structuredAttrs" || true
+            archive=$(nix-store -qR "$drv" | grep -m1 -- "-bootstrap-archive.drv\$" | xargs nix-store -q --outputs)
+            find_=$archive/bin/find
+            echo "== $find_"
+            file "$find_"
+            "$find_" --version | head -1 || echo "version ended with $?"
+            mkdir -p /tmp/probe && cd /tmp/probe && touch a b
+            for args in ". -print" ". -name a" ". -iname a" ". -iname a -print0"; do
+              echo "== find $args"
+              $find_ $args > /dev/null; echo "ended with $?"
             done
+            echo "== ktrace of find . -iname a"
+            ktrace -f /tmp/find.ktrace $find_ . -iname a > /dev/null || true
+            kdump -f /tmp/find.ktrace | tail -40
+            echo "== backtrace"
+            $find_ . -iname a > /dev/null || true
+            core=$(ls /tmp/probe/*.core 2>/dev/null | head -1)
+            echo "core $core"
+            [ -n "$core" ] && gdb -batch -ex bt "$find_" "$core" 2>&1 | tail -30
+            echo "== locale"
+            env LC_ALL=C $find_ . -iname a > /dev/null; echo "LC_ALL=C ended with $?"
