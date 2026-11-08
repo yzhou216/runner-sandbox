@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[package]
+name = "rostest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+iced = { version = "0.14", default-features = false, features = [ # cinq's own features
+  "advanced",
+  "crisp",
+  "image-without-codecs",
+  "tiny-skia",
+  "tokio",
+  "wayland",
+  "web-colors",
+  "wgpu",
+] }
+log = "0.4"

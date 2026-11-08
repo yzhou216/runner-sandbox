@@ -1,0 +1,108 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[package]
+name = "cinq"
+version = "0.1.2"
+edition = "2024"
+rust-version = "1.91" # Path::with_added_extension in the build script
+description = "Minimal cue-based show controller in the spirit of QLab"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/yzhou216/cinq"
+keywords = ["show-control", "qlab", "cue", "theater", "audio"]
+categories = ["multimedia::audio", "multimedia::video"]
+include = [
+  "/build.rs",
+  "/src",
+  "/man",
+  "/share",
+  "/LICENSES",
+  "/REUSE.toml",
+  "/README.md",
+]
+
+[dependencies]
+anstyle-query = "1.1"
+bon = "3.10"
+clap = { version = "4.6", features = ["derive"] }
+ctrlc = { version = "3.5", features = [ # Problems screen left on Control+c
+  "termination",
+] }
+dirs = "7.0"
+iced = { version = "0.14", default-features = false, features = [ # Wayland alone, and cinq's own theme
+  "advanced",
+  "crisp",
+  "image-without-codecs", # Pictures of video cues, which come decoded
+  "tiny-skia",
+  "tokio",
+  "wayland",
+  "web-colors",
+  "wgpu",
+] }
+image = { version = "0.25", default-features = false, features = [
+  "jpeg",
+  "png",
+] }
+itertools = "0.15"
+keyboard-types = "0.8"
+kira = { version = "0.12", default-features = false, features = [
+  "aac",
+  "cpal",
+  "flac",
+  "isomp4",
+  "mp3",
+  "ogg",
+  "pcm",
+  "vorbis",
+  "wav",
+] }
+miette = { version = "7.6", default-features = false, features = [
+  "fancy-no-backtrace",
+] }
+mp4 = "0.14" # Tracks and samples of the files of video cues
+notify-debouncer-full = "0.7"
+open = "5.4"
+pathdiff = "0.2"
+rayon = "1.12"
+rfd = "0.17"
+rust_h264 = "0.6" # Decoder of H.264 that needs no C++ compiler
+serde = { version = "1.0", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
+taplo = { version = "0.14", default-features = false } # Formatting of config.toml once saved
+tempfile = "3.27"
+terminal_size = "0.4" # Problems redrawn at a new size, which miette brings
+tokio = { version = "1.54", default-features = false, features = [ # Timer of the ticks, which needs iced's tokio executor
+  "time",
+] }
+toml = { version = "1.1", default-features = false, features = [
+  "display",
+  "parse",
+  "serde",
+  "std",
+] }
+unicode-width = "0.2" # Columns of a character on screen, which iced brings
+
+[build-dependencies] # Manual pages, completions, the icon with resvg's kurbo, the app bundle for Darwin, and the manifest for Windows
+clap = { version = "4.6", features = ["derive"] }
+clap_complete = "4.6"
+clap_complete_nushell = "4.6"
+clap_mangen = "0.3"
+embed-manifest = "1.5"
+icns = { version = "0.5", default-features = false, features = ["pngio"] }
+kurbo = "0.13"
+resvg = { version = "0.49", default-features = false }
+strum = { version = "0.28", features = ["derive"] }
+time = { version = "0.3", default-features = false, features = ["std"] }
+
+[dev-dependencies] # Tests of what the build renders, and of the config watcher
+clap_complete = "4.6"
+clap_complete_nushell = "4.6"
+clap_mangen = "0.3"
+futures = { version = "0.3", default-features = false, features = ["executor"] }
+icns = { version = "0.5", default-features = false, features = ["pngio"] }
+kurbo = "0.13"
+resvg = { version = "0.49", default-features = false }
+
+[profile.dev.package."*"]
+opt-level = 3
