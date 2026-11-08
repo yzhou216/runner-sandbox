@@ -13,7 +13,7 @@
 //! each pair converts at once, into a word of eight bytes that goes out in
 //! one store, which lets the compiler convert many pairs in each vector
 //! instruction; byte by byte, the conversion took four times as long on
-//! x86-64, and twice as long on Arm.  The strips of rows of a
+//! x86-64, and twice as long on aarch64.  The strips of rows of a
 //! high-definition picture convert on threads of their own, so that it keeps
 //! up at sixty pictures a second, while a smaller picture converts on the
 //! thread that asks, since starting threads for each picture would cost it

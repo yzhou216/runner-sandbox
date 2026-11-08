@@ -32,9 +32,6 @@ Major changes and improvements in each release of cinq, newest first.
   ended the last running cue no longer starts ahead by the time spent idle.
 - Choosing again the file that a running audio or video cue plays, or
   typing its name with a space around it, leaves the cue playing.
-- Video cues turn each decoded picture into colors in a third to two-thirds
-  of the processor time that it took on x86-64 and Arm, with the same
-  colors, which leaves more of the processor to decoding.
 
 ## v0.1.1
 
