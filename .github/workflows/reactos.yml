@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: reactos
+on: push
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CINQ: 07291681b6fdc4f545bfae4003526773e521296c # Branch reactos of yzhou216/cinq
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - name: Build cinq for 32-bit Windows, and the runner with its MinGW
+        run: |
+          mkdir programs
+          nix build "github:yzhou216/cinq/$CINQ#i686-windows"
+          cp result/bin/cinq.exe programs/CINQ.EXE
+          nix develop .#i686 -c i686-w64-mingw32-clang -O2 -Wall -Wextra -Werror \
+            vm/runner.c -o programs/RUNNER.EXE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: programs
+          path: programs
+
+  imports:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: 0.4.16-x86
+            revision: 0.4.16
+          - image: nightly-x86
+            revision: faa2d0325a880c8ef56bad1e52e7288176ef9975
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/download-artifact@v5
+        with:
+          name: programs
+          path: programs
+      - name: List the imports that ReactOS lacks
+        run: |
+          iso=$(nix develop .#vm -c ./fetch-iso.sh "${{ matrix.image }}" iso)
+          nix develop .#vm -c ./check-imports.sh "$iso" i386 "${{ matrix.revision }}" \
+            programs/*.EXE | tee "imports-${{ matrix.image }}.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: imports-${{ matrix.image }}
+          path: imports-${{ matrix.image }}.txt
+
+  vm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Let the runner user open /dev/kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/download-artifact@v5
+        with:
+          name: programs
+          path: programs
+      - name: Install ReactOS 0.4.16 and run cinq in it
+        run: |
+          iso=$(nix develop .#vm -c ./fetch-iso.sh 0.4.16-x86 iso)
+          nix develop .#vm -c ./vm/run-vm.sh "$iso" i386 programs out
+          grep -a ROSTEST out/com1.log | tr -d '\r' | tee out/results.txt
+      - name: Make a video of the screenshots
+        if: always()
+        run: |
+          nix develop .#vm -c ffmpeg -loglevel error -framerate 4 -pattern_type glob \
+            -i 'out/shots/*.png' -vf 'scale=1024:768:force_original_aspect_ratio=decrease,pad=1024:768:(ow-iw)/2:(oh-ih)/2' \
+            -c:v libx264 -pix_fmt yuv420p out/reactos.mp4
+          tar -C out -cf out/shots.tar shots
+          rm -r out/shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vm
+          path: out
