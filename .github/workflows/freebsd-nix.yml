@@ -10,7 +10,8 @@
 # the program that aborted and a backtrace from its core.  Run 42439851240
 # found that the bootstrap tools' find aborts in configurePhase, on
 # find . -iname ltmain.sh -print0, and run 42440065618 that it aborts on
-# --version as well, so this traces it and reads its core.
+# --version as well, along with xargs, sed, and tar, while grep and bash
+# run (run 42440261391), so this tries clean environments and truss.
 on:
   push:
     paths: [.github/workflows/freebsd-nix.yml]
@@ -57,12 +58,12 @@ jobs:
             ldd "$find_"
             cd /tmp
             "$find_" --version; echo "find --version ended with $?"
-            echo "== ktrace of find --version"
-            ktrace -f /tmp/find.ktrace "$find_" --version; kdump -f /tmp/find.ktrace | tail -60
-            echo "== backtrace"
-            core=$(ls /tmp/*.core 2>/dev/null | head -1)
-            echo "core $core"
-            [ -n "$core" ] && gdb -batch -ex bt -ex "info sharedlibrary" "$find_" "$core" 2>&1 | tail -40
+            echo "== environments"
+            env -i "$find_" --version > /dev/null; echo "env -i: $?"
+            env -i LANG=C.UTF-8 "$find_" --version > /dev/null; echo "LANG=C.UTF-8: $?"
+            env -i LC_ALL=C "$find_" --version > /dev/null; echo "LC_ALL=C: $?"
+            echo "== truss of find --version"
+            truss "$find_" --version 2>&1 | tail -45
             echo "== other bootstrap tools"
             for tool in xargs grep sed tar; do "$archive/bin/$tool" --version > /dev/null 2>&1; echo "$tool ended with $?"; done
             exit 0
