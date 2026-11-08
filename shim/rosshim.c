@@ -20,6 +20,7 @@
 #include <winternl.h>
 #include <shlobj.h>
 #include <knownfolders.h>
+#include <math.h>
 #include <string.h>
 #include <wctype.h>
 
@@ -287,6 +288,103 @@ static void NTAPI fls_rundown(void *module, DWORD reason, void *reserved)
 
 __attribute__((section(".CRT$XLY"), used))
 const PIMAGE_TLS_CALLBACK rosshim_fls_rundown = fls_rundown;
+
+/*
+ * Math of the C runtime that ReactOS's ucrtbase.dll exports as stubs,
+ * which return nothing useful, so that the loader accepts the program and
+ * the results are wrong.  With its truncf, cosmic-text placed every glyph
+ * of iced at the top of the window.  These take log, exp, and sqrt, which
+ * ReactOS implements, and replace the stubs on every system.
+ */
+
+#ifdef _WIN64
+#define CIMP(name) __asm__("__imp_" #name)
+#define CSYM(name) __asm__(#name)
+#else
+#define CIMP(name) __asm__("__imp__" #name)
+#define CSYM(name) __asm__("_" #name)
+#endif
+
+#define MATH(type, name, value)                                               \
+    type shim_##name(type x) CSYM(name);                                      \
+    type shim_##name(type x) { return value; }                                \
+    void *imp_##name CIMP(name) = (void *)shim_##name;
+
+/* x with the bits of its fraction below the binary point cleared */
+static double trunc_double(double x)
+{
+    union { double f; UINT64 i; } u = { x };
+    int shift = (int)(u.i >> 52 & 0x7ff) - 0x3ff + 12;
+    if (shift >= 64)
+        return x; /* Integral, infinite, or NaN */
+    u.i &= ~(~0ULL >> (shift < 12 ? 1 : shift));
+    return u.f;
+}
+
+static float trunc_float(float x)
+{
+    union { float f; UINT32 i; } u = { x };
+    int shift = (int)(u.i >> 23 & 0xff) - 0x7f + 9;
+    if (shift >= 32)
+        return x;
+    u.i &= ~(~0U >> (shift < 9 ? 1 : shift));
+    return u.f;
+}
+
+static BOOL negative(double x)
+{
+    union { double f; UINT64 i; } u = { x };
+    return u.i >> 63;
+}
+
+/* Kahan's log1p, accurate where 1 + x rounds */
+static double log1p_double(double x)
+{
+    double u = 1.0 + x;
+    if (u == 1.0)
+        return x;
+    if (u <= 0.0 || u - u != 0.0)
+        return log(u); /* -inf, NaN, or inf */
+    return log(u) * (x / (u - 1.0));
+}
+
+static double acosh_double(double x)
+{
+    if (x > 0x1p28)
+        return log(x) + 0.69314718055994530942;
+    double t = x - 1.0; /* NaN below 1 through sqrt */
+    return log1p_double(t + sqrt(2.0 * t + t * t));
+}
+
+static double asinh_double(double x)
+{
+    double a = negative(x) ? -x : x;
+    double y = a > 0x1p28 ? log(a) + 0.69314718055994530942
+                          : log1p_double(a + a * a / (1.0 + sqrt(1.0 + a * a)));
+    return negative(x) ? -y : y;
+}
+
+static double cbrt_double(double x)
+{
+    if (x == 0.0 || x - x != 0.0)
+        return x; /* Zero, infinite, or NaN */
+    double a = negative(x) ? -x : x;
+    double y = exp(log(a) / 3.0);
+    for (int i = 0; i < 2; i++)
+        y -= (y * y * y - a) / (3.0 * y * y);
+    return negative(x) ? -y : y;
+}
+
+MATH(double, trunc, trunc_double(x))
+MATH(float, truncf, trunc_float(x))
+MATH(double, log1p, log1p_double(x))
+MATH(float, log1pf, (float)log1p_double(x))
+MATH(double, acosh, acosh_double(x))
+MATH(float, acoshf, (float)acosh_double(x))
+MATH(double, asinh, asinh_double(x))
+MATH(float, asinhf, (float)asinh_double(x))
+MATH(double, cbrt, cbrt_double(x))
+MATH(float, cbrtf, (float)cbrt_double(x))
 
 /* Randomness of Rust's hash maps */
 
