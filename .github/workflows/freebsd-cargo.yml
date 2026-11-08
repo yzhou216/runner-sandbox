@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Runs cinq's tests natively on x86_64 FreeBSD for the snapshot in
+# cinq-rewrite/, master rewritten with the kqueue fix of config.toml's
+# watcher squashed into the Darwin one, before master takes it
+on:
+  push:
+    paths: [cinq-rewrite/**, .github/workflows/freebsd-cargo.yml]
+permissions:
+  contents: read
+jobs:
+  test:
+    name: cinq tested on x86_64-freebsd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: vmactions/freebsd-vm@main
+        with:
+          mem: 12288
+          copyback: false
+          prepare: pkg install -y rust scdoc pkgconf alsa-lib
+          run: |
+            cd cinq-rewrite
+            export CARGO_TARGET_DIR=/var/tmp/target
+            cargo test --release --locked
