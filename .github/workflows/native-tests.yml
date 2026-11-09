@@ -72,3 +72,33 @@ jobs:
             echo "--- summary"
             grep -E '^test result|^test .* FAILED' /var/tmp/test.log || true
             exit $status
+  stress:
+    name: cinq's tests repeated on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm, macos-latest, ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libwayland-dev libxkbcommon-dev
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Repeat the tests
+        run: |
+          exe=$(cd cinq && cargo test --no-run --locked --message-format=json |
+            jq -r 'select(.executable != null and .profile.test) | .executable')
+          bash stress.sh "$exe" 1000 100 20 2>&1 | tee stress.log
+      - uses: actions/upload-artifact@v7
+        if: '!cancelled()'
+        with:
+          name: stress-${{ matrix.os }}
+          path: stress.log
