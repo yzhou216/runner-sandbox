@@ -4,43 +4,26 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: light cues driving lamps drawn from Art-Net
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Recorded cinq's light cues (1798b71 on `wip/light-cues`, built straight from
+GitHub) driving three lamps on GNU/Linux (headless sway on `ubuntu-latest`),
+with `demo.sh`.  No lighting hardware takes part: `view.py`, in the terminal
+on the left, receives the Art-Net that cinq sends to 127.0.0.1 on UDP port
+6454 and draws the first channels of each universe as lamps, each as bright
+as its channel.  cinq's window on the right runs `show.toml` with the Light
+Patch tab open, whose Now column shows the level of each instrument.  A band
+under the video captions each step.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+| Step | Lamps (Front, Back, Cyc) |
+| --- | --- |
+| GO on cue 1, which fades Front up | 70%, 0%, 0% |
+| Cue 2, which names Back and Cyc only | 70%, 80%, 100% |
+| Cue 3 fading Front and Back out, stopped halfway by panic | 36%, 41%, 100%, held |
+| Cue 4, a blackout | 0%, 0%, 0% |
 
-## Setup
+The lamps and the Now column agreed throughout, both on the runner and on
+the machine where `demo.sh` ran first.  To watch cinq's output elsewhere,
+run `python3 view.py 3` there and press GO in cinq.
 
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Run 42553804423 (13 minutes), artifact `videos` with `light.mp4`.
