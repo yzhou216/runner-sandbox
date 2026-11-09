@@ -109,4 +109,3 @@ Both suites passed on every runner.
 - `git am` needs an identity, which `-c user.name -c user.email` supplies.
 - `--locked` needs a `Cargo.lock` without the registry source for
   `rust_h264`, as `cargo update -p rust_h264 --offline` writes it.
-  headroom.
