@@ -6,7 +6,7 @@
 //! and where its sound file is, and of bringing back cue lists kept from
 //! before as one change
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::*;
 
@@ -113,21 +113,29 @@ fn show_file_whose_cues_share_an_identity_cannot_be_read() {
 
 #[test]
 fn relative_sound_files_go_from_wherever_the_file_is() {
+    // Windows takes a drive for the root of an absolute path
+    let root = Path::new(if cfg!(windows) { r"C:\" } else { "/" });
+    let near = Path::new("sounds").join("near.ogg");
+    let far = root.join("library").join("far.ogg");
     let workspace = workspace(vec![
         Cue::new(CueId(1), "1", Kind::Audio, "Near")
-            .file("sounds/near.ogg")
+            .file(near.to_string_lossy())
             .build(),
         Cue::new(CueId(2), "2", Kind::Audio, "Far")
-            .file("/library/far.ogg")
+            .file(far.to_string_lossy())
             .build(),
     ])
-    .directory("/show");
-    let names = |show: &str, file: &str| show.contains(&format!("file = \"{file}\""));
-    let elsewhere = workspace.show(Some(Path::new("/elsewhere")));
-    assert!(names(&elsewhere, "../show/sounds/near.ogg"), "{elsewhere}");
-    assert!(names(&elsewhere, "/library/far.ogg"), "{elsewhere}");
+    .directory(root.join("show"));
+    let names = |show: &str, file: PathBuf| {
+        let file = toml::Value::from(file.to_string_lossy().as_ref());
+        show.contains(&format!("file = {file}"))
+    };
+    let elsewhere = workspace.show(Some(&root.join("elsewhere")));
+    let from_elsewhere = Path::new("..").join("show").join(&near);
+    assert!(names(&elsewhere, from_elsewhere), "{elsewhere}");
+    assert!(names(&elsewhere, far), "{elsewhere}");
     let nowhere = workspace.show(None);
-    assert!(names(&nowhere, "/show/sounds/near.ogg"), "{nowhere}");
+    assert!(names(&nowhere, root.join("show").join(near)), "{nowhere}");
 }
 
 #[test]

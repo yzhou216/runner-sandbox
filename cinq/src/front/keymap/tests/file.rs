@@ -5,10 +5,7 @@
 //! Tests of the configuration file, which chooses a keymap, replaces the
 //! keys of the actions it names, and reports what it cannot use
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::{fs, io, path::Path};
 
 use tempfile::TempDir;
 
@@ -78,10 +75,9 @@ fn file_is_in_the_directory_named_on_the_command_line_or_else_that_of_the_platfo
         config::file(None),
         dirs::config_dir().map(|directory| directory.join("cinq").join("config.toml"))
     );
-    assert_eq!(
-        config::file(Some(Path::new("/show"))),
-        Some(PathBuf::from("/show/config.toml"))
-    );
+    // Windows takes a drive for the root of an absolute path
+    let show = Path::new(if cfg!(windows) { r"C:\" } else { "/" }).join("show");
+    assert_eq!(config::file(Some(&show)), Some(show.join("config.toml")));
     assert!(config::file(Some(Path::new("show"))).is_some_and(|file| file.is_absolute()));
 }
 
