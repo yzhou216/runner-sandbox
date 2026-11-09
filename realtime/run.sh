@@ -54,7 +54,8 @@ for round in 1 2; do
         realtime --ignored --nocapture | grep '^REALTIME')
       shown=$(echo "$line" | sed -E 's/.*: ([0-9]+) pictures.*/\1/')
       cpu=$(echo "$line" | sed -E 's/.*cpu ([0-9.]+) user ([0-9.]+) system.*/\1 user + \2 system/')
-      echo "round $round  $name  $tree  shown $shown of $count  cpu $cpu"
+      first=$(echo "$line" | sed -E 's/.*first picture ([0-9.a-zA-Z]+) s after.*/\1 s/')
+      echo "round $round  $name  $tree  shown $shown of $count  cpu $cpu  first picture $first after the GO"
       echo "  $line"
     done
   done

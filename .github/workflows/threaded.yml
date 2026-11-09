@@ -6,6 +6,7 @@
 # decoder.  Each runner plays two clips, 1080p at 60 pictures a second and
 # 2160p at 30, through the video output of cinq's master at 798c620 (`base`)
 # and, when the directories cinq/ and rust_h264/ exist, of the tree in
+# (cloned and patched by a step from patches/)
 # cinq/ built against the rust_h264 in rust_h264/ (`threaded`), by
 # realtime/run.sh.  It runs the tests of both directories too.
 on: push
@@ -42,14 +43,28 @@ jobs:
         with:
           name: clips
           path: clips
+      - name: Fetch rust_h264 and cinq with the patches
+        run: |
+          ident=(-c user.name=sandbox -c user.email=sandbox@example.com)
+          git clone -q https://github.com/roticv/rust_h264 rust_h264
+          git -C rust_h264 checkout -q 6436335
+          git -C rust_h264 "${ident[@]}" am "$PWD"/patches/rust_h264/*.patch
+          git clone -q https://github.com/yzhou216/cinq cinq
+          git -C cinq checkout -q 798c620
+          git -C cinq "${ident[@]}" am "$PWD"/patches/cinq/*.patch
+          rm -rf rust_h264/.git cinq/.git
       - uses: dtolnay/rust-toolchain@stable
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
       - name: Test rust_h264
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target-tests # Outside the trees that run.sh copies
         if: hashFiles('rust_h264/Cargo.toml') != ''
         working-directory: rust_h264
         run: cargo test --release 2>&1 | tee ../test-rust_h264.log
       - name: Test cinq
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target-tests
         if: hashFiles('cinq/Cargo.toml') != '' && !cancelled()
         working-directory: cinq
         run: cargo test --release 2>&1 | tee ../test-cinq.log

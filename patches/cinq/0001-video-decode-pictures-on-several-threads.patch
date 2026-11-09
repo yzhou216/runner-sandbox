@@ -1,0 +1,403 @@
+From 0ecefe8b957fb571f7159ab9d22e043586c87e57 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Mon, 9 Nov 2026 12:48:50 -0800
+Subject: [PATCH 1/2] video: decode pictures on several threads
+
+The serial decoder cannot keep up with 1080p at 60 pictures a second or
+with 4K, so pictures dropped.  Switch to rust_h264's ThreadedDecoder, one
+thread for each core up to eight, with the reorder depth the stream
+declares so that the first pictures are not held back.  Each picture comes
+out in display order with the index of its sample, which gives its time,
+so the module that ordered pictures by hand goes.
+---
+ CHANGELOG.md                          |   5 +
+ src/back/video/decoder.rs             | 126 ++++++++++++++------------
+ src/back/video/decoder/color.rs       |  16 +---
+ src/back/video/decoder/order.rs       |  77 ----------------
+ src/back/video/decoder/order/tests.rs |  53 -----------
+ 5 files changed, 79 insertions(+), 198 deletions(-)
+ delete mode 100644 src/back/video/decoder/order.rs
+ delete mode 100644 src/back/video/decoder/order/tests.rs
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 13fa546..6d8fac7 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,6 +10,11 @@ Major changes and improvements in each release of cinq, newest first.
+ 
+ ## Unreleased
+ 
++- Video cues decode on several threads, one for each core up to eight, so
++  that 1080p plays at 60 pictures a second and 4K plays in full, where
++  pictures used to drop.  A picture whose slices all fail to decode now
++  shows grey rather than being dropped.
++
+ ## v0.1.2
+ 
+ - On Windows, a terminal that starts cinq shows what cinq prints, such as
+diff --git a/src/back/video/decoder.rs b/src/back/video/decoder.rs
+index 83f1375..0035018 100644
+--- a/src/back/video/decoder.rs
++++ b/src/back/video/decoder.rs
+@@ -7,42 +7,43 @@
+ //!
+ //! A pass starts a decoder at the last sync sample before the start of the
+ //! clip that shows no later than the first picture of the clip, and decodes
+-//! from there to the last sample that shows before its end.  Each sample
+-//! holds a picture, which the decoder finishes as soon as it has read the
+-//! sample rather than once the next picture starts, since a sample that
+-//! fails to decode would otherwise take the picture before it along.  The
+-//! pictures go out in the order they show, which [`order`] keeps, each at
+-//! the time of its own sample, and those before the start of the clip are
+-//! let go without turning them into RGBA, which [`color`] turns the rest
+-//! into.  A pass ends by telling its player that it has sent every
+-//! picture, or why its picture cannot play, as a pass that decodes no
+-//! picture cannot, and it stops decoding as soon as its player has gone.
+-//! Each pass opens its file and reads the index of its track anew, which
+-//! takes a long file a moment, hidden for a clip that loops by the pass
+-//! that decodes ahead.
++//! from there to the last sample that shows before its end.  The decoder
++//! spreads the pictures over the cores, which 1080p at sixty pictures a
++//! second and 4K need to keep up, and gives them back in the order they
++//! show, each with the index of the sample that started it, so that it
++//! shows at the time of its own sample.  Those before the start of the clip
++//! are let go without turning them into RGBA, which [`color`] turns the
++//! rest into.  The decoder holds back as many pictures as the stream says
++//! it reorders, and a picture whose slices all fail to decode comes out
++//! grey rather than being dropped.  A pass ends by telling its player that
++//! it has sent every picture, or why its picture cannot play, as a pass
++//! that decodes no picture cannot, and it stops decoding as soon as its
++//! player has gone.  Each pass opens its file and reads the index of its
++//! track anew, which takes a long file a moment, hidden for a clip that
++//! loops by the pass that decodes ahead.
+ 
+ mod color;
+-mod order;
+ 
+ use std::{
++    num::NonZero,
+     path::{Path, PathBuf},
+     sync::{
+-        Weak,
++        LazyLock, Weak,
+         mpsc::{self, Receiver, SyncSender},
+     },
+     thread,
+ };
+ 
+ use rust_h264::{
+-    decoder::{ChromaFormat, Decoder, Frame as Decoded},
+-    nal::NalUnit,
++    decoder::{ChromaFormat, Frame as Decoded},
++    nal::parse_sps_info,
++    threading::ThreadedDecoder,
+ };
+ 
+ use super::track::Track;
+ use crate::back::Clip;
+ pub use color::Picture;
+ use color::rgba;
+-use order::Order;
+ 
+ /// Pictures that the thread of a pass decodes ahead of the clock of its
+ /// run, besides the one it holds as it waits to send it: enough to ride out
+@@ -51,6 +52,20 @@ use order::Order;
+ /// as each picture of 1080p takes 8 MB
+ const AHEAD: usize = 2;
+ 
++/// Threads that decode and convert pictures: one for each core, up to
++/// eight, enough to spread a picture over the cores of most machines.  The
++/// cores are counted once, since std counts them anew at each call, too
++/// slowly for every picture.
++static THREADS: LazyLock<usize> = LazyLock::new(|| {
++    thread::available_parallelism()
++        .map_or(1, NonZero::get)
++        .min(8)
++});
++
++/// Pictures that the decoder holds back to put in order when the stream
++/// does not say how many it reorders, which is the decoder's own default
++const REORDER: usize = 16;
++
+ /// Why the picture of a file that holds H.264 cannot play, when the decoder
+ /// decodes none of it
+ pub(super) const UNDECODABLE: &str = "its picture cannot be decoded";
+@@ -109,14 +124,21 @@ fn decoded(
+         return Ok(0);
+     };
+     let passed = f64::from(pass) * clip.length();
+-    let send = |pictures: Vec<(f64, Decoded)>, sent: usize| {
++    // Copied out, as reading a sample borrows the track anew
++    let times: Vec<f64> = track.samples.iter().map(|sample| sample.shows).collect();
++    let send = |pictures: Vec<(Decoded, usize)>, sent: usize| {
+         pictures
+-            .iter()
+-            .filter(|(shows, _)| (first..clip.end).contains(shows))
++            .into_iter()
++            .map(|(picture, index)| (times[index], picture))
++            .filter(|(shows, picture)| {
++                (first..clip.end).contains(shows)
++                    && picture.bit_depth == 8
++                    && picture.chroma_format == ChromaFormat::Yuv420
++            })
+             .try_fold(sent, |sent, (shows, picture)| {
+                 let frame = Frame {
+                     at: passed + (shows - clip.start).max(0.0),
+-                    picture: rgba(picture),
++                    picture: rgba(&picture),
+                 };
+                 sender
+                     .send(Sent::Picture(frame))
+@@ -124,39 +146,31 @@ fn decoded(
+                     .map_err(|_| Stop::Gone)
+             })
+     };
+-    let mut decoder = Decoder::new();
+-    // Parameter sets that fail to decode leave every sample to fail as well
+-    track.parameter_sets().iter().for_each(|unit| {
+-        let _ = decoder.decode_nal(unit);
+-    });
+-    let order = Order::new(track.samples[from..=to].iter().map(|sample| sample.shows));
+-    (from..=to)
+-        .try_fold((order, 0), |(order, sent), index| {
+-            if player.strong_count() == 0 {
+-                return Err(Stop::Gone);
+-            }
+-            let sample = track.sample(index).map_err(Stop::Failed)?;
+-            let picture = picture(&mut decoder, &track.units(&sample));
+-            let (due, order) = order.decoded(index - from, picture);
+-            Ok((order, send(due, sent)?))
+-        })
+-        .map(|(_, sent)| sent)
+-}
+-
+-/// Decodes the NAL units of a sample with `decoder`, and returns its
+-/// picture, once finished, when it decodes to one in eight bits for each
+-/// color with the colors shared by four pixels, which [`rgba`] turns into
+-/// RGBA
+-fn picture(decoder: &mut Decoder, units: &[NalUnit<'_>]) -> Option<Decoded> {
+-    // Unit that fails to decode adds nothing to the picture, which
+-    // decoding goes on without, and a sample that holds two pictures, as no
+-    // file should, keeps the second, which the decoder finishes last
+-    let earlier = units
++    let parameters = track.parameter_sets();
++    let reorder = parameters
+         .iter()
+-        .filter_map(|unit| decoder.decode_nal(unit).ok().flatten())
+-        .last();
+-    decoder
+-        .flush()
+-        .or(earlier)
+-        .filter(|picture| picture.bit_depth == 8 && picture.chroma_format == ChromaFormat::Yuv420)
++        .find_map(|unit| parse_sps_info(unit).ok())
++        .and_then(|info| info.max_reorder_frames)
++        .map_or(REORDER, |frames| frames as usize);
++    let mut decoder = ThreadedDecoder::with_max_depth(*THREADS, reorder);
++    // Parameter sets that fail to decode leave every sample to fail as well
++    parameters.iter().for_each(|unit| {
++        let _ = decoder.decode_nal_with_meta(unit, 0);
++    });
++    let sent = (from..=to).try_fold(0, |sent, index| {
++        if player.strong_count() == 0 {
++            return Err(Stop::Gone);
++        }
++        let bytes = track.sample(index).map_err(Stop::Failed)?;
++        // Unit that fails to decode adds nothing to the picture, which
++        // decoding goes on without
++        let pictures = track
++            .units(&bytes)
++            .iter()
++            .filter_map(|unit| decoder.decode_nal_with_meta(unit, index).ok())
++            .flatten()
++            .collect();
++        send(pictures, sent)
++    })?;
++    send(decoder.flush_with_meta(), sent)
+ }
+diff --git a/src/back/video/decoder/color.rs b/src/back/video/decoder/color.rs
+index 72e57ad..9688316 100644
+--- a/src/back/video/decoder/color.rs
++++ b/src/back/video/decoder/color.rs
+@@ -22,25 +22,17 @@
+ #[cfg(test)]
+ mod tests;
+ 
+-use std::{num::NonZero, sync::LazyLock, thread};
++use std::thread;
+ 
+ use rust_h264::decoder::Frame;
+ 
++use super::THREADS;
++
+ /// Width and lines from either of which a picture counts as high
+ /// definition, so that a wide picture cropped from one of 1280 by 720, such
+ /// as one of 1280 by 534, does as well
+ const HIGH_DEFINITION: (u32, u32) = (1280, 720);
+ 
+-/// Strips of rows that a high-definition picture converts in at once, each
+-/// on a thread of its own: one for each core, up to eight, enough to spread
+-/// a picture over the cores of most machines.  The cores are counted once,
+-/// since std counts them anew at each call, too slowly for every picture.
+-static STRIPS: LazyLock<usize> = LazyLock::new(|| {
+-    thread::available_parallelism()
+-        .map_or(1, NonZero::get)
+-        .min(8)
+-});
+-
+ /// Picture in RGBA, a byte for each channel, row by row from the top
+ pub struct Picture {
+     pub width: u32,
+@@ -101,7 +93,7 @@ fn converted(picture: &Frame, matrix: Matrix) -> Vec<u8> {
+         return pixels;
+     }
+     if high_definition(picture) {
+-        let rows = height.div_ceil(*STRIPS).max(1);
++        let rows = height.div_ceil(*THREADS).max(1);
+         thread::scope(|scope| {
+             pixels
+                 .chunks_mut(rows * width * 4)
+diff --git a/src/back/video/decoder/order.rs b/src/back/video/decoder/order.rs
+deleted file mode 100644
+index 7d7ae4d..0000000
+--- a/src/back/video/decoder/order.rs
++++ /dev/null
+@@ -1,77 +0,0 @@
+-// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+-//
+-// SPDX-License-Identifier: GPL-3.0-or-later
+-
+-//! Order in which the pictures of a pass go out: the order they show in
+-//!
+-//! A decoder finishes the pictures of a pass in the order that their
+-//! samples decode, which with B-frames differs from the order they show
+-//! in.  Each picture takes the time of its own sample, so that one that
+-//! fails to decode costs no other picture its time, and a picture goes out
+-//! once every sample that shows before it has decoded, to a picture or to
+-//! none.
+-
+-#[cfg(test)]
+-mod tests;
+-
+-use std::collections::BTreeMap;
+-
+-use itertools::Itertools;
+-
+-/// Pictures of a pass that wait for those that show before them, each by
+-/// the place of its sample in the order of decoding
+-pub(super) struct Order<T> {
+-    /// Times at which the samples of the pass show, in the order they
+-    /// decode
+-    shows: Vec<f64>,
+-    /// Places of the samples in the order they show
+-    showing: Vec<usize>,
+-    /// How many places of `showing` have had their turn
+-    next: usize,
+-    /// Pictures that have decoded and wait for their turn
+-    held: BTreeMap<usize, T>,
+-}
+-
+-impl<T> Order<T> {
+-    /// Returns the order of the pictures of samples that show at `shows`,
+-    /// which go in the order they decode, before any has decoded
+-    pub(super) fn new(shows: impl IntoIterator<Item = f64>) -> Self {
+-        let shows: Vec<f64> = shows.into_iter().collect();
+-        let showing = (0..shows.len())
+-            .sorted_by(|&a, &b| shows[a].total_cmp(&shows[b]))
+-            .collect();
+-        Self {
+-            shows,
+-            showing,
+-            next: 0,
+-            held: BTreeMap::new(),
+-        }
+-    }
+-
+-    /// Returns the pictures that go out once the sample at `place` in the
+-    /// order of decoding has decoded to `picture`, or to none, each with
+-    /// the time it shows and in the order they show, along with the order
+-    /// of those left.  Samples decode in order, so every sample before
+-    /// `place` has decoded by then, and once the last has, every picture
+-    /// has gone out.
+-    pub(super) fn decoded(self, place: usize, picture: Option<T>) -> (Vec<(f64, T)>, Self) {
+-        // Samples that show next, up to the first that has yet to decode
+-        let next = self.next
+-            + self.showing[self.next..]
+-                .iter()
+-                .take_while(|&&sample| sample <= place)
+-                .count();
+-        let turn = &self.showing[self.next..next];
+-        let (due, held): (BTreeMap<usize, T>, _) = self
+-            .held
+-            .into_iter()
+-            .chain(picture.map(|picture| (place, picture)))
+-            .partition(|(sample, _)| turn.contains(sample));
+-        let due = due
+-            .into_iter()
+-            .map(|(sample, picture)| (self.shows[sample], picture))
+-            .sorted_by(|(a, _), (b, _)| a.total_cmp(b))
+-            .collect();
+-        (due, Self { next, held, ..self })
+-    }
+-}
+diff --git a/src/back/video/decoder/order/tests.rs b/src/back/video/decoder/order/tests.rs
+deleted file mode 100644
+index 1d16b9d..0000000
+--- a/src/back/video/decoder/order/tests.rs
++++ /dev/null
+@@ -1,53 +0,0 @@
+-// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+-//
+-// SPDX-License-Identifier: GPL-3.0-or-later
+-
+-//! Tests of the order in which the pictures of B-frames go out, and of the
+-//! times they take when a picture fails to decode
+-
+-use super::Order;
+-
+-/// Times of two closed groups of I, P, and two B-frames, which decode in
+-/// that order: pictures 0 to 3, then 4 to 7
+-const SHOWS: [f64; 8] = [0.0, 3.0, 1.0, 2.0, 4.0, 7.0, 5.0, 6.0];
+-
+-/// Returns the pictures that go out, each named by the time it shows and
+-/// with the time it takes, as the samples of `SHOWS` decode in turn, to
+-/// pictures but for those at the places of `failed`, and how many went out
+-/// as each sample decoded
+-fn sent(failed: &[usize]) -> (Vec<(f64, f64)>, Vec<usize>) {
+-    let start = (Order::new(SHOWS), Vec::new(), Vec::new());
+-    let (_, sent, counts) =
+-        SHOWS
+-            .iter()
+-            .enumerate()
+-            .fold(start, |(order, sent, counts), (place, &shows)| {
+-                let picture = (!failed.contains(&place)).then_some(shows);
+-                let (due, order) = order.decoded(place, picture);
+-                let count = due.len();
+-                (order, [sent, due].concat(), [counts, vec![count]].concat())
+-            });
+-    (sent, counts)
+-}
+-
+-/// Returns pictures named by the times of `times`, each with its own time
+-fn named(times: &[u8]) -> Vec<(f64, f64)> {
+-    times
+-        .iter()
+-        .map(|&time| (f64::from(time), f64::from(time)))
+-        .collect()
+-}
+-
+-#[test]
+-fn pictures_go_out_in_the_order_they_show_once_those_before_them_decode() {
+-    let (sent, counts) = sent(&[]);
+-    assert_eq!(sent, named(&[0, 1, 2, 3, 4, 5, 6, 7]));
+-    // P-frames wait for the B-frames that decode after them and show before
+-    assert_eq!(counts, [1, 0, 1, 2, 1, 0, 1, 2]);
+-}
+-
+-#[test]
+-fn picture_that_fails_to_decode_costs_no_other_picture_its_time() {
+-    let (sent, _) = sent(&[2]);
+-    assert_eq!(sent, named(&[0, 2, 3, 4, 5, 6, 7]));
+-}
+-- 
+2.56.0
+

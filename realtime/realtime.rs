@@ -100,9 +100,10 @@ fn plays_in_real_time() {
     let each: Vec<usize> = (0..seconds)
         .map(|second| shown.iter().filter(|&&at| at as usize == second).count())
         .collect();
+    let first = shown.first().copied().unwrap_or(f64::NAN);
     let (user, system) = processor_seconds();
     println!(
-        "REALTIME {name}: {} pictures in {duration:.2} s, each second {each:?}, cpu {user:.2} user {system:.2} system, built in {}",
+        "REALTIME {name}: {} pictures in {duration:.2} s, each second {each:?}, first picture {first:.3} s after the GO, cpu {user:.2} user {system:.2} system, built in {}",
         shown.len(),
         env!("CARGO_MANIFEST_DIR"),
     );
