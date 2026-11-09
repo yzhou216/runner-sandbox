@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Measures whether cinq's video plays in real time with rust_h264's threaded
+# decoder.  Each runner plays two clips, 1080p at 60 pictures a second and
+# 2160p at 30, through the video output of cinq's master at 798c620 (`base`)
+# and, when the directories cinq/ and rust_h264/ exist, of the tree in
+# cinq/ built against the rust_h264 in rust_h264/ (`threaded`), by
+# realtime/run.sh.  It runs the tests of both directories too.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: mkdir clips && bash bench/clips.sh clips
+      - uses: actions/upload-artifact@v7
+        with:
+          name: clips
+          path: clips
+  cinq:
+    needs: clips
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: clips
+          path: clips
+      - uses: dtolnay/rust-toolchain@stable
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
+      - name: Test rust_h264
+        if: hashFiles('rust_h264/Cargo.toml') != ''
+        working-directory: rust_h264
+        run: cargo test --release 2>&1 | tee ../test-rust_h264.log
+      - name: Test cinq
+        if: hashFiles('cinq/Cargo.toml') != '' && !cancelled()
+        working-directory: cinq
+        run: cargo test --release 2>&1 | tee ../test-cinq.log
+      - name: Play the clips in real time
+        if: '!cancelled()'
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target-shared # Dependencies built once for every tree
+        run: |
+          {
+            echo "# ${{ matrix.os }}"
+            echo
+            bash realtime/run.sh clips
+          } 2>&1 | tee "realtime-${{ matrix.os }}.txt"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cinq-${{ matrix.os }}
+          path: |
+            test-*.log
+            realtime-*.txt
+          if-no-files-found: ignore
