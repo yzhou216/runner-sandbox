@@ -19,6 +19,7 @@ set -uo pipefail
 mode=$1
 program=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
 OUT=$(mkdir -p "$3" && cd "$3" && pwd)
+[ -x "$program" ] || { echo "no program at $program"; exit 1; }
 shift 3
 source "$(dirname "$0")/common.sh"
 

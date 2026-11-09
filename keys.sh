@@ -15,6 +15,7 @@ set -uo pipefail
 
 cinq=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 OUT=$(mkdir -p "$2" && cd "$2" && pwd)
+[ -x "$cinq" ] || { echo "no program at $cinq"; exit 1; }
 source "$(dirname "$0")/common.sh"
 
 work=$(mktemp -d)

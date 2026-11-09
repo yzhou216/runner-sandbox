@@ -34,7 +34,7 @@ jobs:
           rustc --version --verbose
           sw_vers
           uname -a
-          system_profiler SPDisplaysDataType | grep -i resolution
+          system_profiler SPDisplaysDataType || true
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: cinq
