@@ -78,11 +78,16 @@ fn picture_that_the_next_go_starts_is_made_ready_ahead_for_its_run_to_take() {
     let mut video = Video::default();
     let (waiting, _) = video.sync(showing(&path));
     assert_eq!((video.ready.len(), video.runs.len()), (1, 0));
-    let (playing, _) = video.sync(waiting.apply(Command::Go { list: 0 }));
+    let (playing, early) = video.sync(waiting.apply(Command::Go { list: 0 }));
     assert_eq!((video.ready.len(), video.runs.len()), (0, 1));
-    // List played to its end leaves nothing to make ready
-    let (_, picture) = synced(&mut video, playing);
+    // The picture may have decoded since it was made ready, so that this
+    // sync hands it on, and no later one does while the clock stands still
+    let picture = early
+        .into_iter()
+        .next()
+        .or_else(|| synced(&mut video, playing).1);
     assert!(picture.is_some());
+    // List played to its end leaves nothing to make ready
     assert!(video.ready.is_empty());
 }
 

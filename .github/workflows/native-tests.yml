@@ -71,6 +71,8 @@ jobs:
             cat /var/tmp/test.log
             echo "--- summary"
             grep -E '^test result|^test .* FAILED' /var/tmp/test.log || true
+            cd ..
+            sh stress.sh "$(ls -t /var/tmp/target/debug/deps/cinq-* | grep -v '\.d$' | head -1)" 300 300 40
             exit $status
   stress:
     name: cinq's tests repeated on ${{ matrix.os }}
@@ -96,7 +98,7 @@ jobs:
         run: |
           exe=$(cd cinq && cargo test --no-run --locked --message-format=json |
             jq -r 'select(.executable != null and .profile.test) | .executable')
-          bash stress.sh "$exe" 1000 100 20 2>&1 | tee stress.log
+          bash stress.sh "$exe" 300 300 40 2>&1 | tee stress.log
       - uses: actions/upload-artifact@v7
         if: '!cancelled()'
         with:
