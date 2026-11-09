@@ -1,0 +1,61 @@
+[[instrument]]
+id = 1
+name = "Front"
+address = 1
+
+[[instrument]]
+id = 2
+name = "Back"
+address = 2
+
+[[instrument]]
+id = 3
+name = "Cyc"
+address = 3
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Front up"
+duration = 3.0
+
+[list.cue.lights]
+1 = 70.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "light"
+name = "Back and cyc"
+duration = 5.0
+
+[list.cue.lights]
+2 = 80.0
+3 = 100.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "light"
+name = "Cyc alone"
+duration = 8.0
+
+[list.cue.lights]
+1 = 0.0
+2 = 0.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "light"
+name = "Blackout"
+duration = 3.0
+
+[list.cue.lights]
+1 = 0.0
+2 = 0.0
+3 = 0.0
