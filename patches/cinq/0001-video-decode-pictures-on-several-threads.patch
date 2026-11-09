@@ -1,4 +1,4 @@
-From 0ecefe8b957fb571f7159ab9d22e043586c87e57 Mon Sep 17 00:00:00 2001
+From 4ae3c09c0ebd6e8254b91fb2ebdff8975505d2dd Mon Sep 17 00:00:00 2001
 From: Yiyu Zhou <yiyu@yiyuzhou.io>
 Date: Mon, 9 Nov 2026 12:48:50 -0800
 Subject: [PATCH 1/2] video: decode pictures on several threads
@@ -10,36 +10,37 @@ declares so that the first pictures are not held back.  Each picture comes
 out in display order with the index of its sample, which gives its time,
 so the module that ordered pictures by hand goes.
 ---
- CHANGELOG.md                          |   5 +
- src/back/video/decoder.rs             | 126 ++++++++++++++------------
+ CHANGELOG.md                          |   6 ++
+ src/back/video/decoder.rs             | 119 +++++++++++++++-----------
  src/back/video/decoder/color.rs       |  16 +---
- src/back/video/decoder/order.rs       |  77 ----------------
- src/back/video/decoder/order/tests.rs |  53 -----------
- 5 files changed, 79 insertions(+), 198 deletions(-)
+ src/back/video/decoder/order.rs       |  77 -----------------
+ src/back/video/decoder/order/tests.rs |  53 ------------
+ 5 files changed, 78 insertions(+), 193 deletions(-)
  delete mode 100644 src/back/video/decoder/order.rs
  delete mode 100644 src/back/video/decoder/order/tests.rs
 
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 13fa546..6d8fac7 100644
+index 13fa546..e793e37 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -10,6 +10,11 @@ Major changes and improvements in each release of cinq, newest first.
+@@ -10,6 +10,12 @@ Major changes and improvements in each release of cinq, newest first.
  
  ## Unreleased
  
 +- Video cues decode on several threads, one for each core up to eight, so
 +  that 1080p plays at 60 pictures a second and 4K plays in full, where
-+  pictures used to drop.  A picture whose slices all fail to decode now
-+  shows grey rather than being dropped.
++  pictures used to drop.  In a damaged video, the pictures after one that
++  fails to decode now show grey where they draw on it, until the next
++  keyframe.
 +
  ## v0.1.2
  
  - On Windows, a terminal that starts cinq shows what cinq prints, such as
 diff --git a/src/back/video/decoder.rs b/src/back/video/decoder.rs
-index 83f1375..0035018 100644
+index 83f1375..36a5098 100644
 --- a/src/back/video/decoder.rs
 +++ b/src/back/video/decoder.rs
-@@ -7,42 +7,43 @@
+@@ -7,14 +7,16 @@
  //!
  //! A pass starts a decoder at the last sync sample before the start of the
  //! clip that shows no later than the first picture of the clip, and decodes
@@ -51,11 +52,6 @@ index 83f1375..0035018 100644
 -//! the time of its own sample, and those before the start of the clip are
 -//! let go without turning them into RGBA, which [`color`] turns the rest
 -//! into.  A pass ends by telling its player that it has sent every
--//! picture, or why its picture cannot play, as a pass that decodes no
--//! picture cannot, and it stops decoding as soon as its player has gone.
--//! Each pass opens its file and reads the index of its track anew, which
--//! takes a long file a moment, hidden for a clip that loops by the pass
--//! that decodes ahead.
 +//! from there to the last sample that shows before its end.  The decoder
 +//! spreads the pictures over the cores, which 1080p at sixty pictures a
 +//! second and 4K need to keep up, and gives them back in the order they
@@ -63,13 +59,14 @@ index 83f1375..0035018 100644
 +//! shows at the time of its own sample.  Those before the start of the clip
 +//! are let go without turning them into RGBA, which [`color`] turns the
 +//! rest into.  The decoder holds back as many pictures as the stream says
-+//! it reorders, and a picture whose slices all fail to decode comes out
-+//! grey rather than being dropped.  A pass ends by telling its player that
-+//! it has sent every picture, or why its picture cannot play, as a pass
-+//! that decodes no picture cannot, and it stops decoding as soon as its
-+//! player has gone.  Each pass opens its file and reads the index of its
-+//! track anew, which takes a long file a moment, hidden for a clip that
-+//! loops by the pass that decodes ahead.
++//! it reorders.  A picture that fails to decode is dropped, and those that
++//! refer to it, up to the next sync sample, draw on a grey picture in its
++//! place.  A pass ends by telling its player that it has sent every
+ //! picture, or why its picture cannot play, as a pass that decodes no
+ //! picture cannot, and it stops decoding as soon as its player has gone.
+ //! Each pass opens its file and reads the index of its track anew, which
+@@ -22,27 +24,27 @@
+ //! that decodes ahead.
  
  mod color;
 -mod order;
@@ -101,7 +98,7 @@ index 83f1375..0035018 100644
  
  /// Pictures that the thread of a pass decodes ahead of the clock of its
  /// run, besides the one it holds as it waits to send it: enough to ride out
-@@ -51,6 +52,20 @@ use order::Order;
+@@ -51,6 +53,22 @@ use order::Order;
  /// as each picture of 1080p takes 8 MB
  const AHEAD: usize = 2;
  
@@ -116,13 +113,15 @@ index 83f1375..0035018 100644
 +});
 +
 +/// Pictures that the decoder holds back to put in order when the stream
-+/// does not say how many it reorders, which is the decoder's own default
++/// does not say how many it reorders, which is the decoder's own default,
++/// and the most that it holds back for any stream, which is as many as
++/// H.264 allows
 +const REORDER: usize = 16;
 +
  /// Why the picture of a file that holds H.264 cannot play, when the decoder
  /// decodes none of it
  pub(super) const UNDECODABLE: &str = "its picture cannot be decoded";
-@@ -109,14 +124,21 @@ fn decoded(
+@@ -109,14 +127,21 @@ fn decoded(
          return Ok(0);
      };
      let passed = f64::from(pass) * clip.length();
@@ -148,7 +147,7 @@ index 83f1375..0035018 100644
                  };
                  sender
                      .send(Sent::Picture(frame))
-@@ -124,39 +146,31 @@ fn decoded(
+@@ -124,39 +149,31 @@ fn decoded(
                      .map_err(|_| Stop::Gone)
              })
      };
@@ -191,7 +190,7 @@ index 83f1375..0035018 100644
 -        .filter(|picture| picture.bit_depth == 8 && picture.chroma_format == ChromaFormat::Yuv420)
 +        .find_map(|unit| parse_sps_info(unit).ok())
 +        .and_then(|info| info.max_reorder_frames)
-+        .map_or(REORDER, |frames| frames as usize);
++        .map_or(REORDER, |frames| (frames as usize).min(REORDER));
 +    let mut decoder = ThreadedDecoder::with_max_depth(*THREADS, reorder);
 +    // Parameter sets that fail to decode leave every sample to fail as well
 +    parameters.iter().for_each(|unit| {
