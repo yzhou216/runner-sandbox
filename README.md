@@ -87,13 +87,64 @@ Both suites passed on every runner.
 | windows-latest | 260 + 6 passed, 2 ignored | 262 passed |
 | windows-11-arm | 253 + 6 passed, 2 ignored | 262 passed |
 
+## Final run (42705504855)
+
+The same clips and runners, with `threaded` rebuilt from newer sources:
+cinq 4ae3c09 (on 798c620; adds a cap on the reorder depth and corrected
+docs) against rust_h264 at 6436335 plus three commits (a0acf09): 3cb90a4
+(per-picture metadata, with a panic fix), e53d0f1 (keep ready frames when an
+error is reported), and a0acf09 (block on worker results instead of a 20 ms
+poll).  `base` is unchanged.  The earlier run, 42701179761, is the first
+set of tables above (cinq 0ecefe8, rust_h264 2401e00).  All jobs were green.
+
+### 1080p60 (600 pictures)
+
+| runner | base shown | threaded shown | base CPU | threaded CPU | base first | threaded first |
+| --- | --- | --- | --- | --- | --- | --- |
+| ubuntu-latest | 389 / 386 | 600 / 600 | 12.77 / 12.59 | 23.03 / 22.65 | 0.002 / 0.002 | 0.002 / 0.002 |
+| ubuntu-24.04-arm | 512 / 526 | 600 / 600 | 10.79 / 10.77 | 11.59 / 11.55 | 0.002 / 0.002 | 0.002 / 0.002 |
+| macos-latest | 251 / 396 | 557 / 556 | 10.43 / 10.02 | 11.77 / 11.36 | 0.019 / 0.018 | 0.018 / 0.020 |
+| windows-latest | 309 / 310 | 591 / 597 | 10.25 / 10.03 | 19.17 / 19.84 | 0.003 / 0.003 | 0.003 / 0.003 |
+| windows-11-arm | 468 / 454 | 600 / 600 | 9.62 / 9.62 | 6.78 / 6.16 | 0.003 / 0.003 | 0.003 / 0.003 |
+
+### 2160p30 (300 pictures)
+
+| runner | base shown | threaded shown | base CPU | threaded CPU | base first | threaded first |
+| --- | --- | --- | --- | --- | --- | --- |
+| ubuntu-latest | 135 / 130 | 275 / 268 | 14.23 / 13.64 | 32.88 / 32.02 | 0.002 / 0.002 | 0.002 / 0.002 |
+| ubuntu-24.04-arm | 190 / 191 | 300 / 300 | 10.76 / 10.82 | 15.83 / 15.76 | 0.002 / 0.002 | 0.002 / 0.002 |
+| macos-latest | 143 / 126 | 298 / 291 | 10.74 / 10.74 | 16.31 / 17.12 | 0.015 / 0.018 | 0.034 / 0.010 |
+| windows-latest | 103 / 107 | 197 / 199 | 11.64 / 11.30 | 23.30 / 23.70 | 0.003 / 0.003 | 0.002 / 0.003 |
+| windows-11-arm | 187 / 185 | 300 / 300 | 9.97 / 9.69 | 10.98 / 11.19 | 0.003 / 0.003 | 0.003 / 0.003 |
+
+Reading: every picture still shows on aarch64 Linux and aarch64 Windows, and
+on amd64 Linux at 1080p60.  amd64 Linux now drops about 8 percent of
+2160p30, which the first run showed complete, and amd64 Windows at 1080p60
+shows about 99 percent.  The windows-11-arm threaded CPU at 1080p60 is below
+its base, which was not investigated.  The runners were also slower for the
+base build than in the first run (amd64 Linux base 389 against 468), so
+compare within a run.
+
+### Tests
+
+Both suites passed on every runner.
+
+| runner | rust_h264 (`cargo test --release`, patched) | cinq (threaded tree) |
+| --- | --- | --- |
+| ubuntu-latest | 262 + 6 passed, 2 ignored | 264 passed |
+| ubuntu-24.04-arm | 255 + 6 passed, 2 ignored | 264 passed |
+| macos-latest | 255 + 6 passed, 2 ignored | 264 passed |
+| windows-latest | 262 + 6 passed, 2 ignored | 262 passed |
+| windows-11-arm | 255 + 6 passed, 2 ignored | 262 passed |
+
 ## Runs
 
 - 42695417284: round one, base only (smoke run, green).
 - 42697382924: threaded build added, green.
 - 42697404542: macos-latest failed in the patch step (see pitfalls), the
   others green.
-- 42701179761: final, all jobs green; the tables come from its artifacts.
+- 42701179761: all jobs green; the first set of tables comes from its artifacts.
+- 42705504855: final, cinq 4ae3c09 and rust_h264 a0acf09, all jobs green; the last set of tables.  (42705489833, started by a push that lacked the rust_h264 patches, was cancelled.)
 
 ## Pitfalls
 
