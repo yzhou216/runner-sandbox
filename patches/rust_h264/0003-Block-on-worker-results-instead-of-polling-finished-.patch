@@ -1,0 +1,131 @@
+From a0acf0949a992a42f3588b50db40c4f0d4181dd3 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Mon, 9 Nov 2026 13:27:52 -0800
+Subject: [PATCH 3/3] Block on worker results instead of polling finished
+ threads
+
+The coordinator counted busy workers with JoinHandle::is_finished, but a
+worker sends its result before its thread finishes. After receiving a
+result the wait loop still saw that worker running and waited out a
+20 ms recv_timeout, so with one thread every picture took 20 ms longer.
+It now counts pictures dispatched but not yet reported, raised at
+dispatch and lowered for each result received, and waits with a
+blocking recv, which returns because a dispatched worker always sends,
+even after a panic. The handles stay for joining in flush and Drop.
+
+Assisted-by: Claude Code (Claude Sonnet 5.5)
+---
+ CHANGELOG.md     |  5 +++++
+ src/threading.rs | 27 ++++++++++++++++-----------
+ 2 files changed, 21 insertions(+), 11 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 74dce28..30f95b4 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+   error on a slice that starts a new picture, discarded the frames the same
+   call had gathered. They are now returned, and the error is reported on the
+   next call that has no frames. `flush` still drops a pending error.
++- **`ThreadedDecoder` no longer waits up to 20 ms for a result it already
++  has**: with one thread this delayed every picture. The coordinator counted
++  busy workers by finished threads, and a worker sends its result just before
++  its thread finishes. It now counts pictures dispatched but not yet reported
++  and blocks on the next result.
+ 
+ ## [0.6.1] - 2026-11-02
+ 
+diff --git a/src/threading.rs b/src/threading.rs
+index aedf0ac..17288cb 100644
+--- a/src/threading.rs
++++ b/src/threading.rs
+@@ -35,10 +35,9 @@
+ 
+ use std::collections::{BTreeMap, HashMap, VecDeque};
+ use std::panic::{catch_unwind, AssertUnwindSafe};
+-use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
++use std::sync::mpsc::{channel, Receiver, Sender};
+ use std::sync::Arc;
+ use std::thread::JoinHandle;
+-use std::time::Duration;
+ 
+ use crate::bitstream::BitstreamReader;
+ use crate::decoder::{
+@@ -105,7 +104,11 @@ pub struct ThreadedDecoder<M = ()> {
+     results: BTreeMap<u64, WorkerResult>,
+     done_tx: Sender<(u64, WorkerResult)>,
+     done_rx: Receiver<(u64, WorkerResult)>,
++    /// Worker threads not yet joined; a worker sends its result before its
++    /// thread finishes, so this can hold more than `unreported` workers.
+     inflight: VecDeque<JoinHandle<()>>,
++    /// Pictures dispatched whose results have not been received yet.
++    unreported: usize,
+     /// First field of a field pair awaiting its complement (serial
+     /// `Decoder::pending_field` equivalent; handled at commit time).
+     pending_field: Option<Frame>,
+@@ -146,6 +149,7 @@ impl<M> ThreadedDecoder<M> {
+             done_tx,
+             done_rx,
+             inflight: VecDeque::new(),
++            unreported: 0,
+             pending_field: None,
+             last_commit_output: false,
+             frame_meta: None,
+@@ -264,7 +268,7 @@ impl<M> ThreadedDecoder<M> {
+                     // previous picture.
+                     self.close_open_picture();
+                     self.pump(&mut out);
+-                    while self.inflight.len() >= self.threads {
++                    while self.unreported >= self.threads {
+                         self.wait_one_completion();
+                         self.pump(&mut out);
+                     }
+@@ -410,6 +414,7 @@ impl<M> ThreadedDecoder<M> {
+             let _ = done_tx.send((seq, result));
+         });
+         self.inflight.push_back(handle);
++        self.unreported += 1;
+         true
+     }
+ 
+@@ -418,6 +423,7 @@ impl<M> ThreadedDecoder<M> {
+     fn pump(&mut self, out: &mut Vec<(Frame, Option<M>)>) {
+         while let Ok((seq, res)) = self.done_rx.try_recv() {
+             self.results.insert(seq, res);
++            self.unreported -= 1;
+         }
+         self.inflight.retain(|h| !h.is_finished());
+ 
+@@ -453,15 +459,13 @@ impl<M> ThreadedDecoder<M> {
+         }
+     }
+ 
+-    /// Block until a worker result arrives or a short timeout passes. The
+-    /// timeout matters because a result may already have been drained by an
+-    /// earlier `pump` while its handle still reads as running.
++    /// Block until a worker result arrives. Callers wait only while a
++    /// dispatched picture is unreported, and a worker always sends its result,
++    /// even after a panic, so this returns.
+     fn wait_one_completion(&mut self) {
+-        match self.done_rx.recv_timeout(Duration::from_millis(20)) {
+-            Ok((seq, res)) => {
+-                self.results.insert(seq, res);
+-            }
+-            Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => {}
++        if let Ok((seq, res)) = self.done_rx.recv() {
++            self.results.insert(seq, res);
++            self.unreported -= 1;
+         }
+     }
+ 
+@@ -570,6 +574,7 @@ mod tests {
+     use super::*;
+     use crate::decoder::OrderedDecoder;
+     use crate::nal::parse_annex_b;
++    use std::time::Duration;
+ 
+     fn decode_serial(nals: &[NalUnit]) -> Vec<Frame> {
+         let mut dec = OrderedDecoder::new();
+-- 
+2.56.0
+
