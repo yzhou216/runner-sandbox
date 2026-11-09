@@ -1,0 +1,111 @@
+diff --git a/cinq/src/front/update/keys.rs b/cinq/src/front/update/keys.rs
+index 8dcf588..7534a26 100644
+--- a/cinq/src/front/update/keys.rs
++++ b/cinq/src/front/update/keys.rs
+@@ -27,6 +27,14 @@ use crate::front::{
+ impl App {
+     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
+         let outcome = self.config.keymap.parse(&self.keys, press);
++        eprintln!(
++            "[{}] TYPED {press:?} repeat={repeat} -> action={:?} pending={:?} help={} selected={:?}",
++            stamp(),
++            outcome.action,
++            outcome.pending,
++            self.help,
++            self.selected
++        );
+         let app = Self {
+             keys: outcome.pending,
+             ..self
+@@ -90,5 +98,43 @@ pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
+     else {
+         return None;
+     };
+-    Press::from_key(&modified_key, modifiers).map(|press| Message::Typed { press, repeat })
++    let press = Press::from_key(&modified_key, modifiers);
++    eprintln!(
++        "[{}] LISTEN modified_key={modified_key:?} modifiers={modifiers:?} -> {press:?}",
++        stamp()
++    );
++    press.map(|press| Message::Typed { press, repeat })
++}
++
++/// Seconds since the epoch, for the log of this check
++pub(super) fn stamp() -> String {
++    let now = std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH)
++        .unwrap_or_default();
++    format!("{}.{:03}", now.as_secs(), now.subsec_millis())
++}
++
++/// Logs every keyboard event as iced hands it over, captured by a widget or
++/// not
++pub(super) fn log_raw(
++    event: iced::Event,
++    status: iced::event::Status,
++    _window: iced::window::Id,
++) -> Option<Message> {
++    if let iced::Event::Keyboard(keyboard::Event::KeyPressed {
++        key,
++        modified_key,
++        physical_key,
++        modifiers,
++        text,
++        repeat,
++        ..
++    }) = &event
++    {
++        eprintln!(
++            "[{}] RAW key={key:?} modified_key={modified_key:?} physical={physical_key:?} modifiers={modifiers:?} text={text:?} repeat={repeat} status={status:?}",
++            stamp()
++        );
++    }
++    None
+ }
+diff --git a/cinq/src/front/update/show/opening.rs b/cinq/src/front/update/show/opening.rs
+index 1904d08..4742b13 100644
+--- a/cinq/src/front/update/show/opening.rs
++++ b/cinq/src/front/update/show/opening.rs
+@@ -19,8 +19,16 @@ impl App {
+     pub(in crate::front::update) fn choose_show(&self) -> Task<Message> {
+         let chooser = chooser(self.show.directory()).set_title("Open show");
+         let unsaved_directory = self.unsaved_directory.clone();
+-        Task::future(chooser.pick_file())
+-            .and_then(move |chosen| open(Some(chosen.path().to_owned()), unsaved_directory.clone()))
++        Task::future(async move {
++            let chosen = chooser.pick_file().await;
++            eprintln!(
++                "[{}] OPEN DIALOG returned {:?}",
++                crate::front::update::keys::stamp(),
++                chosen.as_ref().map(|chosen| chosen.path().to_owned())
++            );
++            chosen
++        })
++        .and_then(move |chosen| open(Some(chosen.path().to_owned()), unsaved_directory.clone()))
+     }
+ 
+     /// The show that was on screen keeps its own unsaved changes, which the
+@@ -32,6 +40,11 @@ impl App {
+             || "a new show".to_owned(),
+             |file| file.display().to_string(),
+         );
++        eprintln!(
++            "[{}] OPENED {name} (text ok: {})",
++            crate::front::update::keys::stamp(),
++            read.text.is_ok()
++        );
+         let from_show = |text: &str| Workspace::from_show(text, &read.directory);
+         let workspace = read.text.and_then(|text| match text {
+             Some(text) => from_show(&text),
+diff --git a/cinq/src/front/update/subscription.rs b/cinq/src/front/update/subscription.rs
+index 739d5e2..631d334 100644
+--- a/cinq/src/front/update/subscription.rs
++++ b/cinq/src/front/update/subscription.rs
+@@ -42,6 +42,7 @@ impl App {
+             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
+         let always = [
+             keyboard::listen().filter_map(keys::key_press),
++            event::listen_with(keys::log_raw),
+             event::listen_with(clicked),
+             event::listen_with(focused),
+             window::resize_events().map(|(window, size)| Message::Resized(window, size)),

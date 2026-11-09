@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Answers two open questions about cinq on Darwin: whether the vi keymap's
+# Alt+j and Alt+k fire when Option types another character, and whether its
+# open dialog lets show.cinq.toml be chosen when rfd hands NSOpenPanel the
+# allowed file type "cinq.toml".  The tree under cinq/ is a copy of the
+# tracked files of cinq's branch darwin-checks, and logging.patch adds the
+# logs of key events and of the dialog to that copy alone.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  darwin:
+    name: cinq checked on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+    steps:
+      - uses: actions/checkout@v7
+      - run: git apply logging.patch
+      - run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version --verbose
+          sw_vers
+          uname -a
+          system_profiler SPDisplaysDataType | grep -i resolution
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cinq
+      - name: Build cinq
+        working-directory: cinq
+        run: cargo build --locked
+      - run: swiftc -o panel panel.swift
+      - name: Option+j and Option+k with the vi keymap
+        if: '!cancelled()'
+        run: bash keys.sh cinq/target/debug/cinq out/keys
+      - name: Open dialog of cinq
+        if: '!cancelled()'
+        run: bash dialog.sh cinq cinq/target/debug/cinq out/dialog-cinq
+      - name: Bare open panel, as rfd configures it
+        if: '!cancelled()'
+        run: bash dialog.sh panel ./panel out/panel-cinq-toml cinq.toml
+      - name: Bare open panel, last part of the extension
+        if: '!cancelled()'
+        run: bash dialog.sh panel ./panel out/panel-toml toml
+      - name: Bare open panel, no allowed file types
+        if: '!cancelled()'
+        run: bash dialog.sh panel ./panel out/panel-none
+      - uses: actions/upload-artifact@v7
+        if: '!cancelled()'
+        with:
+          name: results-${{ matrix.os }}
+          path: out
