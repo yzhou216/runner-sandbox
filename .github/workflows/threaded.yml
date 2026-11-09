@@ -52,7 +52,6 @@ jobs:
           git clone -q https://github.com/yzhou216/cinq cinq
           git -C cinq checkout -q 798c620
           git -C cinq "${ident[@]}" am "$PWD"/patches/cinq/*.patch
-          rm -rf rust_h264/.git cinq/.git
       - uses: dtolnay/rust-toolchain@stable
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev pkg-config
