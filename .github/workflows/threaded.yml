@@ -6,9 +6,9 @@
 # decoder.  Each runner plays two clips, 1080p at 60 pictures a second and
 # 2160p at 30, through the video output of cinq's master at 798c620 (`base`)
 # and, when the directories cinq/ and rust_h264/ exist, of the tree in
-# (cloned and patched by a step from patches/)
 # cinq/ built against the rust_h264 in rust_h264/ (`threaded`), by
-# realtime/run.sh.  It runs the tests of both directories too.
+# realtime/run.sh.  A step clones both from patches/.  It runs the tests of both
+# directories too.
 on: push
 permissions:
   contents: read
