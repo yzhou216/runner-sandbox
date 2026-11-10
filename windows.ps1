@@ -164,6 +164,10 @@ file = "clip.mp4"
 # Software rendering of cinq's own, since WARP draws slowly
 $env:ICED_BACKEND = 'tiny-skia'
 
+# The runner leaves a System Properties window open, which would peek out
+# between the consoles
+$properties = [Windows]::Find(0, 'System Properties')
+if ($properties -ne [IntPtr]::Zero) { [Windows]::PostMessage($properties, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
 (New-Object -ComObject Shell.Application).MinimizeAll()
 Start-Sleep 2
 # ffmpeg through cmd, which takes its standard error into a file and passes
