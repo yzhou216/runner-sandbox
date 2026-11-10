@@ -4,43 +4,49 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq tutorial screenshots
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Screenshots for the LaTeX tutorial of
+[cinq](https://github.com/yzhou216/cinq), taken from cinq at 6f5bc2e on
+`ubuntu-latest`.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What ran
 
-## Setup
+`shots.yml` builds cinq with `nix build github:yzhou216/cinq/<commit>`, so
+the branch holds no copy of its tree, and `media.sh` makes the sounds, the
+title card, and the film of `storm.cinq.toml` with ffmpeg's lavfi sources.
+`shots.sh` then starts headless sway with two outputs of 1280x960 at scale
+2, so each shot is 2560x1920, 4:3.  It sets `default_border none`, and a
+`for_window` rule moves the stage window to the second output.  Each window
+fills its output, so each shot holds one whole window and no decorations.
+wtype drives cinq with its vi keys, and grim takes a shot of each output.
+Sound goes to a PulseAudio null sink through ALSA's pulse plugin
+(`ALSA_PLUGIN_DIR`), which plays it in real time, so that cues run at their
+real pace.  The session's home is `/home/alice`, the path that the help page
+shows.  oxipng shrinks the shots losslessly.
 
-Fork this repository, then clone it into the agent's skills directory:
+## Results
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+Run 42889099737 passed in about 10 minutes, most of it the Nix build of
+cinq, and its artifact `shots` holds the ten shots: `window`, `time`,
+`levels`, `chain`, `running`, `keys`, `help`, `stage` (the second output),
+`showing`, and `added` (a new show, `effects.cinq.toml`).  Every shot shows
+what its step meant to show, and the help page shows
+`/home/alice/.config/cinq/config.toml`.  On the runner cinq draws in
+Ubuntu's default monospace, Liberation Mono.  The shots, at 89 to 298 KB
+each, are those of `doc/tutorial/screenshots` in cinq.
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+## Learned
 
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- wtype joins its text arguments with spaces, so `wtype j j` types `j`,
+  Space, `j`, and Space is GO in cinq.  Pass a sequence as one argument
+  (`wtype jj`), or each key with `-k`.
+- Neither `wlrctl pointer click` nor sway's own `seat seat0 cursor press`
+  reached cinq's window in a headless sway started with
+  `WLR_LIBINPUT_NO_DEVICES=1`, as tried on the local machine before the
+  run, so the Show mode check box, which no key toggles, could not be
+  clicked.  wtype's keys work since its `-s 300` delay gives cinq time to
+  bind the new virtual keyboard, while wlrctl's virtual pointer lives only
+  while its command runs.
+- At 1024x768 the cue list leaves out its Pre, Post, and Then columns for
+  the names of this show; 1280x960 shows them all.
