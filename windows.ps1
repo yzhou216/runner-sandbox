@@ -38,6 +38,19 @@ public static class Windows {
     keybd_event(0x12, 0, 0, UIntPtr.Zero);
     keybd_event(0x12, 0, 2, UIntPtr.Zero);
   }
+  // Process and title of each visible window with a title, one to a line
+  public static string List() {
+    var lines = new System.Collections.Generic.List<string>();
+    EnumWindows((window, data) => {
+      uint owner;
+      GetWindowThreadProcessId(window, out owner);
+      var text = new StringBuilder(256);
+      GetWindowText(window, text, 256);
+      if (IsWindowVisible(window) && text.Length > 0) { lines.Add(owner + "\t" + text); }
+      return true;
+    }, IntPtr.Zero);
+    return string.Join("\n", lines);
+  }
   // Visible window whose title holds part, of the process if one is given
   public static IntPtr Find(uint process, string part) {
     IntPtr found = IntPtr.Zero;
@@ -116,6 +129,15 @@ function Enlarge($window) {
   }
 }
 
+# Prints the visible windows with the programs that own them
+function Show-Windows($when) {
+  Write-Host "windows $when"
+  [Windows]::List() -split "`n" | ForEach-Object {
+    $id, $title = $_ -split "`t", 2
+    "  {0} {1}: {2}" -f $id, (Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName, $title
+  }
+}
+
 # Appends a caption that starts now
 function Caption($text) {
   "{0:F2}`t{1}" -f ((Get-Date) - $script:start).TotalSeconds, $text | Add-Content captions.tsv
@@ -144,10 +166,21 @@ $env:ICED_BACKEND = 'tiny-skia'
 
 (New-Object -ComObject Shell.Application).MinimizeAll()
 Start-Sleep 2
-$recorder = Start-Process ffmpeg -PassThru -NoNewWindow -RedirectStandardError ffmpeg.txt -ArgumentList '-y', '-f', 'gdigrab', '-framerate', '15', '-i', 'desktop', '-t', '120', '-pix_fmt', 'yuv420p', 'demo.mkv'
+# ffmpeg through cmd, which takes its standard error into a file and passes
+# its standard input on, so that a q at the end makes ffmpeg finish the file,
+# since one that is cut off loses the last seconds; the time limit is only
+# for when that fails
+$info = New-Object System.Diagnostics.ProcessStartInfo
+$info.FileName = 'cmd.exe'
+$info.Arguments = '/c ffmpeg -y -f gdigrab -framerate 15 -i desktop -t 90 -pix_fmt yuv420p demo.mkv 2> ffmpeg.txt'
+$info.UseShellExecute = $false
+$info.RedirectStandardInput = $true
+$info.CreateNoWindow = $true
+$recorder = [System.Diagnostics.Process]::Start($info)
 # The recording starts once ffmpeg says that it waits for a key to stop
-foreach ($second in 1..60) {
-  if ((Test-Path ffmpeg.txt) -and (Select-String -Path ffmpeg.txt -Pattern 'Press \[q\]' -Quiet)) { break }
+foreach ($second in 1..80) {
+  $ready = try { Select-String -Path ffmpeg.txt -Pattern 'Press \[q\]' -Quiet } catch { $false }
+  if ($ready) { break }
   Start-Sleep -Milliseconds 250
 }
 $start = Get-Date
@@ -182,6 +215,7 @@ Hide-Away $main
 $stage = Wait-Window $cinq.Id ' stage - cinq'
 Hide-Away $stage
 Start-Sleep 3
+Show-Windows 'after cinq started'
 
 Caption 'The video file arrives, and cinq reads it and warns of a track that it cannot read'
 Type-Into $commands 'Move-Item incoming\clip.mp4 clip.mp4'
@@ -195,9 +229,11 @@ Start-Sleep 8
 Caption 'cinq goes on, with no problem left to show'
 Start-Sleep 4
 
+Show-Windows 'after the fix'
 [Windows]::PostMessage($main, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
 $cinq.WaitForExit()
 Caption ''
 Start-Sleep 1
-# Matroska stays readable when ffmpeg is cut off
-Stop-Process -Id $recorder.Id -Force
+$recorder.StandardInput.Write('q')
+$recorder.StandardInput.Flush()
+$recorder.WaitForExit(120000) | Out-Null

@@ -26,6 +26,8 @@ for ((i = 0; i + 1 < ${#lines[@]}; i++)); do
   printf '%s' "$text" > "$work/$i.txt"
   filters+=("drawtext=fontfile=$font:textfile=$work/$i.txt:expansion=none:fontsize=$size:fontcolor=white:x=(w-text_w)/2:y=h-$band+($band-text_h)/2:enable='between(t,$at,$next)'")
 done
+# The video ends a second after the last caption
+IFS=$'\t' read -r end _ <<< "${lines[-1]}"
 IFS=,
-ffmpeg -loglevel error -y -i "$in" -vf "pad=iw:ih+$band:0:0:black,${filters[*]}" \
-  -c:v libx264 -crf 22 -pix_fmt yuv420p "$out"
+ffmpeg -loglevel error -y -i "$in" -t "$(awk -v end="$end" 'BEGIN { print end + 1 }')" \
+  -vf "pad=iw:ih+$band:0:0:black,${filters[*]}" -c:v libx264 -crf 22 -pix_fmt yuv420p "$out"
