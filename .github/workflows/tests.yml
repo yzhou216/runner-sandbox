@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  test:
+    name: cinq tests on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+        working-directory: cinq
+        env:
+          CINQ_SHARE_DIR: ""

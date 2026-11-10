@@ -1,0 +1,104 @@
+<!--
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# Changelog
+
+Major changes and improvements in each release of cinq, newest first.
+
+## Unreleased
+
+- On Windows, the unsaved changes of shows with the same path on different
+  drives, or on different network shares, no longer share one kept file and
+  take each other's place.  The drive or share now leads the kept file's
+  path, so changes that an earlier version kept for a show on Windows do
+  not come back.  Other systems keep their kept files as they were.
+- cinq plays up to 1024 sounds at once, where it took the 129th for a
+  broken file and kept checking that file again.
+- Stopping a cue also cancels the cues of its chain that it would have
+  started, even when a cue between them had been fired again or could not
+  play.
+- GO on a cue that is already running restarts it and cancels the cues that
+  its earlier run had yet to start, as QLab does, in place of leaving them
+  to play on.
+- The help page fills the main window in place of a box over it, and
+  closing it gives the window back as it was, with the cue list scrolled
+  where it was and the keyboard in the same field.  Opening it from the
+  stage window no longer leaves a field of the main window to take the keys
+  typed meanwhile.  Besides the keys of the page, only those of GO and Panic
+  act while it shows.  The text stays in a column at most 960 pixels wide.
+  The key of Help opens the page from the main window only, since a
+  fullscreen stage window may cover the main window, and does nothing while
+  the stage window has the keyboard.  The key of Help also opens the page
+  while the menu of a drop-down list is open, and the menu is open on the
+  same option when the page closes.
+- Opening a show right after switching away from it, while cinq is still
+  keeping its unsaved changes, brings back the newest of them and no longer
+  older ones.
+- A failure to keep unsaved changes now shows on a line of its own among the
+  warnings, and no longer replaces the problem of opening or saving a show.
+  It also takes back the status note that changes were kept.
+- On the stage window, the pictures of earlier cues show around a picture
+  of another shape than the window, as in QLab.  The space around it was
+  black until the picture began to fade, when they appeared there at once.
+- cinq makes ready the sounds that start within ten seconds, instead of those
+  of every cue that one GO fires, so that a long chain of auto-continue cues no
+  longer opens all its sound files at once.  `ready_ahead` in `config.toml`
+  sets that number of seconds, 0 or more and 10 unless the file says
+  otherwise, so that owners of small systems can open fewer files at once.
+  A change applies as soon as the file is saved.  Sounds that start together
+  are always made ready together.
+
+## v0.1.2
+
+- On Windows, a terminal that starts cinq shows what cinq prints, such as
+  the problems of `config.toml` and the output of `--help`, and waits until
+  cinq closes.  Explorer still starts cinq without a console window.
+- Video cues decode with rust_h264, a decoder written in Rust, in place of
+  Cisco's openh264, so that building cinq compiles no C++, its program no
+  longer needs the C++ library, and it builds on riscv64.  A sample that
+  fails to decode now costs no picture but its own.
+- On a terminal, the problems of `config.toml` take a screen of their own
+  while any are left, as a pager's text does, so that fixing the file brings
+  back the prompt and what came before it instead of a cleared screen.
+  Problems still left when cinq ends stay on the terminal.
+- The Nix packages for other systems go by the systems that they run on, as
+  `.#aarch64-darwin`, `.#x86_64-windows`, and `.#aarch64-windows`, in place of
+  `.#aarch64-darwin-cross`, `.#x86_64-windows-cross`, and
+  `.#aarch64-windows-cross`.
+- A picture fading out no longer jumps back to whole when a panic, or
+  another fade that stops its cue, takes over; it fades on from where it
+  was.
+- Video 1280 pixels wide that is cropped below 720 lines, such as
+  letterboxed high definition, shows in the colors of high definition.
+- On Darwin, cinq follows the changes to `config.toml` in a directory
+  reached through a symbolic link, such as one under `/tmp`.
+- On FreeBSD and the other BSDs, cinq follows the changes that an editor
+  writes into `config.toml` in place, and not only those that rename another
+  file over it.
+- A cue that GO fires right after a sound or video that could not play
+  ended the last running cue no longer starts ahead by the time spent idle.
+- Choosing again the file that a running audio or video cue plays, or
+  typing its name with a space around it, leaves the cue playing.
+- cinq formats `config.toml` each time it is saved, as taplo formats TOML by
+  default, but never reorders keys or the items of arrays and inline tables.
+  A file that is not TOML stays as it is.
+- On GNU/Linux, Nix cross-builds cinq for FreeBSD, as `.#x86_64-freebsd` and
+  `.#aarch64-freebsd`, and for GNU/Linux on riscv64, as `.#riscv64-linux`.
+
+## v0.1.1
+
+- Picture cues show a PNG or JPEG on the stage window until a fade, a stop
+  cue, or Panic ends them.
+- The stage window opens as a window, which the operator can move to the
+  display of the audience, and each GO that fires a picture or video cue
+  makes it fullscreen on that display.  The fullscreen key turns it back
+  into a window until the next such GO.
+- Problems in `config.toml` show on standard error each time that cinq
+  reads the file, at startup and on each change, with the lines around each
+  problem and its place marked, and the sidebar gives the line of each.  On
+  a terminal, only the problems of the latest reading stay on screen, so
+  that fixing the file clears it, and a file without problems prints
+  nothing.
