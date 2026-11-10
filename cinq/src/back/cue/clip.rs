@@ -39,6 +39,21 @@ impl Clip {
         };
         self.start + into
     }
+
+    /// Returns how many seconds of the clip have played once its sound
+    /// reaches `position` in the file, which is [`Clip::position`] the other
+    /// way round.  The position of a clip that loops says nothing about
+    /// which pass it is on, so the result takes the pass that lies nearest
+    /// `near`, the seconds that the clock says have played.
+    pub(in crate::back) fn played_at(&self, position: f64, near: f64) -> f64 {
+        let into = position - self.start;
+        if self.looping {
+            let length = self.length();
+            ((near - into) / length).round().max(0.0) * length + into
+        } else {
+            into
+        }
+    }
 }
 
 impl Cue {

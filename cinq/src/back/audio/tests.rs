@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Tests of making the sounds of audio cues ready ahead, which need no
+//! Tests of making the sounds of audio cues ready ahead, and, in [`heard`],
+//! of the time that the sounds of video cues have reached, which need no
 //! audio device
+
+mod voice;
 
 use std::{
     fs,
@@ -46,10 +49,10 @@ fn ask(wanted: &Wanted) -> Ask {
     }
 }
 
-/// Returns a tenth of a second of silence as a WAV file: mono, in 16 bits,
-/// at 8000 frames a second
-fn silence() -> Vec<u8> {
-    let data: u32 = 1600;
+/// Returns `seconds` of silence as a WAV file: mono, in 16 bits, at 8000
+/// frames a second
+fn silence(seconds: f32) -> Vec<u8> {
+    let data = (seconds * 16000.0) as u32;
     [
         b"RIFF".as_slice(),
         &(36 + data).to_le_bytes(),
@@ -64,7 +67,7 @@ fn silence() -> Vec<u8> {
         &16_u16.to_le_bytes(),
         b"data",
         &data.to_le_bytes(),
-        &[0; 1600],
+        &vec![0; data as usize],
     ]
     .concat()
 }
@@ -84,7 +87,7 @@ fn whole(path: &Path) -> Wanted {
 fn silent_file() -> (TempDir, Wanted) {
     let directory = TempDir::new().expect("a temporary directory can be made");
     let file = directory.path().join("silence.wav");
-    fs::write(&file, silence()).expect("the file can be written");
+    fs::write(&file, silence(0.1)).expect("the file can be written");
     (directory, whole(&file))
 }
 

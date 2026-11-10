@@ -87,3 +87,23 @@ fn show_file_holds_a_video_cue_as_it_holds_an_audio_cue() {
     assert!(text.contains(cue), "{text}");
     read_back(&text);
 }
+
+#[test]
+fn clock_of_video_run_moves_a_tenth_of_the_way_to_the_time_its_sound_has_reached() {
+    let ticked = workspace(vec![video(1)])
+        .apply(GO)
+        .apply(Command::Tick(1.0));
+    let run = ticked.active_of(CueId(1)).unwrap().run;
+    let heard = |workspace: &Workspace, run, played| {
+        let heard = workspace.clone().apply(Command::Heard {
+            cue: CueId(1),
+            run,
+            played,
+        });
+        heard.active_of(CueId(1)).unwrap().played()
+    };
+    assert!((heard(&ticked, run, 1.2) - 1.02).abs() < 1e-9);
+    assert!((heard(&ticked, run, 0.8) - 0.98).abs() < 1e-9);
+    assert_eq!(heard(&ticked, run + 1, 1.2), 1.0);
+    assert_eq!(heard(&ticked.apply(Command::Pause(true)), run, 1.2), 1.0);
+}

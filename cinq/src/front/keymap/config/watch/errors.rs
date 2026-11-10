@@ -11,7 +11,8 @@
 //! Problems left when the program ends come back to that screen once, so
 //! that they stay in sight.  A file or a pipe takes the problems of each
 //! reading in turn, as a log.  A thread of the watch's own writes them out,
-//! in the order of the readings.
+//! in the order of the readings.  The warnings of [`warn`] wait for the main
+//! screen while the problems show.
 
 #[cfg(test)]
 mod tests;
@@ -30,7 +31,7 @@ use std::{
 
 use terminal_size::terminal_size_of;
 
-use crate::front::keymap::config::Config;
+use crate::{front::keymap::config::Config, warn};
 
 /// Escape sequence that switches a terminal to its alternate screen
 const ENTER: &str = "\x1b[?1049h";
@@ -139,8 +140,15 @@ fn screen(configs: &mpsc::Receiver<Config>) {
         let mut shown = shown();
         let resized = shown.as_ref().filter(|_| now != seen).cloned();
         if let Some(config) = reading.or(resized) {
+            let problems = !config.problems.is_empty();
+            if problems {
+                warn::hold();
+            }
             let _ = io::stderr().write_all(switched(shown.is_some(), &config).as_bytes());
-            *shown = (!config.problems.is_empty()).then_some(config);
+            *shown = problems.then_some(config);
+            if !problems {
+                warn::release();
+            }
         }
         now
     });
@@ -176,6 +184,7 @@ fn written(config: &Config) -> String {
 fn restored(shown: &mut Option<Config>) {
     if let Some(config) = shown.take() {
         let _ = io::stderr().write_all(left(&config).as_bytes());
+        warn::release();
     }
 }
 

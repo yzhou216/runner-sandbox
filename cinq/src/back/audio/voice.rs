@@ -9,13 +9,13 @@ use std::{path::Path, time::Duration};
 use kira::{
     AudioManager, Tween,
     sound::{
-        FromFileError, Region,
+        FromFileError, PlaybackState, Region,
         streaming::{StreamingSoundData, StreamingSoundHandle},
     },
 };
 
 use super::preload::Preloaded;
-use crate::back::{Active, Clip, TICK};
+use crate::back::{Active, Clip, Command, TICK};
 
 /// Time a sound takes to reach a level the workspace asks for, which
 /// outlasts a tick so that fades move smoothly from one tick to the next
@@ -71,7 +71,7 @@ impl Voice {
         Ok(Self::of(sound, active))
     }
 
-    fn of(sound: StreamingSoundHandle<FromFileError>, active: &Active) -> Self {
+    pub(super) fn of(sound: StreamingSoundHandle<FromFileError>, active: &Active) -> Self {
         Self {
             run: active.run,
             sound,
@@ -99,6 +99,19 @@ impl Voice {
             paused: active.paused,
             ..self
         }
+    }
+
+    /// Returns the command that tells the workspace how far the sound of a
+    /// video cue has played, as long as the sound is still playing.  The
+    /// position of the sound is where the audio device took it at the start
+    /// of its last buffer, which kira shares without waiting on the device.
+    pub(super) fn heard(&self, active: &Active) -> Option<Command> {
+        let clip = active.sound().filter(|_| active.shows_video())?;
+        (self.sound.state() != PlaybackState::Stopped).then(|| Command::Heard {
+            cue: active.id,
+            run: active.run,
+            played: clip.played_at(self.sound.position(), active.played()),
+        })
     }
 
     /// Stops the sound with kira's default ramp, which is short enough to

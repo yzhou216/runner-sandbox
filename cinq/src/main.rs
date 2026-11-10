@@ -23,6 +23,7 @@
 mod back;
 mod cli;
 mod front;
+mod warn;
 // App bundle, logo, and manual pages, which only the build script lays out,
 // draws, and renders, compiled here for their tests
 #[cfg(test)]

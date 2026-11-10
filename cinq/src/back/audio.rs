@@ -111,7 +111,7 @@ impl Audio {
                     .is_some_and(|(_, active, _)| active.run == voice.run)
             });
         ended.into_values().for_each(Voice::stop);
-        let (voices, failures) = sounding
+        let (voices, failures): (_, Vec<Command>) = sounding
             .into_iter()
             .map(|(id, (cue, active, clip))| {
                 let voice = match kept.remove(&id) {
@@ -124,7 +124,11 @@ impl Audio {
             })
             .partition_result();
         self.voices = voices;
-        failures
+        let heard = self
+            .voices
+            .iter()
+            .filter_map(|(&id, voice)| voice.heard(workspace.active_of(id)?));
+        failures.into_iter().chain(heard).collect()
     }
 }
 

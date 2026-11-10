@@ -4,13 +4,18 @@
 
 //! Tests of reading how long video files play and of decoding their
 //! pictures in time, from the sync sample before a clip and on later passes
-//! through a clip that loops, along with those of [`player`] and [`runs`],
-//! on videos that [`movie`] makes, and those of [`still`], on pictures of
-//! its own
+//! through a clip that loops, along with those of [`damaged`] files,
+//! [`layouts`] of boxes, [`player`], [`runs`], and parts that [`skipped`]
+//! files leave out, on videos that [`movie`] makes and [`boxes`] changes,
+//! and those of [`still`], on pictures of its own
 
+mod boxes;
+mod damaged;
+mod layouts;
 pub(in crate::back) mod movie;
 mod player;
 mod runs;
+mod skipped;
 mod still;
 
 use std::{
@@ -29,6 +34,7 @@ use super::{
 use crate::back::{
     Clip, Cue, CueId, CueList, Load, Picture, Video, Workspace, load_files, workspace::tests::GO,
 };
+use boxes::reworked;
 use movie::{RATE, broken_movie, movie, picture_number};
 
 /// Longest that a test waits for a thread to decode a picture
@@ -131,32 +137,27 @@ fn file_that_is_missing_or_holds_no_h264_video_cannot_play() {
     assert_eq!(failed(&notes), "holds no H.264 video");
 }
 
-/// Returns `bytes` with the four bytes after the box type `kind` and the
-/// version and flags of the box, and the four after those, put in place by
-/// `first` and `second`
-fn patched(bytes: &[u8], kind: &[u8; 4], first: u32, second: u32) -> Vec<u8> {
-    let at = bytes
-        .windows(4)
-        .position(|window| window == kind)
-        .expect("the box is there")
-        + 8;
-    [
-        &bytes[..at],
-        &first.to_be_bytes(),
-        &second.to_be_bytes(),
-        &bytes[at + 8..],
-    ]
-    .concat()
+/// Returns `bytes` with the body of the box `kind` among the tables of the
+/// track replaced by `words`, after the version and flags of a box that
+/// holds none of either
+fn tabled(bytes: &[u8], kind: &[u8; 4], words: &[u32]) -> Vec<u8> {
+    let path = [b"moov", b"trak", b"mdia", b"minf", b"stbl", kind];
+    reworked(bytes, &path, &|_| {
+        iter::once(0)
+            .chain(words.iter().copied())
+            .flat_map(u32::to_be_bytes)
+            .collect()
+    })
 }
 
 #[test]
 fn track_that_counts_more_samples_than_its_file_holds_bytes_cannot_play() {
     let (directory, path) = movie(5, 5);
     let bytes = fs::read(&path).expect("the video can be read");
-    // Samples of one byte each, and more of them than the file holds
-    // bytes, which take the time of one sample each to decode
-    let sizes = patched(&bytes, b"stsz", 1, u32::MAX);
-    let times = patched(&sizes, b"stts", 1, u32::MAX);
+    // Samples of one byte each, more of them than the file holds bytes,
+    // and as many for the times to decode them
+    let sizes = tabled(&bytes, b"stsz", &[1, u32::MAX]);
+    let times = tabled(&sizes, b"stts", &[1, u32::MAX, 20]);
     let damaged = directory.path().join("damaged.mp4");
     fs::write(&damaged, times).expect("the video can be written");
     assert_eq!(

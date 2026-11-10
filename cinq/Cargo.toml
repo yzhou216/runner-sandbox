@@ -60,7 +60,7 @@ kira = { version = "0.12", default-features = false, features = [
 miette = { version = "7.6", default-features = false, features = [
   "fancy-no-backtrace",
 ] }
-mp4 = "0.14" # Tracks and samples of the files of video cues
+mp4-atom = "0.17" # Tracks of the files of video cues, which the tests write too
 notify-debouncer-full = "0.7"
 open = "5.4"
 pathdiff = "0.2"

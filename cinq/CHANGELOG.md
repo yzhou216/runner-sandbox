@@ -50,6 +50,18 @@ Major changes and improvements in each release of cinq, newest first.
   otherwise, so that owners of small systems can open fewer files at once.
   A change applies as soon as the file is saved.  Sounds that start together
   are always made ready together.
+- The clock of a video cue follows how far its sound has played, in place of
+  the clock of the show, so that its picture and sound no longer drift apart
+  over a long video, as they did by the difference between the clock of the
+  audio device and that of the show.  A video without sound, or one whose
+  sound has ended, still follows the clock of the show.
+- A damaged video file now fails to load with a reason, where it could
+  freeze or end cinq, and the files loaded after it load as they would.
+- Damaged tags, chapters, or cover art in a video file no longer stop it
+  from playing.  cinq reads no tags or cover art, and skips a damaged track
+  other than the picture's, which it reports once on standard error.
+- QuickTime `.mov` files with AAC sound, which cinq used to refuse, now
+  load.
 
 ## v0.1.2
 

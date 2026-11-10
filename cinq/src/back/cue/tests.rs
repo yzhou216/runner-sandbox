@@ -215,3 +215,28 @@ fn audio_cue_that_continues_goes_on_after_its_waits() {
 fn audio_cue_that_waits_for_go_goes_on_to_nothing() {
     assert_eq!(loaded(audio("rain", "rain.ogg")).next_delay(), None);
 }
+
+#[test]
+fn clip_has_played_as_far_as_its_sound_has_reached_in_its_file() {
+    let clip = |looping| Clip {
+        start: 2.0,
+        end: 5.0,
+        looping,
+    };
+    assert_eq!(clip(false).played_at(4.5, 2.4), 2.5);
+    // Three seconds a pass: the sound at 3.0 in the file is a second into a
+    // pass, and the clock tells which
+    let pass = |position, near| clip(true).played_at(position, near);
+    assert_eq!(pass(3.0, 0.5), 1.0);
+    assert_eq!(pass(3.0, 3.4), 4.0);
+    // Sound just past the loop point, with a clock just short of it, and
+    // the other way round
+    assert!((pass(2.1, 2.9) - 3.1).abs() < 1e-9);
+    assert!((pass(4.9, 3.1) - 2.9).abs() < 1e-9);
+    // Each position of the sound maps back to the time it came from
+    assert!(
+        [0.0, 0.7, 3.0, 4.2, 20.5]
+            .iter()
+            .all(|&at| (pass(clip(true).position(at), at) - at).abs() < 1e-9)
+    );
+}

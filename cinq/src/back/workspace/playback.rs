@@ -73,6 +73,16 @@ impl Workspace {
             .without_finished()
     }
 
+    pub(super) fn heard(self, cue: CueId, run: u32, played: f64) -> Self {
+        self.with_active(cue, |active| {
+            if active.run == run {
+                active.heard(played)
+            } else {
+                active
+            }
+        })
+    }
+
     pub(super) fn panic(self) -> Self {
         let fading = self
             .active

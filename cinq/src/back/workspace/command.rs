@@ -43,6 +43,9 @@ pub enum Command {
     Undo,
     /// Makes again the change that undo took back last
     Redo,
+    /// Moves the clock of a run toward the seconds of its clip that its
+    /// sound has played, as the audio device keeps time
+    Heard { cue: CueId, run: u32, played: f64 },
     /// Records what loading the file of a cue found
     Loaded {
         cue: CueId,

@@ -13,21 +13,35 @@
 //! as the edit lists that encoders write for B-frames shift it.  Each
 //! sample holds NAL units after their lengths, as the decoder reads them,
 //! and the parameter sets that decoding needs are in the description of the
-//! track rather than in its samples.
+//! track rather than in its samples.  The file is read by the tracks of its
+//! [`moov`] box alone, whose tables [`locate`] turns into the places of the
+//! samples.
 
+mod locate;
+mod moov;
 #[cfg(test)]
 mod tests;
 mod timing;
 
-use std::{fs::File, io::BufReader, iter, path::Path};
+use std::{
+    collections::BTreeSet,
+    fs::File,
+    io::{BufReader, Read, Seek, SeekFrom},
+    iter,
+    path::Path,
+};
 
-use mp4::{MediaType, Mp4Reader, TrackType};
 use rust_h264::nal::{NalUnit, parse_avcc};
 
-use crate::back::load::unreadable;
+use crate::{back::load::unreadable, warn};
+use locate::{Place, places};
 use timing::{Sample, timeline};
 
 const NO_VIDEO: &str = "holds no H.264 video";
+
+/// Why a file holds no picture to play when its H.264 track, or a track that
+/// may be it, cannot be read
+const DAMAGED_INDEX: &str = "holds a damaged index";
 
 /// Why a file holds no picture to play when the tables of its H.264 track
 /// cannot be right
@@ -42,10 +56,13 @@ const PROFILES: [u8; 3] = [66, 77, 100];
 const PARAMETER_LENGTH: usize = 4;
 
 pub(super) struct Track {
-    reader: Mp4Reader<BufReader<File>>,
-    id: u32,
+    file: BufReader<File>,
+    /// Bytes that the file held when it opened
+    length: u64,
     /// Samples in the order they decode
     pub(super) samples: Vec<Sample>,
+    /// Where each sample lies in the file
+    places: Vec<Place>,
     /// Bytes before each NAL unit of a sample that give its length
     length_size: usize,
     /// Sequence and picture parameter sets of the track, each after its
@@ -54,14 +71,23 @@ pub(super) struct Track {
     /// Seconds that the picture lasts
     duration: f64,
     sound: bool,
+    /// What the file left out because it cannot be read, as the words that
+    /// say so
+    pub(super) skipped: BTreeSet<String>,
 }
 
 /// Reads how many seconds the picture of a video file plays and whether
 /// the file holds a sound track besides, or why the picture cannot be
 /// played.  This reads the tables of the tracks of the file without
-/// decoding a picture.
+/// decoding a picture, and warns of what it skips for being unreadable.
 pub(in crate::back) fn probe(path: &Path) -> Result<(f32, bool), String> {
-    Track::open(path).map(|track| (track.duration as f32, track.sound))
+    Track::open(path).map(|track| {
+        track
+            .skipped
+            .iter()
+            .for_each(|skipped| warn::once(&format!("{}: {skipped}", path.display())));
+        track.summary()
+    })
 }
 
 impl Track {
@@ -69,27 +95,17 @@ impl Track {
     /// H.264 track, or tells why it cannot be played
     pub(super) fn open(path: &Path) -> Result<Self, String> {
         let file = File::open(path).map_err(unreadable)?;
-        let size = file.metadata().map_err(|error| error.to_string())?.len();
-        let reader =
-            Mp4Reader::read_header(BufReader::new(file), size).map_err(|_| NO_VIDEO.to_owned())?;
-        let track = reader
-            .tracks()
-            .values()
-            .filter(|track| matches!(track.media_type(), Ok(MediaType::H264)))
-            .min_by_key(|track| track.track_id())
-            .ok_or(NO_VIDEO)?;
-        let stbl = &track.trak.mdia.minf.stbl;
-        let avc = &stbl.stsd.avc1.as_ref().ok_or(NO_VIDEO)?.avcc;
+        let length = file.metadata().map_err(|error| error.to_string())?.len();
+        let mut file = BufReader::new(file);
+        let movie = moov::read(&mut file, length).ok_or(NO_VIDEO)?;
+        let Some((trak, avc)) = &movie.video else {
+            return Err(if movie.lost { DAMAGED_INDEX } else { NO_VIDEO }.to_owned());
+        };
         if !PROFILES.contains(&avc.avc_profile_indication) {
             return Err("holds H.264 video in a profile that cannot be decoded".to_owned());
         }
-        // Each sample takes a byte of the file at least, while mp4 takes the
-        // count of samples of the same size on trust, and a count far past
-        // what the file can hold would make the samples take more memory
-        // than there is
-        if u64::from(track.sample_count()) > size {
-            return Err(DAMAGED.to_owned());
-        }
+        let stbl = &trak.mdia.minf.stbl;
+        let places = places(stbl, length).ok_or(DAMAGED)?;
         // Tables of the track, whose runs of equal values give each sample
         // the time it takes to decode and its offset from there to the time
         // it shows, and list the samples that decoding can start at
@@ -98,14 +114,18 @@ impl Track {
             .entries
             .iter()
             .flat_map(|entry| iter::repeat_n(entry.sample_delta, entry.sample_count as usize))
-            .take(track.sample_count() as usize);
+            .take(places.len());
+        // Both versions of the box hold 32 bits, which mp4-atom widens and
+        // the timeline reads signed
         let offsets = stbl
             .ctts
             .iter()
             .flat_map(|ctts| &ctts.entries)
-            .flat_map(|entry| iter::repeat_n(entry.sample_offset, entry.sample_count as usize));
+            .flat_map(|entry| {
+                iter::repeat_n(entry.sample_offset as i32, entry.sample_count as usize)
+            });
         let syncs = stbl.stss.as_ref().map(|stss| stss.entries.as_slice());
-        let (samples, duration) = timeline(deltas, offsets, syncs, track.timescale());
+        let (samples, duration) = timeline(deltas, offsets, syncs, trak.mdia.mdhd.timescale);
         if samples.is_empty() || duration <= 0.0 {
             return Err(NO_VIDEO.to_owned());
         }
@@ -116,25 +136,27 @@ impl Track {
             .flat_map(|set| {
                 // avcC counts the bytes of each set in two bytes, so that
                 // the length always fits
-                let length = set.bytes.len() as u32;
-                length
-                    .to_be_bytes()
-                    .into_iter()
-                    .chain(set.bytes.iter().copied())
+                let length = set.len() as u32;
+                length.to_be_bytes().into_iter().chain(set.iter().copied())
             })
             .collect();
         Ok(Self {
-            id: track.track_id(),
-            length_size: usize::from(avc.length_size_minus_one) + 1,
+            length_size: usize::from(avc.length_size),
             parameters,
-            sound: reader
-                .tracks()
-                .values()
-                .any(|track| matches!(track.track_type(), Ok(TrackType::Audio))),
+            sound: movie.sound,
+            skipped: movie.skipped,
             samples,
+            places,
             duration,
-            reader,
+            length,
+            file,
         })
+    }
+
+    /// Returns how many seconds the picture lasts and whether the file holds
+    /// a sound track, which [`probe`] returns
+    pub(super) fn summary(&self) -> (f32, bool) {
+        (self.duration as f32, self.sound)
     }
 
     pub(super) fn parameter_sets(&self) -> Vec<NalUnit<'_>> {
@@ -142,17 +164,24 @@ impl Track {
     }
 
     /// Reads the bytes of the sample at `index` in the order of decoding,
-    /// which are none for a sample that the tables of the track list but
-    /// the file leaves out
+    /// which fails when the tables of the track put the sample past the end
+    /// of the file, as a file cut short does
     pub(super) fn sample(&mut self, index: usize) -> Result<Vec<u8>, String> {
-        let number = u32::try_from(index + 1).map_err(|error| error.to_string())?;
-        let sample = self
-            .reader
-            .read_sample(self.id, number)
+        let Place { offset, size } = *self.places.get(index).ok_or(DAMAGED)?;
+        // Both come from the file, so that the bytes must lie in it before a
+        // buffer for them is made
+        let inside = offset
+            .checked_add(u64::from(size))
+            .is_some_and(|end| end <= self.length);
+        if !inside {
+            return Err(DAMAGED.to_owned());
+        }
+        let mut bytes = vec![0; size as usize];
+        self.file
+            .seek(SeekFrom::Start(offset))
+            .and_then(|_| self.file.read_exact(&mut bytes))
             .map_err(|error| error.to_string())?;
-        Ok(sample
-            .map(|sample| sample.bytes.to_vec())
-            .unwrap_or_default())
+        Ok(bytes)
     }
 
     /// Returns the NAL units of the bytes of a sample, each of which follows

@@ -14,6 +14,10 @@ mod playing;
 use crate::back::{Cue, CueId, Kind};
 pub(super) use effect::{Effect, Fade};
 
+/// Share of the way to the time that its sound has reached that a run
+/// moves its clock, once for each sync of the sound output
+const HEARING: f64 = 0.1;
+
 /// Cue that GO has fired and that has not finished yet
 ///
 /// A fired cue keeps its timing and its effect, such as the clip of an
@@ -168,6 +172,22 @@ impl Active {
                 ..self
             }
             .faded(seconds)
+        }
+    }
+
+    /// Returns the run with its clock moved a share of the way to the time
+    /// its sound has reached.  The position of a sound is up to a buffer of
+    /// the audio device old, by a different amount each time, so a share
+    /// keeps the picture from jittering while the clock still follows the
+    /// drift of the audio device.  A paused run keeps its clock.
+    pub(super) fn heard(self, played: f64) -> Self {
+        if self.paused {
+            self
+        } else {
+            Self {
+                elapsed: self.elapsed + (played - self.played()) * HEARING,
+                ..self
+            }
         }
     }
 

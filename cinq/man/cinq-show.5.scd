@@ -130,6 +130,11 @@ A video cue plays H.264 video of the Baseline, Main, or High profile in MP4, as
 files ending in _.mp4_, _.m4v_, or _.mov_ hold it, along with the sound of its
 AAC track, in mono or stereo.
 A file without a sound track plays its picture alone.
+The clock of a video cue follows its sound, so that its picture, its fades, and
+its end stay with the sound over a long video.
+cinq reads no tags or cover art, and skips a track other than the picture's
+that cannot be read, such as one of chapters, which it says once on standard
+error.
 A video cue takes as long as the picture of its file, and its *start*, *end*,
 *loop*, *level*, and waits work as those of an audio cue do.
 
@@ -200,11 +205,9 @@ Saving the show, or taking back each of its changes, removes them.
 
 # BUGS
 
-The picture of a video cue follows the clock of the show, while its sound
-follows the clock of the audio device, so that over a long video the two drift
-apart by as much as the clocks do.
-Pausing a video leaves its sound a hundredth of a second ahead of its picture,
-the length of the fade that keeps a pause from clicking.
+While a video is paused, its sound stands a hundredth of a second ahead of its
+picture, the length of the fade that keeps a pause from clicking, until the
+video resumes and the picture catches up.
 
 The sound of a video plays the silence that AAC encoders put before and after
 it, which the file marks for players to skip, so that it comes a few
