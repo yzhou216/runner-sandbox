@@ -93,14 +93,17 @@ quit() {
   sleep 1
 }
 
-# Tour of the window, with the audio cue after the standby cue selected
+# Show as it opens, with cue 1 on standby and selected, then the first GO,
+# after which the preshow music plays and the selection follows standby to
+# cue 3
 launch storm.cinq.toml
-keys j
-sleep 1
 shot window
+keys -k space
+sleep 2
+shot playing
 
 # Trimmed sound on the Time & Loops tab, and a fade on the Levels tab
-keys jjjjj
+keys jjjj
 keys gt
 sleep 1
 shot time
@@ -110,15 +113,12 @@ sleep 1
 shot levels
 keys gt
 
-# First GO, after which the fade cue on standby shows its chain
-keys -k space
-sleep 2
+# Fade cue on standby, which shows its chain, then that chain five seconds
+# after its GO
 keys gg
 keys jj
 sleep 1
 shot chain
-
-# Chain of the second GO under way, five seconds in
 keys -k space
 sleep 5
 shot running
@@ -146,14 +146,10 @@ shot stage HEADLESS-2
 shot showing
 quit
 
-# New show, with one audio cue added and named, which has no file yet
-launch effects.cinq.toml
+# New show of the reader's own, with one audio cue added, which has no file
+# yet
+launch my-show.cinq.toml
 keys o
-sleep 1
-keys i
-keys -M ctrl a -m ctrl
-keys Doorbell
-keys -k Return
 sleep 1
 shot added
 quit

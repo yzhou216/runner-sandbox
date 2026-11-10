@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Takes the screenshots of cinq's tutorial with shots.sh: cinq of the
-# commit below plays storm.cinq.toml in a headless sway session with two
-# 4:3 outputs, one for the main window and one for the stage window, each
-# without a border
+# commit below plays storm.cinq.toml, with the sounds of the demo branch of
+# cinq, in a headless sway session with two 4:3 outputs, one for the main
+# window and one for the stage window, each without a border
 on: push
 permissions:
   contents: read
@@ -33,9 +33,15 @@ jobs:
             nixpkgs#grim nixpkgs#ffmpeg nixpkgs#pulseaudio nixpkgs#oxipng
           nix build --out-link alsa-plugins --inputs-from "$CINQ" nixpkgs#alsa-plugins
           nix build --out-link fonts --inputs-from "$CINQ" nixpkgs#dejavu_fonts
-      - name: Make the sounds, the picture, and the film of the show
+      # Sounds that the tutorial tells the reader to fetch, which Git LFS keeps
+      - uses: actions/checkout@main
+        with:
+          repository: yzhou216/cinq
+          ref: demo
+          path: show
+          lfs: true
+      - name: Make the picture and the film of the show
         run: |
-          mkdir show
           cp storm.cinq.toml show/
           PATH=$(readlink -f tools-3-bin)/bin:$PATH bash media.sh show \
             "$(readlink -f fonts)/share/fonts/truetype/DejaVuSans.ttf"

@@ -11,7 +11,7 @@ number = "1"
 kind = "memo"
 name = "House open"
 advance = "continue"
-notes = "Preshow music plays while the audience comes in."
+notes = "The preshow music plays while the audience comes in."
 
 [[list.cue]]
 id = 2
