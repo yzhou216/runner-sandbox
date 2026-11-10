@@ -1,0 +1,99 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Records cinq holding what is printed while the problems of its
+# config.toml show on the alternate screen of the terminal, and printing it
+# on the main screen once they clear: on GNU/Linux in headless sway, with
+# linux.sh, where other processes write to the standard error of cinq, and
+# on Windows in Windows Terminal, with windows.ps1, where cinq's own warning
+# about a track that cannot be read is held
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq and the tools that record it
+        run: |
+          nix build ./cinq
+          nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#foot \
+            nixpkgs#wtype nixpkgs#wf-recorder nixpkgs#ffmpeg nixpkgs#alsa-utils
+      - name: Record
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PWD/result/bin:$PATH
+          bash linux.sh "$(readlink -f fonts)/share/fonts" videos
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: linux
+          path: videos
+          if-no-files-found: ignore
+  cross:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: nix build ./cinq#x86_64-windows && cp result/bin/cinq.exe .
+      - uses: actions/upload-artifact@main
+        with:
+          name: cinq
+          path: cinq.exe
+  windows:
+    needs: cross
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@main
+        with:
+          sparse-checkout: |
+            clip.sh
+            windows.ps1
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@main
+        with:
+          name: cinq
+      - name: Make the clip with a chapter track that cannot be read
+        run: |
+          choco install ffmpeg -y --no-progress
+          bash clip.sh clip.mp4
+          ffprobe -hide_banner clip.mp4
+      - name: Record
+        shell: pwsh
+        run: ./windows.ps1
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: windows
+          path: |
+            demo.mkv
+            captions.tsv
+            ffmpeg.txt
+            clip.mp4
+          if-no-files-found: ignore
