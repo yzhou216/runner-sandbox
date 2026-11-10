@@ -4,43 +4,22 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq tests on Windows, 2026-11-10
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+`cinq/` holds a snapshot of cinq's branch `land` (6f5bc2e), the fixes of
+the 2026-11-10 review before they went to master, among them a test that
+only Windows compiles: shows on two drives or network shares keep their
+unsaved changes in two files.  cinq's own CI builds for Windows but runs
+no tests there.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+The workflow runs `cargo test --locked` natively with the stable toolchain
+and `CINQ_SHARE_DIR` empty, so that no scdoc is needed.
 
-## Setup
+| Runner | Run | Result |
+| --- | --- | --- |
+| windows-latest | 42814050340 | 316 passed |
+| windows-11-arm | 42814050340 | 316 passed |
 
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+`shows_on_other_drives_keep_their_changes_in_other_files` passed on both.
+Run 42812594794 tested an earlier snapshot and was cancelled in favour of
+this one.
