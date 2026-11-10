@@ -16,6 +16,8 @@ defaults:
     shell: bash
 jobs:
   linux:
+    # A commit whose message says so leaves GNU/Linux out, to repeat Windows
+    if: ${{ !contains(github.event.head_commit.message, '[windows only]') }}
     strategy:
       fail-fast: false
       matrix:

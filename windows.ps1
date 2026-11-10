@@ -30,6 +30,14 @@ public static class Windows {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+  // A tap of Alt, which is input of the process's own, after which Windows
+  // lets it bring a window to the front
+  public static void TapAlt() {
+    keybd_event(0x12, 0, 0, UIntPtr.Zero);
+    keybd_event(0x12, 0, 2, UIntPtr.Zero);
+  }
   // Visible window whose title holds part, of the process if one is given
   public static IntPtr Find(uint process, string part) {
     IntPtr found = IntPtr.Zero;
@@ -71,15 +79,41 @@ function Place($window, $y, $height) {
   [Windows]::SetWindowPos($window, [IntPtr]::Zero, 0, $y, 1024, $height, 0x40) | Out-Null
 }
 
+# Brings the window to the front and waits until it is there, since a window
+# that cinq opens takes the focus and Windows refuses to give it back to a
+# background process, which only flashes the taskbar button of the window
+function Focus($window) {
+  foreach ($try in 1..20) {
+    [Windows]::TapAlt()
+    [Windows]::SetForegroundWindow($window) | Out-Null
+    Start-Sleep -Milliseconds 250
+    if ([Windows]::GetForegroundWindow() -eq $window) { return }
+  }
+  Write-Host 'a window did not come to the front'
+}
+
+# Moves the window beyond the right edge of the desktop, out of the way
+function Hide-Away($window) {
+  [Windows]::SetWindowPos($window, [IntPtr]::Zero, 1100, 0, 800, 600, 0x14) | Out-Null
+}
+
 # Types a line into the window one key at a time, as a user would
 function Type-Into($window, $keys) {
-  [Windows]::SetForegroundWindow($window) | Out-Null
-  Start-Sleep -Milliseconds 300
+  Focus $window
   $keys.ToCharArray() | ForEach-Object {
     [System.Windows.Forms.SendKeys]::SendWait("$_")
-    Start-Sleep -Milliseconds 70
+    Start-Sleep -Milliseconds 50
   }
   [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+}
+
+# Makes the text of a Windows Terminal window larger with its key for it
+function Enlarge($window) {
+  Focus $window
+  1..3 | ForEach-Object {
+    [System.Windows.Forms.SendKeys]::SendWait('^=')
+    Start-Sleep -Milliseconds 200
+  }
 }
 
 # Appends a caption that starts now
@@ -124,11 +158,13 @@ Start-Sleep 1
 Caption 'cinq runs in the top console, and commands go into the bottom one'
 Start-Process cmd.exe -ArgumentList '/k', 'title cinq console' -WorkingDirectory $demo
 $run = Wait-Window 0 'cinq console'
+Enlarge $run
 Place $run 0 480
 $setup = '$Host.UI.RawUI.WindowTitle = "commands console"; function prompt { "PS> " }; Clear-Host'
 $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($setup))
 Start-Process powershell.exe -ArgumentList '-NoLogo', '-NoExit', '-EncodedCommand', $encoded -WorkingDirectory $demo
 $commands = Wait-Window 0 'commands console'
+Enlarge $commands
 Place $commands 480 240
 Start-Sleep 2
 
@@ -140,10 +176,12 @@ Caption 'cinq starts, and the problem takes the alternate screen of the console'
 $before = @(Get-Process cinq -ErrorAction SilentlyContinue).Id
 Type-Into $run 'cinq.exe --config-dir conf held.cinq.toml'
 $cinq = Wait-New cinq $before
-$main = Wait-Window $cinq.Id ' - cinq'
-# Behind the consoles, which hide it
-[Windows]::SetWindowPos($main, [IntPtr]1, 0, 0, 1024, 720, 0x10) | Out-Null
-Start-Sleep 5
+$main = Wait-Window $cinq.Id '.toml - cinq'
+Hide-Away $main
+# The stage window opens once the show holds a video cue
+$stage = Wait-Window $cinq.Id ' stage - cinq'
+Hide-Away $stage
+Start-Sleep 3
 
 Caption 'The video file arrives, and cinq reads it and warns of a track that it cannot read'
 Type-Into $commands 'Move-Item incoming\clip.mp4 clip.mp4'
