@@ -14,7 +14,7 @@ defaults:
     shell: bash
 env:
   # Date of the commit of the snapshot, which the title page of the PDF gives
-  DATE: "2026-11-10T19:59:49-08:00"
+  DATE: "2026-11-10T20:23:52-08:00"
 jobs:
   linux:
     strategy:

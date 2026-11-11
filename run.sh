@@ -60,14 +60,15 @@ for_window [title=" stage - cinq\$"] move container to output HEADLESS-2
 EOF
 sway -c "$work/sway.config" > "$out/sway.log" 2>&1 &
 sway=$!
-for _ in $(seq 100); do
+# Sway's sockets appear before it answers on them, which took more than
+# the three seconds that swaymsg waits on ubuntu-latest
+for _ in $(seq 300); do
   socket=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]' -printf '%f\n' | head -1)
-  [ -n "$socket" ] && break
+  SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -1)
+  [ -n "$socket" ] && [ -n "$SWAYSOCK" ] && SWAYSOCK=$SWAYSOCK swaymsg -t get_version > /dev/null 2>&1 && break
   sleep 0.1
 done
-export WAYLAND_DISPLAY=$socket
-SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'sway-ipc.*.sock' | head -1)
-export SWAYSOCK
+export WAYLAND_DISPLAY=$socket SWAYSOCK
 swaymsg -q create_output
 sleep 1
 
@@ -77,10 +78,15 @@ keys() { wtype -s 300 "$@"; }
 go() { keys -k space; }
 main() { swaymsg -q "[title=\"^$1 - cinq\$\"] focus"; }
 shot() { grim -o "${2:-HEADLESS-1}" "$out/$1.png"; }
+# Once the window is up, the files of the show have a few seconds to load
 launch() {
   (cd "$show" && exec "$cinq" "$1" >> "$out/cinq-$1.log" 2>&1) &
   pid=$!
-  sleep 5
+  for _ in $(seq 300); do
+    main "$1" 2> /dev/null && break
+    sleep 0.1
+  done
+  sleep 4
   main "$1"
   sleep 1
 }
