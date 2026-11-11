@@ -51,7 +51,7 @@ password_prompt() {
     > "shots/prompt-$prompts-log.txt" 2>&1 || true
 }
 
-screencapture -x -V 360 shots/demo.mov &
+screencapture -x -V 300 shots/demo.mov &
 recorder=$!
 start=$(now)
 sleep 3
@@ -117,7 +117,10 @@ sleep 2
 caption "cinq is in Applications"
 open /Applications
 sleep 4
-check ./ui click --double cinq 15
+# Vision has read the name as "cing"
+if ! check ./ui click --double --contains cin 15; then
+  open /Applications/cinq.app
+fi
 caption "cinq opens with no prompt"
 sleep 10
 
@@ -136,5 +139,13 @@ end=$(now)
 echo "recorded $(echo "$end - $start" | bc) seconds"
 
 screencapture -x shots/last.png
+# screencapture checks its limit only as frames come, and it writes one
+# only when the screen changes, so a still screen keeps it running
+kill -INT "$recorder"
+for _ in $(seq 20); do kill -0 "$recorder" 2> /dev/null || break; sleep 1; done
+while kill -0 "$recorder" 2> /dev/null; do
+  osascript -e 'tell application "System Events" to keystroke " "' -e 'tell application "System Events" to key code 51'
+  sleep 1
+done
 wait "$recorder"
 echo "failures: $failures"
