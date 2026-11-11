@@ -109,5 +109,10 @@ for c in $(git -C "$REPO" rev-list --reverse new-master..new-c2y); do
 		printf '%s\n' "$out" | head -40 > "$work/check.log"
 	fi
 	line "$c" "$r (warnings: $(grep -c 'warning:' "$work/build.log"))" >> "$c2y_log"
-	[ "$r" = "CHECK FAILED" ] && cat "$work/check.log" >> "$c2y_log"
+	if [ "$r" = "CHECK FAILED" ]; then
+		cat "$work/check.log" >> "$c2y_log"
+	fi
 done
+
+# Fail if any commit failed to build or to pass its tests
+! grep -q 'FAILED' "$master_log" "$c2y_log"
