@@ -60,3 +60,47 @@ configuration 'macos-14-arm64-us-default' is not supported").
   buttons to `entire contents` of System Events, so
   [`scroll.swift`](scroll.swift) scrolls the pane with CoreGraphics wheel
   events to bring the section into the screenshot.
+
+## Recording
+
+[`cinq-darwin-pkg-install.mp4`](cinq-darwin-pkg-install.mp4) (2 minutes
+33 seconds) shows run 42999176642 on `macos-latest` (Darwin 26.7.2):
+[`demo.sh`](demo.sh) installs the package as a user would, while ffmpeg
+records the screen, and [`compose.sh`](compose.sh) burns its captions in.
+Safari downloads the package from this branch, a double click in Finder
+meets Gatekeeper's block, Privacy & Security offers Open Anyway, Installer
+installs it, cinq opens from Applications with no prompt, and Terminal
+shows `/usr/local/bin/cinq`, `cinq --version`, the manual pages, and both
+receipts.
+
+Two steps differ from a user's, as the captions say:
+
+- The password dialog of Open Anyway, which `coreautha` shows, refused
+  every password that a script gave it, as keys from CoreGraphics or as
+  values set through accessibility: `opendirectoryd` logged
+  `ODErrorCredentialsInvalid`, though `dscl . -authonly` accepted the same
+  name and password.  Terminal clears the quarantine with `xattr -d`
+  instead, as Open Anyway would.
+- The workflow allows `system.install.software`, the only right that
+  Installer asked `authd` for, so Installer asks for no password.
+
+Lessons for later recordings:
+
+- [`ui.swift`](ui.swift) clicks text that Vision reads from a screenshot,
+  since System Events sees no buttons in System Settings.  Vision reads
+  buttons side by side as one line ("CancelAllow") and gives a part of a
+  line the whole line's box, so the helper places the part by its share of
+  characters.  It read "cinq" in Finder as "cing", and "cin" matches
+  "Macintosh HD".
+- Safari took 25 seconds to start the first time.  `osascript` quitting a
+  Safari with a sheet open waits two minutes; `pkill` does not.
+- `screencapture -V` ran on far past its limit once the screen stood still,
+  even after SIGINT, so the recording comes from ffmpeg's `avfoundation`
+  device (Homebrew installs ffmpeg in about a minute), which ends on SIGINT.
+  Its output stayed empty for about a minute at first, so the script
+  measures the video's lead over its own clock from the file's length.
+- `dscl . -passwd` cannot set the runner's password, which has a
+  SecureToken, and no guess found it.  `sysadminctl -addUser` made an
+  administrator whose password only `dscl . -passwd` set for sure.
+- In AppleScript, `dialog` and `label` cannot name loop variables inside
+  `tell process`.
