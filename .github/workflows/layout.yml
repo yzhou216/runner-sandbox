@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Rewrites the history of yzhou216/rv64_emu with rebuild/relayout.py: the
+# first three commits become one initial commit, the sources move into src
+# and the test programs into progs in every commit, and every commit takes
+# its message from rebuild/messages.py.  rebuild/verify.sh then builds and
+# tests every commit of both branches.  The rewritten branches come out as
+# a git bundle, which is pushed from elsewhere, since nothing here can
+# write to rv64_emu.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  # The nixpkgs whose RISC-V cross toolchain and qemu-user built and tested
+  # rv64_emu so far, both in cache.nixos.org
+  NIXPKGS: github:NixOS/nixpkgs/4fe25e12eb9f4c744966dd3de5a05246cf098601
+jobs:
+  relayout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: wimpysworld/nothing-but-nix@v12
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Fetch the RISC-V toolchain and qemu-user
+        run: |
+          # The compiler wrapper also has a man output, which comes first
+          gcc=$(nix build --no-link --print-out-paths \
+            "$NIXPKGS#pkgsCross.riscv64.buildPackages.gcc" | grep -v -- '-man$')
+          qemu=$(nix build --no-link --print-out-paths "$NIXPKGS#qemu-user")
+          echo "$gcc"
+          echo "$qemu"
+          # The Makefiles of master call gcc and as by name
+          mkdir -p "$RUNNER_TEMP/tools"
+          ln -s "$gcc/bin/riscv64-unknown-linux-gnu-gcc" "$RUNNER_TEMP/tools/gcc"
+          ln -s "$gcc/bin/riscv64-unknown-linux-gnu-as" "$RUNNER_TEMP/tools/as"
+          ln -s "$qemu/bin/qemu-riscv64" "$RUNNER_TEMP/tools/qemu-riscv64"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+      - name: Show the tools
+        run: |
+          gcc --version | head -1
+          as --version | head -1
+          qemu-riscv64 --version | head -1
+          python3 --version
+      - name: Clone rv64_emu
+        run: git clone https://github.com/yzhou216/rv64_emu "$RUNNER_TEMP/rs"
+      - name: Rewrite the history
+        run: |
+          mkdir -p out
+          REPO="$RUNNER_TEMP/rs" python3 -I rebuild/relayout.py 2>&1 | tee out/relayout.log
+      - name: Build and test every rewritten commit
+        run: |
+          REPO="$RUNNER_TEMP/rs" rebuild/verify.sh out/master.log out/c2y.log
+          cat out/master.log out/c2y.log
+      - name: Bundle the rewritten branches
+        if: ${{ !cancelled() }}
+        run: |
+          git -C "$RUNNER_TEMP/rs" bundle create "$PWD/out/rewritten.bundle" new-master new-c2y
+          git -C "$RUNNER_TEMP/rs" rev-parse new-master new-c2y | tee out/refs
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: rewritten
+          path: out/
