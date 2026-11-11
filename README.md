@@ -4,43 +4,32 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_emu: length check of to_upper
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session checked every commit of the c2y branch of
+[yzhou216/rv64_emu](https://github.com/yzhou216/rv64_emu) after the length
+check of `to_upper` moved from "rv64_emu: check more arguments and tidy up
+the harness" into "build: compile as c2y with warnings".  With the `-O2` of
+the fortify hardening of Nixpkgs, `-Wall` reported the bounded `strncpy()`
+calls that the check replaces, so the Nix builds of the first twelve
+commits had three warnings each.  The rewritten commits travelled as
+[rebuild/c2y-rebase.bundle](rebuild/c2y-rebase.bundle), on top of master
+`b098cbc797116400b3f894a12d42711b6db7fc89`, and
+[rebuild/check-c2y.sh](rebuild/check-c2y.sh) ran `nix flake check` and
+`make check` under `qemu-riscv64` on each.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## Runs
 
-## Setup
+All on `ubuntu-latest`:
 
-Fork this repository, then clone it into the agent's skills directory:
+| Run | Result |
+|-----|--------|
+| [43122039412](https://github.com/yzhou216/runner-sandbox/actions/runs/43122039412) | Passed |
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Outcome
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+All 15 commits passed both checks, and neither the Nix builds nor the make
+builds gave a warning.  The golden-output tests passed from the commit
+that adds them on, 371 cases at first and 404 at the end.  The rewritten
+c2y, `b3abf1faba015e71fb1588c4d41d7b659e614bbf`, was pushed to rv64_emu
+from the laptop.
