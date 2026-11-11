@@ -10,9 +10,14 @@ defaults:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  # Course CI's checks, with hold removed from enabled_features
-  without-hold:
+  # Course CI's checks, with hold kept in or removed from enabled_features
+  checks:
+    name: checks (${{ matrix.hold }} hold)
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        hold: [with, without]
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -23,6 +28,7 @@ jobs:
             libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
       - uses: taiki-e/install-action@nextest
       - name: Remove hold from enabled_features
+        if: matrix.hold == 'without'
         working-directory: milestone-1
         run: |
           sed -i '/^enabled_features = /s/, "hold"//' Cargo.toml
@@ -54,7 +60,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends pkg-config \
             libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
             libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers \
-            xvfb ffmpeg
+            libxkbcommon-x11-0 xvfb ffmpeg
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: milestone-1
