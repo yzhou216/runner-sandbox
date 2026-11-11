@@ -1,0 +1,40 @@
+name: Rust
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/usf272s26/test-box-blox-local:0.1.1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy student code into grading project
+        run: |
+          cp Cargo.toml /grading/
+          cp -r src/* /grading/src/
+          cp -r tests/* /grading/tests/
+          mkdir -p /grading/test_data/
+          cp -r test_data/* /grading/test_data/
+
+      - name: Run fmt check
+        working-directory: /grading
+        run: cargo fmt --check
+
+      - name: Run Clippy
+        working-directory: /grading
+        run: cargo clippy --no-default-features --features ci -- -D warnings
+
+      - name: Run tests
+        working-directory: /grading
+        run: cargo nextest run --no-default-features --features ci --verbose --no-fail-fast --retries 2
+

@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: milestone-1
+on: push
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  # Course CI's checks, with hold removed from enabled_features
+  without-hold:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config \
+            libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
+            libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
+      - uses: taiki-e/install-action@nextest
+      - name: Remove hold from enabled_features
+        working-directory: milestone-1
+        run: |
+          sed -i '/^enabled_features = /s/, "hold"//' Cargo.toml
+          grep '^enabled_features = ' Cargo.toml
+          ! grep -q '^enabled_features = .*"hold"' Cargo.toml
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: milestone-1
+      - name: Run fmt check
+        working-directory: milestone-1
+        run: cargo fmt --check
+      - name: Run Clippy
+        working-directory: milestone-1
+        run: cargo clippy --no-default-features --features ci -- -D warnings
+      - name: Run tests
+        working-directory: milestone-1
+        run: >-
+          cargo nextest run --no-default-features --features ci
+          --no-fail-fast --retries 2
+
+  # Instructor recordings replayed in test mode, captured frame by frame
+  video:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config \
+            libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
+            libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers \
+            xvfb ffmpeg
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: milestone-1
+      - name: Build
+        working-directory: milestone-1
+        run: cargo build --locked --features test
+      - name: Start Xvfb
+        run: |
+          Xvfb :99 -screen 0 1280x800x24 &
+          echo DISPLAY=:99 >> "$GITHUB_ENV"
+      - name: Record hard-drop-hold-0 at normal speed
+        run: ./record.sh hard-drop-hold-0 config-0.json false 2
+      - name: Record level-up at four times speed
+        run: ./record.sh level-up config-deterministic.json true 8
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: videos
+          path: videos/
