@@ -98,6 +98,8 @@ jobs:
       - name: Privacy & Security after the block
         timeout-minutes: 3
         run: |
+          osascript -e 'tell application "System Events" to tell process "CoreServicesUIAgent" to click button "Done" of window 1' || true
+          sleep 2
           open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
           sleep 10
           screencapture -x shots/settings.png
@@ -106,11 +108,12 @@ jobs:
               set found to {}
               repeat with element in (entire contents of window 1)
                 try
-                  if class of element is button then set end of found to (name of element as text)
+                  if role of element is "AXButton" then
+                    set end of found to (name of element as text)
+                    if name of element is "Open Anyway" then perform action "AXScrollToVisible" of element
+                  end if
                 end try
               end repeat
-              set anyway to (every button of (entire contents of window 1) whose name is "Open Anyway")
-              if anyway is not {} then perform action "AXScrollToVisible" of item 1 of anyway
               return found
             end tell' || true
           sleep 2
