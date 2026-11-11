@@ -103,8 +103,9 @@ var arguments = Array(CommandLine.arguments.dropFirst())
 let command = arguments.isEmpty ? "" : arguments.removeFirst()
 let double = arguments.contains("--double")
 let contains = arguments.contains("--contains")
-let flags = CGEventFlags(
-  [arguments.contains("--shift") ? CGEventFlags.maskShift : [], arguments.contains("--command") ? .maskCommand : []])
+let flags = CGEventFlags()
+  .union(arguments.contains("--shift") ? .maskShift : [])
+  .union(arguments.contains("--command") ? .maskCommand : [])
 arguments.removeAll { $0.hasPrefix("--") }
 
 switch command {
@@ -115,7 +116,7 @@ case "click", "wait":
 case "list":
   lines().forEach { print("\($0.text)\t\(Int($0.center.x))\t\(Int($0.center.y))") }
 case "keys":
-  arguments[0].forEach { letters[$0].map(press) }
+  arguments[0].forEach { letters[$0].map { press($0) } }
 case "key":
   guard let code = named[arguments[0]] else { exit(2) }
   press(code, flags: flags)
