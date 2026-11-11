@@ -8,9 +8,15 @@
 # Nothing for native FreeBSD is in any cache, so everything builds from
 # source; the build stops short of the six hours that a job may take, and
 # out/ records how far it got and what failed.
+#
+# Builders run as root, as in runs 42949988380 and 42950170013, where byacc,
+# m4, and libtool failed within minutes, or as the build users that the port
+# creates.  Python's filelock, whose tests LLVM's tests pull into FreeBSD's
+# stdenv through psutil and pytest-xdist, stopped a native build in
+# NixOS/nixpkgs#585491, so one job skips them to tell how long the rest takes.
 on:
   push:
-    paths: [.github/workflows/freebsd-native-nix.yml]
+    paths: [.github/workflows/freebsd-native-nix.yml, scripts/*.awk]
 permissions:
   contents: read
 defaults:
@@ -22,9 +28,19 @@ env:
   TZDATA_FIX: e3e93a80b81f03e0ef4092a9b1b5051fdf970286
 jobs:
   build:
-    name: cinq built natively on x86_64-freebsd
+    name: cinq built natively on x86_64-freebsd by ${{ matrix.builders }}, filelock ${{ matrix.filelock }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {builders: root, filelock: checked}
+          - {builders: nixbld, filelock: checked}
+          - {builders: nixbld, filelock: unchecked}
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      BUILDERS: ${{ matrix.builders }}
+      FILELOCK: ${{ matrix.filelock }}
     steps:
       - uses: actions/checkout@main
       - name: Make room for the VM
@@ -45,10 +61,12 @@ jobs:
         with:
           mem: 13312
           data-dir: /mnt/vm
-          envs: CINQ
+          envs: CINQ BUILDERS FILELOCK
           prepare: |
             pkg install -y nix git ca_root_nss
           run: |
+            # The action stops at the first failure, which would lose out/
+            set +e
             chown -R root:wheel "$GITHUB_WORKSPACE"
             freebsd-version
             sysctl -n hw.ncpu hw.physmem
@@ -58,29 +76,39 @@ jobs:
             chmod 0600 /usr/swap0
             mdconfig -a -t vnode -f /usr/swap0 -u 99
             swapon /dev/md99
-            swapinfo -h
-            df -h /
             mkdir /root/nixpkgs
             tar -xzf nixpkgs.tar.gz -C /root/nixpkgs --strip-components 1
-            patch -d /root/nixpkgs -p1 < tzdata.patch
-            export NIX_CONFIG='experimental-features = nix-command flakes
-            build-users-group =
+            patch -s -d /root/nixpkgs -p1 < tzdata.patch
+            if [ "$FILELOCK" = unchecked ]; then
+              filelock=/root/nixpkgs/pkgs/development/python-modules/filelock/default.nix
+              sed -i '' 's/^  pyproject = true;$/&\
+              doCheck = false;/' "$filelock"
+              grep -n doCheck "$filelock"
+            fi
+            group=
+            if [ "$BUILDERS" = nixbld ]; then
+              /usr/local/share/nix/add-nixbld-users 8
+              group=nixbld
+              pw groupshow nixbld
+            fi
+            NIX_CONFIG="experimental-features = nix-command flakes
+            build-users-group = $group
             sandbox = false
             ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt
             max-jobs = 3
             cores = 4
             keep-going = true
-            log-lines = 80'
+            log-lines = 80"
+            export NIX_CONFIG
             mkdir -p out/logs
             flake="github:yzhou216/cinq/$CINQ#cinq"
             set -- --no-link --override-input nixpkgs path:/root/nixpkgs "$flake"
-            nix build --dry-run "$@" > out/dry-run-before.txt 2>&1 || true
-            grep -E 'will be (built|fetched)' out/dry-run-before.txt || true
+            nix build --dry-run "$@" > out/dry-run-before.txt 2>&1
+            grep -E 'will be (built|fetched)' out/dry-run-before.txt
             start=$(date +%s)
-            echo "$start" > out/start.txt
             (
               while sleep 600; do
-                echo "== $(( ($(date +%s) - start) / 60 )) min, $(grep -c "^building '" out/build.log 2>/dev/null) started, $(df -h / | tail -1)"
+                echo "== $(( ($(date +%s) - start) / 60 )) min, $(grep -c "^building '" out/build.log) started, $(df -h / | tail -1)"
               done
             ) &
             ticker=$!
@@ -88,21 +116,22 @@ jobs:
             {
               timeout 18900 nix build -v --log-format raw "$@" 2>&1
               echo "status $? after $(( ($(date +%s) - start) / 60 )) min" > out/status.txt
-            } | tee out/build.log | grep --line-buffered -E "^(building '|error)" || true
-            kill "$ticker" || true
+            } | tee out/build.log | awk -f scripts/errors.awk
+            kill "$ticker"
             cat out/status.txt
-            nix build --dry-run "$@" > out/dry-run-after.txt 2>&1 || true
-            grep -E 'will be (built|fetched)' out/dry-run-after.txt || true
-            grep -o "Cannot build '[^']*'" out/build.log | sed "s/Cannot build '//; s/'$//" | sort -u > out/failed.txt || true
+            nix build --dry-run "$@" > out/dry-run-after.txt 2>&1
+            grep -E 'will be (built|fetched)' out/dry-run-after.txt
+            awk -f scripts/failed-builders.awk out/build.log | sort -u > out/failed-builders.txt
+            echo "== $(wc -l < out/failed-builders.txt) builders failed"
             while read -r drv; do
-              nix log "$drv" > "out/logs/$(basename "$drv").log" 2>&1 || true
-            done < out/failed.txt
-            cat out/failed.txt
-            nix path-info --json --all > out/path-info.json || true
+              nix log "$drv" > "out/logs/${drv##*/}.log" 2>&1
+            done < out/failed-builders.txt
+            nix path-info --json --all > out/path-info.json
             du -sh /nix/store
             df -h /
+            true
       - uses: actions/upload-artifact@main
         if: ${{ !cancelled() }}
         with:
-          name: out
+          name: out-${{ matrix.builders }}-${{ matrix.filelock }}
           path: out
