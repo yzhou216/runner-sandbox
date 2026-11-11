@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# As freebsd-native-nix.yml, but without the tests of Python's filelock,
+# which LLVM's tests pull into FreeBSD's stdenv through psutil and
+# pytest-xdist, and on which a native build stopped in NixOS/nixpkgs#585491.
+# It tells how long the rest takes, should those tests be what fails.
+on:
+  push:
+    paths: [.github/workflows/freebsd-native-nix-unchecked.yml]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  CINQ: 3de2258bb8fd33a3a4cefaff22cade29d3a9e450 # master on 2026-11-11
+  NIXPKGS: fabeab7f4ccbf4e55ce28b3e59c7f7cc1f438eac # master on 2026-11-11
+  TZDATA_FIX: e3e93a80b81f03e0ef4092a9b1b5051fdf970286
+jobs:
+  build:
+    name: cinq built natively on x86_64-freebsd, filelock unchecked
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@main
+      - name: Make room for the VM
+        run: |
+          df -h / /mnt
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+          sudo mkdir -p /mnt/vm && sudo chown "$USER" /mnt/vm
+          df -h / /mnt
+      - name: Fetch Nixpkgs and the tzdata fix
+        run: |
+          curl -fsSL -o nixpkgs.tar.gz "https://github.com/NixOS/nixpkgs/archive/$NIXPKGS.tar.gz"
+          curl -fsSL -o tzdata.patch "https://github.com/NixOS/nixpkgs/commit/$TZDATA_FIX.patch"
+          mkdir check
+          tar -xzf nixpkgs.tar.gz -C check --strip-components 1
+          patch -d check -p1 --dry-run < tzdata.patch
+          rm -rf check
+      - uses: vmactions/freebsd-vm@main
+        with:
+          mem: 13312
+          data-dir: /mnt/vm
+          envs: CINQ
+          prepare: |
+            pkg install -y nix git ca_root_nss
+          run: |
+            chown -R root:wheel "$GITHUB_WORKSPACE"
+            freebsd-version
+            sysctl -n hw.ncpu hw.physmem
+            nix --version
+            # Swap, so that a few large compilers at once slow down rather than die
+            dd if=/dev/zero of=/usr/swap0 bs=1m count=4096 status=none
+            chmod 0600 /usr/swap0
+            mdconfig -a -t vnode -f /usr/swap0 -u 99
+            swapon /dev/md99
+            swapinfo -h
+            df -h /
+            mkdir /root/nixpkgs
+            tar -xzf nixpkgs.tar.gz -C /root/nixpkgs --strip-components 1
+            patch -d /root/nixpkgs -p1 < tzdata.patch
+            filelock=/root/nixpkgs/pkgs/development/python-modules/filelock/default.nix
+            sed -i '' 's/^  pyproject = true;$/&\
+              doCheck = false;/' "$filelock"
+            grep -n doCheck "$filelock"
+            export NIX_CONFIG='experimental-features = nix-command flakes
+            build-users-group =
+            sandbox = false
+            ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt
+            max-jobs = 3
+            cores = 4
+            keep-going = true
+            log-lines = 80'
+            mkdir -p out/logs
+            flake="github:yzhou216/cinq/$CINQ#cinq"
+            set -- --no-link --override-input nixpkgs path:/root/nixpkgs "$flake"
+            nix build --dry-run "$@" > out/dry-run-before.txt 2>&1 || true
+            grep -E 'will be (built|fetched)' out/dry-run-before.txt || true
+            start=$(date +%s)
+            echo "$start" > out/start.txt
+            (
+              while sleep 600; do
+                echo "== $(( ($(date +%s) - start) / 60 )) min, $(grep -c "^building '" out/build.log 2>/dev/null) started, $(df -h / | tail -1)"
+              done
+            ) &
+            ticker=$!
+            # Short of the job's six hours, leaving time to record what was built
+            {
+              timeout 18900 nix build -v --log-format raw "$@" 2>&1
+              echo "status $? after $(( ($(date +%s) - start) / 60 )) min" > out/status.txt
+            } | tee out/build.log | grep --line-buffered -E "^(building '|error)" || true
+            kill "$ticker" || true
+            cat out/status.txt
+            nix build --dry-run "$@" > out/dry-run-after.txt 2>&1 || true
+            grep -E 'will be (built|fetched)' out/dry-run-after.txt || true
+            grep -o "Cannot build '[^']*'" out/build.log | sed "s/Cannot build '//; s/'$//" | sort -u > out/failed.txt || true
+            while read -r drv; do
+              nix log "$drv" > "out/logs/$(basename "$drv").log" 2>&1 || true
+            done < out/failed.txt
+            cat out/failed.txt
+            nix path-info --json --all > out/path-info.json || true
+            du -sh /nix/store
+            df -h /
+      - uses: actions/upload-artifact@main
+        if: ${{ !cancelled() }}
+        with:
+          name: out
+          path: out
