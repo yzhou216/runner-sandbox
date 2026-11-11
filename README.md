@@ -54,3 +54,9 @@ configuration 'macos-14-arm64-us-default' is not supported").
 - `codesign --verify --strict` fails on the bundle ("code has no resources
   but signature indicates they must be present"), since only the linker
   signs the program ad hoc; the app starts anyway.
+- After Done in that dialog, Privacy & Security shows ""cinq.pkg" was
+  blocked to protect your Mac." with an Open Anyway button in its Security
+  section, on both versions (run 42958503999).  System Settings showed no
+  buttons to `entire contents` of System Events, so
+  [`scroll.swift`](scroll.swift) scrolls the pane with CoreGraphics wheel
+  events to bring the section into the screenshot.
