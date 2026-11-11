@@ -134,6 +134,12 @@ case "click", "wait":
   if command == "click" { click(point, count: double ? 2 : 1) }
 case "list":
   lines().forEach { print("\($0.text)\t\(Int($0.center.x))\t\(Int($0.center.y))") }
+case "windows":
+  ((CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]) ?? []).forEach {
+    print(
+      "\($0[kCGWindowOwnerName as String] ?? "")\t\($0[kCGWindowName as String] ?? "")\t\($0[kCGWindowLayer as String] ?? "")"
+    )
+  }
 case "keys":
   arguments[0].forEach { letters[$0].map { press($0) } }
 case "key":

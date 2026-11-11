@@ -47,14 +47,25 @@ password_prompt() {
   sleep 1
   prompts=$((${prompts:-0} + 1))
   screencapture -x "shots/prompt-$prompts.png"
-  # OK through accessibility, since SecurityAgent ignored synthetic clicks
-  osascript -e 'tell application "System Events" to tell process "SecurityAgent" to get entire contents of window 1' \
-    > "shots/prompt-$prompts-contents.txt" 2>&1 || true
-  osascript -e 'tell application "System Events" to tell process "SecurityAgent" to click button "OK" of window 1' ||
-    ./ui click OK 3 || ./ui key return
+  # OK through accessibility on whichever process owns the dialog, since
+  # the dialog ignored synthetic clicks
+  ./ui windows > "shots/prompt-$prompts-windows.txt"
+  pressed=
+  while IFS= read -r owner; do
+    osascript -e "tell application \"System Events\" to tell process \"$owner\" to get entire contents of window 1" \
+      >> "shots/prompt-$prompts-contents.txt" 2>&1 || true
+    if osascript -e "tell application \"System Events\" to tell process \"$owner\" to click button \"OK\" of window 1" \
+      >> "shots/prompt-$prompts-contents.txt" 2>&1; then
+      echo "pressed OK of $owner"
+      pressed=$owner
+      break
+    fi
+  done < <(cut -f1 "shots/prompt-$prompts-windows.txt" | sort -u | grep -v -x -e Dock -e "Window Server" -e Finder)
+  [ -n "$pressed" ] || ./ui click OK 3 || ./ui key return
   sleep 3
   screencapture -x "shots/prompt-$prompts-after.png"
-  log show --last 1m --style compact --predicate 'process == "authd" OR process == "SecurityAgent"' \
+  log show --last 1m --style compact \
+    --predicate 'process IN {"authd", "SecurityAgent", "coreauthd", "coreautha", "opendirectoryd"}' \
     > "shots/prompt-$prompts-log.txt" 2>&1 || true
 }
 
