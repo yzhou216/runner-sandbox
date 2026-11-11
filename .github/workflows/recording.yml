@@ -4,7 +4,7 @@
 
 on:
   push:
-    paths: [.github/workflows/recording.yml, demo.sh, ui.swift]
+    paths: [.github/workflows/recording.yml, demo.sh, ui.swift, fill.applescript]
 defaults:
   run:
     shell: bash

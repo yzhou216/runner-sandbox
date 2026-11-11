@@ -38,19 +38,10 @@ password_prompt() {
   ./ui windows > "shots/prompt-$prompts-windows.txt"
   pressed=
   while IFS= read -r owner; do
-    for button in OK "Install Software" "Modify Settings"; do
-      if osascript \
-        -e "tell application \"System Events\" to tell process \"$owner\"" \
-        -e "set value of text field 1 of window 1 to \"$user\"" \
-        -e "set value of text field 2 of window 1 to \"$password\"" \
-        -e "delay 1" \
-        -e "click button \"$button\" of window 1" \
-        -e "end tell" >> "shots/prompt-$prompts-contents.txt" 2>&1; then
-        echo "pressed $button of $owner"
-        pressed=$owner
-        break 2
-      fi
-    done
+    if osascript fill.applescript "$owner" "$user" "$password" 2>> "shots/prompt-$prompts-contents.txt"; then
+      pressed=$owner
+      break
+    fi
   done < <(cut -f1 "shots/prompt-$prompts-windows.txt" | sort -u | grep -v -x -e Dock -e "Window Server" -e Finder)
   [ -n "$pressed" ] || ./ui click OK 3 || ./ui key return
   sleep 3
