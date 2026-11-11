@@ -136,6 +136,25 @@ sleep 8
 osascript -e 'tell application "System Events" to keystroke "man cinq"' -e 'tell application "System Events" to key code 36'
 sleep 8
 osascript -e 'tell application "System Events" to keystroke "q"'
+sleep 1
+
+caption "The tutorial and its demo, in /usr/local/share/doc/cinq"
+osascript -e 'tell application "System Events" to keystroke "clear; ls -l /usr/local/share/doc/cinq /usr/local/share/doc/cinq/demo"' \
+  -e 'tell application "System Events" to key code 36'
+sleep 6
+caption "The tutorial opens in Preview"
+open /usr/local/share/doc/cinq/tutorial.pdf
+sleep 10
+pkill -x Preview || true
+
+# The command, since cinq.app takes no documents from Finder
+caption "As the tutorial says, a copy of the demo, whose storm show cinq opens"
+pkill -x cinq || true
+open -a Terminal
+sleep 2
+osascript -e 'tell application "System Events" to keystroke "clear; cp -R /usr/local/share/doc/cinq/demo ~/demo && cinq ~/demo/storm.cinq.toml &"' \
+  -e 'tell application "System Events" to key code 36'
+sleep 12
 caption "End"
 sleep 3
 end=$(now)

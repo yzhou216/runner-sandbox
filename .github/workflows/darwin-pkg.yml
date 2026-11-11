@@ -45,9 +45,9 @@ jobs:
         run: |
           pkgutil --pkgs | grep cinq
           pkgutil --pkg-info io.yiyuzhou.cinq
-          pkgutil --pkg-info io.yiyuzhou.cinq.cli
+          pkgutil --pkg-info io.yiyuzhou.cinq.local
           pkgutil --files io.yiyuzhou.cinq
-          pkgutil --files io.yiyuzhou.cinq.cli
+          pkgutil --files io.yiyuzhou.cinq.local
           ls -lR /Applications/cinq.app
           ls -l /usr/local/bin/cinq
       - name: Command, manual pages, and completions
@@ -60,6 +60,13 @@ jobs:
           man 1 cinq | head -20
           zsh -ic 'print -l $fpath' | grep /usr/local/share/zsh/site-functions
           zsh -ic 'autoload -Uz _cinq && whence -v _cinq'
+      - name: Tutorial and demo
+        run: |
+          ls -lR /usr/local/share/doc/cinq
+          file /usr/local/share/doc/cinq/tutorial.pdf
+          # As the tutorial has its readers do
+          cp -R /usr/local/share/doc/cinq/demo ~/demo
+          ls -l ~/demo
       - name: Signatures
         run: |
           pkgutil --check-signature cinq-0.1.3-aarch64-darwin.pkg || true
