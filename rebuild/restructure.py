@@ -356,8 +356,21 @@ def master_readme():
     """The short README of master, before the rename."""
     old = git('rev-list', '--reverse', 'origin/master').decode().split()
     readme = text(files_of(old[27]), 'README.md')
+    readme = once(readme, 'A small RISC-V (RV64) emulator in C that I wrote for CS 315 (Computer\n'
+                          'Architecture) at USF in spring 2024.  The first commit is the starter\n'
+                          'code from the course.\n',
+                  'A small RISC-V (RV64) emulator in C.\n')
     return once(readme, 'The `c2y` branch has a reworked version with bug fixes and a test\nsuite.\n',
                 'The `c2y` branch reworks it in C2y and adds a test suite.\n')
+
+
+def c2y_readme(T):
+    """The README of c2y, before the rename."""
+    return once(T(72)['README.md'][1],
+                'A small RISC-V (RV64) emulator in C that I wrote for CS 315 (Computer\n'
+                'Architecture) at USF in spring 2024.  The first commit is the starter\n'
+                'code from the course, and this branch reworks it in C2y.\n',
+                'A small RISC-V (RV64) emulator in C.\n')
 
 
 def build_master():
@@ -542,7 +555,9 @@ def groups(T):
         return common(dict(T(71)), T, 71)
 
     def g15():
-        return dict(T(72))
+        f = dict(T(72))
+        f['README.md'] = ('100644', c2y_readme(T))
+        return f
 
     enum_rv_emu = lambda f: fold_rv_emu(f['rv_emu.c'][1], 26)
     loop_ways = lambda f: fold_ways(f['cache.c'][1])
@@ -661,7 +676,9 @@ def build_c2y(master_tip):
         print(f'{name:4} {parent[:7]} warnings={warnings} {report}', flush=True)
     git('update-ref', 'refs/heads/new-c2y', parent)
     final_tree = git('rev-parse', 'new-c2y^{tree}').decode().strip()
-    want = write_tree(rename_files(dict(T(72))))
+    final_files = dict(T(72))
+    final_files['README.md'] = ('100644', c2y_readme(T))
+    want = write_tree(rename_files(final_files))
     print('final c2y tree matches the original tip:', final_tree == want)
     return made
 
