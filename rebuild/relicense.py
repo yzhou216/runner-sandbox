@@ -56,7 +56,8 @@ def tree_of(rev):
 
 def scratch(tree):
     """Parentless commit of a tree, for merge-tree to merge."""
-    env = {'GIT_AUTHOR_DATE': '@1 +0000', 'GIT_COMMITTER_DATE': '@1 +0000'}
+    env = {f'GIT_{role}_{key}': value for role in ('AUTHOR', 'COMMITTER')
+           for key, value in (('NAME', 'scratch'), ('EMAIL', 'scratch'), ('DATE', '@1 +0000'))}
     return git('commit-tree', tree, stdin=b'scratch\n', env=env).strip()
 
 
