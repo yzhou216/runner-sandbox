@@ -79,41 +79,39 @@ check ./ui wait Done 20
 sleep 4
 check ./ui click Done
 
-caption "Privacy & Security offers Open Anyway"
+caption "Privacy & Security offers Open Anyway, behind an administrator's password"
 open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
 sleep 6
 ./ui scroll 620 400 -40
-sleep 3
-check ./ui click "Open Anyway" 15
-sleep 2
+check ./ui wait "Open Anyway" 15
+sleep 6
 
-caption "Darwin asks for the password, then once more to open it"
-for _ in 1 2 3; do
-  sleep 2
-  if ./ui wait Continue 3; then
-    break
-  elif ./ui wait --contains "to allow" 3; then
-    password_prompt
-  elif ./ui wait "Open Anyway" 3; then
-    ./ui click "Open Anyway"
-  fi
-done
+# The password dialog of Open Anyway, which coreautha shows, refused every
+# password that a script gave it, through keys or accessibility
+caption "This runner cannot answer that dialog, so Terminal clears the quarantine as Open Anyway would"
+pkill -x "System Settings" || true
+open -a Terminal
+sleep 4
+osascript -e 'tell application "System Events" to keystroke "xattr -d com.apple.quarantine ~/Downloads/'"$package"' && open ~/Downloads/'"$package"'"' \
+  -e 'tell application "System Events" to key code 36'
 
 caption "Installer opens"
-sleep 2
 check ./ui click Continue 30
 sleep 3
 caption "Install, for all users of this Mac"
 ./ui click Continue 6 || true
 sleep 2
 check ./ui click Install 20
-caption "Installer asks for the password"
-password_prompt
+if ./ui wait --contains "to allow" 6; then
+  caption "Installer asks for the password"
+  password_prompt
+fi
 caption "The installation succeeds"
 check ./ui wait --contains successful 90
 sleep 4
+log show --last 3m --style compact --predicate 'process == "authd"' > shots/installer-authd.txt 2>&1 || true
 check ./ui click Close
-./ui click Keep 10 || true
+./ui click Keep 6 || true
 sleep 2
 
 caption "cinq is in Applications"

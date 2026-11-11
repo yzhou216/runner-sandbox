@@ -45,6 +45,10 @@ jobs:
           # Full names in Finder, which Vision reads on one line
           defaults write com.apple.finder FXPreferredViewStyle Nlsv
           killall Finder || true
+          # Installs with no password dialog, which a script cannot answer
+          for right in system.install.software system.install.root.user; do
+            sudo security authorizationdb write "$right" allow
+          done
           sleep 3
       - name: Recording
         timeout-minutes: 12
