@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Checks every commit of the c2y branch of yzhou216/rv64_emu as rebased
+# onto master, which rebuild/c2y-rebase.bundle holds on top of master, with
+# rebuild/check-c2y.sh: nix flake check, and make check with the RISC-V
+# toolchain of the flake's nixpkgs under qemu-riscv64.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  # The nixpkgs that the flake of rv64_emu locks
+  NIXPKGS: github:NixOS/nixpkgs/d357a2b54f0b6dc4aeb4e993190a52cf151b6f24
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: wimpysworld/nothing-but-nix@v12
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Fetch the RISC-V toolchain and qemu-user
+        run: |
+          # The compiler wrapper also has a man output, which comes first
+          gcc=$(nix build --no-link --print-out-paths \
+            "$NIXPKGS#pkgsCross.riscv64.buildPackages.gcc" | grep -v -- '-man$')
+          qemu=$(nix build --no-link --print-out-paths "$NIXPKGS#qemu-user")
+          mkdir -p "$RUNNER_TEMP/tools"
+          ln -s "$gcc/bin/riscv64-unknown-linux-gnu-gcc" "$RUNNER_TEMP/tools/gcc"
+          ln -s "$gcc/bin/riscv64-unknown-linux-gnu-as" "$RUNNER_TEMP/tools/as"
+          ln -s "$qemu/bin/qemu-riscv64" "$RUNNER_TEMP/tools/qemu-riscv64"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+      - name: Show the tools
+        run: |
+          gcc --version | head -1
+          as --version | head -1
+          qemu-riscv64 --version | head -1
+          nix --version
+      - name: Clone rv64_emu and fetch the rebased c2y
+        run: |
+          git clone https://github.com/yzhou216/rv64_emu "$RUNNER_TEMP/rs"
+          git -C "$RUNNER_TEMP/rs" fetch "$PWD/rebuild/c2y-rebase.bundle" c2y-rebase:c2y-rebase
+          git -C "$RUNNER_TEMP/rs" rev-parse origin/master c2y-rebase
+      - name: Check every commit
+        run: |
+          mkdir -p out
+          REPO="$RUNNER_TEMP/rs" rebuild/check-c2y.sh out/c2y.log
+          cat out/c2y.log
+      - name: Show the log
+        if: ${{ failure() }}
+        run: cat out/c2y.log
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: c2y-checks
+          path: out/
