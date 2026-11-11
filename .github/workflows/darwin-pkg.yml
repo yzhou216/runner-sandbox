@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  install:
+    name: cinq's Darwin package on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - name: System
+        run: |
+          sw_vers
+          uname -m
+          spctl --status || true
+          csrutil status || true
+      - name: Directories before
+        run: |
+          # An existing directory with an unusual owner and mode, as Homebrew
+          # leaves /usr/local/bin on an Intel Mac
+          sudo mkdir -p /usr/local/bin
+          sudo chown runner:admin /usr/local/bin
+          sudo chmod 775 /usr/local/bin
+          ./stat.sh | tee before.txt
+      - name: Install
+        run: |
+          sudo installer -pkg cinq-0.1.3-aarch64-darwin.pkg -target / -verbose
+      - name: Directories after
+        run: |
+          ./stat.sh | tee after.txt
+          diff before.txt after.txt && echo unchanged
+      - name: Receipts
+        run: |
+          pkgutil --pkgs | grep cinq
+          pkgutil --pkg-info io.yiyuzhou.cinq
+          pkgutil --pkg-info io.yiyuzhou.cinq.cli
+          pkgutil --files io.yiyuzhou.cinq
+          pkgutil --files io.yiyuzhou.cinq.cli
+          ls -lR /Applications/cinq.app
+          ls -l /usr/local/bin/cinq
+      - name: Command, manual pages, and completions
+        run: |
+          command -v cinq
+          cinq --version
+          man -w cinq
+          man -w 5 cinq
+          man -w 5 cinq-show
+          man 1 cinq | head -20
+          zsh -ic 'print -l $fpath' | grep /usr/local/share/zsh/site-functions
+          zsh -ic 'autoload -Uz _cinq && whence -v _cinq'
+      - name: Signatures
+        run: |
+          pkgutil --check-signature cinq-0.1.3-aarch64-darwin.pkg || true
+          spctl --assess -vv --type install cinq-0.1.3-aarch64-darwin.pkg || true
+          codesign -dv /Applications/cinq.app || true
+          codesign --verify --strict -v /Applications/cinq.app || true
+          xattr -l /Applications/cinq.app /Applications/cinq.app/Contents/MacOS/cinq || true
+      - name: App
+        run: |
+          mkdir -p shots
+          open /Applications/cinq.app
+          sleep 10
+          pgrep -l cinq
+          screencapture -x shots/app.png
+          pkill -x cinq || true
+      - name: Install again
+        run: |
+          sudo installer -pkg cinq-0.1.3-aarch64-darwin.pkg -target / -verbose
+          cinq --version
+      - name: Installer, as a double click opens it
+        run: |
+          open cinq-0.1.3-aarch64-darwin.pkg
+          sleep 10
+          screencapture -x shots/installer.png
+          osascript -e 'tell application "Installer" to quit' || true
+          sleep 3
+      - name: Installer, on a copy marked as downloaded by Safari
+        run: |
+          cp cinq-0.1.3-aarch64-darwin.pkg ~/Downloads/cinq.pkg
+          xattr -w com.apple.quarantine "0083;$(printf %x "$(date +%s)");Safari;" ~/Downloads/cinq.pkg
+          xattr -l ~/Downloads/cinq.pkg
+          open ~/Downloads/cinq.pkg
+          sleep 10
+          screencapture -x shots/quarantined.png
+          osascript -e 'tell application "System Events" to get name of every process whose visible is true' || true
+      - name: Install log
+        if: ${{ !cancelled() }}
+        run: grep -i cinq /var/log/install.log | tail -100 || true
+      - uses: actions/upload-artifact@main
+        if: ${{ !cancelled() }}
+        with:
+          name: shots-${{ matrix.os }}
+          path: shots
