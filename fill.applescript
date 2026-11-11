@@ -17,10 +17,11 @@ on run argv
 				set value of text field 1 of candidate to user
 				set value of text field 2 of candidate to secret
 				delay 1
-				repeat with label in {"OK", "Install Software", "Modify Settings", "Unlock"}
-					if exists button (label as text) of candidate then
-						click button (label as text) of candidate
-						return "pressed " & label & " of " & owner
+				set end of seen to "buttons " & (name of every button of candidate as text)
+				repeat with wanted in {"OK", "Install Software", "Modify Settings", "Unlock"}
+					if exists button (wanted as text) of candidate then
+						click button (wanted as text) of candidate
+						return "pressed " & wanted & " of " & owner
 					end if
 				end repeat
 			end if
