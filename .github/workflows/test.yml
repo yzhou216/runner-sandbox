@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tests the demo and the tutorial of cinq from the snapshot cinq.tar.gz.
+# On GNU/Linux it builds cinq, the demo, and the tutorial, runs the three
+# demo shows with their sound recorded, and checks the PDF; on Darwin it
+# builds the demo, which is all of the two that builds there.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  # Date of the commit of the snapshot, which the title page of the PDF gives
+  DATE: "2026-11-10T19:59:49-08:00"
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      # Repository of its own, so that the flake is a Git one with the date
+      # of the commit
+      - name: Unpack cinq
+        run: |
+          tar -xzf cinq.tar.gz
+          cd cinq
+          git init -q
+          git add -A
+          GIT_COMMITTER_DATE=$DATE git -c user.name=snapshot -c user.email=snapshot@example.invalid \
+            commit -q --date="$DATE" -m snapshot
+      - name: Build cinq, the demo, and the tutorial
+        run: |
+          nix build --out-link cinq-bin ./cinq#cinq
+          nix build --out-link demo ./cinq#demo
+          nix build --print-build-logs --out-link doc ./cinq#doc
+      - name: Run the demo shows
+        run: |
+          ALSA_PLUGIN_DIR=$(nix build --no-link --print-out-paths --inputs-from ./cinq nixpkgs#alsa-plugins)/lib/alsa-lib
+          export ALSA_PLUGIN_DIR
+          nix shell --inputs-from ./cinq nixpkgs#sway-unwrapped nixpkgs#wtype nixpkgs#grim \
+            nixpkgs#pulseaudio nixpkgs#ffmpeg-headless -c bash run.sh cinq-bin/bin/cinq demo results/shows
+      - name: Check the tutorial
+        run: |
+          nix shell --inputs-from ./cinq nixpkgs#poppler-utils nixpkgs#imagemagick \
+            -c bash check-pdf.sh doc/share/doc/cinq/tutorial.pdf results/doc
+      - name: Describe the demo's files
+        run: |
+          (cd demo && find . -type f | sort | xargs sha256sum) | tee results/demo.sha256
+          nix shell --inputs-from ./cinq nixpkgs#ffmpeg-headless -c bash -c \
+            'for f in demo/sounds/* demo/video/*; do printf "%s " "$f"; ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"; done' |
+            tee results/durations.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: results-${{ matrix.os }}
+          path: results
+          if-no-files-found: ignore
+  darwin:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Unpack cinq
+        run: |
+          tar -xzf cinq.tar.gz
+          cd cinq
+          git init -q
+          git add -A
+          GIT_COMMITTER_DATE=$DATE git -c user.name=snapshot -c user.email=snapshot@example.invalid \
+            commit -q --date="$DATE" -m snapshot
+      - name: Build the demo
+        run: nix build --print-build-logs --out-link demo ./cinq#demo
+      - name: Describe the demo's files
+        run: |
+          mkdir results
+          (cd demo && find . -type f | sort | xargs shasum -a 256) | tee results/demo.sha256
+          nix shell --inputs-from ./cinq nixpkgs#ffmpeg-headless -c bash -c \
+            'for f in demo/sounds/* demo/video/*; do printf "%s " "$f"; ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"; done' |
+            tee results/durations.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: results-darwin
+          path: results
+          if-no-files-found: ignore
