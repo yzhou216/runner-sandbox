@@ -10,15 +10,19 @@ This session tested `cinq-0.1.3-aarch64-darwin.pkg`, the unsigned flat
 package that `nix build .#darwin-pkg` makes on GNU/Linux with cpio, mkbom
 (bomutils 0.2 with hogliux/bomutils#34), and xar under faketime.  It holds
 two components: `cinq.app` for `/Applications`, owned root:admin, and the
-`cinq` link, manual pages, and completions for `/usr/local`, owned
-root:wheel, both with `overwrite-permissions="false"`.  The package itself
+`cinq` link, manual pages, completions, and, since the package took cinq's
+tutorial, the tutorial and its demo for `/usr/local`, owned root:wheel,
+both with `overwrite-permissions="false"`.  The second component was
+`io.yiyuzhou.cinq.cli` before the tutorial and `io.yiyuzhou.cinq.local`
+since.  The package itself
 is cinq's, under GPL-3.0-or-later.
 
 [`darwin-pkg.yml`](.github/workflows/darwin-pkg.yml) installs it with
 `installer`, compares the directories that the payloads share with the
 system before and after ([`stat.sh`](stat.sh)), reads the receipts, runs
 `cinq --version` from `PATH`, finds the manual pages with `man -w` and the
-zsh completion through `fpath`, opens the app, installs again over it,
+zsh completion through `fpath`, lists the tutorial and copies its demo as
+the tutorial has readers do, opens the app, installs again over it,
 opens the package in Installer, and opens a copy marked as downloaded by
 Safari.
 
@@ -27,7 +31,9 @@ Safari.
 Run 42957668774 passed on `macos-15` (Darwin 15.8.2, 24H232) and `macos-26`
 (Darwin 26.7.2, 25G332); `macos-latest` was also 26.7.2 in runs
 42956243152 and 42956305333.  `macos-14` no longer starts ("The
-configuration 'macos-14-arm64-us-default' is not supported").
+configuration 'macos-14-arm64-us-default' is not supported").  With the
+tutorial, run 43025399611 passed on both again: `/usr/local/share/doc/cinq`
+holds `tutorial.pdf` and the demo, made root:wheel with mode 755.
 
 - `installer` reports "The install was successful", and a second install
   "The upgrade was successful".  `pkgutil` lists `io.yiyuzhou.cinq` in
@@ -63,15 +69,17 @@ configuration 'macos-14-arm64-us-default' is not supported").
 
 ## Recording
 
-[`cinq-darwin-pkg-install.mp4`](cinq-darwin-pkg-install.mp4) (2 minutes
-33 seconds) shows run 42999176642 on `macos-latest` (Darwin 26.7.2):
+[`cinq-darwin-pkg-install.mp4`](cinq-darwin-pkg-install.mp4) (3 minutes
+26 seconds) shows run 43025399604 on `macos-latest` (Darwin 26.7.2):
 [`demo.sh`](demo.sh) installs the package as a user would, while ffmpeg
 records the screen, and [`compose.sh`](compose.sh) burns its captions in.
 Safari downloads the package from this branch, a double click in Finder
 meets Gatekeeper's block, Privacy & Security offers Open Anyway, Installer
 installs it, cinq opens from Applications with no prompt, and Terminal
 shows `/usr/local/bin/cinq`, `cinq --version`, the manual pages, and both
-receipts.
+receipts.  Then Preview opens the tutorial, and cinq opens the storm show
+of a copy of the demo, as the tutorial's first chapter asks.  Run
+42999176642 recorded the package before it took the tutorial.
 
 Two steps differ from a user's, as the captions say:
 
