@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on:
+  push:
+    paths: [.github/workflows/recording.yml, demo.sh, ui.swift]
+defaults:
+  run:
+    shell: bash
+jobs:
+  record:
+    name: recording of cinq's Darwin package on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@main
+      - name: Helper
+        run: swiftc -O -o ui ui.swift
+      - name: Setup
+        run: |
+          sw_vers
+          # Password for the dialogs that ask for one, on a runner that
+          # lives for this job alone
+          sudo dscl . -passwd /Users/runner cinqdemo
+          # Full names in Finder, which Vision reads on one line
+          defaults write com.apple.finder FXPreferredViewStyle Nlsv
+          killall Finder || true
+          sleep 3
+      - name: Recording
+        timeout-minutes: 12
+        run: ./demo.sh
+      - uses: actions/upload-artifact@main
+        if: ${{ !cancelled() }}
+        with:
+          name: recording-${{ matrix.os }}
+          path: shots
