@@ -8,20 +8,24 @@
 -- them and presses its button that allows, through accessibility.
 on run argv
 	set {owner, user, secret} to argv
+	set seen to {}
 	tell application "System Events" to tell process owner
-		repeat with dialog in windows
-			if exists text field 2 of dialog then
-				set value of text field 1 of dialog to user
-				set value of text field 2 of dialog to secret
+		repeat with candidate in (every window)
+			set fields to count of (every text field of candidate)
+			set end of seen to (name of candidate as text) & ": " & fields & " text fields"
+			if fields ≥ 2 then
+				set value of text field 1 of candidate to user
+				set value of text field 2 of candidate to secret
 				delay 1
 				repeat with label in {"OK", "Install Software", "Modify Settings", "Unlock"}
-					if exists button label of dialog then
-						click button label of dialog
+					if exists button (label as text) of candidate then
+						click button (label as text) of candidate
 						return "pressed " & label & " of " & owner
 					end if
 				end repeat
 			end if
 		end repeat
 	end tell
-	error "no dialog of " & owner & " asks for a password"
+	set AppleScript's text item delimiters to "; "
+	error "no window of " & owner & " asks for a password: " & (seen as text)
 end run
