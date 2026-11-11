@@ -41,7 +41,9 @@ password_prompt() {
   sleep 1
   prompts=$((${prompts:-0} + 1))
   screencapture -x "shots/prompt-$prompts.png"
-  ./ui key return
+  ./ui click OK 3 || ./ui key return
+  sleep 2
+  screencapture -x "shots/prompt-$prompts-after.png"
 }
 
 screencapture -x -V 360 shots/demo.mov &

@@ -36,6 +36,10 @@ jobs:
           done
           if ! grep -q ^user= "$GITHUB_ENV"; then
             sudo sysadminctl -addUser cinqdemo -fullName cinqdemo -password cinqdemo -admin
+            sudo dscl . -passwd /Users/cinqdemo cinqdemo
+            sudo dseditgroup -o edit -a cinqdemo -t user admin
+            dscl . -authonly cinqdemo cinqdemo
+            dseditgroup -o checkmember -m cinqdemo admin
             printf 'user=cinqdemo\npassword=cinqdemo\n' >> "$GITHUB_ENV"
           fi
           # Full names in Finder, which Vision reads on one line
