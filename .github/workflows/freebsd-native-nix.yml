@@ -13,11 +13,16 @@
 # the VM's own FreeBSD 15.1 headers in /usr/include, which clash with those of
 # Nixpkgs' FreeBSD 15.0 libc: m4, gettext, and nghttp2 failed to compile in run
 # 42954331591.  The VM's headers and its libraries for linking are hidden here.
+# Builders run as the build users that the port creates, since as root byacc's
+# and libuv's tests failed, and FreeBSD's libxo and tinfo, built in an object
+# directory under /obj that only root can create, failed to build (run
+# 42957212013).
 #
-# Builders run as root or as the build users that the port creates.  Python's
-# filelock, whose tests LLVM's tests pull into FreeBSD's stdenv through psutil
-# and pytest-xdist, stopped a native build in NixOS/nixpkgs#585491, so one job
-# skips them to tell how long the rest takes.
+# Then LLVM's tests pull two test suites into FreeBSD's stdenv that fail on
+# FreeBSD 15.1 (run 42957212013): Python's filelock, through psutil and
+# pytest-xdist, where open with O_NOFOLLOW on a symbolic link fails with
+# EMLINK, and libuv, through cmake, where poll_nested_kqueue fails with
+# ENOTTY.  Both are skipped here, to tell how long the rest takes.
 on:
   push:
     paths: [.github/workflows/freebsd-native-nix.yml, scripts/*.awk]
@@ -32,19 +37,9 @@ env:
   TZDATA_FIX: e3e93a80b81f03e0ef4092a9b1b5051fdf970286
 jobs:
   build:
-    name: cinq built natively on x86_64-freebsd by ${{ matrix.builders }}, filelock ${{ matrix.filelock }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {builders: root, filelock: checked}
-          - {builders: nixbld, filelock: checked}
-          - {builders: nixbld, filelock: unchecked}
+    name: cinq built natively on x86_64-freebsd
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    env:
-      BUILDERS: ${{ matrix.builders }}
-      FILELOCK: ${{ matrix.filelock }}
     steps:
       - uses: actions/checkout@main
       - name: Make room for the VM
@@ -65,7 +60,7 @@ jobs:
         with:
           mem: 13312
           data-dir: /mnt/vm
-          envs: CINQ BUILDERS FILELOCK
+          envs: CINQ
           prepare: |
             pkg install -y nix git ca_root_nss
           run: |
@@ -84,24 +79,19 @@ jobs:
             mv /usr/include /usr/include.hidden
             mkdir /usr/lib.hidden
             find /usr/lib -maxdepth 1 \( -name '*.so' -o -name '*.a' \) -exec mv {} /usr/lib.hidden \;
-            ls /usr/lib.hidden | wc -l
+            /usr/local/share/nix/add-nixbld-users 8
             mkdir /root/nixpkgs
             tar -xzf nixpkgs.tar.gz -C /root/nixpkgs --strip-components 1
-            patch -s -d /root/nixpkgs -p1 < tzdata.patch
-            if [ "$FILELOCK" = unchecked ]; then
-              filelock=/root/nixpkgs/pkgs/development/python-modules/filelock/default.nix
-              sed -i '' 's/^  pyproject = true;$/&\
-              doCheck = false;/' "$filelock"
-              grep -n doCheck "$filelock"
-            fi
-            group=
-            if [ "$BUILDERS" = nixbld ]; then
-              /usr/local/share/nix/add-nixbld-users 8
-              group=nixbld
-              pw groupshow nixbld
-            fi
+            cd /root/nixpkgs
+            patch -s -p1 < "$GITHUB_WORKSPACE/tzdata.patch"
+            sed -i '' 's/^  pyproject = true;$/&\
+              doCheck = false;/' pkgs/development/python-modules/filelock/default.nix
+            sed -i '' 's/^        "fs_event_watch_delete_dir"$/&\
+                    "poll_nested_kqueue"/' pkgs/by-name/li/libuv/package.nix
+            grep -n -e doCheck -e poll_nested_kqueue pkgs/development/python-modules/filelock/default.nix pkgs/by-name/li/libuv/package.nix
+            cd "$GITHUB_WORKSPACE"
             NIX_CONFIG="experimental-features = nix-command flakes
-            build-users-group = $group
+            build-users-group = nixbld
             sandbox = false
             ssl-cert-file = /usr/local/share/certs/ca-root-nss.crt
             max-jobs = 3
@@ -142,5 +132,5 @@ jobs:
       - uses: actions/upload-artifact@main
         if: ${{ !cancelled() }}
         with:
-          name: out-${{ matrix.builders }}-${{ matrix.filelock }}
+          name: out
           path: out
