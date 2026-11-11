@@ -51,7 +51,7 @@ sleep 3
 
 caption "Safari downloads cinq's package from GitHub"
 open -a Safari "$url"
-./ui click Allow 20 || true
+./ui click --contains Allow 20 || true
 for _ in $(seq 60); do [ -f ~/Downloads/$package ] && break; sleep 1; done
 sleep 3
 xattr -p com.apple.quarantine ~/Downloads/$package
