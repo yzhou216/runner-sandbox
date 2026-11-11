@@ -10,7 +10,8 @@
 set -u
 package=cinq-0.1.3-aarch64-darwin.pkg
 url=https://github.com/yzhou216/runner-sandbox/raw/cinq/2026-11-11-darwin-pkg/$package
-password=cinqdemo
+# Account that the workflow found or made
+: "${user:?}" "${password:?}"
 mkdir -p shots
 
 now() { perl -MTime::HiRes=time -e 'printf "%.2f\n", time'; }
@@ -30,6 +31,12 @@ check() {
 password_prompt() {
   check ./ui wait --contains "to allow" 20 || return 1
   sleep 2
+  if [ "$user" != runner ]; then
+    ./ui key --shift tab
+    ./ui key --command a
+    ./ui keys "$user"
+    ./ui key tab
+  fi
   ./ui keys "$password"
   sleep 1
   ./ui key return

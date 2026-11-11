@@ -9,7 +9,7 @@
 //   ui wait [--contains] TEXT [SECONDS]
 //   ui list
 //   ui keys LETTERS        (virtual key codes, which password fields take)
-//   ui key return|tab|escape
+//   ui key [--shift] [--command] return|tab|escape|a
 //   ui scroll X Y LINES
 import AppKit
 import Vision
@@ -82,9 +82,11 @@ func click(_ point: CGPoint, count: Int) {
   }
 }
 
-func press(_ code: CGKeyCode) {
+func press(_ code: CGKeyCode, flags: CGEventFlags = []) {
   for down in [true, false] {
-    CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down)?.post(tap: .cghidEventTap)
+    let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down)
+    event?.flags = flags
+    event?.post(tap: .cghidEventTap)
     usleep(40_000)
   }
 }
@@ -95,12 +97,14 @@ let letters: [Character: CGKeyCode] = [
   "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "o": 31, "u": 32,
   "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46,
 ]
-let named: [String: CGKeyCode] = ["return": 36, "tab": 48, "escape": 53]
+let named: [String: CGKeyCode] = ["return": 36, "tab": 48, "escape": 53, "a": 0]
 
 var arguments = Array(CommandLine.arguments.dropFirst())
 let command = arguments.isEmpty ? "" : arguments.removeFirst()
 let double = arguments.contains("--double")
 let contains = arguments.contains("--contains")
+let flags = CGEventFlags(
+  [arguments.contains("--shift") ? CGEventFlags.maskShift : [], arguments.contains("--command") ? .maskCommand : []])
 arguments.removeAll { $0.hasPrefix("--") }
 
 switch command {
@@ -114,7 +118,7 @@ case "keys":
   arguments[0].forEach { letters[$0].map(press) }
 case "key":
   guard let code = named[arguments[0]] else { exit(2) }
-  press(code)
+  press(code, flags: flags)
 case "scroll":
   let point = CGPoint(x: Double(arguments[0])!, y: Double(arguments[1])!)
   CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?

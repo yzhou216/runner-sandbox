@@ -24,9 +24,20 @@ jobs:
       - name: Setup
         run: |
           sw_vers
-          # Password for the dialogs that ask for one, on a runner that
-          # lives for this job alone
-          sudo dscl . -passwd /Users/runner cinqdemo
+          # Account for the dialogs that ask for a password: the runner's
+          # own if a guess finds its password, or else a new administrator
+          # on a machine that lives for this job alone
+          for guess in runner vagrant admin password; do
+            if dscl . -authonly runner "$guess" 2>/dev/null; then
+              echo "found the password of runner: $guess"
+              printf 'user=runner\npassword=%s\n' "$guess" >> "$GITHUB_ENV"
+              break
+            fi
+          done
+          if ! grep -q ^user= "$GITHUB_ENV"; then
+            sudo sysadminctl -addUser cinqdemo -fullName cinqdemo -password cinqdemo -admin
+            printf 'user=cinqdemo\npassword=cinqdemo\n' >> "$GITHUB_ENV"
+          fi
           # Full names in Finder, which Vision reads on one line
           defaults write com.apple.finder FXPreferredViewStyle Nlsv
           killall Finder || true
