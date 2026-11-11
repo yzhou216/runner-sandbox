@@ -18,8 +18,8 @@ let source = CGEventSource(stateID: .hidSystemState)
 
 struct Line {
   let text: String
+  let recognized: VNRecognizedText
   let center: CGPoint
-  let bottom: CGFloat
 }
 
 func lines() -> [Line] {
@@ -38,25 +38,30 @@ func lines() -> [Line] {
   try? VNImageRequestHandler(cgImage: image).perform([request])
   let screen = CGDisplayBounds(CGMainDisplayID())
   return (request.results ?? []).compactMap { observation in
-    guard let text = observation.topCandidates(1).first?.string else { return nil }
+    guard let recognized = observation.topCandidates(1).first else { return nil }
     let box = observation.boundingBox
     return Line(
-      text: text.trimmingCharacters(in: .whitespaces),
-      center: CGPoint(x: screen.width * box.midX, y: screen.height * (1 - box.midY)),
-      bottom: box.minY)
+      text: recognized.string.trimmingCharacters(in: .whitespaces), recognized: recognized,
+      center: CGPoint(x: screen.width * box.midX, y: screen.height * (1 - box.midY)))
   }
 }
 
-// Lowest match on the screen, where buttons sit
+// Lowest match on the screen, where buttons sit, by the box of the text
+// itself, since Vision reads buttons side by side as one line, such as
+// "CancelAllow"
 func find(_ text: String, contains: Bool, seconds: Double) -> CGPoint? {
   let deadline = Date().addingTimeInterval(seconds)
   repeat {
     let seen = lines()
-    if let line = seen
+    let screen = CGDisplayBounds(CGMainDisplayID())
+    if let box = seen
       .filter({ contains ? $0.text.contains(text) : $0.text == text })
-      .min(by: { $0.bottom < $1.bottom })
+      .compactMap({ line in
+        line.recognized.string.range(of: text).flatMap { try? line.recognized.boundingBox(for: $0)?.boundingBox }
+      })
+      .min(by: { $0.minY < $1.minY })
     {
-      return line.center
+      return CGPoint(x: screen.width * box.midX, y: screen.height * (1 - box.midY))
     }
     if Date() >= deadline {
       FileHandle.standardError.write(

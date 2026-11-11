@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+./ui click --contains Allow 20 || true#!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
@@ -39,10 +39,12 @@ password_prompt() {
   fi
   ./ui keys "$password"
   sleep 1
+  prompts=$((${prompts:-0} + 1))
+  screencapture -x "shots/prompt-$prompts.png"
   ./ui key return
 }
 
-screencapture -x -V 420 shots/demo.mov &
+screencapture -x -V 360 shots/demo.mov &
 recorder=$!
 start=$(now)
 sleep 3
@@ -53,7 +55,8 @@ open -a Safari "$url"
 for _ in $(seq 60); do [ -f ~/Downloads/$package ] && break; sleep 1; done
 sleep 3
 xattr -p com.apple.quarantine ~/Downloads/$package
-osascript -e 'tell application "Safari" to quit'
+# Not osascript, which waits two minutes for a Safari with a sheet open
+pkill -x Safari || true
 sleep 2
 
 caption "A double click on the package in Downloads"
