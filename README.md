@@ -4,43 +4,50 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_emu: history rebuild
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session rebuilt the history of
+[yzhou216/rv64-emu](https://github.com/yzhou216/rv64-emu) on a hosted
+runner instead of the laptop that asked for it:
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+- master, with the emulator and cache fixes of the c2y branch folded into
+  the 2024 commits that introduced the bugs, and its two README commits
+  folded into one;
+- c2y, rebased onto that master and squashed from 72 commits into 15;
+- `project04` renamed to `rv64_emu` in every file name, file, and commit
+  message of both branches.
 
-## Setup
+[rebuild/restructure.py](rebuild/restructure.py) builds every commit from
+the trees of the original ones, with transforms that assert they match
+exactly, and gives every c2y commit the expected test output of its own
+build, run under `qemu-riscv64`.
+[rebuild/verify.sh](rebuild/verify.sh) then builds every commit of both
+branches with the RISC-V cross toolchain of nixpkgs `4fe25e1` (GCC 16.2.0)
+and tests it.  The rebuilt branches came out as the `rebuilt` artifact, a git
+bundle pushed to rv64-emu from the laptop.
 
-Fork this repository, then clone it into the agent's skills directory:
+## Runs
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+All on `ubuntu-latest`:
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+| Run | Result |
+|-----|--------|
+| [43085943626](https://github.com/yzhou216/runner-sandbox/actions/runs/43085943626) | Cancelled: the commit that adds the tests had no test cases |
+| [43086190033](https://github.com/yzhou216/runner-sandbox/actions/runs/43086190033) | Cancelled to drop the course from the READMEs |
+| [43086461862](https://github.com/yzhou216/runner-sandbox/actions/runs/43086461862) | Everything passed, but `verify.sh` exited with the status of its last comparison |
+| [43091344991](https://github.com/yzhou216/runner-sandbox/actions/runs/43091344991) | Passed, with the same branches as the run before |
 
-## Contributing
+## Outcome
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+The rebuilt master is `7fbb1482d09f6bd8a9c5e25c60380dffa22eb463`, and
+the rebuilt c2y is `877341615adb2ccd516d645407ab27b7f76ee107`.
+Every commit of both branches built without warnings.  The emulated
+results of the master commits match the native ones on more of the base
+cases as the emulator grows, on all 41 from the commit that adds `sw` on,
+and the master tip passes all 287 cases with every cache configuration.
+Every c2y commit from the one that adds the tests on passes all of its
+cases, 371 at first and 404 at the end, and the tree of the last one is
+that of the original c2y with `project04` renamed and the course dropped
+from the README.  A rebuild on the laptop gave the same master and,
+README aside, the same first ten c2y trees, so the expected output does
+not depend on the machine that generates it.
