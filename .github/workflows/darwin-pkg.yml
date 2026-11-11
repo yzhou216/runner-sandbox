@@ -96,27 +96,15 @@ jobs:
           screencapture -x shots/quarantined.png
           kill %1 || true
       - name: Privacy & Security after the block
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
+          swiftc -o scroll scroll.swift
           osascript -e 'tell application "System Events" to tell process "CoreServicesUIAgent" to click button "Done" of window 1' || true
           sleep 2
           open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
           sleep 10
-          screencapture -x shots/settings.png
-          osascript -e '
-            tell application "System Events" to tell process "System Settings"
-              set found to {}
-              repeat with element in (entire contents of window 1)
-                try
-                  if role of element is "AXButton" then
-                    set end of found to (name of element as text)
-                    if name of element is "Open Anyway" then perform action "AXScrollToVisible" of element
-                  end if
-                end try
-              end repeat
-              return found
-            end tell' || true
-          sleep 2
+          ./scroll
+          sleep 3
           screencapture -x shots/settings-open-anyway.png
       - name: Install the quarantined copy from a terminal
         run: |
