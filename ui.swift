@@ -19,7 +19,23 @@ let source = CGEventSource(stateID: .hidSystemState)
 struct Line {
   let text: String
   let recognized: VNRecognizedText
+  let box: CGRect
   let center: CGPoint
+
+  // Box of `part` of the line, which Vision gives as the whole line's box
+  // at its accurate level, so the share of characters places it then
+  func rect(of part: Range<String.Index>) -> CGRect {
+    if let own = (try? recognized.boundingBox(for: part))?.boundingBox, own.width < box.width * 0.9 {
+      return own
+    }
+    let string = recognized.string
+    let share = { (index: String.Index) in
+      CGFloat(string.distance(from: string.startIndex, to: index)) / CGFloat(max(string.count, 1))
+    }
+    return CGRect(
+      x: box.minX + box.width * share(part.lowerBound), y: box.minY,
+      width: box.width * (share(part.upperBound) - share(part.lowerBound)), height: box.height)
+  }
 }
 
 func lines() -> [Line] {
@@ -41,7 +57,7 @@ func lines() -> [Line] {
     guard let recognized = observation.topCandidates(1).first else { return nil }
     let box = observation.boundingBox
     return Line(
-      text: recognized.string.trimmingCharacters(in: .whitespaces), recognized: recognized,
+      text: recognized.string.trimmingCharacters(in: .whitespaces), recognized: recognized, box: box,
       center: CGPoint(x: screen.width * box.midX, y: screen.height * (1 - box.midY)))
   }
 }
@@ -56,9 +72,7 @@ func find(_ text: String, contains: Bool, seconds: Double) -> CGPoint? {
     let screen = CGDisplayBounds(CGMainDisplayID())
     if let box = seen
       .filter({ contains ? $0.text.contains(text) : $0.text == text })
-      .compactMap({ line in
-        line.recognized.string.range(of: text).flatMap { try? line.recognized.boundingBox(for: $0)?.boundingBox }
-      })
+      .compactMap({ line in line.recognized.string.range(of: text).map(line.rect(of:)) })
       .min(by: { $0.minY < $1.minY })
     {
       return CGPoint(x: screen.width * box.midX, y: screen.height * (1 - box.midY))
