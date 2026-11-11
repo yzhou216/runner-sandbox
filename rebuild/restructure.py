@@ -638,7 +638,8 @@ def build_c2y(master_tip):
     for name, builder, date_k, case_ks in groups(T):
         files = builder()
         added |= set(case_ks)
-        if 'tests/cases' in files:
+        # Every commit from the one that adds the tests on has test cases
+        if name != 'C1':
             cases = [c for c in final if intro[c] in added]
             files['tests/cases'] = ('100644', '\n'.join(cases) + '\n')
         files = rename_files(files)
