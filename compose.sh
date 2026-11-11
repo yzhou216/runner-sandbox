@@ -5,8 +5,10 @@
 
 # compose.sh <shots directory> <output.mp4> <font file>
 #
-# Burns the captions of captions.tsv into a band under demo.mkv and ends
-# the video three seconds after the last caption.
+# Burns the captions of captions.tsv into a band under demo.mkv, from the
+# second in lead.txt, where the captions' clock started, to three seconds
+# after the last caption.  The font size of a 56th of the width fits the
+# longest caption on one line.
 set -eu
 shots=$1 output=$2 font=$3
 texts=$(mktemp -d)
@@ -14,13 +16,13 @@ texts=$(mktemp -d)
 mapfile -t times < <(cut -f1 "$shots/captions.tsv")
 mapfile -t captions < <(cut -f2 "$shots/captions.tsv")
 end=$(echo "${times[-1]} + 3" | bc)
-filters="fps=30,pad=iw:ih+60:0:0:black"
+filters="fps=30,pad=iw:ih+44:0:0:black"
 for i in "${!captions[@]}"; do
   printf '%s' "${captions[$i]}" > "$texts/$i.txt"
   until=${times[$((i + 1))]:-$end}
   filters+=",drawtext=fontfile=$font:textfile=$texts/$i.txt:expansion=none"
-  filters+=":fontcolor=white:fontsize=26:x=(w-text_w)/2:y=h-45"
+  filters+=":fontcolor=white:fontsize=w/56:x=(w-text_w)/2:y=h-31"
   filters+=":enable='between(t,${times[$i]},$until)'"
 done
-ffmpeg -loglevel error -y -i "$shots/demo.mkv" -t "$end" -vf "$filters" \
+ffmpeg -loglevel error -y -ss "$(cat "$shots/lead.txt")" -i "$shots/demo.mkv" -t "$end" -vf "$filters" \
   -c:v libx264 -crf 23 -pix_fmt yuv420p -movflags +faststart "$output"

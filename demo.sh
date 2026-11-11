@@ -56,7 +56,6 @@ password_prompt() {
 ffmpeg -loglevel error -f avfoundation -capture_cursor 1 -framerate 30 -i "Capture screen 0:none" \
   -c:v libx264 -preset ultrafast -pix_fmt yuv420p shots/demo.mkv < /dev/null &
 recorder=$!
-until [ -s shots/demo.mkv ]; do sleep 0.2; done
 start=$(now)
 sleep 3
 
@@ -121,9 +120,9 @@ sleep 2
 caption "cinq is in Applications"
 open /Applications
 sleep 4
-# Vision has read the name as "cing"
-if ! check ./ui click --double --contains cin 15; then
-  open /Applications/cinq.app
+# Vision has read the name as "cing"; "cin" alone matched "Macintosh HD"
+if ! check ./ui click --double cinq 10; then
+  ./ui click --double cing 5 || open /Applications/cinq.app
 fi
 caption "cinq opens with no prompt"
 sleep 10
@@ -143,6 +142,12 @@ end=$(now)
 echo "recorded $(echo "$end - $start" | bc) seconds"
 
 screencapture -x shots/last.png
+stopped=$(now)
 kill -INT "$recorder"
 wait "$recorder"
+# Seconds of video before the captions' clock started, which compose.sh
+# skips
+length=$(ffprobe -v error -show_entries format=duration -of csv=p=0 shots/demo.mkv)
+echo "$length - ($stopped - $start)" | bc > shots/lead.txt
+echo "lead $(cat shots/lead.txt) of $length seconds"
 echo "failures: $failures"
