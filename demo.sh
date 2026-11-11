@@ -47,9 +47,15 @@ password_prompt() {
   sleep 1
   prompts=$((${prompts:-0} + 1))
   screencapture -x "shots/prompt-$prompts.png"
-  ./ui click OK 3 || ./ui key return
-  sleep 2
+  # OK through accessibility, since SecurityAgent ignored synthetic clicks
+  osascript -e 'tell application "System Events" to tell process "SecurityAgent" to get entire contents of window 1' \
+    > "shots/prompt-$prompts-contents.txt" 2>&1 || true
+  osascript -e 'tell application "System Events" to tell process "SecurityAgent" to click button "OK" of window 1' ||
+    ./ui click OK 3 || ./ui key return
+  sleep 3
   screencapture -x "shots/prompt-$prompts-after.png"
+  log show --last 1m --style compact --predicate 'process == "authd" OR process == "SecurityAgent"' \
+    > "shots/prompt-$prompts-log.txt" 2>&1 || true
 }
 
 screencapture -x -V 360 shots/demo.mov &
