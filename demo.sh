@@ -31,29 +31,26 @@ check() {
 password_prompt() {
   check ./ui wait --contains "to allow" 20 || return 1
   sleep 2
-  if [ "$user" != runner ]; then
-    ./ui key --shift tab
-    ./ui key --command a
-    ./ui keys "$user"
-    ./ui key tab
-  fi
-  ./ui keys "$password"
-  sleep 1
   prompts=$((${prompts:-0} + 1))
-  screencapture -x "shots/prompt-$prompts.png"
-  # OK through accessibility on whichever process owns the dialog, since
-  # the dialog ignored synthetic clicks
+  # Name and password through accessibility, in coreautha, which owns
+  # the dialog: it ignores synthetic clicks, and the password field took
+  # synthetic keys as some other password
   ./ui windows > "shots/prompt-$prompts-windows.txt"
   pressed=
   while IFS= read -r owner; do
-    osascript -e "tell application \"System Events\" to tell process \"$owner\" to get entire contents of window 1" \
-      >> "shots/prompt-$prompts-contents.txt" 2>&1 || true
-    if osascript -e "tell application \"System Events\" to tell process \"$owner\" to click button \"OK\" of window 1" \
-      >> "shots/prompt-$prompts-contents.txt" 2>&1; then
-      echo "pressed OK of $owner"
-      pressed=$owner
-      break
-    fi
+    for button in OK "Install Software" "Modify Settings"; do
+      if osascript \
+        -e "tell application \"System Events\" to tell process \"$owner\"" \
+        -e "set value of text field 1 of window 1 to \"$user\"" \
+        -e "set value of text field 2 of window 1 to \"$password\"" \
+        -e "delay 1" \
+        -e "click button \"$button\" of window 1" \
+        -e "end tell" >> "shots/prompt-$prompts-contents.txt" 2>&1; then
+        echo "pressed $button of $owner"
+        pressed=$owner
+        break 2
+      fi
+    done
   done < <(cut -f1 "shots/prompt-$prompts-windows.txt" | sort -u | grep -v -x -e Dock -e "Window Server" -e Finder)
   [ -n "$pressed" ] || ./ui click OK 3 || ./ui key return
   sleep 3
