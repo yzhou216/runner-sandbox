@@ -36,7 +36,9 @@ jobs:
       - name: Directories after
         run: |
           ./stat.sh | tee after.txt
-          diff before.txt after.txt && echo unchanged
+          # Directories that were there before, as they were
+          changed=$(comm -23 <(grep -v "^absent" before.txt | sort) <(sort after.txt))
+          [ -z "$changed" ] || { echo "changed: $changed"; exit 1; }
       - name: Receipts
         run: |
           pkgutil --pkgs | grep cinq
