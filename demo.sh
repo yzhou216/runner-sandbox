@@ -51,8 +51,12 @@ password_prompt() {
     > "shots/prompt-$prompts-log.txt" 2>&1 || true
 }
 
-screencapture -x -V 300 shots/demo.mov &
+# ffmpeg, which ends on SIGINT, where screencapture -V ran on past its limit
+# while the screen stood still; Matroska stays readable if it is cut off
+ffmpeg -loglevel error -f avfoundation -capture_cursor 1 -framerate 30 -i "Capture screen 0:none" \
+  -c:v libx264 -preset ultrafast -pix_fmt yuv420p shots/demo.mkv < /dev/null &
 recorder=$!
+until [ -s shots/demo.mkv ]; do sleep 0.2; done
 start=$(now)
 sleep 3
 
@@ -139,13 +143,6 @@ end=$(now)
 echo "recorded $(echo "$end - $start" | bc) seconds"
 
 screencapture -x shots/last.png
-# screencapture checks its limit only as frames come, and it writes one
-# only when the screen changes, so a still screen keeps it running
 kill -INT "$recorder"
-for _ in $(seq 20); do kill -0 "$recorder" 2> /dev/null || break; sleep 1; done
-while kill -0 "$recorder" 2> /dev/null; do
-  osascript -e 'tell application "System Events" to keystroke " "' -e 'tell application "System Events" to key code 51'
-  sleep 1
-done
 wait "$recorder"
 echo "failures: $failures"

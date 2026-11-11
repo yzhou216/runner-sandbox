@@ -24,6 +24,8 @@ jobs:
       - name: Setup
         run: |
           sw_vers
+          command -v ffmpeg || HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
+          ffmpeg -hide_banner -f avfoundation -list_devices true -i "" 2>&1 | grep -i screen || true
           # Account for the dialogs that ask for a password: the runner's
           # own if a guess finds its password, or else a new administrator
           # on a machine that lives for this job alone

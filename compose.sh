@@ -5,9 +5,8 @@
 
 # compose.sh <shots directory> <output.mp4> <font file>
 #
-# Burns the captions of captions.tsv into a band under demo.mov and ends
-# the video three seconds after the last caption, since screencapture
-# gives its last frame a duration of many minutes.
+# Burns the captions of captions.tsv into a band under demo.mkv and ends
+# the video three seconds after the last caption.
 set -eu
 shots=$1 output=$2 font=$3
 texts=$(mktemp -d)
@@ -23,5 +22,5 @@ for i in "${!captions[@]}"; do
   filters+=":fontcolor=white:fontsize=26:x=(w-text_w)/2:y=h-45"
   filters+=":enable='between(t,${times[$i]},$until)'"
 done
-ffmpeg -loglevel error -y -i "$shots/demo.mov" -t "$end" -vf "$filters" \
+ffmpeg -loglevel error -y -i "$shots/demo.mkv" -t "$end" -vf "$filters" \
   -c:v libx264 -crf 23 -pix_fmt yuv420p -movflags +faststart "$output"
