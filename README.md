@@ -4,43 +4,53 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq's Darwin installer package
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session tested `cinq-0.1.3-aarch64-darwin.pkg`, the unsigned flat
+package that `nix build .#darwin-pkg` makes on GNU/Linux with cpio, mkbom
+(bomutils 0.2 with hogliux/bomutils#34), and xar under faketime.  It holds
+two components: `cinq.app` for `/Applications`, owned root:admin, and the
+`cinq` link, manual pages, and completions for `/usr/local`, owned
+root:wheel, both with `overwrite-permissions="false"`.  The package itself
+is cinq's, under GPL-3.0-or-later.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+[`darwin-pkg.yml`](.github/workflows/darwin-pkg.yml) installs it with
+`installer`, compares the directories that the payloads share with the
+system before and after ([`stat.sh`](stat.sh)), reads the receipts, runs
+`cinq --version` from `PATH`, finds the manual pages with `man -w` and the
+zsh completion through `fpath`, opens the app, installs again over it,
+opens the package in Installer, and opens a copy marked as downloaded by
+Safari.
 
-## Setup
+## Results
 
-Fork this repository, then clone it into the agent's skills directory:
+Run 42957668774 passed on `macos-15` (Darwin 15.8.2, 24H232) and `macos-26`
+(Darwin 26.7.2, 25G332); `macos-latest` was also 26.7.2 in runs
+42956243152 and 42956305333.  `macos-14` no longer starts ("The
+configuration 'macos-14-arm64-us-default' is not supported").
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- `installer` reports "The install was successful", and a second install
+  "The upgrade was successful".  `pkgutil` lists `io.yiyuzhou.cinq` in
+  `Applications` and `io.yiyuzhou.cinq.cli` in `usr/local`, with every file.
+- Directories that were there keep their owner and mode, including
+  `/usr/local/bin` and `/usr/local/share` owned by runner:admin with mode
+  775.  Missing ones, such as `/usr/local/share/zsh/site-functions`, are
+  made root:wheel with mode 755.
+- `cinq --version` runs through `/usr/local/bin/cinq`; `man -w` finds
+  cinq(1), cinq(5), and cinq-show(5); zsh autoloads `_cinq`.  The app
+  starts with `open`.
+- `pkgutil --check-signature` says "no signature", and `spctl --assess
+  --type install` rejects the package ("no usable signature").  Installer
+  logs the trust failure but installs from the command line regardless.
+- A double click on the package opens Installer at "Welcome to the cinq
+  Installer".  A copy with `com.apple.quarantine` set by Safari opens
+  Gatekeeper's dialog instead: "cinq.pkg" Not Opened, "Apple could not
+  verify "cinq.pkg" is free of malware", with Move to Trash and Done.
+  `open` waits for an answer there, so the workflow runs it in the
+  background.
+- `sudo installer -pkg` installs the quarantined copy; the installed app,
+  program, and link carry no extended attributes, so the app starts with
+  no Gatekeeper prompt.
+- `codesign --verify --strict` fails on the bundle ("code has no resources
+  but signature indicates they must be present"), since only the linker
+  signs the program ad hoc; the app starts anyway.
