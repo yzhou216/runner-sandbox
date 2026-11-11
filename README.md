@@ -4,43 +4,46 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_emu: directory layout
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session rewrote the history of
+[yzhou216/rv64_emu](https://github.com/yzhou216/rv64_emu) on a hosted
+runner:
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+- the first three commits of master, the course starter code, its
+  reformat in kernel style, and the removal of the rv_state typedef, became
+  one initial commit by the author;
+- the sources moved into `src` and the test programs into `progs` in every
+  commit of master and c2y, with a Makefile that finds them through
+  `VPATH`;
+- every commit took its message from
+  [rebuild/messages.py](rebuild/messages.py).
 
-## Setup
+[rebuild/relayout.py](rebuild/relayout.py) checks that moving the files
+and editing the Makefile are the only differences from the original
+branches, and [rebuild/verify.sh](rebuild/verify.sh) builds every commit
+of both branches with the RISC-V cross toolchain of nixpkgs `4fe25e1`
+(GCC 16.2.0) and tests it under `qemu-riscv64`.
 
-Fork this repository, then clone it into the agent's skills directory:
+## Runs
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+All on `ubuntu-latest`:
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+| Run | Result |
+|-----|--------|
+| [43094747354](https://github.com/yzhou216/runner-sandbox/actions/runs/43094747354) | Rewrote, built, and tested both branches; the artifact upload failed, since the artifact service answered with HTML |
+| [43098943720](https://github.com/yzhou216/runner-sandbox/actions/runs/43098943720) | Cancelled, since the log of the run before was enough |
 
-## Contributing
+## Outcome
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
+The rewritten master is `4a960e00887303d33502f2fd4aa66bcedbb1c333`, with
+25 commits, and the rewritten c2y is
+`3dabf0d2a88aa23fab1ac9f283229fbc224162f3`, with 15 more.  A run of
+relayout.py on the laptop produced the same commits, so they were pushed
+to rv64_emu from there instead of from the missing bundle.
 
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Every commit built without warnings.  The emulated results of the master
+commits match the native ones on all 41 base cases from the commit that
+adds `sw` on, and the master tip passes all 287 cases with every cache
+configuration.  Every c2y commit from the one that adds the tests on
+passes all of its cases, 371 at first and 404 at the end.
