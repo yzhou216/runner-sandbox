@@ -9,11 +9,15 @@
 # source; the build stops short of the six hours that a job may take, and
 # out/ records how far it got and what failed.
 #
-# Builders run as root, as in runs 42949988380 and 42950170013, where byacc,
-# m4, and libtool failed within minutes, or as the build users that the port
-# creates.  Python's filelock, whose tests LLVM's tests pull into FreeBSD's
-# stdenv through psutil and pytest-xdist, stopped a native build in
-# NixOS/nixpkgs#585491, so one job skips them to tell how long the rest takes.
+# Nix 2.32 cannot sandbox builds on FreeBSD, so the bootstrap compiler found
+# the VM's own FreeBSD 15.1 headers in /usr/include, which clash with those of
+# Nixpkgs' FreeBSD 15.0 libc: m4, gettext, and nghttp2 failed to compile in run
+# 42954331591.  The VM's headers and its libraries for linking are hidden here.
+#
+# Builders run as root or as the build users that the port creates.  Python's
+# filelock, whose tests LLVM's tests pull into FreeBSD's stdenv through psutil
+# and pytest-xdist, stopped a native build in NixOS/nixpkgs#585491, so one job
+# skips them to tell how long the rest takes.
 on:
   push:
     paths: [.github/workflows/freebsd-native-nix.yml, scripts/*.awk]
@@ -76,6 +80,11 @@ jobs:
             chmod 0600 /usr/swap0
             mdconfig -a -t vnode -f /usr/swap0 -u 99
             swapon /dev/md99
+            # Programs keep running, since they load the versioned libraries
+            mv /usr/include /usr/include.hidden
+            mkdir /usr/lib.hidden
+            find /usr/lib -maxdepth 1 \( -name '*.so' -o -name '*.a' \) -exec mv {} /usr/lib.hidden \;
+            ls /usr/lib.hidden | wc -l
             mkdir /root/nixpkgs
             tar -xzf nixpkgs.tar.gz -C /root/nixpkgs --strip-components 1
             patch -s -d /root/nixpkgs -p1 < tzdata.patch
