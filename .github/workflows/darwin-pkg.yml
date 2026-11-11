@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-26, macos-15, macos-14]
+        os: [macos-26, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@main
@@ -95,6 +95,26 @@ jobs:
           sleep 15
           screencapture -x shots/quarantined.png
           kill %1 || true
+      - name: Privacy & Security after the block
+        timeout-minutes: 3
+        run: |
+          open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
+          sleep 10
+          screencapture -x shots/settings.png
+          osascript -e '
+            tell application "System Events" to tell process "System Settings"
+              set found to {}
+              repeat with element in (entire contents of window 1)
+                try
+                  if class of element is button then set end of found to (name of element as text)
+                end try
+              end repeat
+              set anyway to (every button of (entire contents of window 1) whose name is "Open Anyway")
+              if anyway is not {} then perform action "AXScrollToVisible" of item 1 of anyway
+              return found
+            end tell' || true
+          sleep 2
+          screencapture -x shots/settings-open-anyway.png
       - name: Install the quarantined copy from a terminal
         run: |
           sudo installer -pkg ~/Downloads/cinq.pkg -target /
