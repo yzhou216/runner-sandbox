@@ -14,8 +14,7 @@ two components: `cinq.app` for `/Applications`, owned root:admin, and the
 tutorial, the tutorial and its demo for `/usr/local`, owned root:wheel,
 both with `overwrite-permissions="false"`.  The second component was
 `io.yiyuzhou.cinq.cli` before the tutorial and `io.yiyuzhou.cinq.local`
-since.  The package itself
-is cinq's, under GPL-3.0-or-later.
+since.  The package itself is cinq's, under GPL-3.0-or-later.
 
 [`darwin-pkg.yml`](.github/workflows/darwin-pkg.yml) installs it with
 `installer`, compares the directories that the payloads share with the
