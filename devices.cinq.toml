@@ -1,0 +1,16 @@
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Music"
+file = "music.flac"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "video"
+name = "Film"
+file = "film.mp4"

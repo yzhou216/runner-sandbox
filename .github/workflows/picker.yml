@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Records cinq of the tree in cinq/ choosing its audio device from the list
+# in its sidebar with demo.sh: a headless sway session with the main window
+# on one output and the stage window on another, and a PulseAudio server
+# with two null sinks, whose monitors are recorded apart
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  picker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#wf-recorder nixpkgs#ffmpeg nixpkgs#pulseaudio
+          nix build --out-link alsa-plugins --inputs-from ./cinq nixpkgs#alsa-plugins
+      - name: Make the media of the show
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir show
+          cp devices.cinq.toml show/
+          bash media.sh show
+      - name: Record cinq choosing its audio device
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          export ALSA_PLUGIN_DIR
+          ALSA_PLUGIN_DIR=$(readlink -f alsa-plugins)/lib/alsa-lib
+          timeout -k 10 300 ./demo.sh result-cinq/bin/cinq show out
+          ls -l out
+          echo "--- devices"
+          cat out/devices.tsv
+          echo "--- cinq"
+          cat out/cinq.log
+          for file in out/config-*.toml; do
+            echo "--- $file"
+            cat "$file"
+          done
+          grep -H "Sink:" out/inputs-*.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: recording
+          path: out
+          if-no-files-found: ignore
