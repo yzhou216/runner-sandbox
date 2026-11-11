@@ -1,4 +1,4 @@
-./ui click --contains Allow 20 || true#!/usr/bin/env bash
+./ui click --contains Allow 60 || true#!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
@@ -51,7 +51,7 @@ sleep 3
 
 caption "Safari downloads cinq's package from GitHub"
 open -a Safari "$url"
-./ui click --contains Allow 20 || true
+./ui click --contains Allow 60 || true
 for _ in $(seq 60); do [ -f ~/Downloads/$package ] && break; sleep 1; done
 sleep 3
 xattr -p com.apple.quarantine ~/Downloads/$package
