@@ -18,7 +18,7 @@ defaults:
     shell: bash
 env:
   BASE: 5d83c6211b5ef9a5feb9202445a1a15e2a0a0f08
-  EXPECTED: 2bbf448b652b435f6f1d16424d7e39f8b2f8c818
+  EXPECTED: 71888a18123195c492a4cc582829322dd86e23c5
 jobs:
   compare:
     name: Compare commits ${{ matrix.first }} to ${{ matrix.last }}

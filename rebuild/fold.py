@@ -237,7 +237,7 @@ def fold_emu(src, header, n):
     """Files of the emulator from rv_emu.c and rv_emu.h."""
     year = spdx_year(src)
     cs = ctop.chunks(src)
-    assert '' not in cs, 'double blank line'
+    assert not any(c.startswith('\n') for c in cs), 'double blank line'
     if year:
         cs = cs[1:]
     sys = sys_includes([c for c in cs if ctop.name(c) == '#include'])
@@ -407,7 +407,7 @@ def accept(chunk):
 def fold_front(src, n, max_array):
     year = spdx_year(src)
     cs = ctop.chunks(src)
-    assert '' not in cs, 'double blank line'
+    assert not any(c.startswith('\n') for c in cs), 'double blank line'
     if year:
         cs = cs[1:]
     sys = sys_includes([c for c in cs if ctop.name(c) == '#include'])

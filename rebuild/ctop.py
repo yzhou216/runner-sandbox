@@ -50,20 +50,23 @@ def chunks(src):
     """Return the top-level chunks of src as strings without newlines at
     their ends."""
     assert src.endswith('\n'), 'missing final newline'
-    out, cur = [], []
+    out, cur, blank = [], [], 0
     state = (0, False)
     for line in src[:-1].split('\n'):
-        if not line.strip() and state == (0, False):
+        if not line and state == (0, False):
             if cur:
                 out.append('\n'.join(cur))
                 cur = []
             else:
-                out.append('')
+                blank += 1  # Each further blank line starts the next chunk
             continue
+        if not cur:
+            cur, blank = [''] * blank, 0
         cur.append(line)
         state = depth_after(line, state)
-    if cur:
-        out.append('\n'.join(cur))
+    assert cur and not blank, 'blank lines at the end'
+    out.append('\n'.join(cur))
+    assert join(out) == src, 'chunks do not give back the source'
     return out
 
 
