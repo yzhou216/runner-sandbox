@@ -111,3 +111,14 @@ Lessons for later recordings:
   administrator whose password only `dscl . -passwd` set for sure.
 - In AppleScript, `dialog` and `label` cannot name loop variables inside
   `tell process`.
+
+## Built on Darwin
+
+From cinq 7b4bc97 on, `.#darwin-pkg` builds on aarch64-darwin as well,
+from the native build of cinq.  Run 43167953195 on `macos-latest` (Darwin
+26.7.2), [`darwin-native.yml`](.github/workflows/darwin-native.yml), built
+it there with the same tools (`nix build --rebuild` found it the same),
+whose `<creation-time>` was the commit's time in UTC, so `faketime` and
+`TZ=UTC` work on Darwin too.  `installer` installed it, and `cinq
+--version`, `man -w cinq`, and the app ran.  It holds no tutorial, which
+only GNU/Linux builds.
