@@ -14,7 +14,9 @@ words of the cache, past the end of the slots for more than 4096
 words.  The set-associative cache of commits 17 and 18 is a stub that
 caches one word per slot at a fixed offset and searches four ways
 whatever the configuration, so it returns wrong instruction words.  The
-output of those cases depends on the layout of the C code.
+output of those cases depends on the layout of the C code.  Before the
+commit that checks more arguments, 41, int_to_str loops forever for
+bases 0 and 1 and overruns its buffer until it crashes.
 """
 import sys
 
@@ -51,6 +53,8 @@ def reason(args, n):
     geometry = cache(words)
     if n in (17, 18) and '-sa' in words:
         return 'set-associative stub'
+    if n < 41 and 'int_to_str' in words and words[-2:] in (['-o', '0'], ['-o', '1']):
+        return 'int_to_str overruns its buffer'
     if n < 37 and geometry:
         if not valid(*geometry):
             return 'geometry that the simulator cannot model'

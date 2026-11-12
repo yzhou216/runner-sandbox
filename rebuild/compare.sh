@@ -43,6 +43,11 @@ git -C "$repo" rev-list --reverse "$base" >"$tmp/orig"
 git -C "$repo" rev-list --reverse refs/fold/master >"$tmp/fold"
 [ "$(wc -l <"$tmp/orig")" -eq 43 ] && [ "$(wc -l <"$tmp/fold")" -eq 43 ] || exit 2
 
+# Crashing runs exit at once instead of racing the timeout with a core
+# dump, as in tests/run.sh
+# shellcheck disable=SC3045 # dash and bash have ulimit -c
+ulimit -c 0
+
 status=0
 n=$first
 while [ "$n" -le "$last" ]; do
