@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Folds the modular layout of rebuild/fold.py into every commit of
+# yzhou216/rv64_emu with rebuild/rewrite.py and checks that the result is
+# the history that the laptop built.  rebuild/compare.sh then builds every
+# original commit and its rewritten counterpart with the RISC-V toolchain
+# of the flake and checks that both print the same output for every test
+# case, and the first rewritten commit with a flake, which has no CI yet,
+# gets the nix flake check that CI runs on later ones.  The laptop pushes
+# the commits, since nothing here can write to rv64_emu.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  BASE: 5d83c6211b5ef9a5feb9202445a1a15e2a0a0f08
+  EXPECTED: 2bbf448b652b435f6f1d16424d7e39f8b2f8c818
+jobs:
+  compare:
+    name: Compare commits ${{ matrix.first }} to ${{ matrix.last }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {first: 1, last: 7}
+          - {first: 8, last: 14}
+          - {first: 15, last: 21}
+          - {first: 22, last: 28}
+          - {first: 29, last: 35}
+          - {first: 36, last: 43}
+    steps:
+      - uses: wimpysworld/nothing-but-nix@v12
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Rewrite the history
+        run: |
+          git clone https://github.com/yzhou216/rv64_emu "$RUNNER_TEMP/rs"
+          REPO="$RUNNER_TEMP/rs" python3 -I rebuild/rewrite.py
+          test "$(git -C "$RUNNER_TEMP/rs" rev-parse refs/fold/master)" = "$EXPECTED"
+      - name: Compare the commits
+        run: |
+          nix develop "git+file://$RUNNER_TEMP/rs?rev=$BASE" -c \
+            rebuild/compare.sh "$RUNNER_TEMP/rs" ${{ matrix.first }} ${{ matrix.last }} out
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: compare-${{ matrix.first }}-${{ matrix.last }}
+          path: out/
+  flake:
+    name: nix flake check of commit 27 on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: wimpysworld/nothing-but-nix@v12
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Rewrite the history
+        run: |
+          git clone https://github.com/yzhou216/rv64_emu "$RUNNER_TEMP/rs"
+          REPO="$RUNNER_TEMP/rs" python3 -I rebuild/rewrite.py
+          test "$(git -C "$RUNNER_TEMP/rs" rev-parse refs/fold/master)" = "$EXPECTED"
+      - name: Check the commit that adds the flake
+        run: |
+          rev=$(git -C "$RUNNER_TEMP/rs" rev-list --reverse refs/fold/master | sed -n 27p)
+          git -C "$RUNNER_TEMP/rs" log -1 --format='%H %s' "$rev"
+          nix flake check -L "git+file://$RUNNER_TEMP/rs?rev=$rev"
