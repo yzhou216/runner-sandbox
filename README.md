@@ -4,43 +4,39 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_emu: renames
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session folded a set of renames of variables, struct members, and
+struct tags into every commit of master and c2y of
+[yzhou216/rv64_emu](https://github.com/yzhou216/rv64_emu), so that each
+name appears in its new form in the commit that introduces it.  The names
+lost types (`rsp`, `csp`, `block_base_iw_ptr`, `cache_st`, `signed_imm`),
+a scope prefix (`g_verbose`), and abbreviations (`iw`, `i_count`,
+`b_index`, `numer`), among others.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+[rebuild/rename.py](rebuild/rename.py) holds the renames, which
+[rebuild/ctok.py](rebuild/ctok.py) applies to the identifiers of the
+function that holds them, along with the comments that named them and the
+lines that the longer names push past 80 columns.
+[rebuild/rewrite.py](rebuild/rewrite.py) rewrote the history from a fresh
+clone, and [rebuild/same-code.sh](rebuild/same-code.sh) built every
+original commit and its rewritten counterpart with the RISC-V toolchain of
+the flake, without hardening and without PIE, whose GOT follows the names
+of the symbols, and compared their code and data.
 
-## Setup
+## Runs
 
-Fork this repository, then clone it into the agent's skills directory:
+All on `ubuntu-latest`:
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+| Run | Result |
+|-----|--------|
+| [43195659927](https://github.com/yzhou216/runner-sandbox/actions/runs/43195659927) | Passed |
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+## Outcome
 
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+The rewrite reproduced the history that the laptop built: master
+`6d758ff711e9eb4089e5c3ea4877e452c5d6e3d3`, with 28 commits, and c2y
+`5d83c6211b5ef9a5feb9202445a1a15e2a0a0f08`, with 15 more.  All 43
+rewritten commits compiled to the same `.text`, `.rodata`, `.data`,
+`.sdata`, and `.srodata` as their originals, so the renames change no
+behavior.  The laptop pushed both branches to rv64_emu.
