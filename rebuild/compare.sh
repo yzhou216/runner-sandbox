@@ -10,6 +10,10 @@
 # and print the same output.  Before the commit that links the assembly
 # first, the cache hits and misses depend on the size of the C objects
 # linked before the assembly, so only those lines may differ there.
+# cases.py leaves out the cases whose output depends on the layout of
+# the C code in the original commit, and lists them in <n>.skipped.  The
+# folded first commit may warn that rv_exec() does not use state, since
+# the switch of the starter code has no case yet.
 #
 # Usage: compare.sh <repo> <first> <last> <outdir>
 #
@@ -42,6 +46,7 @@ git -C "$repo" rev-list --reverse refs/fold/master >"$tmp/fold"
 status=0
 n=$first
 while [ "$n" -le "$last" ]; do
+	python3 -I "$(dirname "$0")/cases.py" "$tmp/cases" "$n" "$out/$n.skipped" >"$tmp/run"
 	for kind in orig fold; do
 		rev=$(sed -n "${n}p" "$tmp/$kind")
 		dir=$tmp/$n-$kind
@@ -53,13 +58,18 @@ while [ "$n" -le "$last" ]; do
 			status=1
 		fi
 		sed -n 's/^[^ ]*:[0-9]*:[0-9]*: \(warning: .*\)/\1/p' "$out/$n-$kind.build" | sort >"$out/$n-$kind.warnings"
+		if [ "$n" -eq 1 ] && [ "$kind" = fold ]; then
+			grep -v -x "warning: unused parameter ‘state’ \[-Wunused-parameter\]" "$out/$n-$kind.warnings" >"$tmp/w"
+			[ "$(wc -l <"$tmp/w")" -eq $(($(wc -l <"$out/$n-$kind.warnings") - 1)) ] || status=1
+			mv "$tmp/w" "$out/$n-$kind.warnings"
+		fi
 		set -f
 		while IFS= read -r args || [ -n "$args" ]; do
 			printf '$ %s\n' "$args"
 			# shellcheck disable=SC2086 # Each case splits into arguments
 			(cd "$dir" && timeout -s KILL 10 qemu-riscv64 ./rv64_emu $args 2>&1 </dev/null)
 			printf '[exit %d]\n' $?
-		done <"$tmp/cases" >"$out/$n-$kind.out"
+		done <"$tmp/run" >"$out/$n-$kind.out" 2>/dev/null
 		set +f
 		if [ "$n" -lt 30 ]; then
 			grep -v '^\(Hits\|Misses\|Misses (cold)\|Misses (hot)\|% Used\) ' "$out/$n-$kind.out" >"$out/$n-$kind.cmp"
@@ -78,7 +88,7 @@ while [ "$n" -le "$last" ]; do
 		head -40 "$out/$n.diff"
 		status=1
 	else
-		echo "$n: same output for $(grep -c '^\$ ' "$out/$n-fold.out") cases, $(wc -l <"$out/$n-fold.warnings") warnings"
+		echo "$n: same output for $(grep -c '^\$ ' "$out/$n-fold.out") cases, $(wc -l <"$out/$n.skipped") skipped, $(wc -l <"$out/$n-fold.warnings") warnings"
 	fi
 	n=$((n + 1))
 done
