@@ -60,7 +60,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends pkg-config \
             libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
             libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers \
-            libxkbcommon-x11-0 xvfb ffmpeg
+            libxkbcommon-x11-0 xvfb xdotool ffmpeg
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: milestone-1
@@ -69,7 +69,7 @@ jobs:
         run: cargo build --locked --features test
       - name: Start Xvfb
         run: |
-          Xvfb :99 -screen 0 1280x800x24 &
+          Xvfb :99 -screen 0 1024x1024x24 &
           echo DISPLAY=:99 >> "$GITHUB_ENV"
       - name: Record hard-drop-hold-0 at normal speed
         run: ./record.sh hard-drop-hold-0 config-0.json false 2

@@ -33,6 +33,10 @@ print(math.ceil((t["secs"] + t["nanos"] / 1e9) * 64) + 192)
   echo '])'
 } > "$work/ci.ron"
 
+# The test feature compiles out setup_window, so give the window the size
+# that it sets, 900 by 900, from outside.
+xdotool search --sync --name '^blox$' windowsize 900 900 &
+
 (
   cd "$work"
   CI_TESTING_CONFIG=$work/ci.ron \
@@ -41,13 +45,31 @@ print(math.ceil((t["secs"] + t["nanos"] / 1e9) * 64) + 192)
     "$data/$config" --test "$data/$name.json" --check-scores "$check_scores"
 ) 2>&1 | tee "$root/videos/$name.log"
 
+wait
+
+# Drop the frames drawn before the window was resized
+python3 -I -c '
+import os, struct, sys
+kept = 0
+for path in sorted(sys.argv[1:]):
+    with open(path, "rb") as png:
+        size = struct.unpack(">II", png.read(24)[16:24])
+    if size == (900, 900):
+        kept += 1
+    else:
+        assert kept == 0, f"{path} is {size} after the resize"
+        os.remove(path)
+print(f"kept {kept} of {len(sys.argv) - 1} frames")
+' "$work"/screenshot-*.png
+
 frames=("$work"/screenshot-*.png)
+echo "first frame: ${frames[0]##*/}"
 cp "${frames[-1]}" "$root/videos/$name-last.png"
 size=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height \
   -of csv=s=x:p=0 "${frames[-1]}")
 ffmpeg -loglevel error -y -framerate 32 -pattern_type glob \
   -i "$work/screenshot-*.png" \
-  -vf "scale=${size/x/:},pad=ceil(iw/2)*2:ceil(ih/2)*2" \
+  -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" \
   -c:v libx264 -crf 18 -pix_fmt yuv420p "$root/videos/$name.mp4"
 echo "$name: ${#frames[@]} frames at $size"
 
