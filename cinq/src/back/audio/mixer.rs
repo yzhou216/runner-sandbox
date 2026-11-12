@@ -17,7 +17,11 @@ mod tests;
 
 use std::{
     iter,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 use kira::backend::{
@@ -41,6 +45,11 @@ const COMMANDS: usize = 4096;
 /// the thread of the stream
 const SOUNDS: usize = 1024;
 
+/// Time without a call for sound after which a stream counts as stopped,
+/// longer than the 1.9 seconds that a new stream on the ALSA plugin of
+/// PulseAudio waits after its first calls
+const STALL: Duration = Duration::from_secs(3);
+
 pub(super) struct Mixer {
     /// Stream of the device, which plays as long as the mixer is kept
     _stream: Stream,
@@ -48,8 +57,13 @@ pub(super) struct Mixer {
     gone: Consumer<Gone>,
     sample_rate: u32,
     channels: u16,
-    /// Why the stream stopped, which it tells from its own thread
-    failure: Arc<Mutex<Option<String>>>,
+    /// Latest error of the stream, which it tells from its own thread
+    error: Arc<Mutex<Option<String>>>,
+    /// Moment the stream started, from which `called` counts
+    started: Instant,
+    /// Nanoseconds after `started` of the latest call of the stream for
+    /// sound
+    called: Arc<AtomicU64>,
     /// Identity that the next sound takes
     next: u64,
 }
@@ -80,15 +94,22 @@ impl Mixer {
         let (commands, taken) = RingBuffer::new(COMMANDS);
         let (handed, gone) = RingBuffer::new(COMMANDS);
         let mut mix = Mix::new(usize::from(config.channels), SOUNDS, taken, handed);
-        let failure = Arc::new(Mutex::new(None));
-        let failed = Arc::clone(&failure);
+        let error = Arc::new(Mutex::new(None));
+        let told = Arc::clone(&error);
+        let started = Instant::now();
+        let called = Arc::new(AtomicU64::new(0));
+        let calling = Arc::clone(&called);
         let stream = found
             .build_output_stream(
                 config,
-                move |out: &mut [f32], _: &cpal::OutputCallbackInfo| mix.render(out),
-                move |error| {
-                    if let Ok(mut failure) = failed.lock() {
-                        failure.get_or_insert_with(|| error.to_string());
+                move |out: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    mix.render(out);
+                    let since = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+                    calling.store(since, Ordering::Relaxed);
+                },
+                move |error: cpal::Error| {
+                    if let Ok(mut latest) = told.lock() {
+                        *latest = Some(error.to_string());
                     }
                 },
                 None,
@@ -101,7 +122,9 @@ impl Mixer {
             gone,
             sample_rate: config.sample_rate,
             channels: config.channels,
-            failure,
+            error,
+            started,
+            called,
             next: 0,
         })
     }
@@ -138,9 +161,19 @@ impl Mixer {
         iter::from_fn(|| self.gone.pop().ok()).for_each(drop);
     }
 
-    /// Returns why the stream stopped, if it has
+    /// Returns why the stream stopped, if it has asked for no sound for
+    /// [`STALL`]: the latest error that it told, if any.  Its errors alone
+    /// do not tell, since ALSA plays on after an underrun or a failed look
+    /// at its buffer, where WASAPI ends the stream after any failed call.
     pub(super) fn failure(&self) -> Option<String> {
-        self.failure.lock().ok().and_then(|failure| failure.clone())
+        let called = Duration::from_nanos(self.called.load(Ordering::Relaxed));
+        (self.started.elapsed().saturating_sub(called) >= STALL).then(|| {
+            self.error
+                .lock()
+                .ok()
+                .and_then(|error| error.clone())
+                .unwrap_or_else(|| "the device stopped asking for sound".to_owned())
+        })
     }
 
     fn send(&mut self, command: Command) -> Result<(), String> {

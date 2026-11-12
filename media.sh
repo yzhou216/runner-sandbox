@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Makes the sound of the audio cue of desk.cinq.toml in the directory SHOW
-# with ffmpeg: a minute of an arpeggio around A4 at 0.3 of full scale, the
-# same on both channels, whose RMS level is -13.5 dBFS on each.
+# with ffmpeg: a minute of an arpeggio around A4 at 0.3 of full scale,
+# which ffmpeg puts on both channels 3 dB lower, so that each peaks at
+# -13.5 dBFS and has an RMS level of -16.5 dBFS.
 #
 # Usage: media.sh SHOW
 set -euo pipefail

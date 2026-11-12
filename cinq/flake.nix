@@ -31,6 +31,7 @@
         ./flake/distro.nix
         ./flake/devshell.nix
         ./flake/checks.nix
+        ./flake/update.nix
       ];
       systems = nixpkgs.lib.systems.flakeExposed;
     };

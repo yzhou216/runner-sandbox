@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+on: {schedule: [{cron: '0 6 * * 1'}], workflow_dispatch: null}
+permissions: {actions: write, contents: write}
+concurrency: update
+jobs:
+  update:
+    name: lock files updated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - id: update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          base=$(git rev-parse HEAD)
+          nix run .#update > "$RUNNER_TEMP/held-back"
+          sed 's/^/- /' "$RUNNER_TEMP/held-back" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(git rev-parse HEAD)" != "$base" ]; then
+            git push --force origin HEAD:refs/heads/update
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+      # Pushes with this token start no workflows, but dispatches do, and
+      # master takes the commits only once every workflow passes on them
+      - if: steps.update.outputs.sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.update.outputs.sha }}
+        run: |
+          workflows=$(cd .github/workflows && ls | grep -vx update.yml)
+          for workflow in $workflows; do
+            gh workflow run "$workflow" --ref update
+          done
+          until [ "$(gh run list --commit "$SHA" --event workflow_dispatch --json databaseId --jq length)" = "$(wc -w <<< "$workflows")" ]; do
+            sleep 10
+          done
+          for run in $(gh run list --commit "$SHA" --event workflow_dispatch --json databaseId --jq '.[].databaseId'); do
+            gh run watch "$run" --exit-status --interval 60 > /dev/null
+          done
+          git push origin HEAD:refs/heads/master
+          git push origin --delete update

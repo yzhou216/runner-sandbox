@@ -55,7 +55,7 @@ impl Action {
             Action::Panic => "Panic: fade everything out, or stop it at once",
             Action::Next => "Select the next cue or menu option",
             Action::Previous => "Select the previous cue or menu option",
-            Action::NextList => "Show the next cue list, or the outputs after the last",
+            Action::NextList => "Show the next cue list, then the outputs",
             Action::PreviousList => "Show the previous cue list",
             Action::First => "Select the first cue, or the row counted",
             Action::Last => "Select the last cue, or the row counted",

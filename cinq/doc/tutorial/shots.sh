@@ -158,4 +158,44 @@ launch
 keys o
 sleep 1
 shot added
+
+# Same show once the cue plays the rain and the show has an output for each
+# speaker, then the rain sent to the left one alone.  Selecting the text of
+# a field first makes typing replace it.
+keys i
+keys -M ctrl a -m ctrl
+keys rain
+keys -k Tab
+keys sounds/rain.flac
+keys -k Return
+keys l
+# Adds an output below the selected one, named $1, on the channels $2
+output() {
+  keys o
+  keys i
+  keys -M ctrl a -m ctrl
+  keys "$1"
+  keys -k Tab
+  keys -k Tab
+  keys -M ctrl a -m ctrl
+  keys "$2"
+  keys -k Return
+}
+output Left 1
+output Right 2
+sleep 1
+shot outputs
+keys h
+keys gt
+keys gt
+# Tab passes the list of the kind of cue to add, the list of the default
+# device, the level, and the field of Main on its way to that of Left
+for _ in 1 2 3 4 5; do keys -k Tab; done
+keys 0
+keys -M shift -k Tab -m shift
+keys -M ctrl a -m ctrl
+keys -k BackSpace
+keys -k Return
+sleep 1
+shot sends
 quit

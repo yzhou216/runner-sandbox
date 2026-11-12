@@ -13,7 +13,7 @@ Major changes and improvements in each release of cinq, newest first.
 - `nix build .#demo` builds the demo shows with the sounds, picture, and
   film that they play, which `doc/demo/build.sh` generates with ffmpeg, in
   place of the `demo` branch and its files in Git LFS.
-- A tutorial in eight chapters runs the storm show of the demo.
+- A tutorial in nine chapters runs the storm show of the demo.
   `nix build .#doc` builds it on GNU/Linux into
   `share/doc/cinq/tutorial.pdf`, with screenshots that it takes of cinq in
   a headless sway session, and puts the demo beside it in
@@ -52,11 +52,12 @@ Major changes and improvements in each release of cinq, newest first.
   of each cue, as cinq-show(5) describes.  A show without outputs plays on
   the first two channels of the default device, as before.  An output that
   cannot play says why among the warnings, and the cues play on the others.
-- Outputs, below the cue lists in the sidebar, shows the outputs of the show
-  in place of the cue list, each with its device, its channels, and why it
-  cannot play where it cannot, and the inspector edits the one selected.
-  The keys that select, add, move, and delete cues do the same to outputs
-  there, and the key of the next cue list reaches them past the last one.
+- The Outputs entry below the cue lists in the sidebar shows the outputs of
+  the show in place of the cue list, each with its device, its channels, and
+  why it cannot play where it cannot, and the inspector edits the one
+  selected.  The keys that select, add, move, and delete cues do the same to
+  outputs there, and the key of the next cue list reaches them past the last
+  one.
 - The Levels tab of an audio or video cue sets the level at which the cue
   sends to each output of the show, and a field left empty sends nothing
   there.
