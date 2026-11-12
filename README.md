@@ -4,43 +4,52 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# milestone-1: gameplay video and checks without hold
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+`milestone-1/` is a `git archive` of the `hold` branch of the Bevy 0.18
+block-dropping game, commit `b0d075fc693e077281665bd34eadf8e2e8fa8cfa`, which
+has every required feature enabled.  It keeps the license of its project.
+All jobs ran on `ubuntu-24.04`, rendering with Mesa's llvmpipe through Vulkan.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## Gameplay video
 
-## Setup
+The `video` job builds the game with the `test` feature and replays two of the
+instructor's recordings in its `--test` mode, which checks the game state
+against the recorded snapshots at every fixed step.  `record.sh` makes
+Bevy's CI testing plugin save a screenshot of every second (or eighth) frame
+under Xvfb and joins them into a 32 fps video.  Each frame advances the game
+by exactly 1/64 s, so the timing in the videos is exact and does not depend on
+how fast the runner renders.
 
-Fork this repository, then clone it into the agent's skills directory:
+- `hard-drop-hold-0.mp4`: seeded random bag (`config-0.json`), hard drop and
+  hold, at normal speed (51 s).
+- `level-up.mp4`: deterministic bag, scoring and two level-ups, at four
+  times normal speed (78 s for 5 min 10 s of play).
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+Both replays logged `Passed with 0 mismatched states` and end with "Test
+Passes!" on screen.  The `test` feature compiles out the game's
+`setup_window`, so the script resizes the window to the 900 by 900 that
+`setup_window` sets with `xdotool`, and drops the frames drawn before the
+resize (none and one).
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+## Checks without hold
 
-## Contributing
+The `checks` matrix runs the course CI's commands (`cargo fmt --check`,
+`cargo clippy --no-default-features --features ci -- -D warnings`, and
+`cargo nextest run --no-default-features --features ci --retries 2`), once as
+committed and once with `hold` removed from `enabled_features`.
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
+- fmt and clippy pass both ways.
+- Without hold, 56 of 58 tests pass; with hold, 60 or 61 of 62.
+- In both, the failures are `basic_stacking` and `gravity_and_input`, which
+  pace themselves with `thread::sleep` and fail on these runners whether or
+  not hold is enabled.  The course CI's container passed every test on the same
+  commit.
 
-## License
+## Runs
 
-Licensed under `0BSD OR CC0-1.0`.
+- 43117491682: checks without hold as above; video failed because
+  `libxkbcommon-x11-0` was missing.
+- 43119594492: both checks as above; videos recorded but cropped to Bevy's
+  default 1280 by 720 window.
+- 43127369809: both checks as above; final videos, in the `videos` artifact.
