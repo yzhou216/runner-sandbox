@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+on:
+  push:
+    paths: [.github/workflows/darwin-native.yml]
+defaults:
+  run:
+    shell: bash
+env:
+  flake: github:yzhou216/cinq/7b4bc979f97a276625bfcb0561f5bc5480f7f3f5
+jobs:
+  build:
+    name: cinq's Darwin package built on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: |
+          sw_vers
+          nix build "$flake#darwin-pkg" -L
+          ls -l result/
+          shasum -a 256 result/*.pkg
+      - name: Rebuild
+        run: nix build "$flake#darwin-pkg" --rebuild
+      - name: Contents
+        run: |
+          pkgutil --expand-full result/*.pkg expanded
+          cat expanded/Distribution expanded/*.pkg/PackageInfo
+          find expanded -path '*/Payload/*' | sed 's|^expanded/||' | sort
+          nix shell nixpkgs#xar -c xar --dump-toc=toc.xml -f result/*.pkg
+          grep creation-time toc.xml
+      - name: Install
+        run: |
+          sudo installer -pkg result/*.pkg -target /
+          command -v cinq
+          cinq --version
+          man -w cinq
+          pkgutil --pkgs | grep cinq
+          ls -l /Applications/cinq.app/Contents/MacOS
+          ls /usr/local/share/doc/cinq 2> /dev/null || echo "no tutorial"
+          open /Applications/cinq.app
+          sleep 10
+          pgrep -l cinq
