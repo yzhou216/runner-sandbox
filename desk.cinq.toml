@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Four outputs that share alsa:desk, a device of eight channels, and a cue
+# that sends where new cues send: to House alone
+
+[[output]]
+name = "House"
+device = "alsa:desk"
+device_name = "Desk"
+channels = "1-2"
+new_cues = 0.0
+
+[[output]]
+name = "Sub"
+device = "alsa:desk"
+device_name = "Desk"
+channels = "3"
+
+[[output]]
+name = "Monitors"
+device = "alsa:desk"
+device_name = "Desk"
+channels = "5-6"
+
+[[output]]
+name = "Lobby"
+device = "alsa:desk"
+device_name = "Desk"
+channels = "7-8"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Music"
+file = "music.flac"

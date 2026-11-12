@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read}
+jobs:
+  build:
+    name: cinq for ${{ matrix.host }} built on ${{ matrix.system }}
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux]
+        host: [x86_64-windows, aarch64-windows]
+        include:
+          - {system: x86_64-linux, os: ubuntu-latest}
+          - {system: aarch64-linux, os: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: cachix/cachix-action@master
+        with:
+          name: yzhou216
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          pushFilter: -cinq- # cinq's own builds, which change with every commit
+      - run: nix build .#${{ matrix.host }} && cp result/bin/cinq.exe cinq-${{ matrix.host }}-built-on-${{ matrix.system }}.exe # Program alone, all that Windows needs
+      - uses: actions/upload-artifact@main
+        with:
+          path: cinq-${{ matrix.host }}-built-on-${{ matrix.system }}.exe
+          archive: false
+  run:
+    name: cinq for ${{ matrix.host }} built on ${{ matrix.system }}, run on ${{ matrix.host }}
+    needs: build
+    if: ${{ !cancelled() }} # Builds that succeeded still run when another failed
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux]
+        host: [x86_64-windows, aarch64-windows]
+        include:
+          - {host: x86_64-windows, os: windows-latest}
+          - {host: aarch64-windows, os: windows-11-arm}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@main
+        with:
+          name: cinq-${{ matrix.host }}-built-on-${{ matrix.system }}.exe
+      - run: ./cinq-${{ matrix.host }}-built-on-${{ matrix.system }}.exe --version

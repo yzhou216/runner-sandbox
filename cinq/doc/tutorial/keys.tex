@@ -1,0 +1,90 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Keys}
+\label{ch:keys}
+
+\section{Keymaps}
+
+cinq ships two keymaps.  The vi keymap, the default, moves with letters such
+as \key{j} and \key{k}, and uses two-key sequences for some actions, such as
+\key{d d}.  The cua keymap follows IBM's Common User Access, like most
+desktop programs: \key{Control} with a letter edits, and \key{F1} opens the
+help page.  Both put GO on \key{Space} and Panic on \key{Escape}, as QLab
+does, and share the other keys used in this tutorial: \key{ArrowUp},
+\key{ArrowDown}, \key{Enter}, \key{Alt} with those arrows, \key{Control+s},
+\key{Control+o}, and \key{F11}.
+
+The actions that this tutorial performed with buttons and clicks also have
+keys, which differ between the keymaps:
+
+\begin{center}
+\begin{tabular}{lll}
+\hline
+Action & vi & cua \\
+\hline
+Add a cue below the selection & \key{o} & \key{Control+n} \\
+Delete the selected cue & \key{d d} & \key{Delete} \\
+Edit the name of the selected cue & \key{i} & \key{F2} \\
+Undo the latest change & \key{u} & \key{Control+z} \\
+Redo the change undone last & \key{Control+r} & \key{Control+y} \\
+Show the next cue list & \key{l} & \key{Control+PageDown} \\
+Show the next inspector tab & \key{g t} & \key{Control+Tab} \\
+Show or hide the help & \key{?} & \key{F1} \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{The help page}
+
+\begin{enumerate}
+\item Press the help key that the status bar names, \key{?} in the vi
+  keymap.  The help page lists every action with its keys and its name in
+  the configuration file, as Figure~\ref{fig:help} shows.
+\item Press the same key again to close the page.  GO and Panic also close
+  it, so that the show stays in view while it runs.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/help.png}
+  \caption{Help page of the vi keymap}
+  \label{fig:help}
+\end{figure}
+
+\section{Key sequences}
+
+Some actions in the vi keymap take more than one key, such as \key{g g},
+which selects the first cue.
+
+\begin{enumerate}
+\item Press \key{g}.  The status bar shows the keys typed so far, and a box
+  lists the keys that can follow, as in Figure~\ref{fig:keys}.
+\item Press \key{g} again.  The first cue is selected.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/keys.png}
+  \caption{Keys that can follow \key{g}}
+  \label{fig:keys}
+\end{figure}
+
+A number typed first repeats the action: \key{3 j} moves the selection three
+rows down, and \key{3 d d} deletes three cues.  The keys for GO and Panic act
+immediately, even in the middle of a sequence.
+
+\section{Changing the keys}
+
+The configuration file, \texttt{config.toml}, selects the keymap and binds
+actions to other keys.  The help page links to it, and following the link
+creates the file if it does not exist.  cinq rereads the file whenever it
+changes, so edits take effect as soon as the file is saved.  The manual page
+\texttt{cinq(5)} describes every setting and lists the keys of both keymaps.
+
+\section*{Exercise}
+
+You can now find the key for any action and choose the keys that suit you.
+Switch to the cua keymap, as the examples in \texttt{cinq(5)} show, and open
+the help page with \key{F1}.

@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read}
+jobs:
+  packages: # For other distributions of GNU/Linux, and for Darwin
+    name: packages built on ${{ matrix.system }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            system: x86_64-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@main
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nix build .#deb .#rpm .#archlinux .#darwin-pkg
+          cp result*/* .
+      - uses: actions/upload-artifact@main
+        with:
+          name: cinq-${{ matrix.system }}-packages
+          path: |
+            cinq_*.deb
+            cinq-*.rpm
+            cinq-*.pkg.tar.zst
+            cinq-*-aarch64-darwin.pkg
+  install:
+    name: Darwin package built on ${{ matrix.system }}, installed on aarch64-darwin
+    needs: packages
+    strategy:
+      matrix:
+        system: [x86_64-linux]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/download-artifact@main
+        with:
+          name: cinq-${{ matrix.system }}-packages
+      - run: |
+          sudo installer -pkg cinq-*-aarch64-darwin.pkg -target /
+          cinq --version
