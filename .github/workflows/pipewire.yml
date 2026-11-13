@@ -42,7 +42,7 @@ jobs:
           bash media.sh show
           export ALSA_PLUGIN_DIR PW_JACK
           ALSA_PLUGIN_DIR=$(readlink -f pw)/lib/alsa-lib
-          PW_JACK=$(readlink -f pw-1)/lib
+          PW_JACK=$(readlink -f pw-1-jack)/lib
           ls "$ALSA_PLUGIN_DIR" "$PW_JACK"
           timeout -k 10 300 dbus-run-session -- ./pipewire.sh result-cinq/bin/cinq show out
       - name: Measure each channel
