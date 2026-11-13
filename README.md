@@ -4,43 +4,42 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: the device of a JACK server
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This branch plays cinq on `jack:output`, the device of a JACK server, which
+connects each channel that cinq opens to the playback port with its number,
+where PulseAudio spreads a stream of fewer channels than its sink over all
+of them.  `cinq/` holds the tree of the `audio-outputs` branch of
+yzhou216/cinq at the commit that made its JACK host list no input device,
+before ASIO.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What runs
 
-## Setup
+`.github/workflows/jack.yml` builds cinq with `nix build ./cinq` and runs
+`jack.sh` with jackd, jack_lsp, and jack_capture from Nixpkgs, and with
+LD_LIBRARY_PATH naming Nixpkgs' libjack, which cinq loads at run time.
 
-Fork this repository, then clone it into the agent's skills directory:
+- `jack.sh` starts jackd with its dummy backend of eight playback ports and
+  plays two shows on `jack:output`: `partial.cinq.toml`, whose outputs need
+  three channels, and `full.cinq.toml`, whose outputs fill eight, House on
+  1-2, Sub on 3, Monitors on 5-6, and Lobby on 7-8, at 0, 0, -6, and -12 dB.
+- For each, `jack_lsp -c` tells where the ports of cinq connect, and
+  `jack_capture --port 'system:playback*'` records what reaches the eight
+  playback ports.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Results
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+Run 43464407715 on `ubuntu-latest` passed.  Run 43462392972 before it gave
+jack_capture options that it does not take, and listed `jack:input` among
+the devices, which cinq now leaves out.
 
-## Contributing
+- `cinq --audio-devices` listed `alsa:null` and `jack:output`.
+- For the partial show, cinq opened three ports, `out_0` to `out_2`,
+  connected to `system:playback_1` to `system:playback_3`; for the full
+  show, eight, each to the playback port of its number.
+- Levels in dBFS RMS, with `-` for silence:
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+| Show    | 1     | 2     | 3     | 4 | 5     | 6     | 7     | 8     |
+| ------- | ----- | ----- | ----- | - | ----- | ----- | ----- | ----- |
+| partial | -16.5 | -16.5 | -16.5 | - | -     | -     | -     | -     |
+| full    | -16.5 | -16.5 | -16.5 | - | -22.5 | -22.5 | -28.5 | -28.5 |
