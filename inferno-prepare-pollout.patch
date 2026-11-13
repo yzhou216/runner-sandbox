@@ -1,5 +1,5 @@
 diff --git i/alsa_pcm_inferno/src/lib.rs w/alsa_pcm_inferno/src/lib.rs
-index 420d615..cf535d6 100644
+index 420d615..0a507e9 100644
 --- i/alsa_pcm_inferno/src/lib.rs
 +++ w/alsa_pcm_inferno/src/lib.rs
 @@ -469,6 +469,17 @@ unsafe extern "C" fn plugin_prepare(io: *mut snd_pcm_ioplug_t) -> c_int {
@@ -20,3 +20,20 @@ index 420d615..cf535d6 100644
      0
  }
  
+@@ -583,8 +594,14 @@ unsafe extern "C" fn plugin_demangle_revents(
+                 SND_PCM_STREAM_CAPTURE => POLLIN,
+                 _ => return -libc::EINVAL,
+             };
+-            let mut blackhole: [u64; 1] = [0];
+-            libc::read((*pfd).fd, blackhole.as_mut_ptr() as *mut c_void, 8);
++            // A playback stream that has not started stays writable until
++            // the app has written enough to start it, so its event stays
++            let waiting = (*io).stream == SND_PCM_STREAM_PLAYBACK
++                && get_private(io).start_time.is_none();
++            if !waiting {
++                let mut blackhole: [u64; 1] = [0];
++                libc::read((*pfd).fd, blackhole.as_mut_ptr() as *mut c_void, 8);
++            }
+         }
+         *revents = out_events as _;
+     } else {
