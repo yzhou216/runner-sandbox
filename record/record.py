@@ -106,11 +106,12 @@ def wait_window(timeout=90):
 
 
 def wait_port(timeout=60):
+    """Wait for the remote interface with a request that it answers, since
+    a connection that closes without one ends its server thread."""
     end = time.time() + timeout
     while time.time() < end:
         try:
-            socket.create_connection(('127.0.0.1', PORT), timeout=2).close()
-            return
+            return remote('measure')
         except OSError:
             time.sleep(1)
     raise TimeoutError('no remote port')
@@ -135,6 +136,7 @@ def record(repo, out, java, jar, prog):
 
     log = open(f'{out}/{name}.log', 'w')
     digital = subprocess.Popen([java, '-jar', jar, top], stdout=log, stderr=subprocess.STDOUT)
+    video = None
     try:
         win = wait_window()
         time.sleep(3)
@@ -168,8 +170,9 @@ def record(repo, out, java, jar, prog):
         subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-f', 'x11grab', '-video_size',
                         f'{WIDTH}x{HEIGHT}', '-i', os.environ['DISPLAY'], '-frames:v', '1',
                         f'{out}/{name}.png'], check=True)
-        video.communicate(b'q', timeout=60)
     finally:
+        if video:
+            video.communicate(b'q', timeout=60)
         digital.terminate()
         try:
             digital.wait(timeout=20)
