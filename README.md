@@ -4,43 +4,23 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_emu: counters past 2^31
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Ran `rv64_emu -a -sa 64 4 2 fib_rec 40` from yzhou216/rv64_emu under
+`qemu-riscv64` on `ubuntu-latest`, built by the flake of each revision,
+before and after the counters of the instruction mix and of the cache
+became 64 bits.  fib_rec 40 executes 3146022663 instructions, 19 times
+fib(41) less 16, which no 32-bit int holds.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## Outcome
 
-## Setup
+Run 43377103656 (f7f9ee6):
 
-Fork this repository, then clone it into the agent's skills directory:
+- 104c8ab, with int counters, printed `Instructions Executed  = -1148944633`
+  and `References    = -1148944633`, the count less 2^32, along with
+  percentages such as -100.88% that follow from it.  It took 9 minutes 53
+  seconds.
+- de32944, with 64-bit counters, printed 3146022663 for both, and 36.84%
+  for R-type and I-type instructions.  It took 6 minutes 48 seconds.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Both returned 102334155 from the C version, the assembly, and the emulator.
