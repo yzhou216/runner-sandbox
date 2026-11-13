@@ -20,7 +20,9 @@ src=$(mktemp -d)/inferno
 git clone --quiet https://github.com/teodly/inferno.git "$src"
 git -C "$src" checkout --quiet "$commit"
 git -C "$src" submodule --quiet update --init --recursive
-(cd "$src" && nix develop "$cinq" -c cargo build --release --locked -p alsa_pcm_inferno)
+# Profile roots the shell, which a collection of garbage on a full disk
+# would otherwise take away midway
+(cd "$src" && nix develop "$cinq" --profile "$src/shell" -c cargo build --release --locked -p alsa_pcm_inferno)
 cp "$src/target/release/libasound_module_pcm_inferno.so" "$out/"
 gcc -O2 -o "$out/fake_usrvclock_server" \
   "$src/test/dockerized_trx/fake_usrvclock_server/fake_usrvclock_server.c"

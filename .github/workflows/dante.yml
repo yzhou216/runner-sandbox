@@ -30,12 +30,10 @@ jobs:
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Build cinq, Inferno, and the tools of the session
         run: |
-          ./inferno.sh cinq inferno > inferno-build.log 2>&1 &
-          inferno=$!
           nix build --out-link result-cinq ./cinq
           nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
             nixpkgs#grim nixpkgs#ffmpeg nixpkgs#alsa-utils
-          if ! wait "$inferno"; then
+          if ! ./inferno.sh cinq inferno > inferno-build.log 2>&1; then
             tail -n 80 inferno-build.log
             exit 1
           fi
