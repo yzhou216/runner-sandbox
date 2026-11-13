@@ -52,3 +52,23 @@ jobs:
         with:
           name: osc
           path: out
+  # cinq's light output with sACN, from a snapshot of commits not yet
+  # pushed, for later runs to fetch
+  cinq-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nix build ./cinq#x86_64-windows
+          mkdir cinq-windows && cp -rL result/. cinq-windows/ && ls -R cinq-windows | head -20
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinq-windows
+          path: cinq-windows

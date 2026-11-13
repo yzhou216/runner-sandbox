@@ -26,7 +26,13 @@ $deadline = (Get-Date).AddMinutes(12)
 for ($i = 0; (Get-Date) -lt $deadline; $i++) {
     Start-Sleep 3
     $tree = Snapshot 'start'
-    if (-not $viz) { $viz = Press $tree 'w/ ?viz' }
+    # Console mode comes first, as two buttons with only a logo each, Eos
+    # on the left and Element 2 on the right
+    if ($tree | Where-Object { $_.Name -eq 'Please select your console mode' }) {
+        $logo = $tree | Where-Object { $_.Kind -eq 'Button' -and -not $_.Name } | Select-Object -First 1
+        if ($logo) { Log 'press the first logo, Eos'; Activate $logo; continue }
+    }
+    if (-not $viz) { $viz = Press $tree 'w/ ?viz' 'Button|RadioButton|ListItem|Text|Custom' }
     $null = (Press $tree 'I accept|I agree|accept the') -or (Press $tree '^(OK|Continue|Accept|Start|Launch)$')
     if ($i % 7 -eq 0) {
         Shot ('start-{0:D3}' -f $i)

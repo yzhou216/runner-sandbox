@@ -1,0 +1,88 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Running a show}
+\label{ch:running}
+
+cinq is a cue-based show controller in the spirit of QLab.  A show is a list
+of cues, each of which does one thing, such as playing a sound or fading it
+out.  The operator runs the show by pressing GO, which fires the next cue.
+
+\section{Getting the show}
+
+This tutorial comes with a storm show, in the \texttt{demo} directory beside
+this PDF, such as \texttt{/usr/share/doc/cinq/demo}, along with the sounds,
+picture, and film that the show plays.
+
+\begin{enumerate}
+\item Copy the \texttt{demo} directory to a place of your own, such as your
+  home directory.  Chapter~\ref{ch:cues} saves a show of your own there,
+  which the installed directory does not allow.
+\item Start cinq, press \key{Control+o}, and open \texttt{storm.cinq.toml}
+  in your copy.
+\end{enumerate}
+
+cinq's README explains how to install cinq.  Before the first GO, make sure
+that the computer's sound is on.
+
+\section{The first GO}
+
+The main window opens as shown in Figure~\ref{fig:window}.  The transport at
+the top names the cue on standby, which the next GO fires: cue~1, House open,
+with its notes for the operator.  Below it is the cue list, and to its right
+the sidebar shows the show's cue lists, its active cues, and any warnings.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/window.png}
+  \caption{Main window as the storm show opens}
+  \label{fig:window}
+\end{figure}
+
+\begin{enumerate}
+\item Press \ui{GO} or \key{Space}.  The preshow music starts, and the
+  sidebar lists it under \ui{Active} with a progress bar and a \ui{Stop}
+  button, as Figure~\ref{fig:playing} shows.
+\item Press \ui{Panic} or \key{Escape}.  The music fades out over one second
+  and stops.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/playing.png}
+  \caption{Main window after the first GO, with the preshow music playing}
+  \label{fig:playing}
+\end{figure}
+
+Cue~1 is a memo cue, which does nothing itself; it continues immediately to
+cue~2, which plays the music, as Chapter~\ref{ch:sequences} explains.  After
+each GO, standby moves past the cues that the GO fired, so cue~3 is now on
+standby.
+
+Panic fades out every playing cue over one second and stops every other
+active cue.  A second panic during the fade stops everything at once.  The
+keys for GO and Panic work anywhere in cinq, even while you type in a field.
+
+\section{Standby}
+
+GO fires the cue on standby, which is not necessarily the selected cue.
+
+\begin{enumerate}
+\item Click cue~7, Thunder crack, or select it with \key{ArrowDown}.  The
+  inspector below the list shows its settings, but the transport still names
+  cue~3.
+\item Press \ui{Standby selected} or \key{Enter}.  The transport now names
+  cue~7, and the \texttt{State} column marks it \texttt{NEXT}\@.
+\item Press \ui{GO}\@.  The thunder crack plays.
+\end{enumerate}
+
+Selecting a cue changes only what the inspector shows, so the operator can
+examine any cue without changing what GO fires.  \ui{Pause all} pauses every
+running cue, and \ui{Resume all} resumes them.
+
+\section*{Exercise}
+
+You can now run a show: GO fires the cue on standby, Panic stops everything,
+and \ui{Standby selected} chooses the next cue.  Fire cue~4, Distant thunder,
+then put cue~1 back on standby to restart the show.

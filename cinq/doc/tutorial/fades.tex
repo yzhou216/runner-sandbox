@@ -1,0 +1,62 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Fading in and out}
+\label{ch:fades}
+
+A fade cue changes the level of another cue, its target, over time.  This
+chapter runs the fades of the storm show, then adds one to your own show.
+
+\section{Fades in the storm}
+
+Press \key{Control+o} and open \texttt{storm.cinq.toml}.
+
+\begin{enumerate}
+\item Select cue~5, Rain, press \ui{Standby selected}, and press \ui{GO}\@.
+  The rain starts quietly, at $-20$~dB, and loops.
+\item Press \ui{GO} again to fire cue~6, Rain up.  Over eight seconds, the
+  rain rises to $-6$~dB and keeps playing.
+\item Press \ui{GO} twice more.  Cue~7 plays a thunder crack, and cue~8,
+  Rain out, fades the rain out over ten seconds and stops it.
+\end{enumerate}
+
+Select cue~6 to see how it works.  On the \ui{Basics} tab, its \ui{Target}
+is cue~5 and its \ui{Duration} is 8 seconds.  On the \ui{Levels} tab, shown
+in Figure~\ref{fig:levels}, \ui{Fade target to} sets the level at which the
+fade ends.  \ui{Stop target when done} is cleared, so the rain keeps playing
+until cue~8 fades it out.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/levels.png}
+  \caption{\ui{Levels} tab of a fade cue that leaves its target playing}
+  \label{fig:levels}
+\end{figure}
+
+\section{A fade of your own}
+
+Press \key{Control+o} and open \texttt{my-show.cinq.toml}.
+
+\begin{enumerate}
+\item Select the rain, choose \ui{Fade} in the toolbar list, and press
+  \ui{Add cue}.  The new fade cue appears below the rain and targets it,
+  since a new fade cue targets the cue above it.  By default, it fades its
+  target to silence over five seconds and then stops it.
+\item Select the rain, press \ui{Standby selected}, and press \ui{GO} twice:
+  once to start the rain, and once to fade it out.
+\end{enumerate}
+
+The \ui{Target} list on the \ui{Basics} tab selects a different target, and
+the \ui{Duration} field sets a different length.  Clear \ui{Stop target when
+done} only for a fade that should leave its target playing, as cue~6 of the
+storm show does; a cue faded to silence but not stopped keeps running,
+inaudibly.  A stop cue, by contrast, stops its target immediately, without a
+fade.
+
+\section*{Exercise}
+
+You now know enough to build a show of sounds: cues that play them, and fades
+that bring them up and take them out.  Add a fade cue that brings your rain
+in from silence: set the rain's level to $-60$~dB, and fade it to $-10$~dB
+without stopping it.

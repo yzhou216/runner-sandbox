@@ -104,8 +104,14 @@ function Snapshot([string]$label) {
 function Press($tree, [string]$pattern, [string]$kinds = 'Button|RadioButton|CheckBox|ListItem|Hyperlink|MenuItem|TabItem') {
     $hit = $tree | Where-Object { $_.Kind -match $kinds -and $_.Name -match $pattern } | Select-Object -First 1
     if (-not $hit) { return $false }
-    $e = $hit.Element
     Log "press $($hit.Kind) '$($hit.Name)'"
+    Activate $hit
+}
+
+# Presses an element through UI Automation, or clicks its middle where it
+# offers no way to
+function Activate($hit) {
+    $e = $hit.Element
     try {
         $e.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); return $true
     } catch {}

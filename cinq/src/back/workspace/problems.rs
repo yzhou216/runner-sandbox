@@ -1,0 +1,50 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Why cues cannot play, and the files of cues that have yet to load or
+//! that could not be played
+
+use super::Workspace;
+use crate::back::{Cue, Kind, Media, Problem};
+
+impl Workspace {
+    pub fn problem<'a>(&self, cue: &'a Cue) -> Option<Problem<'a>> {
+        match cue.kind {
+            Kind::Audio | Kind::Video | Kind::Picture => match &cue.media {
+                _ if cue.file_name().is_none() => Some(Problem::NoFile),
+                Media::Unloaded => Some(Problem::NotLoaded),
+                Media::Failed(reason) => Some(Problem::LoadFailed(reason)),
+                Media::Loaded { .. } if cue.kind.plays_file() && cue.clip().is_none() => {
+                    Some(Problem::EmptyClip)
+                }
+                Media::Loaded { .. } => None,
+            },
+            Kind::Fade | Kind::Stop => match self.target(cue) {
+                Some(target) if cue.can_target(target) => None,
+                _ => Some(Problem::NoTarget),
+            },
+            Kind::Light | Kind::Wait | Kind::Memo => None,
+        }
+    }
+
+    pub fn problems(&self) -> impl Iterator<Item = (&Cue, Problem<'_>)> {
+        self.cues()
+            .filter_map(|cue| self.problem(cue).map(|problem| (cue, problem)))
+    }
+
+    pub fn unloaded(&self) -> impl Iterator<Item = &Cue> {
+        self.files_where(|media| *media == Media::Unloaded)
+    }
+
+    /// Returns the audio, video, and picture cues whose file could not be
+    /// played, to try again
+    pub fn failed(&self) -> impl Iterator<Item = &Cue> {
+        self.files_where(|media| matches!(media, Media::Failed(_)))
+    }
+
+    fn files_where(&self, test: fn(&Media) -> bool) -> impl Iterator<Item = &Cue> {
+        self.cues()
+            .filter(move |cue| cue.kind.has_file() && test(&cue.media) && cue.file_name().is_some())
+    }
+}
