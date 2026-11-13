@@ -4,43 +4,42 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# rv64_cpu: history rebuild
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This session checked the history of
+[yzhou216/rv64_cpu](https://github.com/yzhou216/rv64_cpu), a single-cycle
+64-bit RISC-V processor in Digital, which the laptop rebuilt from the
+private classroom repository of project06 with
+[rebuild/rebuild.py](rebuild/rebuild.py).  The script takes the files of
+every new commit from an original one, moved into the layout of
+rv64_cpu, folds the fix of the store unit and two debugging probes into
+the commits that they belong to, drops the commits that only cleaned
+up, and adds the commits from 2026 in [rebuild/overlay](rebuild/overlay):
+the README, the build variables, REUSE compliance, the flake, and CI.
+[rebuild/digdiff.py](rebuild/digdiff.py) and
+[rebuild/wirediff.py](rebuild/wirediff.py) compare circuits by their
+components and wires, which is how the folds were checked.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+[rebuild/matrix.sh](rebuild/matrix.sh) runs every test program on the
+processor of every commit in Digital, with the test cases that
+[rebuild/progtests.py](rebuild/progtests.py) writes, and compares the
+results with [rebuild/matrix.expected](rebuild/matrix.expected), which
+the laptop recorded.  The commit that adds the flake, which has no CI
+yet, got the nix flake check that CI runs on the commit after it.
 
-## Setup
+## Runs
 
-Fork this repository, then clone it into the agent's skills directory:
+| Run | Runners | Result |
+|-----|---------|--------|
+| [43344392400](https://github.com/yzhou216/runner-sandbox/actions/runs/43344392400) | `ubuntu-latest`, `ubuntu-24.04-arm` | Passed |
+| [43343263766](https://github.com/yzhou216/rv64_cpu/actions/runs/43343263766) | CI of rv64_cpu on `ubuntu-latest` and `ubuntu-24.04-arm` | Passed |
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Outcome
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Every commit of master `81d61f4d4e99aa54e3c7e91a3d944cc6d2b8fad8` gave
+the recorded results: each program passes from the commit that adds the
+instructions that it needs and loads it, sb and lb from the commit that
+adds them, since the store fix is folded into the data memory, and all
+24 from the commit that decodes slli and srli by funct6 on.  The commit
+that adds the flake passed nix flake check on x86_64 and aarch64, and so
+did the last commit in the CI of rv64_cpu.
