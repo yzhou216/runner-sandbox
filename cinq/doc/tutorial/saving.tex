@@ -1,0 +1,70 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Saving and Show mode}
+\label{ch:saving}
+
+\section{Saving}
+
+While a show has unsaved changes, the status bar shows \texttt{(unsaved)}
+after its name, along with the key that saves it, \key{Control+s}.
+\key{Control+S} saves the show to a different file, which the show uses from
+then on, and \key{Control+o} opens another show.
+
+cinq never discards unsaved changes:
+
+\begin{enumerate}
+\item In your own show, change the level of a cue, then close the main
+  window without saving.
+\item Start cinq again, press \key{Control+o}, and open
+  \texttt{my-show.cinq.toml}.  The change is still there, and the status bar
+  shows \texttt{(unsaved)}.
+\item Press the undo key that the status bar names.  The show returns to its
+  saved state.
+\end{enumerate}
+
+cinq records unsaved changes as they happen, in a separate file, so they
+survive closing the window, opening another show, or a crash.  When the show
+opens again, they return as a single change, which undo reverts to the saved
+show.
+
+\section{Show files and cue lists}
+
+A show file stores the show as TOML, a plain-text format that is easy to
+read, compare, and keep under version control.  Relative file paths in a show
+are resolved from the show file's directory, so a show and its media can move
+together.
+
+A show can hold several cue lists, such as the acts of a play or a set of
+sound effects to fire in any order:
+
+\begin{enumerate}
+\item In the storm show, click \ui{Effects} in the sidebar.  Its cues, E1
+  and E2, are effects for the operator to fire as needed.
+\item Select E2, Knock, press \ui{Standby selected}, and press \ui{GO}\@.
+\item Click \ui{Act 1}.  Its standby has not moved.
+\end{enumerate}
+
+Each list has its own standby cue, and GO fires the standby cue of the list
+shown.  Lists are added to a show file in a text editor, as the manual page
+\texttt{cinq-show(5)} describes along with every other setting.
+
+\section{Show mode}
+
+Lock editing before a performance:
+
+\begin{enumerate}
+\item Check \ui{Show mode} in the transport.  The status bar shows
+  \ui{Show mode} instead of \ui{Edit mode}, and the inspector becomes
+  read-only.
+\item Run the show as usual.  \ui{Add cue} and \ui{Delete cue} are disabled,
+  and undo and redo only move standby back and forth.
+\item Clear \ui{Show mode} to edit again.
+\end{enumerate}
+
+\section*{Exercise}
+
+You can now protect a show: save it to a file, rely on cinq to keep unsaved
+changes, and lock it for the performance.  Run the whole storm show in Show
+mode, from cue~1 of Act~1 to the film in Act~2.

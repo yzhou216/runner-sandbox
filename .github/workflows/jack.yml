@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ on the device of a JACK server, jackd with
+# its dummy backend, with jack.sh, and prints where its ports connect and
+# the level of each port.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  jack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#ffmpeg nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
+          nix build --out-link libjack --inputs-from ./cinq nixpkgs#libjack2
+      - name: Play on JACK
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir show
+          cp partial.cinq.toml full.cinq.toml show/
+          bash media.sh show
+          # Where cinq finds libjack, as it would in the system's libraries
+          export LD_LIBRARY_PATH
+          LD_LIBRARY_PATH=$(readlink -f libjack)/lib
+          timeout -k 10 300 ./jack.sh result-cinq/bin/cinq show out
+      - name: Measure each port
+        if: always()
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          for name in partial full; do
+            echo "--- $name: connections of cinq"
+            command grep -A1 '^cpal_client' "out/connections-$name.txt" || true
+            echo "--- $name: level of each port"
+            ./levels.sh "out/$name.wav" 0.5 | tee "out/levels-$name.tsv"
+          done
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: jack
+          path: out
+          if-no-files-found: ignore
