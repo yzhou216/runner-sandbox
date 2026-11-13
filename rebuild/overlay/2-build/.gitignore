@@ -1,0 +1,4 @@
+# What make writes, of which progs/hex keeps the images of the programs
+/progs/*.o
+/progs/*.hex
+/decode/decode.hex

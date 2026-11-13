@@ -1,0 +1,12 @@
+flake: open the processor in Digital with flake-parts
+
+nix run opens rv64_cpu.dig in Digital, and the development shell has
+Digital, the RISC-V binutils of Nixpkgs, which make finds through AS and
+OBJDUMP, Python, and reuse.
+
+nix flake check lints the repository with reuse, checks the formatting
+of the Nix, Markdown, shell, TOML, and YAML files, rebuilds the ROM
+images from the programs and the control words and compares them with
+the images in the repository and the ROMs in the circuits, and runs
+every program on the processor in Digital, which must reach the result
+that the program documents.

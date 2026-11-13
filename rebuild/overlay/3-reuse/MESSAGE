@@ -1,0 +1,6 @@
+treewide: make the repository reuse compliant
+
+Every file states its copyright and its license, GPL-3.0-or-later, in an
+SPDX header, or in REUSE.toml if it cannot hold a comment, and the text
+of the license is in LICENSES/GPL-3.0-or-later.txt, as the REUSE
+specification has it.  The README states the license as well.

@@ -1,0 +1,43 @@
+ 1 cab8c6c ------------------------ (no circuit)
+ 2 7be7834 ------------------------ (no circuit)
+ 3 cb05bb2 ++......++.............. rv64_cpu: add the single-cycle datapath
+ 4 8e40013 ++......++.............. decode: make room for sixteen instructions
+ 5 7171db9 +++.....++.............. rv64_cpu: execute sll
+ 6 1006717 ++++....++.............. rv64_cpu: execute slli
+ 7 d0a3097 +++++...++.............. rv64_cpu: execute srl
+ 8 f4bd603 ++++++..++.............. rv64_cpu: execute srli
+ 9 9a3b46d ++++++..++...+.......... rv64_cpu: execute mul
+10 ddb98b2 ++++++..++...++......... rv64_cpu: execute lui
+11 2862fa1 ++++++..++...++......... decode: invert WDsel
+12 21dd0e4 ++++++..++...++......... decode: draw the addi matcher like the others
+13 a41e65e ++++++..+++..++......... rv64_cpu: add the branch condition unit and beq
+14 c356795 ++++++..++++.++......... rv64_cpu: execute blt
+15 6894c0c ++++++..++++.++......... rv64_cpu: execute bne
+16 2c89813 ++++++..+++++++......... rv64_cpu: execute bge
+17 6a0cfc8 ++++++..+++++++.+....... inst-mem: load quadratic
+18 92a9124 ++++++..+++++++.+....... progs: keep the object files
+19 cdf0ae5 ++++++..+++++++.+....... inst-mem: load get_bitseq
+20 69e08b7 ++++++..+++++++.+....... rv64_cpu: execute sub
+21 10a216e ++++++..+++++++.+....... rv64_cpu: execute or and and
+22 4b563c2 ++++++..+++++++.++...... rv64_cpu: execute addiw
+23 7888818 ++++++..+++++++.++...... decode: generate the rom image with make
+24 26bb34a ++++++..+++++++.++...... rv64_cpu: add the data memory with load and store units
+25 1c0cdcc +++++++.+++++++.++...... rv64_cpu: execute ld and sd
+26 da99159 +++++++++++++++.++...... rv64_cpu: execute lw and sw
+27 4cf8255 ++++++++++++++++++...... rv64_cpu: execute lb and sb
+28 78e4fbd +++++++++++++++++++..... inst-mem: load max3
+29 0454344 ++++++++++++++++++++.... inst-mem: load fib_rec
+30 354347c +++++++++++++++++++++... inst-mem: load is_pal
+31 75e5adb ++++++++++++++++++++++.. inst-mem: load to_upper
+32 771f827 ++++++++++++++++++++++.+ inst-mem: load str_to_int
+33 f2427cc ++++++++++++++++++++++.+ inst-mem: load sort
+34 e6100aa ++++++++++++++++++++++++ decode: decode slli and srli by funct6
+35 0926de1 ++++++++++++++++++++++++ rv64_cpu: take shift amounts from the shamt field
+36 ebf9ab3 ++++++++++++++++++++++++ rv64_cpu: show pc on a probe
+37 fa35749 ++++++++++++++++++++++++ decode: invert m2r
+38 225bdf4 ++++++++++++++++++++++++ decode: document the control words
+39 9f4f5dd ++++++++++++++++++++++++ readme: describe the project
+40 598186a ++++++++++++++++++++++++ build: take the tools from AS, OBJDUMP, and PYTHON
+41 1b66c6b ++++++++++++++++++++++++ treewide: make the repository reuse compliant
+42 621271a ++++++++++++++++++++++++ flake: open the processor in Digital with flake-parts
+43 81d61f4 ++++++++++++++++++++++++ ci: run nix flake check on x86_64 and aarch64

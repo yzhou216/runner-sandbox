@@ -1,0 +1,6 @@
+build: take the tools from AS, OBJDUMP, and PYTHON
+
+The makefiles ran as and objdump by name, which a cross toolchain does
+not provide, and decode ran python, which many systems lack.  The
+defaults, as, objdump, and python3, leave native builds as they were,
+and git ignores what make writes.
