@@ -43,10 +43,17 @@ function Shot([string]$name) {
   $graphics.Dispose()
   $bitmap.Dispose()
 }
+# Recording device of VB-CABLE as DirectShow names it, which loops back
+# what its playback device plays
+$listed = (& ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1) | Out-String
+Set-Content (Join-Path $Out 'dshow.txt') $listed
+$capture = [regex]::Matches($listed, '"([^"]*VB-Audio[^"]*)" \(audio\)') |
+  ForEach-Object { $_.Groups[1].Value } | Select-Object -First 1
+"capture device: $capture"
 function Record([string]$name) {
   Start-Process ffmpeg -PassThru -NoNewWindow `
     -RedirectStandardError (Join-Path $Out "$name.log") `
-    -ArgumentList '-y', '-f', 'dshow', '-i', 'audio="CABLE Output (VB-Audio Virtual Cable)"',
+    -ArgumentList '-y', '-f', 'dshow', '-i', "audio=`"$capture`"",
       '-t', '10', (Join-Path $Out "$name.wav")
 }
 function Keys([string]$keys) {
@@ -58,9 +65,9 @@ function Keys([string]$keys) {
 
 & $Cinq --audio-devices > (Join-Path $Out 'devices.tsv')
 Get-Content (Join-Path $Out 'devices.tsv')
-$line = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match "`tCABLE Input" } |
+$line = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match "`t.*VB-Audio" } |
   Select-Object -First 1
-if (-not $line) { throw 'cinq lists no CABLE Input' }
+if (-not $line) { throw 'cinq lists no device of VB-CABLE' }
 $id, $name = $line -split "`t", 2
 
 $show = @"

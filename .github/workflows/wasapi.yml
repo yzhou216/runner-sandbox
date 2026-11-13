@@ -66,10 +66,11 @@ jobs:
         if: always()
         run: |
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          command -v ffmpeg
           echo "--- before the device went away"
-          ./levels.sh out/before.wav 1 | tee out/levels-before.tsv
+          bash levels.sh out/before.wav 1 | tee out/levels-before.tsv
           echo "--- after it came back"
-          ./levels.sh out/after.wav 1 | tee out/levels-after.tsv
+          bash levels.sh out/after.wav 1 | tee out/levels-after.tsv
       - if: always()
         uses: actions/upload-artifact@main
         with:
