@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Four outputs that fill the eight channels of the Dante device of cinq,
+# and a cue that sends where new cues send: to House alone
+
+[[output]]
+name = "House"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "1-2"
+new_cues = 0.0
+
+[[output]]
+name = "Sub"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "3"
+
+[[output]]
+name = "Monitors"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "5-6"
+
+[[output]]
+name = "Lobby"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "7-8"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Music"
+file = "music.flac"

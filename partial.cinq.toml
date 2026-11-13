@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Two outputs that need three channels of the eight, and a cue that sends
+# to both
+
+[[output]]
+name = "House"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "1-2"
+new_cues = 0.0
+
+[[output]]
+name = "Sub"
+device = "alsa:dante"
+device_name = "Dante"
+channels = "3"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Music"
+file = "music.flac"
+
+[list.cue.sends]
+House = 0.0
+Sub = 0.0

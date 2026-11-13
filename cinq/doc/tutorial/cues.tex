@@ -1,0 +1,97 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Making a cue}
+\label{ch:cues}
+
+This chapter creates a show of your own next to the storm show, with a cue
+that plays one of its sounds.  Besides audio cues, cinq provides video and
+picture cues, fade and stop cues, which act on other cues, and wait and memo
+cues; later chapters cover each of them.
+
+\section{A new show}
+
+Close the main window to quit cinq, then start it again.  It opens a new show
+with an empty cue list, named \texttt{untitled} until you save it.
+
+\section{Adding a cue}
+
+\begin{enumerate}
+\item Press \ui{Add cue} in the toolbar.  The list beside it sets the kind
+  of cue to add, \ui{Audio} by default.  The new cue has no file yet, so its
+  state reads \texttt{NO FILE}, and the sidebar shows a warning, as in
+  Figure~\ref{fig:added}.
+\item Press \ui{Choose} next to the \ui{File} field of the inspector, and
+  choose \texttt{rain.flac} in the \texttt{sounds} directory of your copy of
+  the demo.  The cue takes the file's name, \texttt{rain}, and the warning
+  disappears.
+\item Press \ui{GO}\@.  The rain plays once, for eight seconds.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/added.png}
+  \caption{New show, with an audio cue that has no file yet}
+  \label{fig:added}
+\end{figure}
+
+GO skips a cue that cannot play, and clicking its warning selects it.  The
+\ui{File} field also accepts a typed path, either absolute or relative to the
+show file's directory.
+
+\section{Setting the level}
+
+\begin{enumerate}
+\item Click the \ui{Levels} tab of the inspector.
+\item Drag the slider to $-20$~dB, or type \texttt{-20} in the field beside
+  it.
+\item Press \ui{Standby selected}, then \ui{GO}\@.  The rain plays more
+  quietly.  Move the slider while it plays: level changes apply immediately.
+\end{enumerate}
+
+Levels range from $-60$~dB, which is silent, to $+12$~dB\@.  At the default
+of 0~dB, the cue plays its file unchanged.
+
+\section{Looping and trimming}
+
+\begin{enumerate}
+\item Click the \ui{Time \& Loops} tab, and check \ui{Loop until stopped}.
+\item Press \ui{Standby selected}, then \ui{GO}\@.  The rain restarts each
+  time it reaches its end.
+\item Press the rain's \ui{Stop} button in the sidebar.
+\end{enumerate}
+
+\ui{Start} and \ui{End}, on the same tab, limit playback to part of the file,
+in seconds from its beginning.  In the storm show, cue~7 plays the thunder
+from 0.2 to 3.5 seconds, and \ui{Duration} shows the resulting length, as in
+Figure~\ref{fig:time}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/time.png}
+  \caption{\ui{Time \& Loops} tab of an audio cue that plays part of its
+    file}
+  \label{fig:time}
+\end{figure}
+
+\section{Editing the list}
+
+The \ui{Basics} tab holds the cue's \ui{Number}, which can be any text, such
+as \texttt{1}, \texttt{2.5}, or \texttt{E1}; its \ui{Name}; and its
+\ui{Notes}, which the transport shows while the cue is on standby.
+\key{Alt+ArrowUp} and \key{Alt+ArrowDown} move the selected cue up and down
+the list, and \ui{Delete cue} deletes it.
+
+The status bar at the bottom of the window shows each change along with the
+key that undoes it, and after an undo, the key that redoes it.  cinq never
+asks for confirmation, since undo is the way back.
+
+Press \key{Control+s}, and save the show as \texttt{my-show.cinq.toml} in
+your copy of the demo, where Chapter~\ref{ch:fades} opens it again.
+
+\section*{Exercise}
+
+You can now make a cue that plays a sound once or in a loop, at the level of
+your choice.  Add a second audio cue for \texttt{sounds/thunder.wav} that
+plays only its first two seconds.

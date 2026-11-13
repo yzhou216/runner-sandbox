@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ through an emulated Dante network with
+# dante.sh: Inferno, an unofficial implementation of Dante, stands in for
+# the Dante Virtual Soundcard and for the Dante card of a sound board, and
+# netaudio routes between them as Dante Controller would.  measure.sh then
+# prints the level of each channel that the board received at each step.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  dante:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq, Inferno, and the tools of the session
+        run: |
+          ./inferno.sh cinq inferno > inferno-build.log 2>&1 &
+          inferno=$!
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#grim nixpkgs#ffmpeg nixpkgs#alsa-utils
+          if ! wait "$inferno"; then
+            tail -n 80 inferno-build.log
+            exit 1
+          fi
+          ls -l inferno
+      - name: Install netaudio
+        run: |
+          sudo apt-get install -y python3-dev > /dev/null
+          python3 -m venv venv
+          CFLAGS=-Wno-int-conversion venv/bin/pip install --quiet netaudio==0.5.7
+          venv/bin/netaudio --help | head -20
+      - name: Make the network and the sound of the shows
+        run: |
+          sudo ip link add dante0 type dummy
+          sudo ip addr add 10.77.0.1/24 dev dante0
+          sudo ip link set dante0 multicast on up
+          ip addr show dante0
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir show
+          cp desk.cinq.toml partial.cinq.toml show/
+          bash media.sh show
+      - name: Play through the emulated Dante network
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          DANTE_IP=10.77.0.1 timeout -k 10 900 ./dante.sh result-cinq/bin/cinq show out inferno \
+            venv/bin/netaudio
+      - name: Measure each channel of the board
+        if: always()
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          ./measure.sh out | tee out/levels.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: dante
+          path: |
+            out
+            inferno-build.log
+          if-no-files-found: ignore
