@@ -5,8 +5,9 @@
 # Plays cinq.exe of the tree in cinq/, which run 43511163489 of this branch
 # cross-built with ASIO on GNU/Linux, with wasapi.ps1 on the playback
 # device of VB-CABLE, a virtual WASAPI device, which goes away and comes
-# back midway through the cue, and on FlexASIO, an ASIO driver that plays
-# on VB-CABLE in 32-bit integers, and prints the level of each channel.
+# back midway through the cue, and then loses the audio service of
+# Windows for a while, and on FlexASIO, an ASIO driver that plays on
+# VB-CABLE in 32-bit integers, and prints the level of each channel.
 on: push
 permissions:
   contents: read
@@ -38,7 +39,7 @@ jobs:
             https://github.com/dechamps/FlexASIO/releases/download/flexasio-1.10b/FlexASIO-1.10b.exe
           Start-Process -Wait FlexASIO.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
           Copy-Item FlexASIO.toml (Join-Path $env:USERPROFILE 'FlexASIO.toml')
-      - name: Play on VB-CABLE, which goes away and comes back
+      - name: Play on VB-CABLE, which goes away and comes back twice
         shell: pwsh
         run: |
           $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
@@ -54,7 +55,7 @@ jobs:
         if: always()
         run: |
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
-          for take in wasapi/before wasapi/after asio/before; do
+          for take in wasapi/before wasapi/enabled wasapi/started asio/before; do
             echo "--- $take"
             bash levels.sh "out/$take.wav" 1 | tee "out/$take.tsv" || true
           done

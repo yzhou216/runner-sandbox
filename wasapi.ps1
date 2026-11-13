@@ -8,10 +8,13 @@
 # device of its own, or FlexASIO, an ASIO driver that plays on it, as the
 # Dante Virtual Soundcard offers all of its channels as an ASIO driver.
 # What VB-CABLE plays is recorded through WASAPI's loopback.  With
-# -Revive, VB-CABLE is taken away midway through the cue and installed
-# again, as the Dante Virtual Soundcard goes away and comes back when it
-# restarts, and cinq should take the device up again by itself and go on
-# with the cue from where it is.
+# -Revive, the endpoint of VB-CABLE is disabled midway through the cue and
+# enabled again, as the Dante Virtual Soundcard goes away and comes back
+# when it restarts, and then the audio service of Windows stops and starts
+# again.  Each time cinq should take the device up again by itself and go
+# on with the cue from where it is.  Removing VB-CABLE's device node with
+# devcon cannot stand in, since Windows defers that until a reboot while
+# the device plays.
 #
 # Usage: wasapi.ps1 CINQ SOUND OUT MATCH [-Revive], with ffmpeg and Python
 # with soundcard on PATH, CINQ the program, SOUND the sound of the cue, and
@@ -112,26 +115,44 @@ Start-Sleep 6
 Shot 'playing'
 Stop-Process $recorder -ErrorAction SilentlyContinue
 if ($Revive) {
-  # devcon and the driver that LABSN/sound-ci-helpers left among the actions
-  $helpers = Get-ChildItem -Recurse -Path (Join-Path $env:RUNNER_WORKSPACE '..\_actions') -Filter devcon.exe |
-    Select-Object -First 1
-  $devcon = $helpers.FullName
-  $inf = Get-ChildItem -Recurse -Path $helpers.DirectoryName -Filter vbMmeCable64_win7.inf |
-    Select-Object -First 1
-  Mark 'gone'
-  # devcon takes instance IDs after an at sign
-  & $devcon remove '@ROOT\MEDIA\*' | Tee-Object -Append (Join-Path $Out 'pnp.txt')
+  # NirSoft's SoundVolumeView, which disables and enables an endpoint as
+  # the Sound control panel does, takes the ID of its endpoint
+  $svv = Join-Path $work 'SoundVolumeView.exe'
+  Invoke-WebRequest -OutFile (Join-Path $work 'svv.zip') https://www.nirsoft.net/utils/soundvolumeview-x64.zip
+  Expand-Archive (Join-Path $work 'svv.zip') $work
+  $endpoint = $id -replace '^wasapi:', ''
+  function Devices([string]$name) {
+    & $Cinq --audio-devices > (Join-Path $Out "devices-$name.tsv")
+    Start-Process -Wait $svv -ArgumentList '/scomma', (Join-Path $Out "endpoints-$name.csv")
+  }
+
+  Mark 'disabled'
+  Start-Process -Wait $svv -ArgumentList '/Disable', $endpoint
   Start-Sleep 6
-  & $Cinq --audio-devices > (Join-Path $Out 'devices-gone.tsv')
-  Shot 'gone'
-  & $devcon install $inf.FullName VBAudioVACWDM | Tee-Object -Append (Join-Path $Out 'pnp.txt')
-  Mark 'back'
+  Devices 'disabled'
+  Shot 'disabled'
+  Start-Process -Wait $svv -ArgumentList '/Enable', $endpoint
+  Mark 'enabled'
   # cinq tries every two seconds
   Start-Sleep 6
-  & $Cinq --audio-devices > (Join-Path $Out 'devices-back.tsv')
-  $recorder = Record 'after'
+  Devices 'enabled'
+  $recorder = Record 'enabled'
   Start-Sleep 6
-  Shot 'back'
+  Shot 'enabled'
+  Stop-Process $recorder -ErrorAction SilentlyContinue
+
+  # Audio service itself, which every stream of WASAPI goes through
+  Mark 'stopped'
+  Stop-Service Audiosrv -Force
+  Start-Sleep 6
+  Shot 'stopped'
+  Start-Service Audiosrv
+  Mark 'started'
+  Start-Sleep 6
+  Devices 'started'
+  $recorder = Record 'started'
+  Start-Sleep 6
+  Shot 'started'
   Stop-Process $recorder -ErrorAction SilentlyContinue
 }
 Mark 'end'
