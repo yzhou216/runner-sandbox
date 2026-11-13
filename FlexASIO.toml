@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# FlexASIO on the default WASAPI device, VB-CABLE, with no input, taking
+# 32-bit integers on two channels, as the ASIO driver of the Dante Virtual
+# Soundcard takes integers
+backend = "Windows WASAPI"
+
+[input]
+device = ""
+
+[output]
+channels = 2
+sampleType = "Int32"

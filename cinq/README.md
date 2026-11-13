@@ -58,6 +58,12 @@ Minimal cue-based show controller, the
 - D-Bus
 - XDG desktop portal with a file chooser
 
+#### Windows, with the feature `asio`
+
+- libclang, for bindgen
+- The ASIO SDK of Steinberg, which `CPAL_ASIO_DIR` names, under the GPL
+  version 3, one of its two licenses
+
 ### Installing
 
 `cargo install cinq` builds cinq from crates.io and installs its program

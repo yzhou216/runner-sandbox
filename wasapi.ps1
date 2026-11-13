@@ -2,23 +2,26 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays a show on CABLE Input, the playback device of VB-CABLE, a virtual
-# WASAPI device, as the Dante Virtual Soundcard in WDM mode offers each
-# pair of its channels as a device of its own, and records CABLE Output,
-# which loops back what CABLE Input plays.  Midway through the cue, the
-# device is disabled and enabled again, as the Dante Virtual Soundcard
-# goes away and comes back when it restarts.  cinq should take the device
-# up again by itself and go on with the cue from where it is.
+# Plays a show on a device that cinq lists, whose line in the list MATCH
+# matches: the playback device of VB-CABLE, a virtual WASAPI device, as the
+# Dante Virtual Soundcard in WDM mode offers each pair of its channels as a
+# device of its own, or FlexASIO, an ASIO driver that plays on it, as the
+# Dante Virtual Soundcard offers all of its channels as an ASIO driver.
+# What VB-CABLE plays is recorded through WASAPI's loopback.  With
+# -Revive, VB-CABLE is taken away midway through the cue and installed
+# again, as the Dante Virtual Soundcard goes away and comes back when it
+# restarts, and cinq should take the device up again by itself and go on
+# with the cue from where it is.
 #
-# Usage: wasapi.ps1 CINQ SOUND OUT, with ffmpeg on PATH, CINQ the program,
-# SOUND the sound of the cue, and OUT the directory for the recordings,
-# the screenshots, and marks.tsv
-param([string]$Cinq, [string]$Sound, [string]$Out)
+# Usage: wasapi.ps1 CINQ SOUND OUT MATCH [-Revive], with ffmpeg and Python
+# with soundcard on PATH, CINQ the program, SOUND the sound of the cue, and
+# OUT the directory for the recordings, the screenshots, and marks.tsv
+param([string]$Cinq, [string]$Sound, [string]$Out, [string]$Match, [switch]$Revive)
 $ErrorActionPreference = 'Stop'
 $Cinq = (Resolve-Path $Cinq).Path
 New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
-$work = Join-Path $env:RUNNER_TEMP 'wasapi'
+$work = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force $work | Out-Null
 Copy-Item $Sound (Join-Path $work 'music.flac')
 
@@ -60,10 +63,11 @@ function Keys([string]$keys) {
 
 & $Cinq --audio-devices > (Join-Path $Out 'devices.tsv')
 Get-Content (Join-Path $Out 'devices.tsv')
-$line = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match "`t.*VB-Audio" } |
+$line = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match $Match } |
   Select-Object -First 1
-if (-not $line) { throw 'cinq lists no device of VB-CABLE' }
+if (-not $line) { throw "cinq lists no device that matches $Match" }
 $id, $name = $line -split "`t", 2
+"playing on $id, $name"
 
 $show = @"
 [[output]]
@@ -95,12 +99,6 @@ Right = -6.0
 Set-Content -Path (Join-Path $work 'cable.cinq.toml') -Value $show -Encoding utf8NoBOM
 Copy-Item (Join-Path $work 'cable.cinq.toml') $Out
 
-# Driver of VB-CABLE itself, whose endpoints go when it is disabled, as
-# those of the Dante Virtual Soundcard go when it stops
-$device = Get-PnpDevice -Class MEDIA | Where-Object { $_.FriendlyName -like '*VB-Audio*' } |
-  Select-Object -First 1
-"device: $($device.InstanceId) $($device.FriendlyName) $($device.Status)" | Tee-Object (Join-Path $Out 'pnp.txt')
-
 $cinqProcess = Start-Process $Cinq -PassThru -WorkingDirectory $work -ArgumentList 'cable.cinq.toml' `
   -RedirectStandardError (Join-Path $Out 'cinq-err.txt')
 Start-Sleep 10
@@ -113,20 +111,27 @@ $recorder = Record 'before'
 Start-Sleep 6
 Shot 'playing'
 Stop-Process $recorder -ErrorAction SilentlyContinue
-Mark 'gone'
-Disable-PnpDevice -InstanceId $device.InstanceId -Confirm:$false
-Start-Sleep 1
-Get-PnpDevice -InstanceId $device.InstanceId, (Get-PnpDevice -Class AudioEndpoint).InstanceId |
-  Format-Table -AutoSize Status, Class, FriendlyName | Out-String | Add-Content (Join-Path $Out 'pnp.txt')
-Start-Sleep 6
-Shot 'gone'
-Enable-PnpDevice -InstanceId $device.InstanceId -Confirm:$false
-Mark 'back'
-# cinq tries every two seconds
-Start-Sleep 5
-$recorder = Record 'after'
-Start-Sleep 6
-Shot 'back'
-Stop-Process $recorder -ErrorAction SilentlyContinue
+if ($Revive) {
+  # devcon and the driver that LABSN/sound-ci-helpers left among the actions
+  $helpers = Get-ChildItem -Recurse -Path (Join-Path $env:RUNNER_WORKSPACE '..\_actions') -Filter devcon.exe |
+    Select-Object -First 1
+  $devcon = $helpers.FullName
+  $inf = Get-ChildItem -Recurse -Path $helpers.DirectoryName -Filter vbMmeCable64_win7.inf |
+    Select-Object -First 1
+  Mark 'gone'
+  & $devcon remove 'ROOT\MEDIA\*' | Tee-Object -Append (Join-Path $Out 'pnp.txt')
+  Start-Sleep 6
+  & $Cinq --audio-devices > (Join-Path $Out 'devices-gone.tsv')
+  Shot 'gone'
+  & $devcon install $inf.FullName VBAudioVACWDM | Tee-Object -Append (Join-Path $Out 'pnp.txt')
+  Mark 'back'
+  # cinq tries every two seconds
+  Start-Sleep 6
+  & $Cinq --audio-devices > (Join-Path $Out 'devices-back.tsv')
+  $recorder = Record 'after'
+  Start-Sleep 6
+  Shot 'back'
+  Stop-Process $recorder -ErrorAction SilentlyContinue
+}
 Mark 'end'
 Stop-Process $cinqProcess -ErrorAction SilentlyContinue

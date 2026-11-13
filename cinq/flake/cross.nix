@@ -33,6 +33,10 @@
           platform,
           env,
           install,
+          features ? [ ],
+          defaultFeatures ? true,
+          cargoDeps ? config.packages.cinq.cargoDeps,
+          prepare ? "",
         }:
         let
           target = platform.rust.rustcTarget;
@@ -40,7 +44,8 @@
         pkgs.stdenv.mkDerivation {
           pname = "${crate.name}-${platform.system}";
           inherit (crate) version;
-          inherit (config.packages.cinq) src cargoDeps;
+          inherit (config.packages.cinq) src;
+          inherit cargoDeps;
 
           nativeBuildInputs = [
             rust
@@ -56,7 +61,10 @@
 
           buildPhase = ''
             runHook preBuild
-            cargo build --frozen --release --target ${target}
+            ${prepare}
+            cargo build --frozen --release --target ${target} ${
+              lib.optionalString (!defaultFeatures) "--no-default-features"
+            } ${lib.optionalString (features != [ ]) "--features ${lib.concatStringsSep "," features}"}
             runHook postBuild
           '';
 
@@ -70,18 +78,72 @@
       # MinGW system, whose LLVM links the program.  The C runtime and the
       # unwinder go into the program, so that it needs no DLL that
       # Windows lacks.
+      # ASIO SDK, which asio-sys compiles into cinq for the ASIO drivers of
+      # Windows, such as the Dante Virtual Soundcard's, under the GPL version
+      # 3, one of its two licenses.  Its zip holds names that Nix's own
+      # unpacking cannot take.
+      asioSdk = pkgs.runCommand "asio-sdk-2.3.4" {
+        nativeBuildInputs = [ pkgs.unzip ];
+        src = pkgs.fetchurl {
+          url = "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip";
+          hash = "sha256-1evwwg3SxfQ3cf0MFBj0s2G/UkNO5nAJfPprOjNeLso=";
+        };
+      } "unzip -q $src && mv ASIOSDK $out && chmod -R u=rwX,go=rX $out";
       windows =
         cross:
         let
           inherit (cross.stdenv) cc hostPlatform;
+          target = hostPlatform.rust.rustcTarget;
           variable = "CARGO_TARGET_${hostPlatform.rust.cargoEnvVarTarget}";
+          # Static archives of libc++ alone, without the import library of
+          # its DLL, which Windows lacks and the linker would take first
+          libcxx = pkgs.runCommand "libcxx-static" { } ''
+            mkdir -p $out/lib
+            ln -s ${cross.llvmPackages.libcxx}/lib/libc++.a ${cross.llvmPackages.libcxx}/lib/libc++abi.a $out/lib/
+          '';
         in
         crossBuilt {
           platform = hostPlatform;
           env = {
             "${variable}_LINKER" = "${cc}/bin/${cc.targetPrefix}cc";
-            "${variable}_RUSTFLAGS" = "-C target-feature=+crt-static";
+            # libc++ of MinGW, which the C++ of the ASIO SDK needs
+            "${variable}_RUSTFLAGS" =
+              "-C target-feature=+crt-static -L native=${libcxx}/lib -C link-arg=-lc++abi";
+            CPAL_ASIO_DIR = asioSdk;
+            "CXX_${target}" = "${cc}/bin/${cc.targetPrefix}c++";
+            "AR_${target}" = "${cc.bintools.bintools}/bin/${cc.targetPrefix}ar";
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           };
+          # ASIO alone, without JACK, which the default features bring
+          defaultFeatures = false;
+          features = [ "asio" ];
+          # Crates with asio-sys's bindings made without their layout tests,
+          # which MinGW's ABI fails, since it lays AsioDrivers into the
+          # tail padding of its base, as Rust cannot, while nothing of cpal
+          # reads AsioDrivers
+          cargoDeps =
+            let
+              vendored = config.packages.cinq.cargoDeps;
+            in
+            # Same name as the original, which its .cargo/config.toml gives
+            pkgs.runCommand "cargo-vendor-dir" { } ''
+              mkdir $out
+              cp -r ${vendored}/.cargo $out/
+              for crate in ${vendored}/*; do
+                ln -s "$(readlink -f "$crate")" "$out/$(basename "$crate")"
+              done
+              asio=$(basename ${vendored}/asio-sys-*)
+              rm "$out/$asio"
+              cp -r "${vendored}/$asio/" "$out/$asio"
+              chmod -R u+w "$out/$asio"
+              substituteInPlace "$out/$asio/build.rs" \
+                --replace-fail '.allowlist_type("AsioDrivers")' '.layout_tests(false).allowlist_type("AsioDrivers")'
+            '';
+          # bindgen reads the SDK's headers as the MinGW compiler would,
+          # which knows its own headers only through its wrapper
+          prepare = ''
+            export BINDGEN_EXTRA_CLANG_ARGS="--target=${hostPlatform.config} $(cat ${cc}/nix-support/libc-cflags)"
+          '';
           install = release: ''install -D ${release}/cinq.exe "$out/bin/cinq.exe"'';
         };
       # cinq that `cross`, the Nixpkgs of a system that Nixpkgs builds

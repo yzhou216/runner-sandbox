@@ -2,20 +2,44 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays cinq of the tree in cinq/ on the playback device of VB-CABLE, a
-# virtual WASAPI device, with wasapi.ps1, which also disables the device
-# and enables it again midway through the cue, and prints the level of
-# each channel before and after.  cinq.exe comes from run 43465503910 of
-# this branch, which cross-built the same tree on GNU/Linux.
+# Cross-builds cinq of the tree in cinq/ for Windows on GNU/Linux, with
+# ASIO, then plays it with wasapi.ps1 on the playback device of VB-CABLE,
+# a virtual WASAPI device, which goes away and comes back midway through
+# the cue, and on FlexASIO, an ASIO driver that plays on VB-CABLE in
+# 32-bit integers, and prints the level of each channel.
 on: push
 permissions:
   contents: read
-  actions: read
 defaults:
   run:
     shell: bash
 jobs:
-  wasapi:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Cross-build cinq for Windows
+        run: |
+          nix build --out-link result ./cinq#x86_64-windows
+          mkdir exe
+          cp "$(find -L result -name cinq.exe | head -1)" exe/
+          ls -l exe
+      - uses: actions/upload-artifact@main
+        with:
+          name: exe
+          path: exe
+  windows:
+    needs: build
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -24,35 +48,41 @@ jobs:
         with:
           name: exe
           path: exe
-          run-id: 43465503910
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: LABSN/sound-ci-helpers@v1
-      - name: Start Windows Audio and install the recorders
+      - name: Start Windows Audio, install FlexASIO and the recorders
         shell: pwsh
         run: |
           Set-Service Audiosrv -StartupType Automatic
           Start-Service Audiosrv
-          Get-Service Audiosrv, AudioEndpointBuilder
           choco install ffmpeg -y --no-progress | Select-Object -Last 2
           python -m pip install --quiet soundcard numpy
-      - name: Play on VB-CABLE
+          Invoke-WebRequest -OutFile FlexASIO.exe `
+            https://github.com/dechamps/FlexASIO/releases/download/flexasio-1.10b/FlexASIO-1.10b.exe
+          Start-Process -Wait FlexASIO.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          Copy-Item FlexASIO.toml (Join-Path $env:USERPROFILE 'FlexASIO.toml')
+      - name: Play on VB-CABLE, which goes away and comes back
         shell: pwsh
         run: |
           $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
           bash media.sh .
-          ./wasapi.ps1 -Cinq exe/cinq.exe -Sound music.flac -Out out
+          ./wasapi.ps1 -Cinq exe/cinq.exe -Sound music.flac -Out out/wasapi -Match '^wasapi:.*VB-Audio' -Revive
+      - name: Play on FlexASIO
+        if: always()
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
+          ./wasapi.ps1 -Cinq exe/cinq.exe -Sound music.flac -Out out/asio -Match '^asio:'
       - name: Measure each channel
         if: always()
         run: |
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
-          cat out/before.log out/after.log || true
-          echo "--- before the device went away"
-          bash levels.sh out/before.wav 1 | tee out/levels-before.tsv
-          echo "--- after it came back"
-          bash levels.sh out/after.wav 1 | tee out/levels-after.tsv
+          for take in wasapi/before wasapi/after asio/before; do
+            echo "--- $take"
+            bash levels.sh "out/$take.wav" 1 | tee "out/$take.tsv" || true
+          done
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: wasapi
+          name: windows
           path: out
           if-no-files-found: ignore

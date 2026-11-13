@@ -13,7 +13,7 @@
 use std::str::FromStr;
 
 use kira::backend::cpal::cpal::{
-    self, Device, DeviceId, Host,
+    self, Device, DeviceDirection, DeviceId, Host,
     traits::{DeviceTrait, HostTrait},
 };
 
@@ -30,16 +30,21 @@ pub fn devices() -> Result<Vec<(String, String)>, String> {
     Ok(first.into_iter().chain(others).collect())
 }
 
+/// Returns the devices of `host` that sound can play on, leaving out those
+/// that tell that they only record, as JACK's input does, which cpal lists
+/// among the outputs as well
 fn listed(host: &Host) -> Result<Vec<(String, String)>, cpal::Error> {
     Ok(host
         .output_devices()?
         .filter_map(|device| {
             let id = device.id().ok()?.to_string();
-            let name = device
-                .description()
-                .map(|description| description.name().to_owned())
-                .unwrap_or_default();
-            Some((id, name))
+            let description = device.description().ok();
+            let records = description
+                .as_ref()
+                .is_some_and(|description| description.direction() == DeviceDirection::Input);
+            let name =
+                description.map_or_else(String::new, |description| description.name().to_owned());
+            (!records).then_some((id, name))
         })
         .collect())
 }

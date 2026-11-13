@@ -157,3 +157,21 @@ fn sound_that_goes_fades_out_and_comes_back_to_be_freed() {
     assert!(bench.gone.pop().is_ok(), "the sound comes back to be freed");
     assert!(bench.render()[0].iter().all(|sample| *sample == 0.0));
 }
+
+#[test]
+fn integer_samples_take_the_sound_at_its_level() {
+    let mut bench = Bench::new(2).play(1, gains(2, &[(0, [1.0, 0.0]), (1, [0.0, 1.0])]));
+    let mut wide = vec![0_i32; FRAMES * 2];
+    bench.mix.render(&mut wide);
+    let mut narrow = vec![0_i16; FRAMES * 2];
+    bench.mix.render(&mut narrow);
+    let near = |sample: f64, value: f32, full: f64| (sample / full - f64::from(value)).abs() < 1e-3;
+    assert!(wide[16..].chunks(2).all(|frame| {
+        near(f64::from(frame[0]), SOUND.left, 2_f64.powi(31))
+            && near(f64::from(frame[1]), SOUND.right, 2_f64.powi(31))
+    }));
+    assert!(narrow.chunks(2).all(|frame| {
+        near(f64::from(frame[0]), SOUND.left, 2_f64.powi(15))
+            && near(f64::from(frame[1]), SOUND.right, 2_f64.powi(15))
+    }));
+}
