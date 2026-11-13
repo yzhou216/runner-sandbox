@@ -95,7 +95,10 @@ Right = -6.0
 Set-Content -Path (Join-Path $work 'cable.cinq.toml') -Value $show -Encoding utf8NoBOM
 Copy-Item (Join-Path $work 'cable.cinq.toml') $Out
 
-$device = Get-PnpDevice -FriendlyName '*VB-Audio Virtual Cable*' | Select-Object -First 1
+# Driver of VB-CABLE itself, whose endpoints go when it is disabled, as
+# those of the Dante Virtual Soundcard go when it stops
+$device = Get-PnpDevice -Class MEDIA | Where-Object { $_.FriendlyName -like '*VB-Audio*' } |
+  Select-Object -First 1
 "device: $($device.InstanceId) $($device.FriendlyName) $($device.Status)" | Tee-Object (Join-Path $Out 'pnp.txt')
 
 $cinqProcess = Start-Process $Cinq -PassThru -WorkingDirectory $work -ArgumentList 'cable.cinq.toml' `
@@ -112,6 +115,9 @@ Shot 'playing'
 Stop-Process $recorder -ErrorAction SilentlyContinue
 Mark 'gone'
 Disable-PnpDevice -InstanceId $device.InstanceId -Confirm:$false
+Start-Sleep 1
+Get-PnpDevice -InstanceId $device.InstanceId, (Get-PnpDevice -Class AudioEndpoint).InstanceId |
+  Format-Table -AutoSize Status, Class, FriendlyName | Out-String | Add-Content (Join-Path $Out 'pnp.txt')
 Start-Sleep 6
 Shot 'gone'
 Enable-PnpDevice -InstanceId $device.InstanceId -Confirm:$false
