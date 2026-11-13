@@ -14,7 +14,7 @@ defaults:
 env:
   NIXPKGS: github:NixOS/nixpkgs/2074cc672349f14240fb7ea90d509e0b643e9dd4
   REF: cleanup
-  PROGRAMS: 8 11 12
+  PROGRAMS: 1 13 21 22
 jobs:
   record:
     runs-on: ubuntu-latest
