@@ -41,3 +41,5 @@ that each recorded:
   16-digit value such as X11 of 01-add-i no longer runs into the next column.
 - 43380950585 (2aac1ef, bfc91cf): jal and jalr through the reworked matchers
   of the decoder, in 08-jal, 09-j, and 20-is-pal.
+- 43382037562 (0c6f261, 8fc3c02): all 24 programs again, on the processor
+  with every fix of the `cleanup` branch.
