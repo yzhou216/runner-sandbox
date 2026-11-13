@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="utf-8"?>
+<circuit>
+  <version>2</version>
+  <attributes/>
+  <visualElements>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>00-add-r</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+0 1 0 C X X X X
+0 0 1 0 X X X X
+repeat(3000) 0 0 1 C X X X X
+0 0 1 0 1 X X 3</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>01-add-i</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+1 1 0 C X X X X
+1 0 1 0 X X X X
+repeat(3000) 1 0 1 C X X X X
+1 0 1 0 1 5 0xFFFFFFFF80000000 3</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>02-sll-r</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+2 1 0 C X X X X
+2 0 1 0 X X X X
+repeat(3000) 2 0 1 C X X X X
+2 0 1 0 1 4 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>03-sll-i</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+3 1 0 C X X X X
+3 0 1 0 X X X X
+repeat(3000) 3 0 1 C X X X X
+3 0 1 0 1 8 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>04-srl-r</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+4 1 0 C X X X X
+4 0 1 0 X X X X
+repeat(3000) 4 0 1 C X X X X
+4 0 1 0 1 4 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>05-srl-i</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+5 1 0 C X X X X
+5 0 1 0 X X X X
+repeat(3000) 5 0 1 C X X X X
+5 0 1 0 1 8 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>06-sd-ld</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+6 1 0 C X X X X
+6 0 1 0 X X X X
+repeat(3000) 6 0 1 C X X X X
+6 0 1 0 1 99 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>07-sw-lw</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+7 1 0 C X X X X
+7 0 1 0 X X X X
+repeat(3000) 7 0 1 C X X X X
+7 0 1 0 1 99 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>08-jal</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+8 1 0 C X X X X
+8 0 1 0 X X X X
+repeat(3000) 8 0 1 C X X X X
+8 0 1 0 1 3 X 16</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>09-j</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+9 1 0 C X X X X
+9 0 1 0 X X X X
+repeat(3000) 9 0 1 C X X X X
+9 0 1 0 1 1 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>10-beq</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+10 1 0 C X X X X
+10 0 1 0 X X X X
+repeat(3000) 10 0 1 C X X X X
+10 0 1 0 1 1 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>11-blt</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+11 1 0 C X X X X
+11 0 1 0 X X X X
+repeat(3000) 11 0 1 C X X X X
+11 0 1 0 1 1 1 2</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>12-bge</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+12 1 0 C X X X X
+12 0 1 0 X X X X
+repeat(3000) 12 0 1 C X X X X
+12 0 1 0 1 2 1 2</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>13-mul</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+13 1 0 C X X X X
+13 0 1 0 X X X X
+repeat(3000) 13 0 1 C X X X X
+13 0 1 0 1 9 0xFFFFFFFFFFFFFFF1 0x300000000</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>14-lui</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+14 1 0 C X X X X
+14 0 1 0 X X X X
+repeat(3000) 14 0 1 C X X X X
+14 0 1 0 1 0x28000 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>15-sb-lb</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+15 1 0 C X X X X
+15 0 1 0 X X X X
+repeat(3000) 15 0 1 C X X X X
+15 0 1 0 1 99 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>16-quadratic</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+16 1 0 C X X X X
+16 0 1 0 X X X X
+repeat(3000) 16 0 1 C X X X X
+16 0 1 0 1 25 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>17-get-bitseq</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+17 1 0 C X X X X
+17 0 1 0 X X X X
+repeat(3000) 17 0 1 C X X X X
+17 0 1 0 1 6 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>18-max3</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+18 1 0 C X X X X
+18 0 1 0 X X X X
+repeat(3000) 18 0 1 C X X X X
+18 0 1 0 1 2 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>19-fib-rec</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+19 1 0 C X X X X
+19 0 1 0 X X X X
+repeat(3000) 19 0 1 C X X X X
+19 0 1 0 1 55 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>20-is-pal</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+20 1 0 C X X X X
+20 0 1 0 X X X X
+repeat(3000) 20 0 1 C X X X X
+20 0 1 0 1 1 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>21-to-upper</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+21 1 0 C X X X X
+21 0 1 0 X X X X
+repeat(3000) 21 0 1 C X X X X
+21 0 1 0 1 0x464F4F4241520000 X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>22-sort</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+22 1 0 C X X X X
+22 0 1 0 X X X X
+repeat(3000) 22 0 1 C X X X X
+22 0 1 0 1 0xC0000000A 0x800000006 0x400000002</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Testcase</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>23-str-to-int</string>
+        </entry>
+        <entry>
+          <string>Testdata</string>
+          <testData>
+            <dataString>PROG CLR EN CLK DONE A0 A1 A2
+23 1 0 C X X X X
+23 0 1 0 X X X X
+repeat(3000) 23 0 1 C X X X X
+23 0 1 0 1 0xFFFF X X</dataString>
+          </testData>
+        </entry>
+      </elementAttributes>
+      <pos x="0" y="0"/>
+    </visualElement>
+  </visualElements>
+  <wires/>
+  <measurementOrdering/>
+</circuit>

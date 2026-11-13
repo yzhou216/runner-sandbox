@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Checks the history of yzhou216/rv64_cpu with its cleanups folded in, on
+# its branch fold-check: every test program on every commit in Digital,
+# against fold/expected; nix flake check on the commit that adds the flake,
+# which has no CI of its own; and recordings of Digital running the
+# programs that each commit with a fix makes pass.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  NIXPKGS: github:NixOS/nixpkgs/2074cc672349f14240fb7ea90d509e0b643e9dd4
+  BRANCH: fold-check
+jobs:
+  matrix:
+    name: programs on commits ${{ matrix.first }} to ${{ matrix.last }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {first: 1, last: 16}
+          - {first: 17, last: 28}
+          - {first: 29, last: 36}
+          - {first: 37, last: 43}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Run the programs
+        env:
+          FIRST: ${{ matrix.first }}
+          LAST: ${{ matrix.last }}
+        run: |
+          git clone -q --branch "$BRANCH" https://github.com/yzhou216/rv64_cpu "$RUNNER_TEMP/rc"
+          git -C "$RUNNER_TEMP/rc" log -1 --format='%H %s'
+          digital=$(nix build --no-link --print-out-paths "$NIXPKGS#digital")
+          mkdir out
+          JAVA=$JAVA_HOME_21_X64/bin/java JAR=$digital/share/java/Digital.jar \
+            sh fold/matrix.sh "$RUNNER_TEMP/rc" "$FIRST" "$LAST" "$PWD/fold/tests.dig" >"out/$FIRST"
+          cat "out/$FIRST"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: matrix-${{ matrix.first }}
+          path: out/
+  compare:
+    name: compare the programs with fold/expected
+    needs: matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: matrix-*
+          path: out
+          merge-multiple: true
+      - run: sort -n out/* | diff fold/expected -
+  flake:
+    name: nix flake check on the commit that adds the flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@v31
+      - run: |
+          git clone -q --branch "$BRANCH" https://github.com/yzhou216/rv64_cpu "$RUNNER_TEMP/rc"
+          git -C "$RUNNER_TEMP/rc" checkout -q "$(git -C "$RUNNER_TEMP/rc" rev-list --reverse HEAD | sed -n 42p)"
+          git -C "$RUNNER_TEMP/rc" log -1 --format='%H %s'
+          nix flake check -L "$RUNNER_TEMP/rc"
+  record:
+    name: record commit ${{ matrix.commit }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {commit: 5, programs: '2'}
+          - {commit: 7, programs: '4'}
+          - {commit: 9, programs: '13'}
+          - {commit: 10, programs: '14'}
+          - {commit: 13, programs: '10'}
+          - {commit: 14, programs: '11'}
+          - {commit: 16, programs: '12'}
+          - {commit: 20, programs: '8'}
+          - {commit: 22, programs: '1 17'}
+          - {commit: 43, programs: '0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23'}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      COMMIT: ${{ matrix.commit }}
+      PROGRAMS: ${{ matrix.programs }}
+    steps:
+      - uses: cachix/install-nix-action@v31
+      - uses: actions/checkout@v7
+      - name: Install Xvfb, xdotool, and ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool ffmpeg
+      - name: Clone rv64_cpu
+        run: |
+          git clone -q --branch "$BRANCH" https://github.com/yzhou216/rv64_cpu "$RUNNER_TEMP/rc"
+          git -C "$RUNNER_TEMP/rc" checkout -q "$(git -C "$RUNNER_TEMP/rc" rev-list --reverse HEAD | sed -n "${COMMIT}p")"
+          git -C "$RUNNER_TEMP/rc" log -1 --format='%H %s'
+      - name: Record
+        run: |
+          digital=$(nix build --no-link --print-out-paths "$NIXPKGS#digital")
+          Xvfb :99 -screen 0 1920x1080x24 &
+          export DISPLAY=:99
+          sleep 3
+          # shellcheck disable=SC2086 # The programs split into arguments
+          python3 -I record/record.py "$RUNNER_TEMP/rc" "out/$COMMIT" "$JAVA_HOME_21_X64/bin/java" \
+            "$digital/share/java/Digital.jar" $PROGRAMS
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: videos-${{ matrix.commit }}
+          path: out/
