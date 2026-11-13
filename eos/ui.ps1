@@ -2,19 +2,16 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Installs Eos, starts it, and drives it over OSC while recording what it
-# sends as sACN or Art-Net.  Every dialog on the way is written down from
-# UI Automation and screenshots, and a few answers are given by name.
-#
-# Usage: explore.ps1 STEPS
-
-param([string]$Steps)
+# Helpers that the steps of the Eos workflow share: a log with the time
+# since the step started, screenshots, and the windows of the desktop as UI
+# Automation sees them, whose buttons can be pressed by name.  Dot-source it.
 
 $ErrorActionPreference = 'Continue'
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 $out = Join-Path $root 'out'
 New-Item -ItemType Directory -Force -Path $out, "$out\shots", "$out\uia" | Out-Null
 $start = Get-Date
+$shell = New-Object -ComObject WScript.Shell
 
 function Log([string]$m) {
     $line = '{0,7:F1} {1}' -f ((Get-Date) - $start).TotalSeconds, $m
@@ -123,76 +120,3 @@ function Press($tree, [string]$pattern, [string]$kinds = 'Button|RadioButton|Che
     $true
 }
 
-netsh advfirewall set allprofiles state off | Out-Null
-Get-NetIPAddress -AddressFamily IPv4 | Format-Table -AutoSize | Out-String | Add-Content "$out\network.txt"
-Shot '000-desktop'
-
-# Install
-
-$installer = Get-ChildItem "$root\eos-installer" -Filter *.exe | Select-Object -First 1
-Log "installing $($installer.Name) with /S"
-$setup = Start-Process $installer.FullName -ArgumentList '/S' -PassThru
-$deadline = (Get-Date).AddMinutes(30)
-while ((Get-Date) -lt $deadline) {
-    Start-Sleep 10
-    $tree = Snapshot 'install'
-    $restart = $tree | Where-Object { $_.Name -match 'restart|reboot' }
-    if ($restart) {
-        $null = (Press $tree '^(No|Later|Restart Later|Close|Cancel)$')
-    } else {
-        $null = (Press $tree 'I accept|I agree|accept the') -or (Press $tree '^(&?Install|&?Next.*|OK|Continue|&?Close|&?Finish)$')
-    }
-    $busy = Get-Process | Where-Object { $_.ProcessName -match 'msiexec|ETC_|vc_redist|CertMgr' }
-    if ($setup.HasExited -and -not ($busy | Where-Object ProcessName -ne 'msiexec')) {
-        Log "installer exited with $($setup.ExitCode)"
-        break
-    }
-}
-Get-ChildItem $env:TEMP -Recurse -Filter 'EosInstall*' -ErrorAction SilentlyContinue | Copy-Item -Destination $out
-Get-ChildItem 'C:\Program Files\ETC', 'C:\Program Files (x86)\ETC' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-    ForEach-Object FullName | Set-Content "$out\installed.txt"
-$shell = New-Object -ComObject WScript.Shell
-$links = Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs", "$env:PUBLIC\Desktop", "$env:USERPROFILE\Desktop" -Recurse -Filter *.lnk -ErrorAction SilentlyContinue
-$links | ForEach-Object {
-    $l = $shell.CreateShortcut($_.FullName)
-    "$($_.FullName) -> $($l.TargetPath) $($l.Arguments) in $($l.WorkingDirectory)"
-} | Set-Content "$out\shortcuts.txt"
-
-# Start
-
-$eos = $links | Where-Object { $_.BaseName -match 'Eos|nomad' -and $_.BaseName -notmatch 'Uninstall|Augment|Help|Manual|Release|Widget' } | Select-Object -First 1
-if (-not $eos) { Log 'no shortcut for Eos'; exit 1 }
-$link = $shell.CreateShortcut($eos.FullName)
-pktmon filter remove | Out-Null
-foreach ($port in 5568, 6454, 3032, 8000, 8001) { pktmon filter add "p$port" -p $port | Out-Null }
-pktmon start --capture --pkt-size 0 --file-name "$out\eos.etl" | Out-Null
-$listen = Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 2400 -PassThru -NoNewWindow -RedirectStandardError "$out\listen-err.txt"
-Log "starting $($eos.Name): $($link.TargetPath) $($link.Arguments)"
-if ($link.Arguments) {
-    Start-Process $link.TargetPath -ArgumentList $link.Arguments -WorkingDirectory $link.WorkingDirectory
-} else {
-    Start-Process $link.TargetPath -WorkingDirectory $link.WorkingDirectory
-}
-$osc = Start-Process python -ArgumentList "`"$root\eos\osc.py`"", "`"$out\osc.txt`"", "`"$root\eos\$Steps`"" -PassThru -NoNewWindow -RedirectStandardError "$out\osc-err.txt"
-
-$deadline = (Get-Date).AddMinutes(25)
-$shots = 0
-$viz = $false
-while ((Get-Date) -lt $deadline -and -not $osc.HasExited) {
-    Start-Sleep 5
-    $tree = Snapshot 'eos'
-    if (-not $viz) { $viz = Press $tree 'viz' }
-    $null = (Press $tree 'I accept|I agree|accept the') -or (Press $tree '^(OK|Continue|Accept)$')
-    if (($shots++ % 6) -eq 0) { Shot ('eos-{0:D3}' -f $shots) }
-    Get-Process | Where-Object { $_.ProcessName -match 'eos|etc|nomad|augment' } |
-        ForEach-Object { "$($_.ProcessName) $($_.Id) $($_.MainWindowTitle)" } | Set-Content "$out\processes.txt"
-}
-Log "osc steps exited: $($osc.HasExited)"
-Start-Sleep 5
-Shot 'zz-end'
-$null = Snapshot 'end'
-pktmon stop | Out-Null
-pktmon etl2pcap "$out\eos.etl" --out "$out\eos.pcapng" | Out-Null
-Remove-Item "$out\eos.etl" -ErrorAction SilentlyContinue
-Stop-Process -Id $listen.Id -ErrorAction SilentlyContinue
-Log 'done'

@@ -2,31 +2,53 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
+# Runs ETC's Eos software, the software of the Ion Xe console, offline on
+# Windows, and drives it over OSC while listen.py records the sACN and
+# Art-Net that it sends.  Each phase uploads what it found, since a runner
+# that loses its connection uploads nothing more.
 name: Eos offline
 on: push
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 75
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Download Eos
         run: |
           curl -sSfL -o eos.zip https://cdn.etcconnect.com/ETC_EosFamily_v3.3.10.28.zip
-          7z x -oeos-installer eos.zip
-          7z l eos-installer/*.exe > installer-list.txt || true
-      - name: Explore
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/explore.ps1 steps-1.txt
-      - name: Pack
-        if: always()
-        run: |
-          cp installer-list.txt out/ || true
-          tar -cf out.tar out
-      - uses: actions/upload-artifact@v4
-        if: always()
+          7z x eos.zip
+          # shellcheck disable=SC2016 # $PLUGINSDIR is a directory in the archive
+          7z x -oeos-parts ETC_EosFamily_v3.3.10.28.exe '$PLUGINSDIR/ETC_EosFamily_v3.3.10.28.msi' \
+            '$PLUGINSDIR/VC_redist.x64.exe' '$PLUGINSDIR/VC_redist.x86.exe' '$PLUGINSDIR/vcredist_2005_sp1_vc8_x86.exe'
+      - name: Install
+        timeout-minutes: 20
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/install.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: windows
-          path: out.tar
+          name: install
+          path: out
+      - name: Start
+        timeout-minutes: 15
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/start.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: start
+          path: out
+      - name: Drive over OSC
+        timeout-minutes: 10
+        run: |
+          python eos/osc.py out/osc.txt eos/steps-1.txt
+          powershell -NoProfile -ExecutionPolicy Bypass -File eos/snap.ps1 osc-end
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osc
+          path: out
