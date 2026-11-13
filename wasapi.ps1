@@ -119,7 +119,8 @@ if ($Revive) {
   $inf = Get-ChildItem -Recurse -Path $helpers.DirectoryName -Filter vbMmeCable64_win7.inf |
     Select-Object -First 1
   Mark 'gone'
-  & $devcon remove 'ROOT\MEDIA\*' | Tee-Object -Append (Join-Path $Out 'pnp.txt')
+  # devcon takes instance IDs after an at sign
+  & $devcon remove '@ROOT\MEDIA\*' | Tee-Object -Append (Join-Path $Out 'pnp.txt')
   Start-Sleep 6
   & $Cinq --audio-devices > (Join-Path $Out 'devices-gone.tsv')
   Shot 'gone'
