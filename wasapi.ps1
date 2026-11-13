@@ -28,6 +28,7 @@ using System;
 using System.Runtime.InteropServices;
 public static class Win {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
+  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, bool repaint);
 }
 '@
 function Mark([string]$what) {
@@ -43,18 +44,12 @@ function Shot([string]$name) {
   $graphics.Dispose()
   $bitmap.Dispose()
 }
-# Recording device of VB-CABLE as DirectShow names it, which loops back
-# what its playback device plays
-$listed = (& ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1) | Out-String
-Set-Content (Join-Path $Out 'dshow.txt') $listed
-$capture = [regex]::Matches($listed, '"([^"]*VB-Audio[^"]*)" \(audio\)') |
-  ForEach-Object { $_.Groups[1].Value } | Select-Object -First 1
-"capture device: $capture"
+# Loopback of the playback device of VB-CABLE through WASAPI, since
+# DirectShow cannot open its recording device on the runner
 function Record([string]$name) {
-  Start-Process ffmpeg -PassThru -NoNewWindow `
-    -RedirectStandardError (Join-Path $Out "$name.log") `
-    -ArgumentList '-y', '-f', 'dshow', '-i', "audio=`"$capture`"",
-      '-t', '10', (Join-Path $Out "$name.wav")
+  Start-Process python -PassThru -NoNewWindow `
+    -RedirectStandardOutput (Join-Path $Out "$name.log") `
+    -ArgumentList (Join-Path $PSScriptRoot 'loopback.py'), 'VB-Audio', '5', (Join-Path $Out "$name.wav")
 }
 function Keys([string]$keys) {
   $window = (Get-Process cinq).MainWindowHandle
@@ -106,6 +101,9 @@ $device = Get-PnpDevice -FriendlyName '*VB-Audio Virtual Cable*' | Select-Object
 $cinqProcess = Start-Process $Cinq -PassThru -WorkingDirectory $work -ArgumentList 'cable.cinq.toml' `
   -RedirectStandardError (Join-Path $Out 'cinq-err.txt')
 Start-Sleep 10
+# Whole window on the desktop of the runner, which is smaller than it
+[Win]::MoveWindow((Get-Process cinq).MainWindowHandle, 0, 0, 1024, 728, $true) | Out-Null
+Start-Sleep 1
 Keys ' '
 Mark 'go'
 $recorder = Record 'before'
