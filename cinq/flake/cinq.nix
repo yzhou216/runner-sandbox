@@ -12,6 +12,7 @@
   scdoc,
   desktop-file-utils,
   alsa-lib,
+  libjack2,
   dbus,
   libGL,
   libxkbcommon,
@@ -35,10 +36,12 @@ let
     else
       alsa-lib;
   # Libraries that cinq loads at run time rather than links: those of
-  # winit and wgpu for Wayland alone, and libdbus, through which rfd
-  # reaches the file chooser portal
+  # winit and wgpu for Wayland alone, libdbus, through which rfd reaches the
+  # file chooser portal, and libjack, which pw-jack swaps for PipeWire's
+  # through LD_LIBRARY_PATH
   runtimeLibs = lib.optionals isLinux [
     dbus
+    libjack2
     libGL
     libxkbcommon
     vulkan-loader
@@ -70,7 +73,9 @@ rustPlatform.buildRustPackage {
     desktop-file-utils
   ];
 
-  buildInputs = lib.optionals (isLinux || isFreeBSD) [ alsa ];
+  # JACK only for jack-sys, which asks pkg-config for it on GNU/Linux, as
+  # cinq loads libjack at run time, and then only where a JACK server runs
+  buildInputs = lib.optionals (isLinux || isFreeBSD) [ alsa ] ++ lib.optionals isLinux [ libjack2 ];
 
   env.SOURCE_DATE_EPOCH = sourceDateEpoch;
 

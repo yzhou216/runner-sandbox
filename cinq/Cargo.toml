@@ -4,7 +4,7 @@
 
 [package]
 name = "cinq"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 rust-version = "1.91" # Path::with_added_extension in the build script
 description = "Minimal cue-based show controller in the spirit of QLab"
@@ -21,6 +21,10 @@ include = [
   "/REUSE.toml",
   "/README.md",
 ]
+
+[features]
+default = ["jack"]
+jack = ["cpal/jack"] # JACK's devices, which need JACK to build on GNU/Linux
 
 [dependencies]
 anstyle-query = "1.1"
@@ -94,6 +98,9 @@ rustix = { version = "1.1", features = [ # Standard output and error pointed at 
   "pipe",
   "stdio",
 ] }
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd"))'.dependencies]
+cpal = { version = "0.18", default-features = false, optional = true } # JACK beside ALSA in kira's cpal
 
 [build-dependencies] # Manual pages, completions, the icon with resvg's kurbo, the app bundle for Darwin, and the manifest for Windows
 clap = { version = "4.6", features = ["derive"] }

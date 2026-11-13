@@ -6,10 +6,10 @@
 //! the channels of the device that their outputs name
 //!
 //! The device opens with the fewest channels that it offers at its default
-//! sample rate, in 32-bit floating-point samples, that hold the channels
-//! asked for.  Opening with the most it offers would ask 64 channels of the
-//! plug devices of ALSA, which take any number.  The mix itself runs on the
-//! thread of the stream, as [`mix`] tells.
+//! sample rate that hold the channels asked for, in the first samples of
+//! [`FORMATS`] that it takes.  Opening with the most it offers would ask 64
+//! channels of the plug devices of ALSA, which take any number.  The mix
+//! itself runs on the thread of the stream, as [`mix`] tells.
 
 mod mix;
 #[cfg(test)]
@@ -27,7 +27,7 @@ use std::{
 use kira::backend::{
     Renderer,
     cpal::cpal::{
-        self, BufferSize, Device, SampleFormat, Stream, StreamConfig,
+        self, BufferSize, Device, FromSample, I24, SampleFormat, SizedSample, Stream, StreamConfig,
         traits::{DeviceTrait, HostTrait, StreamTrait},
     },
 };
@@ -90,31 +90,24 @@ impl Mixer {
     }
 
     fn start(found: &Device, channels: u16) -> Result<Self, String> {
-        let config = config(found, channels)?;
+        let (config, format) = config(found, channels)?;
         let (commands, taken) = RingBuffer::new(COMMANDS);
         let (handed, gone) = RingBuffer::new(COMMANDS);
-        let mut mix = Mix::new(usize::from(config.channels), SOUNDS, taken, handed);
+        let mix = Mix::new(usize::from(config.channels), SOUNDS, taken, handed);
         let error = Arc::new(Mutex::new(None));
-        let told = Arc::clone(&error);
         let started = Instant::now();
         let called = Arc::new(AtomicU64::new(0));
-        let calling = Arc::clone(&called);
-        let stream = found
-            .build_output_stream(
-                config,
-                move |out: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    mix.render(out);
-                    let since = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
-                    calling.store(since, Ordering::Relaxed);
-                },
-                move |error: cpal::Error| {
-                    if let Ok(mut latest) = told.lock() {
-                        *latest = Some(error.to_string());
-                    }
-                },
-                None,
-            )
-            .map_err(|error| error.to_string())?;
+        let tells = Tells {
+            error: Arc::clone(&error),
+            started,
+            called: Arc::clone(&called),
+        };
+        let stream = match format {
+            SampleFormat::I32 => stream::<i32>(found, config, mix, tells),
+            SampleFormat::I24 => stream::<I24>(found, config, mix, tells),
+            SampleFormat::I16 => stream::<i16>(found, config, mix, tells),
+            _ => stream::<f32>(found, config, mix, tells),
+        }?;
         stream.play().map_err(|error| error.to_string())?;
         Ok(Self {
             _stream: stream,
@@ -183,30 +176,90 @@ impl Mixer {
     }
 }
 
+/// Samples that a device can take, those that kira renders first, then
+/// integers from the widest, as ASIO drivers, the hw devices of ALSA, and
+/// Inferno's Dante device take
+const FORMATS: [SampleFormat; 4] = [
+    SampleFormat::F32,
+    SampleFormat::I32,
+    SampleFormat::I24,
+    SampleFormat::I16,
+];
+
+/// What the thread of a stream tells the mixer: its latest error, and when
+/// it last asked for sound
+struct Tells {
+    error: Arc<Mutex<Option<String>>>,
+    started: Instant,
+    called: Arc<AtomicU64>,
+}
+
 /// Returns the configuration of the stream of `device`: its default sample
-/// rate, and the fewest channels that hold `channels` in 32-bit
-/// floating-point samples, which kira renders
-fn config(device: &Device, channels: u16) -> Result<StreamConfig, String> {
+/// rate, and the fewest channels that hold `channels` in the first of
+/// [`FORMATS`] that it takes, with that format
+fn config(device: &Device, channels: u16) -> Result<(StreamConfig, SampleFormat), String> {
     let rate = device
         .default_output_config()
         .map_err(|error| error.to_string())?
         .sample_rate();
-    let fewest = device
+    let ranges: Vec<_> = device
         .supported_output_configs()
         .map_err(|error| error.to_string())?
         .filter(|range| {
-            range.sample_format() == SampleFormat::F32
-                && (range.min_sample_rate()..=range.max_sample_rate()).contains(&rate)
+            (range.min_sample_rate()..=range.max_sample_rate()).contains(&rate)
                 && range.channels() >= channels
         })
-        .map(|range| range.channels())
-        .min()
+        .collect();
+    let (format, fewest) = FORMATS
+        .into_iter()
+        .find_map(|format| {
+            let fewest = ranges
+                .iter()
+                .filter(|range| range.sample_format() == format)
+                .map(|range| range.channels())
+                .min()?;
+            Some((format, fewest))
+        })
         .ok_or_else(|| {
-            format!("it takes no 32-bit floating-point samples on {channels} channels at {rate} Hz")
+            format!("it takes no samples that cinq can play on {channels} channels at {rate} Hz")
         })?;
-    Ok(StreamConfig {
+    let config = StreamConfig {
         channels: fewest,
         sample_rate: rate,
         buffer_size: BufferSize::Default,
-    })
+    };
+    Ok((config, format))
+}
+
+/// Opens the stream of `device` in samples of `T`, which `mix` fills
+fn stream<T>(
+    device: &Device,
+    config: StreamConfig,
+    mut mix: Mix,
+    tells: Tells,
+) -> Result<Stream, String>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let Tells {
+        error,
+        started,
+        called,
+    } = tells;
+    device
+        .build_output_stream(
+            config,
+            move |out: &mut [T], _: &cpal::OutputCallbackInfo| {
+                mix.render(out);
+                let since = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+                called.store(since, Ordering::Relaxed);
+            },
+            move |reported: cpal::Error| {
+                if let Ok(mut latest) = error.lock() {
+                    *latest = Some(reported.to_string());
+                }
+            },
+            None,
+        )
+        .map_err(|error| error.to_string())
 }

@@ -10,7 +10,7 @@
 //! free.  A change of gains ramps over [`RAMP`] frames, and a sound that
 //! goes fades out over as many, so that neither clicks.
 
-use kira::backend::Renderer;
+use kira::backend::{Renderer, cpal::cpal::FromSample};
 use rtrb::{Consumer, Producer};
 
 /// Gain from the left and the right of a sound into each channel of a
@@ -71,6 +71,9 @@ pub(super) struct Mix {
     slots: Vec<Box<Slot>>,
     /// Stereo frames of one chunk of a sound
     scratch: Box<[f32]>,
+    /// Frames of one chunk of the mix, in floating point whatever samples
+    /// the device takes
+    mixed: Box<[f32]>,
     commands: Consumer<Command>,
     gone: Producer<Gone>,
 }
@@ -88,24 +91,39 @@ impl Mix {
             channels,
             slots: Vec::with_capacity(capacity),
             scratch: vec![0.0; CHUNK * 2].into_boxed_slice(),
+            mixed: vec![0.0; CHUNK * channels].into_boxed_slice(),
             commands,
             gone,
         }
     }
 
-    /// Fills `out`, frames of interleaved channels, with every sound
-    pub(super) fn render(&mut self, out: &mut [f32]) {
+    /// Fills `out`, frames of interleaved channels in the samples that the
+    /// device takes, with every sound, which kira renders in floating point
+    pub(super) fn render<T: FromSample<f32>>(&mut self, out: &mut [T]) {
         self.obey();
-        out.fill(0.0);
-        let channels = self.channels;
-        let scratch = &mut self.scratch;
-        self.slots.iter_mut().for_each(|slot| {
-            slot.renderer.on_start_processing();
-            out.chunks_mut(CHUNK * channels).for_each(|chunk| {
+        let Self {
+            channels,
+            slots,
+            scratch,
+            mixed,
+            ..
+        } = self;
+        let channels = *channels;
+        slots
+            .iter_mut()
+            .for_each(|slot| slot.renderer.on_start_processing());
+        out.chunks_mut(CHUNK * channels).for_each(|chunk| {
+            let mixed = &mut mixed[..chunk.len()];
+            mixed.fill(0.0);
+            slots.iter_mut().for_each(|slot| {
                 let stereo = &mut scratch[..chunk.len() / channels * 2];
                 slot.renderer.process(stereo, 2);
-                slot.mix_into(chunk, channels, stereo);
+                slot.mix_into(mixed, channels, stereo);
             });
+            chunk
+                .iter_mut()
+                .zip(mixed.iter())
+                .for_each(|(sample, value)| *sample = T::from_sample_(*value));
         });
         self.part();
     }

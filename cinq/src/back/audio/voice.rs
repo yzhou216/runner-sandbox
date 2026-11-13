@@ -212,12 +212,19 @@ impl Voice {
     }
 
     /// Returns the command that tells the workspace how far the sound of the
-    /// run has played, as long as the sound is still playing.  The
-    /// position of the sound is where the audio device took it at the start
-    /// of its last buffer, which kira shares without waiting on the device.
-    pub(super) fn heard(&self, active: &Active) -> Option<Command> {
+    /// run has played on the first device that `plays` says still plays, as
+    /// long as the sound is still playing.  The position of the sound is
+    /// where the audio device took it at the start of its last buffer,
+    /// which kira shares without waiting on the device.  A run whose every
+    /// device has stopped goes on by the clock of the show, since its sound
+    /// would hold it still.
+    pub(super) fn heard(&self, active: &Active, plays: impl Fn(&Key) -> bool) -> Option<Command> {
         let clip = active.sound()?;
-        let sound = &self.plays.first()?.sound;
+        let sound = &self
+            .plays
+            .iter()
+            .find(|play| play.place.as_ref().is_none_or(|place| plays(&place.key)))?
+            .sound;
         (sound.state() != PlaybackState::Stopped).then(|| Command::Heard {
             cue: active.id,
             run: active.run,

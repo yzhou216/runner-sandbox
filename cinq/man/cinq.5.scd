@@ -92,14 +92,23 @@ in its place, and follows it as it changes in the same way.
 	A device can take a moment to start, during which nothing is heard and
 	the cues that play wait for it.
 	While the device is not there, or cannot be opened, those outputs are
-	silent, the warnings in the sidebar tell why, and saving the file tries
-	again.
+	silent, the warnings in the sidebar tell why, and *cinq* tries the device
+	again every two seconds, as *cinq-show*(5) describes.
 ; if xdg
-	On ALSA, *cinq* plays on most sound cards only through a plug that
-	converts its samples, as the devices whose IDs begin with _alsa:plughw:_
-	or _alsa:sysdefault:_ do, and _alsa:default_ and _alsa:pipewire_.
-	The _alsa:hw:_, _alsa:front:_, and _alsa:hdmi:_ devices of most cards take
-	samples only in a format of their own, and cannot be opened.
+	On ALSA, *cinq* plays samples in 32-bit floating point, or in integers of
+	32, 24, or 16 bits, as the _alsa:hw:_, _alsa:front:_, and _alsa:hdmi:_
+	devices of most sound cards take them while no sound server holds the
+	card, and the devices whose IDs begin with _alsa:plughw:_ or
+	_alsa:sysdefault:_, _alsa:default_, and _alsa:pipewire_ convert them for
+	the card.
+	PulseAudio spreads a stream of fewer channels than its device has over
+	all of them, so a device of many channels that *cinq* plays on through
+	it, as through _alsa:default_, sounds only on the channels that the
+	outputs name when one output names its last channel.
+	While a JACK server runs, as PipeWire's can, *cinq* also lists
+	_jack:output_, whose channels each connect to the playback port of the
+	server with their number, which keeps every channel where its output
+	puts it.
 ; end
 	It is the default device unless the file names another.
 

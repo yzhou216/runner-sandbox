@@ -20,6 +20,9 @@ src=$(mktemp -d)/inferno
 git clone --quiet https://github.com/teodly/inferno.git "$src"
 git -C "$src" checkout --quiet "$commit"
 git -C "$src" submodule --quiet update --init --recursive
+# Tells apps that poll before they write, as cpal does, that a playback
+# stream just prepared can take a buffer
+git -C "$src" apply "$(dirname "$(readlink -f "$0")")/inferno-prepare-pollout.patch"
 # Profile roots the shell, which a collection of garbage on a full disk
 # would otherwise take away midway
 (cd "$src" && nix develop "$cinq" --profile "$src/shell" -c cargo build --release --locked -p alsa_pcm_inferno)

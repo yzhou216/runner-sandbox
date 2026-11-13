@@ -18,6 +18,7 @@
 mod device;
 mod feed;
 mod mixer;
+mod opening;
 mod patch;
 mod play;
 mod preload;
@@ -25,7 +26,7 @@ mod preload;
 mod tests;
 mod voice;
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, time::Instant};
 
 use itertools::Itertools;
 use kira::sound::{FromFileError, streaming::StreamingSoundData};
@@ -54,6 +55,8 @@ pub struct Audio {
     mixers: Mixers,
     voices: HashMap<CueId, Voice>,
     preloader: Preloader,
+    /// When the devices that failed were last tried again
+    tried: Instant,
 }
 
 impl Audio {
@@ -69,23 +72,18 @@ impl Audio {
             mixers: HashMap::new(),
             voices: HashMap::new(),
             preloader: Preloader::new(),
+            tried: Instant::now(),
         }
     }
 
     /// Plays the outputs on the default device on the device whose ID is
-    /// `default`, unless they play there already.  A device that failed
-    /// to open, or that has stopped, tries again, so that one plugged in
-    /// since can be reached.  The sounds that play end with the old
-    /// devices, and the next sync starts them on the new ones from where
-    /// they are.  The sounds made ready ahead are made again, or a cue that
-    /// plays and that the next GO fires again would start over from the
-    /// sound made ready for that GO.
+    /// `default`, unless they play there already.  The sounds that play end
+    /// with the old devices, and the next sync starts them on the new ones
+    /// from where they are.  The sounds made ready ahead are made again, or
+    /// a cue that plays and that the next GO fires again would start over
+    /// from the sound made ready for that GO.
     pub fn route(&mut self, default: Option<&str>) {
-        let failed = self.mixers.values().any(|mixer| match mixer {
-            Ok(mixer) => mixer.failure().is_some(),
-            Err(_) => true,
-        });
-        if failed || self.default.as_deref() != default {
+        if self.default.as_deref() != default {
             *self = Self::open(default);
         }
     }
@@ -118,6 +116,7 @@ impl Audio {
     /// theirs, unless there is no audio device to hear them on.
     pub fn sync(&mut self, workspace: Workspace, ahead: f64) -> Workspace {
         self.patched(Patch::of(workspace.outputs(), &self.default));
+        self.revived();
         self.preloader.collect();
         self.mixers
             .values_mut()
@@ -128,37 +127,6 @@ impl Audio {
             self.preloader.want(upcoming(&workspace, ahead));
         }
         failures.into_iter().fold(workspace, Workspace::apply)
-    }
-
-    /// Opens the devices again where the outputs need others than are
-    /// open, or more channels of one, which restarts the sounds that play
-    /// as [`Audio::route`] does.  A device that failed to open stays
-    /// failed until the next route.  Outputs that move within the channels
-    /// that are open only ramp the sounds there, as the next sync does.
-    fn patched(&mut self, patch: Patch) {
-        let needs = patch.needs();
-        let fits = needs.len() == self.mixers.len()
-            && needs.iter().all(|need| match self.mixers.get(&need.key) {
-                Some(Ok(mixer)) => mixer.channels() >= need.channels,
-                Some(Err(_)) => true,
-                None => false,
-            });
-        if !fits {
-            self.voices.clear();
-            self.preloader = Preloader::new();
-            // Old streams close first, which frees a device that a new one
-            // may open again
-            self.mixers.clear();
-            self.mixers = needs
-                .into_iter()
-                .map(|need| {
-                    let mixer =
-                        Mixer::open(need.key.as_deref(), need.name.as_deref(), need.channels);
-                    (need.key, mixer)
-                })
-                .collect();
-        }
-        self.patch = patch;
     }
 }
 

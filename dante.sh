@@ -17,10 +17,12 @@
 # 1. aplay plays a tone on each channel, at a level 3 dB lower than the one
 #    before, so that the level of each channel of the board tells which
 #    channel of cinq it came from.
-# 2. cinq plays desk.cinq.toml, whose outputs fill all eight channels, and
-#    its cue is routed from the main window, as demo.sh of the session
-#    cinq/2026-11-12-audio-outputs does.
-# 3. cinq plays partial.cinq.toml, whose outputs need three channels alone.
+# 2. cinq plays desk.cinq.toml, whose outputs fill all eight channels, on
+#    inferno_cinq itself in 32-bit integers, and its cue is routed from the
+#    main window, as demo.sh of the session cinq/2026-11-12-audio-outputs
+#    does.
+# 3. cinq plays partial.cinq.toml, whose outputs need three channels alone,
+#    through dante, in floating point.
 #
 # Usage: dante.sh CINQ SHOW OUT INFERNO NETAUDIO, with DANTE_IP the address
 # that the Dante devices bind to, sway, wtype, grim, arecord, aplay, and
@@ -81,6 +83,10 @@ pcm.inferno_cinq {
   RX_CHANNELS "0"
   TX_CHANNELS "8"
   CLOCK_PATH "$clock"
+  hint {
+    show on
+    description "Inferno"
+  }
 }
 pcm.dante {
   type plug

@@ -2,32 +2,33 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Four outputs that fill the eight channels of the Dante device of cinq,
-# and a cue that sends where new cues send: to House alone
+# Four outputs that fill the eight channels of the Dante device of cinq, on
+# the device of Inferno itself, which takes 32-bit integers, and a cue that
+# sends where new cues send: to House alone
 
 [[output]]
 name = "House"
-device = "alsa:dante"
-device_name = "Dante"
+device = "alsa:inferno_cinq"
+device_name = "Inferno"
 channels = "1-2"
 new_cues = 0.0
 
 [[output]]
 name = "Sub"
-device = "alsa:dante"
-device_name = "Dante"
+device = "alsa:inferno_cinq"
+device_name = "Inferno"
 channels = "3"
 
 [[output]]
 name = "Monitors"
-device = "alsa:dante"
-device_name = "Dante"
+device = "alsa:inferno_cinq"
+device_name = "Inferno"
 channels = "5-6"
 
 [[output]]
 name = "Lobby"
-device = "alsa:dante"
-device_name = "Dante"
+device = "alsa:inferno_cinq"
+device_name = "Inferno"
 channels = "7-8"
 
 [[list]]

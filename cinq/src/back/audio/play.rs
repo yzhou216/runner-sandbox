@@ -78,9 +78,11 @@ impl Audio {
             })
             .partition_result();
         *voices = playing;
+        let plays =
+            |key: &Key| matches!(mixers.get(key), Some(Ok(mixer)) if mixer.failure().is_none());
         let heard = voices
             .iter()
-            .filter_map(|(&id, voice)| voice.heard(workspace.active_of(id)?));
+            .filter_map(|(&id, voice)| voice.heard(workspace.active_of(id)?, plays));
         failures.into_iter().chain(heard).collect()
     }
 }

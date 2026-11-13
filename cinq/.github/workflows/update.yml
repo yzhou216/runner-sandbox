@@ -33,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.update.outputs.sha }}
         run: |
-          workflows=$(cd .github/workflows && ls | grep -vx update.yml)
+          workflows=$(cd .github/workflows && printf '%s\n' *.yml | grep -vx update.yml)
           for workflow in $workflows; do
             gh workflow run "$workflow" --ref update
           done

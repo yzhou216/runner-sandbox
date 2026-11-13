@@ -52,6 +52,7 @@ Minimal cue-based show controller, the
 
 - pkg-config
 - ALSA
+- JACK, on GNU/Linux, for a build with its default features
 - Wayland
 - libxkbcommon
 - D-Bus

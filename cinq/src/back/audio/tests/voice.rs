@@ -92,7 +92,7 @@ fn played_while(
                 backend.on_start_processing();
                 backend.process();
             }
-            let heard = voice.heard(ticked.active_of(CueId(1)).expect("the cue runs"));
+            let heard = voice.heard(ticked.active_of(CueId(1)).expect("the cue runs"), |_| true);
             *workspace = heard.clone().into_iter().fold(ticked, Workspace::apply);
             let played = workspace
                 .active_of(CueId(1))
