@@ -145,6 +145,7 @@ def record(repo, out, java, jar, prog):
         time.sleep(2)
         subprocess.run(['xdotool', 'windowfocus', '--sync', win], check=False)
         subprocess.run(['xdotool', 'key', '--window', win, 'F1'], check=False)
+        subprocess.run(['xdotool', 'mousemove', str(WIDTH - 1), str(HEIGHT - 1)], check=False)
         time.sleep(2)
         wait_port()
         video = subprocess.Popen(

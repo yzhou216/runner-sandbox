@@ -13,8 +13,8 @@ defaults:
     shell: bash
 env:
   NIXPKGS: github:NixOS/nixpkgs/2074cc672349f14240fb7ea90d509e0b643e9dd4
-  REF: master
-  PROGRAMS: 0 18 22
+  REF: cleanup
+  PROGRAMS: 13 14 22
 jobs:
   record:
     runs-on: ubuntu-latest
