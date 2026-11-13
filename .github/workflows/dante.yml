@@ -59,7 +59,7 @@ jobs:
       - name: Play through the emulated Dante network
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          DANTE_IP=10.77.0.1 NETAUDIO_INTERFACE=dante0 timeout -k 10 900 ./dante.sh result-cinq/bin/cinq show out inferno \
+          RUST_LOG=debug DANTE_IP=10.77.0.1 NETAUDIO_INTERFACE=dante0 timeout -k 10 900 ./dante.sh result-cinq/bin/cinq show out inferno \
             venv/bin/netaudio
       - name: Measure each channel of the board
         if: always()
