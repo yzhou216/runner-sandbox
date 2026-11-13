@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ on BlackHole 16ch, a virtual Core Audio
+# device that stands in for the Dante Virtual Soundcard on Darwin, with
+# coreaudio.sh, which also takes the device away and gives it back midway
+# through the cue, and prints the level of each channel before and after.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  coreaudio:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Install BlackHole 16ch and ffmpeg
+        run: |
+          brew install --cask blackhole-16ch
+          brew install ffmpeg
+          sudo killall coreaudiod || true
+          sleep 5
+          system_profiler SPAudioDataType
+      - name: Build cinq
+        run: nix build --out-link result-cinq ./cinq
+      - name: Play on BlackHole 16ch
+        run: |
+          bash media.sh .
+          ./coreaudio.sh result-cinq/bin/cinq music.flac out
+      - name: Measure each channel
+        if: always()
+        run: |
+          echo "--- last 4 s before the device went"
+          ./levels.sh out/before.wav -4 | tee out/levels-before.tsv
+          echo "--- after it came back, from 1 s on"
+          ./levels.sh out/after.wav 1 | tee out/levels-after.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: coreaudio
+          path: out
+          if-no-files-found: ignore
