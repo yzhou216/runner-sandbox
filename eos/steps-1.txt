@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# First look: is OSC on by default, what is patched, and what comes out
+send /eos/ping
+until /eos/out/ping 60
+send /eos/get/version
+until /eos/out/get/version 10
+send /eos/subscribe 1
+wait 10
+mark levels by hand
+send /eos/newcmd "Chan 1 Thru 3 At Full#"
+wait 8
+send /eos/newcmd "Chan 1 Thru 3 At 0#"
+wait 5
+mark patch three dimmers to addresses 1 to 3 of universe 1
+send /eos/newcmd "Patch#"
+wait 2
+send /eos/newcmd "Chan 1 Thru 3 Address 1#"
+wait 3
+send /eos/newcmd "Live#"
+wait 2
+mark record two cues
+send /eos/newcmd "Chan 1 At 70#"
+wait 2
+send /eos/newcmd "Record Cue 1 Time 3#"
+wait 3
+send /eos/newcmd "Chan 2 At 80#"
+send /eos/newcmd "Chan 3 At Full#"
+wait 2
+send /eos/newcmd "Record Cue 2 Time 5#"
+wait 3
+mark clear and fire over OSC
+send /eos/newcmd "Go To Cue Out#"
+wait 8
+send /eos/cue/1/fire
+wait 8
+send /eos/key/go_0
+wait 10
+send /eos/cue/1/fire
+wait 8
+mark address control without the patch
+send /eos/newcmd "Address 10 At 50#"
+wait 6
+send /eos/get/cue/1/count
+wait 5

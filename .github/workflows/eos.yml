@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: Eos offline
+on: push
+defaults:
+  run:
+    shell: bash
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Eos
+        run: |
+          curl -sSfL -o eos.zip https://cdn.etcconnect.com/ETC_EosFamily_v3.3.10.28.zip
+          7z x -oeos-installer eos.zip
+          7z l eos-installer/*.exe > installer-list.txt || true
+      - name: Explore
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/explore.ps1 steps-1.txt
+      - name: Pack
+        if: always()
+        run: |
+          cp installer-list.txt out/ || true
+          tar -cf out.tar out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows
+          path: out.tar
