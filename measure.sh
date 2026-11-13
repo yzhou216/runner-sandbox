@@ -31,14 +31,17 @@ row tones "$(since "$(at tones-heard)" "$start")" "$(since "$(at tones-end)" "$s
 # First sound on channel 1 after the GO of cinq, about 20 milliseconds of
 # buffers after the key
 from=$(since "$(at house)" "$start")
-onset=$(ffmpeg -hide_banner -ss "$from" -i "$wav" -af 'pan=mono|c0=c0,silencedetect=n=-50dB:d=0.3' \
+# Search from a little before GO, so that it starts in the silence before,
+# with times from where it starts
+lead=$(awk -v at="$from" 'BEGIN { print (at > 3 ? 3 : at) }')
+onset=$(ffmpeg -hide_banner -ss "$(awk -v at="$from" -v lead="$lead" 'BEGIN { print at - lead }')" -i "$wav" -af 'pan=mono|c0=c0,silencedetect=n=-50dB:d=0.3' \
   -f null - 2>&1 | awk '/silence_end/ { print $5; exit }')
 if [ -z "$onset" ]; then
   echo "no sound after GO" >&2
   exit 1
 fi
 # Seconds of the recording at each wall time, from the onset
-shift=$(awk -v go="$from" -v onset="$onset" 'BEGIN { printf "%.3f", onset - 0.02 }')
+shift=$(awk -v onset="$onset" -v lead="$lead" 'BEGIN { printf "%.3f", onset - lead - 0.02 }')
 printf 'onset of the music %.3f s after GO\n' "$shift" >&2
 place() { awk -v at="$1" -v start="$start" -v shift="$shift" -v add="$2" 'BEGIN { printf "%.3f", at - start + shift + add }'; }
 steps=(house sub monitors house-off sub-4 panic desk-end)
