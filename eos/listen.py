@@ -4,7 +4,7 @@
 
 """Log the DMX that arrives as Art-Net or sACN, one JSON line per change.
 
-Usage: listen.py OUT.jsonl [SECONDS]
+Usage: listen.py OUT.jsonl [SECONDS [OUT.pcap]]
 
 Each line holds the time since start, the protocol, the sender, the
 universe, the sACN priority, and the slots that are not zero.  A summary
@@ -37,6 +37,25 @@ def bound(port):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("", port))
     return sock
+
+
+class Pcap:
+    """Every packet heard, behind made-up Ethernet, IPv4, and UDP headers,
+    for Wireshark's dissectors to check"""
+
+    def __init__(self, path):
+        self.file = open(path, "wb")
+        self.file.write(struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1))
+
+    def write(self, data, sender, port):
+        source = socket.inet_aton(sender[0])
+        target = socket.inet_aton("255.255.255.255")
+        udp = struct.pack(">HHHH", sender[1], port, 8 + len(data), 0) + data
+        ip = struct.pack(">BBHHHBBH4s4s", 0x45, 0, 20 + len(udp), 0, 0, 64, 17, 0, source, target)
+        frame = b"\xff" * 6 + b"\x02" + b"\0" * 5 + b"\x08\x00" + ip + udp
+        now = time.time()
+        self.file.write(struct.pack("<IIII", int(now), int(now % 1 * 1e6), len(frame), len(frame)) + frame)
+        self.file.flush()
 
 
 def artnet(data):
@@ -74,6 +93,7 @@ def sacn(data):
 def main():
     out = open(sys.argv[1], "a", buffering=1)
     stop = time.monotonic() + float(sys.argv[2]) if len(sys.argv) > 2 else None
+    pcap = Pcap(sys.argv[3]) if len(sys.argv) > 3 else None
     begin = time.monotonic()
     sel = selectors.DefaultSelector()
     sel.register(bound(ARTNET), selectors.EVENT_READ, ("artnet", artnet))
@@ -94,6 +114,8 @@ def main():
     while stop is None or time.monotonic() < stop:
         for key, _ in sel.select(timeout=1):
             data, sender = key.fileobj.recvfrom(2048)
+            if pcap:
+                pcap.write(data, sender, key.fileobj.getsockname()[1])
             proto, parse = key.data
             packet = parse(data)
             now = round(time.monotonic() - begin, 3)

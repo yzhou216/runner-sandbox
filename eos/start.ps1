@@ -9,7 +9,7 @@
 
 . "$PSScriptRoot\ui.ps1"
 
-Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 3000 -WindowStyle Hidden `
+Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 3000, "`"$out\wire.pcap`"" -WindowStyle Hidden `
     -RedirectStandardOutput "$out\listen-out.txt" -RedirectStandardError "$out\listen-err.txt"
 $launcher = 'C:\Program Files\ETC\EosFamily\v3\ETC_Launch\ETC_LaunchOffline.exe'
 Log "starting $launcher"
@@ -41,4 +41,7 @@ Shot 'start-end'
 Get-NetUDPEndpoint | Where-Object LocalPort -in 5568, 6454, 8000, 8001, 3037 | Format-Table -AutoSize | Out-String | Add-Content "$out\ports.txt"
 Get-NetTCPConnection -State Listen | Where-Object OwningProcess -in (Get-Process | Where-Object ProcessName -match 'eos').Id |
     Format-Table -AutoSize | Out-String | Add-Content "$out\ports.txt"
+foreach ($key in "HKLM\SOFTWARE\ETC", "HKCU\Software\ETC") {
+    reg.exe query $key /s 2>&1 | Add-Content "$out\registry-started.txt"
+}
 if (-not $open) { Log 'Eos never took OSC on TCP 3032'; exit 1 }

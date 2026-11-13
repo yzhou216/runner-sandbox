@@ -33,9 +33,6 @@ Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs", "$env:PU
         $l = $shell.CreateShortcut($_.FullName)
         "$($_.FullName) -> $($l.TargetPath) $($l.Arguments) in $($l.WorkingDirectory)"
     } | Set-Content "$out\shortcuts.txt"
-$(foreach ($key in 'HKLM:\SOFTWARE\ETC', 'HKLM:\SOFTWARE\WOW6432Node\ETC', 'HKCU:\Software\ETC') {
-    Get-ChildItem $key -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-        $_.Name
-        ($_ | Get-ItemProperty | Select-Object * -ExcludeProperty PS* | Format-List | Out-String).Trim()
-    }
-}) | Set-Content "$out\registry.txt"
+foreach ($key in "HKLM\SOFTWARE\ETC", "HKLM\SOFTWARE\WOW6432Node\ETC", "HKCU\Software\ETC") {
+    reg.exe query $key /s 2>&1 | Add-Content "$out\registry.txt"
+}
