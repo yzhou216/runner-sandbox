@@ -69,11 +69,11 @@ def set_default(dig, label, value):
     pattern = re.compile(r'(<elementName>In</elementName>\s*<elementAttributes>)(.*?)(</elementAttributes>)', re.S)
     for m in pattern.finditer(dig):
         if re.search(rf'<string>Label</string>\s*<string>{label}</string>', m.group(2)):
-            body = re.sub(r'\s*<entry>\s*<string>Default</string>\s*<long>\d+</long>\s*</entry>', '', m.group(2))
+            body = re.sub(r'\s*<entry>\s*<string>InDefault</string>\s*<value [^>]*/>\s*</entry>', '', m.group(2))
             entry = f'''
         <entry>
-          <string>Default</string>
-          <long>{value}</long>
+          <string>InDefault</string>
+          <value v="{value}" z="false"/>
         </entry>'''
             return dig[:m.start()] + m.group(1) + body.rstrip() + entry + '\n      ' + m.group(3) + dig[m.end():]
     raise ValueError(label)
