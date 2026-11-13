@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y python3-dev > /dev/null
           python3 -m venv venv
           CFLAGS=-Wno-int-conversion venv/bin/pip install --quiet netaudio==0.5.7
-          venv/bin/netaudio --help | head -20
+          venv/bin/netaudio --help > /dev/null
       - name: Make the network and the sound of the shows
         run: |
           sudo ip link add dante0 type dummy
@@ -59,7 +59,7 @@ jobs:
       - name: Play through the emulated Dante network
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          DANTE_IP=10.77.0.1 timeout -k 10 900 ./dante.sh result-cinq/bin/cinq show out inferno \
+          DANTE_IP=10.77.0.1 NETAUDIO_INTERFACE=dante0 timeout -k 10 900 ./dante.sh result-cinq/bin/cinq show out inferno \
             venv/bin/netaudio
       - name: Measure each channel of the board
         if: always()

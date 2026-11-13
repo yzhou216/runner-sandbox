@@ -127,9 +127,13 @@ subscribe() {
   log "netaudio device list:"
   printf '%s\n' "$listed"
   grep -q cinq <<< "$listed" || return 1
+  # Syntax of netaudio 0.5, then that of the releases that Inferno's own
+  # tests were written for
   for channel in 1 2 3 4 5 6 7 8; do
-    "$netaudio" subscription add --rx-device-name board --rx-channel-name "RX $channel" \
-      --tx-device-name cinq --tx-channel-name "TX $channel" || log "subscription $channel failed"
+    "$netaudio" subscription add --tx "tx:$channel@cinq" --rx "rx:$channel@board" ||
+      "$netaudio" subscription add --rx-device-name board --rx-channel-name "RX $channel" \
+        --tx-device-name cinq --tx-channel-name "TX $channel" ||
+      log "subscription $channel failed"
   done
   sleep 3
   log "netaudio subscription list:"
