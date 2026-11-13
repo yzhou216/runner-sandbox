@@ -2,9 +2,14 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Starts cinq with show.toml beside Eos and presses GO for its first two
-# light cues, so that listen.py hears cinq's sACN and Art-Net on the same
-# universe as Eos's.  cinq.exe comes from cinq-windows\bin in the checkout.
+# Starts cinq with SHOW beside Eos and presses GO for its first cues, GOS
+# of them: with show.toml, light cues that listen.py hears on the same
+# universe as Eos's, and with network.toml, network cues that fire cues of
+# Eos.  cinq.exe comes from cinq-windows\bin in the checkout.
+#
+# Usage: beside.ps1 [SHOW [GOS]]
+
+param([string]$Show = 'show.toml', [int]$Gos = 2)
 
 . "$PSScriptRoot\ui.ps1"
 
@@ -12,7 +17,7 @@ $exe = "$root\cinq-windows\bin\cinq.exe"
 
 $env:ICED_BACKEND = 'tiny-skia'
 Log "starting $exe"
-$cinq = Start-Process $exe -ArgumentList "`"$root\eos\show.toml`"" -PassThru `
+$cinq = Start-Process $exe -ArgumentList "`"$root\eos\$Show`"" -PassThru `
     -RedirectStandardOutput "$out\cinq-out.txt" -RedirectStandardError "$out\cinq-err.txt"
 $window = $null
 for ($i = 0; $i -lt 30 -and -not $window; $i++) {
@@ -22,7 +27,7 @@ for ($i = 0; $i -lt 30 -and -not $window; $i++) {
 if (-not $window) { Log 'no cinq window'; Shot 'beside-none'; exit 1 }
 Start-Sleep 3
 Shot 'beside-start'
-foreach ($cue in 1, 2) {
+foreach ($cue in 1..$Gos) {
     $null = [Input]::SetForegroundWindow($window.MainWindowHandle)
     Start-Sleep -Milliseconds 300
     Log "GO for cue $cue"

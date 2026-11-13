@@ -10,13 +10,18 @@ use iced::{
 };
 use strum::{IntoStaticStr, VariantArray};
 
+use super::room;
 use crate::{
-    back::{Advance, Cue, Edit, Kind},
+    back::{Advance, Cue, Destination, Edit, Kind, osc_packet},
     front::{
         App, Message,
         view::{NAME, SPACING, button, dropdown, format, theme},
     },
 };
+
+/// Characters that the destination field holds, as many as
+/// `udp://255.255.255.255:65535` takes, with one to spare
+const DESTINATION_ROOM: f32 = 28.0;
 
 #[derive(Clone, Copy, IntoStaticStr)]
 pub(super) enum Field {
@@ -38,6 +43,7 @@ impl Field {
     pub(super) fn label(self, cue: &Cue) -> &'static str {
         match self {
             Field::Target if cue.kind.has_file() => "File",
+            Field::Target if cue.kind == Kind::Network => "Message",
             _ => self.into(),
         }
     }
@@ -76,6 +82,7 @@ impl Field {
                         .target(cue)
                         .map_or_else(String::new, Cue::to_string),
                 ),
+                Kind::Network => network(cue, editable),
                 Kind::Light | Kind::Wait | Kind::Memo => shown(""),
             },
             Field::Notes => field(&cue.notes, Edit::Notes),
@@ -121,6 +128,20 @@ impl Field {
             _ => "",
         }
     }
+}
+
+/// Returns the destination and the message of a network cue side by side,
+/// each marked when it does not read as one
+fn network<'a>(cue: &Cue, editable: bool) -> Element<'a, Message> {
+    let id = cue.id;
+    let destination = text_input("host:port", &cue.destination)
+        .on_input_maybe(editable.then_some(move |text| Message::Edit(id, Edit::Destination(text))))
+        .style(theme::field(Destination::parse(&cue.destination).is_some()))
+        .width(room(DESTINATION_ROOM));
+    let message = text_input("/eos/cue/1/fire", &cue.message)
+        .on_input_maybe(editable.then_some(move |text| Message::Edit(id, Edit::Message(text))))
+        .style(theme::field(osc_packet(&cue.message).is_some()));
+    row![destination, message].spacing(SPACING).into()
 }
 
 /// Shows a value in a disabled field, so it lines up with editable ones

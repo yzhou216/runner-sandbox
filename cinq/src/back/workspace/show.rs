@@ -72,6 +72,10 @@ struct CueFile {
     notes: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     lights: BTreeMap<InstrumentId, f32>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    destination: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    message: String,
 }
 
 impl Workspace {
@@ -143,6 +147,13 @@ impl CueFile {
     fn of(cue: &Cue, file: String) -> Self {
         let set = |seconds: f32| Some(seconds).filter(|&seconds| seconds > 0.0);
         let plays = cue.kind.plays_file();
+        let network = |text: &String| {
+            if cue.kind == Kind::Network {
+                text.clone()
+            } else {
+                String::new()
+            }
+        };
         Self {
             id: cue.id.0,
             number: cue.number.clone(),
@@ -168,6 +179,8 @@ impl CueFile {
             } else {
                 BTreeMap::new()
             },
+            destination: network(&cue.destination),
+            message: network(&cue.message),
         }
     }
 
@@ -186,6 +199,8 @@ impl CueFile {
             .maybe_stop_target(self.stop_target)
             .notes(self.notes)
             .lights(self.lights)
+            .destination(self.destination)
+            .message(self.message)
             .build()
     }
 }

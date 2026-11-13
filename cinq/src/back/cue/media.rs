@@ -36,4 +36,8 @@ pub enum Problem<'a> {
     EmptyClip,
     #[strum(to_string = "no target cue")]
     NoTarget,
+    #[strum(to_string = "no destination as host:port")]
+    NoDestination,
+    #[strum(to_string = "no OSC message")]
+    NoMessage,
 }

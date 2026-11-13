@@ -114,9 +114,9 @@ impl Workspace {
             .fold(self.with_each_active(Active::begun), Self::with_effect_of)
     }
 
-    /// Carries out the effect of a fade or stop cue on its target, or of a
-    /// light cue on its instruments, unless an effect earlier in the same
-    /// tick has stopped the cue.  A fade acts only on a target that is
+    /// Carries out the effect of a fade or stop cue on its target, of a
+    /// light cue on its instruments, or of a network cue, unless an effect
+    /// earlier in the same tick has stopped the cue.  A fade acts only on a target that is
     /// playing, takes over from a fade already on it only where
     /// [`Fade::yields_to`] allows, and starts as far along as the tick has
     /// passed the end of the pre-wait.
@@ -134,6 +134,7 @@ impl Workspace {
             }),
             Effect::Stop(target) => self.stopped(target),
             Effect::Light => self.lit(fired.id, fired.run),
+            Effect::Send => self.sent_by(fired.id),
             Effect::Sound(_) | Effect::Video { .. } | Effect::Picture | Effect::Nothing => self,
         }
     }

@@ -57,11 +57,12 @@ Each cue is a table in the array *cue* of its list:
 	Number of the cue, as the cue list shows it, which can be any text.
 
 *kind*
-	What the cue does: *audio*, *video*, *picture*, *light*, *fade*, *stop*,
-	*wait*, or *memo*.
+	What the cue does: *audio*, *video*, *picture*, *light*, *network*,
+	*fade*, *stop*, *wait*, or *memo*.
 	An audio cue plays a sound file, a video cue plays a video file, and a
-	picture cue shows a picture file, as *STAGE* describes, and a light cue
-	fades instruments of the light patch, as *LIGHTS* describes.
+	picture cue shows a picture file, as *STAGE* describes, a light cue
+	fades instruments of the light patch, as *LIGHTS* describes, and a
+	network cue sends a message over the network, as *NETWORK* describes.
 	The clock of an audio or video cue follows its sound as the audio device
 	plays it.
 	Its fades, its end, and the cues that follow it therefore stay with what
@@ -132,6 +133,12 @@ Each cue is a table in the array *cue* of its list:
 *lights*
 	Table of the levels in percent, from 0 to 100, that a light cue fades
 	instruments to, by the *id* of each instrument.
+
+*destination*
+	Where a network cue sends its message.
+
+*message*
+	Message that a network cue sends.
 
 A file in which two cues or two instruments share an identity, or a level or
 an address lies outside its range, cannot be opened.
@@ -231,6 +238,38 @@ the higher level of each address from *cinq* and the console.
 Instruments that share an address set it to the highest of their levels.
 When *cinq* ends, receivers of sACN hold its levels for as long as they
 hold those of any source that has gone quiet.
+
+# NETWORK
+
+A network cue sends an Open Sound Control (OSC) message once its pre-wait is
+over, as the network cues of QLab do, so that a GO in *cinq* can fire a cue
+of a lighting console or of another program.
+It takes no time, and does nothing else.
+
+The *destination* of a network cue is _host:port_ for TCP, whose packets
+*cinq* frames with SLIP, as OSC 1.1 asks of streams, or _udp://host:port_ for
+UDP, with one packet to each datagram.
+The host is a name or an IPv4 address.
+*cinq* keeps a TCP connection to a destination open once it has made it, and
+makes a new one once the destination closes it, as a console that restarts
+does.
+
+The *message* of a network cue holds its address, which starts with a slash,
+followed by its arguments after spaces, each an integer, a decimal number, or
+else a string.
+Double quotes keep a string whole across spaces, and keep it a string where
+it reads as a number.
+
+A network cue whose destination or message does not read as one cannot play.
+A message that cannot go out, as when the destination refuses the connection
+or takes more than a second to take it, is lost, and *cinq* says so on
+standard error, once for each reason.
+
+The Eos family of consoles from ETC, such as the Ion Xe, takes OSC over TCP
+with SLIP on port 3037.
+It fires cue 5 of cue list 1 for _/eos/cue/1/5/fire_, and goes to the next
+cue for _/eos/key/go_0_, as the manual of Eos tells along with the other
+messages that it takes.
 
 # UNSAVED CHANGES
 
@@ -415,6 +454,31 @@ duration = 5.0
 [list.cue.lights]
 1 = 40.0
 2 = 80.0
+```
+
+A list in which GO fires cue 5 of an Ion Xe at its default address, along with
+a sound:
+
+```
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "5"
+kind = "network"
+name = "Lights for the storm"
+advance = "continue"
+destination = "10.101.100.20:3037"
+message = "/eos/cue/1/5/fire"
+
+[[list.cue]]
+id = 2
+number = "5.1"
+kind = "audio"
+name = "Storm"
+file = "storm.wav"
+level = 0.0
 ```
 
 # SEE ALSO

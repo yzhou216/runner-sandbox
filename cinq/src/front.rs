@@ -25,7 +25,7 @@ use std::{
 
 use iced::{Size, window};
 
-use crate::back::{Audio, CueId, CueList, Kind, Lights, Video, Workspace};
+use crate::back::{Audio, CueId, CueList, Kind, Lights, Network, Video, Workspace};
 use keymap::{Press, config::Config};
 use message::{Entry, Focus, Message, Tab};
 use update::{Keeper, Reader, Show, Stage};
@@ -109,6 +109,7 @@ struct Cinq {
     audio: Audio,
     video: Video,
     lights: Lights,
+    network: Network,
     keeper: Keeper,
 }
 

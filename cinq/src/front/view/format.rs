@@ -40,7 +40,7 @@ pub fn action(cue: &Cue) -> String {
         | (Kind::Light | Kind::Fade | Kind::Wait, _) => length,
         (Kind::Picture, Media::Loaded { .. }) => "hold".to_owned(),
         (Kind::Audio | Kind::Video | Kind::Picture, _) => "?".to_owned(),
-        (Kind::Stop | Kind::Memo, _) => "-".to_owned(),
+        (Kind::Stop | Kind::Network | Kind::Memo, _) => "-".to_owned(),
     }
 }
 
@@ -74,6 +74,7 @@ pub fn target(workspace: &Workspace, cue: &Cue) -> String {
             let lit = patched.filter(|id| cue.lights.contains_key(id));
             count(lit.count(), "instrument")
         }
+        Kind::Network => cue.message.trim().to_owned(),
         Kind::Wait | Kind::Memo => String::new(),
     }
 }
@@ -167,6 +168,8 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
                 Edit::Level(_) => format!("changed the level of cue {cue}"),
                 Edit::StopTarget(_) => format!("changed whether cue {cue} stops its target"),
                 Edit::Light(..) => format!("changed the light levels of cue {cue}"),
+                Edit::Destination(_) => format!("changed the destination of cue {cue}"),
+                Edit::Message(_) => format!("changed the message of cue {cue}"),
             }
         }
         Change::Standby(standby) => match standby.after.and_then(|id| workspace.cue(id)) {

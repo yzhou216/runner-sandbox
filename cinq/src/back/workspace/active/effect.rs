@@ -63,6 +63,8 @@ pub(in crate::back::workspace) enum Effect {
     Light,
     /// Stops a cue
     Stop(CueId),
+    /// Sends the message of a network cue
+    Send,
     /// Takes time and does nothing else, as wait and memo cues do
     Nothing,
 }

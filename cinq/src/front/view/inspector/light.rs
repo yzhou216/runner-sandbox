@@ -16,7 +16,7 @@ use crate::{
     front::{App, Entry, Message, view::button},
 };
 
-/// Characters that the address and level fields hold, as many as `32767/512`
+/// Characters that the address and level fields hold, as many as `32768/512`
 /// or `unchanged` takes, with one to spare
 const ROOM: f32 = 10.0;
 

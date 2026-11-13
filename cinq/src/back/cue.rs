@@ -126,6 +126,14 @@ pub struct Cue {
     /// Levels in percent that a light cue fades instruments to
     #[builder(default)]
     pub lights: BTreeMap<InstrumentId, f32>,
+    /// Where a network cue sends its message, as [`crate::back::Destination`]
+    /// reads it
+    #[builder(default, into)]
+    pub destination: String,
+    /// OSC message that a network cue sends, as [`crate::back::osc`] reads
+    /// it
+    #[builder(default, into)]
+    pub message: String,
 }
 
 impl fmt::Display for Cue {
@@ -191,6 +199,7 @@ impl Cue {
                 | Kind::Video
                 | Kind::Picture
                 | Kind::Light
+                | Kind::Network
                 | Kind::Wait
                 | Kind::Memo => false,
             }

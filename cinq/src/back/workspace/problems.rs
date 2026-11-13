@@ -6,7 +6,7 @@
 //! that could not be played
 
 use super::Workspace;
-use crate::back::{Cue, Kind, Media, Problem};
+use crate::back::{Cue, Destination, Kind, Media, Problem, osc};
 
 impl Workspace {
     pub fn problem<'a>(&self, cue: &'a Cue) -> Option<Problem<'a>> {
@@ -24,7 +24,11 @@ impl Workspace {
                 Some(target) if cue.can_target(target) => None,
                 _ => Some(Problem::NoTarget),
             },
-            Kind::Light | Kind::Wait | Kind::Memo => None,
+            Kind::Network if Destination::parse(&cue.destination).is_none() => {
+                Some(Problem::NoDestination)
+            }
+            Kind::Network if osc::packet(&cue.message).is_none() => Some(Problem::NoMessage),
+            Kind::Light | Kind::Network | Kind::Wait | Kind::Memo => None,
         }
     }
 

@@ -95,6 +95,8 @@ pub(super) fn state(
         (Some(Problem::NotLoaded), _) => ("loading".to_owned(), text::default),
         (Some(Problem::NoFile), _) => ("NO FILE".to_owned(), text::danger),
         (Some(Problem::NoTarget), _) => ("NO TARGET".to_owned(), text::danger),
+        (Some(Problem::NoDestination), _) => ("NO DESTINATION".to_owned(), text::danger),
+        (Some(Problem::NoMessage), _) => ("NO MESSAGE".to_owned(), text::danger),
         (Some(Problem::LoadFailed(_) | Problem::EmptyClip), _) => {
             ("BROKEN".to_owned(), text::danger)
         }

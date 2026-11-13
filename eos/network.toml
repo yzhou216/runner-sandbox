@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Two network cues for Eos on the same computer: the first fires its cue 1,
+# the second presses its GO, which runs cue 2
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "network"
+name = "Eos cue 1"
+destination = "127.0.0.1:3037"
+message = "/eos/cue/1/fire"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "Eos GO"
+destination = "127.0.0.1:3037"
+message = "/eos/key/go_0"

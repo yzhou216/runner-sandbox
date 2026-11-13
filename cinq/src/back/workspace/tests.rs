@@ -10,6 +10,7 @@ mod editing;
 mod files;
 mod history;
 mod light;
+mod network;
 mod picture;
 mod playback;
 mod show;

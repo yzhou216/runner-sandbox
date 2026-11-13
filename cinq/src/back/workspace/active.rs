@@ -76,6 +76,7 @@ impl Active {
             }),
             (Kind::Picture, _) => Effect::Picture,
             (Kind::Light, _) => Effect::Light,
+            (Kind::Network, _) => Effect::Send,
             (Kind::Fade, Some(target)) => Effect::Fade {
                 target,
                 fade: Fade {

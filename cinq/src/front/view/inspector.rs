@@ -149,7 +149,7 @@ fn levels<'a>(app: &'a App, cue: &'a Cue) -> Element<'a, Message> {
         Kind::Audio | Kind::Video => "Level",
         Kind::Fade => "Fade target to",
         Kind::Light => return light::levels(app, cue),
-        Kind::Picture | Kind::Stop | Kind::Wait | Kind::Memo => {
+        Kind::Picture | Kind::Stop | Kind::Network | Kind::Wait | Kind::Memo => {
             return text(format!("{} cues have no level", cue.kind)).into();
         }
     };

@@ -27,6 +27,9 @@ pub enum Kind {
     Fade,
     /// Stops another cue
     Stop,
+    /// Sends an OSC message over the network, as to a lighting console to
+    /// fire one of its own cues
+    Network,
     /// Takes time and does nothing else, to pace a chain of cues
     Wait,
     /// Does nothing, as a note in the cue list

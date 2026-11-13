@@ -38,6 +38,8 @@ pub enum Edit {
     /// Level in percent that a light cue fades an instrument to, or none
     /// to leave the instrument out
     Light(InstrumentId, Option<f32>),
+    Destination(String),
+    Message(String),
 }
 
 impl Edit {
@@ -84,6 +86,11 @@ impl Cue {
                     .collect(),
                 ..self
             },
+            Edit::Destination(destination) => Self {
+                destination,
+                ..self
+            },
+            Edit::Message(message) => Self { message, ..self },
         }
     }
 
@@ -110,6 +117,8 @@ impl Cue {
             Edit::Level(_) => Edit::Level(self.level),
             Edit::StopTarget(_) => Edit::StopTarget(self.stop_target),
             Edit::Light(id, _) => Edit::Light(*id, self.lights.get(id).copied()),
+            Edit::Destination(_) => Edit::Destination(self.destination.clone()),
+            Edit::Message(_) => Edit::Message(self.message.clone()),
         }
     }
 }

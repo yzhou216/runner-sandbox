@@ -2,22 +2,25 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Show model, with audio, video, and light playback, with no knowledge of
-//! any interface
+//! Show model, with audio, video, light, and network playback, with no
+//! knowledge of any interface
 //!
 //! A front end reads a [`Workspace`] and changes it only by applying a
 //! [`Command`], so every rule about what may change lives here.  Every
 //! change consumes the workspace and returns a new one, without side
 //! effects.  [`Audio`], which makes the sound that the workspace describes,
 //! [`Video`], which makes its pictures, [`Lights`], which sends its light
-//! levels, and [`load_files`], which reads the files that cues name, are
-//! the parts with side effects.
+//! levels, [`Network`], which sends the messages of its network cues, and
+//! [`load_files`], which reads the files that cues name, are the parts
+//! with side effects.
 
 mod audio;
 mod cue;
 mod items;
 mod light;
 mod load;
+mod network;
+mod osc;
 mod patch;
 mod video;
 mod workspace;
@@ -33,6 +36,8 @@ pub use cue::{
 };
 pub use light::Lights;
 pub use load::{Load, load_files};
+pub use network::Network;
+pub use osc::{Destination, Outgoing, packet as osc_packet};
 pub use patch::{Instrument, InstrumentId, PatchEdit, parse_address};
 pub use video::{PICTURE_FILES, Picture, VIDEO_FILES, Video};
 pub use workspace::{Active, Change, Command, Contents, Phase, Place, Turn, Workspace};

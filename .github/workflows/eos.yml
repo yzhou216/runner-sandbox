@@ -16,6 +16,7 @@ defaults:
     shell: bash
 jobs:
   windows:
+    needs: cinq-windows
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -43,29 +44,41 @@ jobs:
         with:
           name: start
           path: out
-      - name: Drive over OSC, or else by keys
-        timeout-minutes: 10
-        run: |
-          python eos/osc.py out/osc.txt eos/steps-2.txt ||
-            powershell -NoProfile -ExecutionPolicy Bypass -File eos/keys.ps1 eos/keys-1.txt
-          powershell -NoProfile -ExecutionPolicy Bypass -File eos/snap.ps1 driven
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: driven
-          path: out
-      # cinq.exe with sACN, built by the job cinq-windows of run 43466962112
+      - name: Program Eos over OSC
+        timeout-minutes: 5
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/program.ps1 steps-3.txt
       - uses: actions/download-artifact@v4
         with:
           name: cinq-windows
           path: cinq-windows
-          run-id: 43466962112
-          github-token: ${{ github.token }}
-      - name: cinq beside Eos
+      - name: cinq fires Eos cues with network cues
         timeout-minutes: 5
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/beside.ps1
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File eos/beside.ps1 network.toml 2
+          sleep 10
+          powershell -NoProfile -ExecutionPolicy Bypass -File eos/snap.ps1 fired
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: beside
+          name: fired
           path: out
+  # cinq with sACN and network cues, from a snapshot of commits not yet
+  # pushed
+  cinq-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nix build ./cinq#x86_64-windows
+          mkdir cinq-windows && cp -rL result/. cinq-windows/ && find cinq-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinq-windows
+          path: cinq-windows
