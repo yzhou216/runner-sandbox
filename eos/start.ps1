@@ -4,8 +4,8 @@
 
 # Starts listen.py and Eos's offline launcher, chooses Offline w/viz, which
 # sends sACN or Art-Net for visualizers without a license key, and waits
-# until Eos takes OSC connections on TCP port 3032.  Both programs outlive
-# the step, until the runner cleans up at the end of the job.
+# until the main window of Eos has been up for half a minute.  Both programs
+# outlive the step, until the runner cleans up at the end of the job.
 
 . "$PSScriptRoot\ui.ps1"
 
@@ -40,8 +40,12 @@ for ($i = 0; (Get-Date) -lt $deadline; $i++) {
             ForEach-Object { '{0} {1} cpu={2:F0}s ws={3}MB "{4}"' -f $_.ProcessName, $_.Id, $_.CPU, [int]($_.WorkingSet64 / 1MB), $_.MainWindowTitle } |
             Add-Content "$out\processes.txt"
     }
-    if (-not $open -and (Open 3032)) { $open = Get-Date; Log 'TCP 3032 accepts connections' }
-    if ($open -and ((Get-Date) - $open).TotalSeconds -gt 20) { break }
+    # Main window of Eos, as Eos : 1 for its first, once the show has loaded
+    if (-not $open -and ($tree | Where-Object { $_.Kind -eq 'Window' -and $_.Name -match '^Eos : ' })) {
+        $open = Get-Date
+        Log "main window up, TCP 3032 open: $(Open 3032)"
+    }
+    if ($open -and ((Get-Date) - $open).TotalSeconds -gt 30) { break }
 }
 Shot 'start-end'
 Get-NetUDPEndpoint | Where-Object LocalPort -in 5568, 6454, 8000, 8001, 3037 | Format-Table -AutoSize | Out-String | Add-Content "$out\ports.txt"
@@ -50,4 +54,4 @@ Get-NetTCPConnection -State Listen | Where-Object OwningProcess -in (Get-Process
 foreach ($key in "HKLM\SOFTWARE\ETC", "HKCU\Software\ETC") {
     reg.exe query $key /s 2>&1 | Add-Content "$out\registry-started.txt"
 }
-if (-not $open) { Log 'Eos never took OSC on TCP 3032'; exit 1 }
+if (-not $open) { Log 'Eos never opened its main window'; exit 1 }

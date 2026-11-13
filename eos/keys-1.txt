@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Eos keys on a PC keyboard: a At, t Thru, f Full, r Record, q Cue, i Time,
+# o Out, ; Patch, F1 Live, Alt+A Address, Control+G Go To Cue, Space Go.
+# Letters stay lower case, since Shift is Eos's own Shift.
+keys {F1}
+keys +{BACKSPACE}
+wait 2
+shot live
+# Patch channels 1 to 3 to addresses 1 to 3 of universe 1
+keys ;
+wait 3
+keys 1t3%a1{ENTER}
+wait 3
+shot patched
+keys {F1}
+wait 3
+# Cue 1 brings channel 1 to 70 in 3 seconds, cue 2 channel 2 to 80 and 3
+# to full in 5
+keys 1a70{ENTER}
+wait 2
+keys rq1i3{ENTER}
+wait 3
+keys 2a80{ENTER}
+wait 1
+keys 3af{ENTER}
+wait 2
+keys rq2i5{ENTER}
+wait 3
+shot recorded
+keys ^go{ENTER}
+wait 8
+shot out
+keys ^g1{ENTER}
+wait 8
+shot cue-1
+go
+wait 10
+shot cue-2
