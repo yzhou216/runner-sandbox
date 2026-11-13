@@ -8,7 +8,7 @@
 # outputs need three channels, and full.cinq.toml, whose outputs fill all
 # eight.  For each, jack_lsp tells where the ports of cinq connect, which
 # should be the playback port of each one's number, and jack_capture
-# records what the ports carry.
+# records what reaches the eight playback ports.
 #
 # Usage: jack.sh CINQ SHOW OUT, with jackd, jack_lsp, jack_capture, sway,
 # wtype, and ffmpeg on PATH, CINQ the program, SHOW the directory of the
@@ -65,12 +65,7 @@ for name in partial full; do
   echo "$name: cinq has $ports ports"
   wtype -s 300 -k space
   sleep 1
-  # Ports of cinq, in order, each into a channel of its own
-  capture=()
-  while read -r port; do
-    capture+=(--port "$port")
-  done < <(jack_lsp | command grep '^cpal_client' | sort -V)
-  jack_capture --daemon --format wav --duration 4 "${capture[@]}" "$out/$name.wav" \
+  jack_capture --daemon --recording-time 4 --channels 8 --port 'system:playback*' "$out/$name.wav" \
     > "$out/capture-$name.log" 2>&1 || true
   wtype -s 300 -k Escape
   sleep 2
