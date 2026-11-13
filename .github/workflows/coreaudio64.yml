@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ on BlackHole 64ch and BlackHole 2ch at
+# once with multi.sh, and prints the level of each channel that sounds and
+# how far apart the two devices start the cue.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  coreaudio64:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Install BlackHole 64ch, BlackHole 2ch, and ffmpeg
+        run: |
+          brew install --cask blackhole-64ch blackhole-2ch
+          brew install ffmpeg
+          sudo killall coreaudiod || true
+          sleep 5
+          system_profiler SPAudioDataType
+      - name: Build cinq
+        run: nix build --out-link result-cinq ./cinq
+      - name: Play on both devices
+        run: |
+          bash media.sh .
+          ./multi.sh result-cinq/bin/cinq music.flac out
+      - name: Measure each channel and the onsets
+        if: always()
+        run: |
+          echo "--- BlackHole 2ch, last 4 s"
+          ./levels.sh out/two.wav -4 | tee out/levels-two.tsv
+          echo "--- BlackHole 64ch, last 4 s, channels that sound"
+          ./levels.sh out/many.wav -4 | tee out/levels-many.tsv |
+            awk -F'\t' '{ for (i = 1; i <= NF; i++) if ($i != "-") printf "%d: %s\n", i, $i }'
+          mapfile -t starts < <(sed -nE 's/.*Duration: N\/A, start: ([0-9.]+).*/\1/p' out/record.log)
+          echo "--- starts of the recordings: ${starts[*]}"
+          two=$(./onset.sh out/two.wav 1 "${starts[0]}")
+          many=$(./onset.sh out/many.wav 3 "${starts[1]}")
+          awk -v two="$two" -v many="$many" \
+            'BEGIN { printf "BlackHole 64ch starts %.1f ms after BlackHole 2ch\n", (many - two) * 1000 }'
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: coreaudio64
+          path: out
+          if-no-files-found: ignore
