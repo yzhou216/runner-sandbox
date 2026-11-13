@@ -1,0 +1,90 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Outputs}
+\label{ch:outputs}
+
+A theater plays sound in more than one place, such as the house speakers, a
+subwoofer, and the monitors on stage, which are often channels of one mixing
+desk.  In cinq, each place is an output: a name that the show gives to one
+channel, or two, of an audio device.  Cues send their sound to outputs, never
+to devices or channels, so moving an output to other channels, or to another
+device at another venue, moves every cue that sends to it.
+
+A new show has one output, Main, on the first two channels of the default
+device, and new cues send to it.  This chapter adds an output for each
+speaker of your computer, then sends the rain of your own show to one and
+then the other.
+
+\section{Adding outputs}
+
+Press \key{Control+o} and open \texttt{my-show.cinq.toml}.
+
+\begin{enumerate}
+\item Click \ui{Outputs} below the cue lists in the sidebar.  The outputs of
+  the show take the place of the cue list, and the inspector shows the
+  selected output, Main.
+\item Press \ui{Add output}.  A new output appears below Main, on the first
+  two channels of the default device.  In the inspector, set its \ui{Name} to
+  \texttt{Left} and its \ui{Channels} to \texttt{1}.
+\item Press \ui{Add output} again, and make an output named \texttt{Right} on
+  channel~2.  The outputs now look as in Figure~\ref{fig:outputs}.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/outputs.png}
+  \caption{Outputs of a show, which take the place of the cue list}
+  \label{fig:outputs}
+\end{figure}
+
+Channels count from 1: \texttt{3} names one channel, and \texttt{1-2} names
+two, left first.  The \ui{Device} list of an output chooses the device that
+it plays on, such as a sound card or a desk with more channels.  Its default,
+\ui{Default device}, is the device that the \ui{Default device} list in the
+sidebar chooses for the whole computer, so a show made on one computer plays
+on another.  An output that cannot play, such as one whose device is
+unplugged, shows why in its \texttt{State} column and among the warnings,
+and cues play on the other outputs.
+
+While the outputs show, the keys of cues act on them: \key{ArrowDown} and
+\key{ArrowUp} select an output, and the keys that add, move, and delete cues
+add, move, and delete outputs.
+
+\section{Sending a cue}
+
+\begin{enumerate}
+\item Click \ui{Main} under \ui{Cue lists} in the sidebar to return to the
+  cue list.
+\item Select the rain, and click the \ui{Levels} tab.  If the exercise of
+  Chapter~\ref{ch:fades} left its level at $-60$~dB, set it to $-20$~dB so
+  that it can be heard.  Below the level, a field for each output holds the
+  level at which the rain sends there: 0~dB for Main, and \texttt{off} for
+  the others.
+\item Type \texttt{0} in the field of Left, and empty the field of Main, as
+  in Figure~\ref{fig:sends}.
+\item Press \ui{Standby selected}, then \ui{GO}\@.  The rain plays from the
+  left speaker alone.
+\item While it plays, type \texttt{0} in the field of Right, and empty the
+  field of Left.  The rain moves to the right speaker.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/sends.png}
+  \caption{\ui{Levels} tab of a cue that sends to one output alone}
+  \label{fig:sends}
+\end{figure}
+
+Each send applies after the level of the cue, which fade cues move, so a
+fade moves every send of its target at once.  \ui{New cues send}, in the
+inspector of an output, sets the level at which cues added later send
+there.  Main has 0~dB and new outputs have none, so new cues send to Main
+alone.  \ui{Edit outputs}, beside the fields, shows the outputs again.
+
+\section*{Exercise}
+
+You can now send each cue where it belongs.  While the rain plays, set the
+\ui{Channels} of Right to \texttt{1}.  The rain moves to the left speaker,
+although its cue has not changed.  Then put Right back on channel~2.

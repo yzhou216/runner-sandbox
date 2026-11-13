@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ on a null sink of eight channels of a
+# PipeWire server of its own, through PipeWire's JACK and through its
+# plugin of ALSA, with pipewire.sh, and prints the level of each channel of
+# the sink each time.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  pipewire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#ffmpeg nixpkgs#pipewire nixpkgs#wireplumber nixpkgs#dbus
+          nix build --out-link pw --inputs-from ./cinq nixpkgs#pipewire.out nixpkgs#pipewire.jack
+          ls -d pw*
+      - name: Play on PipeWire
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir show
+          cp partial.cinq.toml show/
+          bash media.sh show
+          export ALSA_PLUGIN_DIR PW_JACK
+          ALSA_PLUGIN_DIR=$(readlink -f pw)/lib/alsa-lib
+          PW_JACK=$(readlink -f pw-1)/lib
+          ls "$ALSA_PLUGIN_DIR" "$PW_JACK"
+          timeout -k 10 300 dbus-run-session -- ./pipewire.sh result-cinq/bin/cinq show out
+      - name: Measure each channel
+        if: always()
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          for name in jack alsa; do
+            echo "--- $name: links"
+            command grep -A1 'cpal\|cinq\|desk' "out/links-$name.txt" | head -40 || true
+            echo "--- $name: level of each channel of the sink"
+            ./levels.sh "out/$name.wav" 7.5 10.5 | tee "out/levels-$name.tsv" || true
+          done
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: pipewire
+          path: out
+          if-no-files-found: ignore
