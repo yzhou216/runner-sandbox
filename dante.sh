@@ -141,10 +141,9 @@ subscribe() {
 }
 
 # Phase 1: tones from aplay
-ffmpeg -loglevel error -y -f lavfi -i "aevalsrc=$(for channel in 1 2 3 4 5 6 7 8; do
-  printf '%s0.4*pow(10,-%d*3/20)*sin(2*PI*440*t)' "${sep:-}" $((channel - 1))
-  sep='|'
-done):s=48000:d=40" -c:a pcm_f32le "$work/tones.wav"
+# Amplitudes in figures, since a comma would end the filter's option
+tones=$(awk 'BEGIN { for (i = 0; i < 8; i++) printf "%s%.5f*sin(2*PI*440*t)", (i ? "|" : ""), 0.4 * 10 ^ (-i * 3 / 20) }')
+ffmpeg -loglevel error -y -f lavfi -i "aevalsrc=$tones:s=48000:d=40" -c:a pcm_f32le "$work/tones.wav"
 mark "tones"
 aplay -D dante "$work/tones.wav" > "$out/aplay.log" 2>&1 &
 aplay_pid=$!
