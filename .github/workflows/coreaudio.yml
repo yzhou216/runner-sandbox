@@ -40,6 +40,8 @@ jobs:
       - name: Measure each channel
         if: always()
         run: |
+          echo "--- tones from ffmpeg, 3 dB apart"
+          ./levels.sh out/tones.wav 3.5 6.5 | tee out/levels-tones.tsv
           echo "--- last 4 s before the device went"
           ./levels.sh out/before.wav -4 | tee out/levels-before.tsv
           echo "--- after it came back, from 1 s on"

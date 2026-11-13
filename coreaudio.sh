@@ -16,7 +16,8 @@
 # program, SOUND the sound of the cue, and OUT the directory for the
 # recordings, the screenshots, and marks.tsv
 set -euo pipefail
-cinq=$1 sound=$2
+cinq=$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")
+sound=$(cd "$(dirname "$2")" && pwd -P)/$(basename "$2")
 out=$(mkdir -p "$3" && cd "$3" && pwd)
 work=$(mktemp -d)
 driver=/Library/Audio/Plug-Ins/HAL/BlackHole16ch.driver
@@ -51,6 +52,20 @@ cat "$out/devices.tsv"
 id=$(awk -F'\t' '$2 == "BlackHole 16ch" { print $1; exit }' "$out/devices.tsv")
 [ -n "$id" ] || { echo "cinq lists no BlackHole 16ch"; exit 1; }
 ffmpeg -hide_banner -f avfoundation -list_devices true -i "" > "$out/avfoundation.log" 2>&1 || true
+
+# Tones from ffmpeg itself first, each channel 3 dB below the one before,
+# so that a silent recording tells cinq apart from a recorder that hears
+# nothing, as one without access to the microphone would
+ffmpeg -hide_banner -f lavfi -i anullsrc -t 0.1 -f audiotoolbox -list_devices true - \
+  > "$out/audiotoolbox.log" 2>&1 || true
+index=$(sed -nE 's/.*\[([0-9]+)\] BlackHole 16ch.*/\1/p' "$out/audiotoolbox.log" | head -1)
+tones=$(awk 'BEGIN { for (i = 0; i < 16; i++) printf "%s%.5f*sin(2*PI*440*t)", (i ? "|" : ""), 0.4 * 10 ^ (-i * 3 / 20) }')
+record tones
+sleep 3
+ffmpeg -loglevel warning -f lavfi -i "aevalsrc=$tones:s=48000:d=4" -f audiotoolbox \
+  -audio_device_index "${index:-0}" - > "$out/tones-play.log" 2>&1 || true
+sleep 1
+stop
 
 cp "$sound" "$work/music.flac"
 output() {
