@@ -24,6 +24,8 @@ using System.Runtime.InteropServices;
 public static class Win {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, bool repaint);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
 }
 '@
 function Shot([string]$name) {
@@ -72,5 +74,20 @@ Keys $process 'l'
 Shot 'outputs'
 Keys $process 'jjj'
 Shot 'inspector'
+# Device list of House L, which the list of devices taken as cinq started
+# should hold, before, while, and after it opens on a click, about 186
+# pixels above the bottom of the window
+Keys $process 'kkk'
+Shot 'house'
+[Win]::SetCursorPos(440, 542) | Out-Null
+Start-Sleep -Milliseconds 100
+[Win]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+[Win]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep 2
+Shot 'device-list'
+[Win]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+[Win]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep 2
+Shot 'house-listed'
 $recorder.WaitForExit()
 Stop-Process $process -ErrorAction SilentlyContinue

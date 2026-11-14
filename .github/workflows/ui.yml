@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays the show of show.sh with cinq of the tree in cinq/, commit f219f0f,
+# Plays the show of show.sh with cinq of the tree in cinq/, commit b122c44,
 # on GNU/Linux over JACK, on Darwin over BlackHole 16ch, and on Windows
 # over VB-CABLE, takes screenshots of how its outputs tell why they cannot
 # play, and prints the level of the two outputs that can.

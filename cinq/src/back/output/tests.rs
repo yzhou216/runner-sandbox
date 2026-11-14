@@ -14,13 +14,15 @@ fn channels_read_as_people_count_them_and_write_back_the_same() {
         (" 5 - 6 ", Some(Channels::Stereo(4, 5))),
         ("1,3", Some(Channels::Stereo(0, 2))),
         ("64", Some(Channels::Mono(63))),
+        ("127-128", Some(Channels::Stereo(126, 127))),
+        ("256", Some(Channels::Mono(255))),
         // Range of more than two channels, no channel, or one past the
         // channels that a device can have
         ("1-3", None),
         ("2-1", None),
         ("2,2", None),
         ("0", None),
-        ("65", None),
+        ("257", None),
         ("", None),
         ("left", None),
     ];

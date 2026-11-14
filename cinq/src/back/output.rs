@@ -38,8 +38,10 @@ pub enum Channels {
     Stereo(u16, u16),
 }
 
-/// Channels that a device can have, as many as cpal lists
-pub const DEVICE_CHANNELS: u16 = 64;
+/// Channels that a device can have, past the 128 of the Dante Virtual
+/// Soundcard with a Pro license and of the largest Dante cards, so that a
+/// show for them opens while a typo such as 1000 does not
+pub const DEVICE_CHANNELS: u16 = 256;
 
 impl Channels {
     /// First two channels, on which Main plays

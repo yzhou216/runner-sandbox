@@ -55,8 +55,8 @@ Each output is a table in the array *output*, in order:
 	another ID, as long as no other device there has the name.
 
 *channels*
-	Channels of the device that the output plays on, counted from 1: _3_ for
-	one channel, and _1-2_ or _1,3_ for two, the left first.
+	Channels of the device that the output plays on, counted from 1 to 256: _3_
+	for one channel, and _1-2_ or _1,3_ for two, the left first.
 	A stereo file plays its left and right on the two channels of a stereo
 	output, and its sum on the channel of a mono one.
 	A mono file plays on every channel of the output at its own level.
