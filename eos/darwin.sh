@@ -5,10 +5,10 @@
 
 # Runs the light cues of show.toml in cinq on Darwin, where the network that
 # multicast leaves by is chosen otherwise than on GNU/Linux and Windows, and
-# records the sACN and Art-Net that come back to the same computer: first
-# the program of cinq.app as a shell starts it, then cinq.app as Finder
-# opens it.  Darwin asks before a program first reaches the local network,
-# the second time with the reason in cinq.app's Info.plist; ui, built from
+# records the sACN and Art-Net that come back to the same computer, as
+# Finder opens cinq.app: first as the build signs it, then signed again as a
+# whole bundle.  Darwin asks before a program first reaches the local
+# network, with the reason in cinq.app's Info.plist; ui, built from
 # screen.swift, presses Allow as the operator would.
 #
 # Usage: darwin.sh APP OUT, with APP the path of cinq.app
@@ -44,41 +44,37 @@ go() {
 }
 
 mark listening
-python3 eos/listen.py "$out/dmx.jsonl" 220 "$out/wire.pcap" &
+python3 eos/listen.py "$out/dmx.jsonl" 150 "$out/wire.pcap" &
 listener=$!
-(sleep 250 && kill "$listener" 2> /dev/null) &
+(sleep 180 && kill "$listener" 2> /dev/null) &
 sleep 3
 shot 0-listener
 allow 10
 
-mark binary
-"$app/Contents/MacOS/cinq" eos/show.toml > "$out/binary.log" 2>&1 &
-pid=$!
-sleep 8
-shot 1-binary
-allow 5
-go "$pid" 1-binary
-kill "$pid"
-sleep 3
+# Opens APP as Finder does, presses Allow, and GO twice, under LABEL
+opened() {
+  mark "$2"
+  open -n --stdout "$out/$2.log" --stderr "$out/$2.log" "$1" --args "$PWD/eos/show.toml"
+  sleep 8
+  shot "$2"
+  allow 5
+  local pid
+  pid=$(pgrep -n -x cinq)
+  go "$pid" "$2"
+  kill "$pid"
+  sleep 3
+}
 
-mark app
-open -n --stdout "$out/app.log" --stderr "$out/app.log" "$app" --args "$PWD/eos/show.toml"
-sleep 8
-shot 2-app
-allow 5
-pid=$(pgrep -n -x cinq)
-go "$pid" 2-app
-kill "$pid"
-sleep 3
-
-# Same app again, now that the operator has allowed it
-mark again
-open -n --stdout "$out/again.log" --stderr "$out/again.log" "$app" --args "$PWD/eos/show.toml"
-sleep 8
-shot 3-again
-allow 5
-pid=$(pgrep -n -x cinq)
-go "$pid" 3-again
-kill "$pid"
+# cinq.app as the build signs it, its program alone, and then a copy signed
+# as a whole bundle, Info.plist included
+codesign -dv --verbose=4 "$app" > "$out/codesign-built.txt" 2>&1
+opened "$app" 1-built
+cp -R "$app" signed.app
+codesign --force --deep --sign - signed.app
+codesign -dv --verbose=4 signed.app > "$out/codesign-signed.txt" 2>&1
+opened "$PWD/signed.app" 2-signed
 wait "$listener"
 mark finished
+log show --last 10m --style compact \
+  --predicate 'process == "nehelper" OR subsystem == "com.apple.networkextension" OR eventMessage CONTAINS[c] "local network"' \
+  > "$out/privacy.log" 2>&1 || true
