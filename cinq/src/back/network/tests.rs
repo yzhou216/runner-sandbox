@@ -7,9 +7,12 @@
 use std::{
     io::Read,
     net::{TcpListener, UdpSocket},
+    sync::atomic::Ordering,
     thread,
     time::{Duration, Instant},
 };
+
+use socket2::SockRef;
 
 use super::Network;
 use crate::back::osc::{Destination, Outgoing, framed};
@@ -72,7 +75,7 @@ fn udp_messages_go_out_as_one_datagram_each() {
 /// Waits until `network` has sent or given up on every message
 fn settled(network: &Network) {
     let start = Instant::now();
-    while network.sending() && start.elapsed() < PATIENCE {
+    while network.shared.pending.load(Ordering::Relaxed) > 0 && start.elapsed() < PATIENCE {
         thread::sleep(Duration::from_millis(10));
     }
 }
@@ -93,4 +96,43 @@ fn failure_to_reach_a_destination_shows_until_a_message_gets_there() {
     assert_eq!(frame(&listener), framed(&[6; 4]));
     settled(&network);
     assert!(network.problems().is_empty());
+}
+
+#[test]
+fn message_that_waited_past_its_second_is_dropped_rather_than_sent_late() {
+    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+    socket
+        .set_read_timeout(Some(Duration::from_millis(500)))
+        .unwrap();
+    let destination = Destination::Udp(socket.local_addr().unwrap().to_string());
+    let network = Network::open();
+    let handed = Instant::now().checked_sub(Duration::from_secs(2)).unwrap();
+    network.send_since(message(destination, 7), handed);
+    settled(&network);
+    assert!(
+        network.problems()[0].ends_with("dropped after waiting a second behind earlier messages")
+    );
+    assert!(socket.recv(&mut [0; 16]).is_err());
+}
+
+#[test]
+fn connection_lost_to_an_error_shows_before_the_next_message() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
+    let network = Network::open();
+    network.send(message(destination, 8));
+    let (mut stream, _) = listener.accept().unwrap();
+    let mut frame = vec![0; framed(&[0; 4]).len()];
+    stream.read_exact(&mut frame).unwrap();
+    // Reset rather than close, as a console that went away and came back
+    // answers a connection that it no longer knows
+    SockRef::from(&stream)
+        .set_linger(Some(Duration::ZERO))
+        .unwrap();
+    drop(stream);
+    let start = Instant::now();
+    while network.problems().is_empty() && start.elapsed() < PATIENCE {
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert!(network.problems()[0].contains(": lost the connection: "));
 }

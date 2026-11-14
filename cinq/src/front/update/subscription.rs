@@ -23,10 +23,6 @@ use crate::{
 /// Interval at which the files that could not be played are tried again
 const RECHECK: Duration = Duration::from_secs(2);
 
-/// Interval at which the interface checks whether messages of network cues
-/// got there, while some are on their way
-const NETWORK_CHECK: Duration = Duration::from_millis(100);
-
 /// Shortest wait for the next picture of a video cue, since a timer cannot
 /// wait for no time at all
 const SOONEST: Duration = Duration::from_millis(1);
@@ -45,8 +41,8 @@ impl App {
         let rechecks = (!self.rechecking && self.workspace.failed().next().is_some())
             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
         let network = self
-            .network_sending
-            .then(|| time::every(NETWORK_CHECK).map(|_| Message::NetworkChecked));
+            .network_checks
+            .map(|every| time::every(every).map(|_| Message::NetworkChecked));
         let always = [
             keyboard::listen().filter_map(keys::key_press),
             event::listen_with(clicked),

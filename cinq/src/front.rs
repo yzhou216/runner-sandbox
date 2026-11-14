@@ -20,7 +20,7 @@ mod view;
 use std::{
     env, fs, io,
     path::{self, Path, PathBuf},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use iced::{Size, window};
@@ -139,9 +139,9 @@ struct App {
     /// Why messages of network cues to each destination failed, until one
     /// gets there
     network_problems: Vec<String>,
-    /// Whether messages of network cues are on their way, whose outcome the
-    /// interface checks for until they are not
-    network_sending: bool,
+    /// How often to look for news of the network output, while it has any
+    /// to give
+    network_checks: Option<Duration>,
     /// ID and name of each audio device, as they were listed last
     audio_devices: Vec<(String, String)>,
     /// Why the configuration file did not keep the audio device chosen

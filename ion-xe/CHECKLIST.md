@@ -87,6 +87,17 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
   - *Timed out:* nothing answered.  Check the address, the subnet mask,
     the cable, and whether Wi-Fi is taking the route.
   - *No route to host* on Darwin: Local Network permission is off.
+  - *Dropped after waiting a second behind earlier messages:* the message
+    was dropped on purpose.  cinq drops a message that cannot go out
+    within a second, rather than firing a console cue late.
+- **If the console loses its power or its cable,** the sidebar warns of a
+  lost connection within about ten seconds, even before the next GO.  The
+  next network cue then makes a new connection by itself.
+  - A GO in those ten seconds, before cinq notices, can be lost without a
+    warning.
+  - A console that quits normally, as when Eos restarts, closes the
+    connection without a warning.  The next GO reconnects, or warns if the
+    console is not back yet.
 - **Wireshark,** with the filter `tcp.port == 3037`:
   - SYN, then SYN-ACK: the connection works.  If Tab 99 still shows
     nothing, check OSC RX.

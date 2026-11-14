@@ -10,8 +10,8 @@
 # fakeeos.py, and GO sends two more cues.  Whether the first of them arrives
 # tells whether cinq found the old connection dead.
 #
-# Usage: powercut.sh CINQ FONTS OUT, with sway, wtype, python3, and sudo
-# iptables at hand, and FONTS the directory of the DejaVu fonts
+# Usage: powercut.sh CINQ FONTS OUT, with sway, wtype, grim, python3, and
+# sudo iptables at hand, and FONTS the directory of the DejaVu fonts
 set -euo pipefail
 
 here=$(dirname "$(readlink -f "$0")")
@@ -65,6 +65,8 @@ kill "$console" || true
 wait "$console" || true
 sleep 20
 ss -tn > "$out/sockets.txt" 2>&1 || true
+# What the operator sees while the cable is out
+grim "$out/cut.png" || true
 cut -D
 mark "cable back"
 python3 "$here/fakeeos.py" "$out/console-2.txt" 15 &

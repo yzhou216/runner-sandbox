@@ -265,6 +265,12 @@ it reads as a number.
 A network cue whose destination or message does not read as one cannot play.
 A message that cannot go out, as when the destination refuses the connection
 or takes more than a second to take it, is lost.
+So is a message that waits more than a second behind others, as behind a
+console that does not answer, since a cue that fires late can do more harm
+than one that does not fire.
+A console that loses its power or its cable shows among the warnings as a
+lost connection within about ten seconds, and the next message to it makes
+a new connection.
 The warnings in the sidebar say why until a message to the same destination
 gets there, and *cinq* says so on standard error as well, once for each
 reason.

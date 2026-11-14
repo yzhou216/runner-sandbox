@@ -17,7 +17,6 @@ defaults:
 jobs:
   windows:
     needs: cinq-windows
-    if: false # Off while the power cut is tested
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -85,7 +84,6 @@ jobs:
   # cinq with sACN and network cues, from a snapshot of commits not yet
   # pushed
   cinq-windows:
-    if: false # Off while the power cut is tested
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -104,7 +102,6 @@ jobs:
           name: cinq-windows
           path: cinq-windows
   cinq-darwin:
-    if: false # Off while the power cut is tested
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -125,7 +122,6 @@ jobs:
   # otherwise than on GNU/Linux and Windows
   darwin:
     needs: cinq-darwin
-    if: false # Off while the power cut is tested
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -144,7 +140,6 @@ jobs:
   # Signature of cinq.app as Nix builds it on Darwin itself, where the
   # fixup of Nixpkgs runs before the bundle is signed
   darwin-native:
-    if: false # Off while the power cut is tested
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -166,7 +161,6 @@ jobs:
   # cinq on GNU/Linux: sACN and Art-Net on the runner's own networks, and
   # network cues to fakeeos.py over TCP and UDP
   linux:
-    if: false # Off while the power cut is tested
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -190,8 +184,8 @@ jobs:
         with:
           name: linux
           path: out
-  # A console that loses its power under cinq: with keepalive (5f71ab1) and
-  # without it (5501a62)
+  # A console that loses its power under cinq, whose keepalive finds it gone
+  # (without keepalive, 5501a62 lost the first cue after; run 43598804720)
   powercut:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -201,17 +195,15 @@ jobs:
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build cinq with keepalive and without, and the session's tools
+      - name: Build cinq and the session's tools
         run: |
-          nix build --out-link new github:yzhou216/cinq/5f71ab10fbe021e62d4e39e9c9da839f89aafa72
-          nix build --out-link old github:yzhou216/cinq/5501a62c29f8bea982e9f1e9c9a0a53731fca19d
+          nix build --out-link new ./cinq
           nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
-          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#python3
+          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#python3
       - name: Cut the power of a console under each
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          bash eos/powercut.sh new/bin/cinq "$(readlink -f fonts)/share/fonts" out/new
-          bash eos/powercut.sh old/bin/cinq "$(readlink -f fonts)/share/fonts" out/old
+          bash eos/powercut.sh new/bin/cinq "$(readlink -f fonts)/share/fonts" out
       - if: always()
         uses: actions/upload-artifact@v4
         with:
