@@ -139,3 +139,28 @@ jobs:
         with:
           name: darwin-native
           path: out
+  # cinq on GNU/Linux: sACN and Art-Net on the runner's own networks, and
+  # network cues to fakeeos.py over TCP and UDP
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq and the session's tools
+        run: |
+          nix build ./cinq
+          nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#python3
+      - name: Run
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PWD/result/bin:$PATH
+          bash eos/linux.sh "$(readlink -f fonts)/share/fonts" out
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out
