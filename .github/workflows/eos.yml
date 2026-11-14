@@ -158,8 +158,9 @@ jobs:
         with:
           name: darwin-native
           path: out
-  # cinq on GNU/Linux: sACN and Art-Net on the runner's own networks, and
-  # network cues to fakeeos.py over TCP and UDP
+  # cinq on GNU/Linux: sACN and Art-Net on the runner's own networks,
+  # network cues to fakeeos.py over TCP and UDP, and the show for the Ion Xe
+  # over a cable that comes out
   linux:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -179,6 +180,10 @@ jobs:
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PWD/result/bin:$PATH
           bash eos/linux.sh "$(readlink -f fonts)/share/fonts" out
           bash eos/stress.sh "$(readlink -f fonts)/share/fonts" out/stress
+      - name: ion-test.toml beside a stand-in Ion Xe, with its cable out and back
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PWD/result/bin:$PATH
+          bash eos/lan.sh "$(readlink -f fonts)/share/fonts" out/lan
       - if: always()
         uses: actions/upload-artifact@v4
         with:

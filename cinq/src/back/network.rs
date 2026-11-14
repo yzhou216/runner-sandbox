@@ -69,8 +69,9 @@ impl Shared {
         self.problems.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Records why something to `destination` failed, now
+    /// Records why something to `destination` failed, now, and warns of it
     fn failed(&self, destination: String, reason: String) {
+        warn::once(&format!("network cue to {destination}: {reason}"));
         self.problems()
             .insert(destination, (Instant::now(), reason));
     }
@@ -186,10 +187,7 @@ fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Shared
         };
         match sent {
             Ok(()) => shared.sent(&destination.to_string(), started),
-            Err(error) => {
-                warn::once(&format!("network cue to {destination}: {error}"));
-                shared.failed(destination.to_string(), error.to_string());
-            }
+            Err(error) => shared.failed(destination.to_string(), error.to_string()),
         }
         shared.pending.fetch_sub(1, Ordering::Relaxed);
     }
