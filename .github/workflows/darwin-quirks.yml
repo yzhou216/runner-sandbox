@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Plays cinq of the tree in cinq/, with open-timing.patch, which logs how
-# long each opening of a device takes, on BlackHole 16ch and BlackHole 2ch under
-# the quirks of Core Audio devices with quirks.sh, and prints the level of
-# each channel and how clean the tone stayed in each take, with glitch.sh.
+# long each opening of a device takes, on BlackHole 16ch and BlackHole 2ch
+# under the quirks of Core Audio devices with quirks.sh, and prints the
+# level of each channel and how clean the tone stayed in each take, with
+# glitch.sh.
 on: push
 permissions:
   contents: read
