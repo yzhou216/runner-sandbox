@@ -4,43 +4,43 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: sixteen loops on 64 channels
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This branch plays sixteen looping cues at once on all 64 channels of a
+JACK server, as many channels as the Dante Virtual Soundcard offers, for
+five minutes with each of two builds of cinq, and counts what the server
+missed.  `before/` holds the tree of commit e278505 of the `audio-outputs`
+branch of yzhou216/cinq, and `after/` that of commit 6e43900 of its
+`resampler-prototype` branch, which converts sounds of another rate than
+the device by rubato's windowed sinc interpolation.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What runs
 
-## Setup
+`.github/workflows/soak.yml` builds both trees with `nix build`, and runs
+`soak.sh`, then `levels.sh`.
 
-Fork this repository, then clone it into the agent's skills directory:
+- `soak.sh` starts jackd with its dummy backend at 48 kHz, with periods of
+  256 frames and 64 playback ports, and writes a show of 32 stereo outputs
+  over the 64 channels and sixteen cues that loop a file of 44.1 kHz, each
+  sending to two outputs at 0 and -6 dB, which one GO fires.
+- For each build it fires the cue, waits five minutes, and prints the
+  share of one processor that cinq took meanwhile, window and all, and the
+  xruns that jackd logged, then records the 64 ports with jack_capture.
+- `levels.sh` prints the RMS level of each port of that recording.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Results
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+Run 43552711060 on `ubuntu-latest` passed.
 
-## Contributing
+| Build  | Processor | Xruns |
+| ------ | --------- | ----- |
+| before | 23.1%     | 0     |
+| after  | 31.3%     | 0     |
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- Neither build missed a period of the server in five minutes, at 5.3 ms
+  a period.
+- Converting sixteen sounds by windowed sinc interpolation took 8.2% more
+  of a processor, about half a percent for each sound.
+- At the end, every port played at its level with both builds: -16.5 dB
+  on those of the outputs sent at 0 dB, and -22.5 dB on those sent at
+  -6 dB.
