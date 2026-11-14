@@ -4,43 +4,54 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: how outputs tell why they cannot play
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This branch shows, on GNU/Linux, Darwin, and Windows, how cinq tells why
+outputs cannot play: in a few words in the outputs view, in yellow where
+cinq tries the device again by itself and in red where the output must
+change, in one warning for the outputs of a device, in the names of the
+Levels tab, and in the Device list of the inspector.  `cinq/` holds the
+tree of commit 3b5aef6 of the `audio-outputs` branch of yzhou216/cinq.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What runs
 
-## Setup
+`.github/workflows/ui.yml` writes the show of `show.sh` on each system:
+House L and House R on channels 1 and 2 of a device there, which play,
+Over on channels past those of that device, and Stage L and Stage R on a
+Dante Virtual Soundcard that is not there, with a cue of a tone that sends
+to all five.
 
-Fork this repository, then clone it into the agent's skills directory:
+- `linux.sh` plays on jackd's dummy backend of 64 ports, with Over on
+  65-66, in a headless sway.
+- `darwin.sh` plays on BlackHole 16ch, with Over on 17-18.
+- `windows.ps1` plays on VB-CABLE, with Over on channel 3, and opens a
+  second show that names an endpoint of another machine, along with the
+  name of VB-CABLE's.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+Each takes screenshots of the main window, the Levels tab, the outputs
+view, and the inspector, and records the device to measure House L and
+House R.
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+## Results
 
-## Contributing
+Run 43599976711 passed on all three systems.
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- House L and House R played at -30.1 and -36.1 dBFS everywhere, as they
+  are sent.
+- The outputs view read Past its 64, 16, or 2 channels in red for Over,
+  and Not found, retrying in yellow for Stage L and Stage R, each on one
+  line.
+- The sidebar held two warnings: one for the Dante Virtual Soundcard and
+  its two outputs, and one for Over, and the status bar counted two.
+- The Levels tab named Over in red and the Stage outputs in yellow, beside
+  3 cannot play now.
+- The Device list of Stage L read Dante Virtual Soundcard, not found, in
+  yellow.
+- On Windows, the Device list of House L chose VB-CABLE both when the show
+  named its endpoint and when it named an endpoint of another machine
+  along with VB-CABLE's name, which commit 3b5aef6 made it do.
+- Runs 43596203728 and 43598724393 came before.  The first wrote channels
+  65-66, past the 64 that cinq then took, which commit b122c44 raised to
+  256, and Git's bash dropped the braces of the endpoint ID until the
+  script set MSYS to noglob, which showed that the Device list chose
+  devices by ID alone.
