@@ -20,8 +20,10 @@ import sys
 import time
 
 ARTNET, SACN = 6454, 5568
-# Groups of universes 1 to 32 and 300, and of universe discovery
-GROUPS = [f"239.255.0.{n}" for n in range(1, 33)] + ["239.255.1.44", "239.255.250.214"]
+# Groups of the universes that the tests use, and of universe discovery,
+# fewer than the 20 groups that GNU/Linux lets a socket join by default
+UNIVERSES = list(range(1, 17)) + [300, 999]
+GROUPS = [f"239.255.{u >> 8}.{u & 0xFF}" for u in UNIVERSES] + ["239.255.250.214"]
 
 
 def addresses():

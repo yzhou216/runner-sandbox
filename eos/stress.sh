@@ -6,8 +6,9 @@
 # Loads cinq's network and light output in a headless sway session of its
 # own, with the show that stress.py writes: GO fires 50 network cues over
 # TCP to fakeeos.py at once, then 50 over UDP; fakeeos.py goes down and comes
-# back; GO fires 10 more over TCP, then a light cue on three universes.
-# listen.py records the sACN and Art-Net.
+# back; GO fires 10 more over TCP, then a light cue on four universes, then
+# 300 network cues a tenth of a second apart, while the memory of cinq is
+# sampled.  listen.py records the sACN and Art-Net.
 #
 # Usage: stress.sh FONTS OUT, with cinq, sway, wtype, grim, and python3 on
 # PATH, and FONTS the directory of the DejaVu fonts
@@ -29,7 +30,7 @@ printf 'output HEADLESS-1 resolution 1600x1000\n' > "$work/sway.config"
 printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
 python3 "$here/stress.py" "$work/stress.toml"
 
-python3 "$here/listen.py" "$out/dmx.jsonl" 60 "$out/wire.pcap" &
+python3 "$here/listen.py" "$out/dmx.jsonl" 100 "$out/wire.pcap" &
 listener=$!
 python3 "$here/fakeeos.py" "$out/console-1.txt" 20 &
 console=$!
@@ -59,9 +60,16 @@ go udp
 kill "$console"
 wait "$console" || true
 printf '%s console down\n' "$(date +%s.%N)" >> "$out/marks.txt"
-python3 "$here/fakeeos.py" "$out/console-2.txt" 30 &
+python3 "$here/fakeeos.py" "$out/console-2.txt" 80 &
 sleep 2
 go again
 go light
+pid=$(pgrep -n -x cinq)
+go soak
+# Memory of cinq while the soak runs, in kilobytes
+for _ in $(seq 10); do
+  printf '%s %s\n' "$(date +%s.%N)" "$(ps -o rss= -p "$pid")" >> "$out/memory.txt"
+  sleep 3
+done
 wait "$listener"
 swaymsg exit > /dev/null 2>&1 || true

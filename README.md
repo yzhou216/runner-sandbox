@@ -60,6 +60,8 @@ that writes each send that fails on standard error.
 | 43552387371 | cinq.app signed by rcodesign at build | Failed only until Allow, then sent |
 | 43553147379 | cinq.app as Nix builds it on Darwin | Signed as `io.yiyuzhou.cinq`, valid on disk, satisfies its Designated Requirement |
 | 43553927187 | Every job, with GNU/Linux | All passed (darwin-native on a second attempt, after cache.nixos.org broke off a download); on GNU/Linux sACN left eth0 and the network cues reached `fakeeos.py` as written, over TCP and UDP |
+| 43584888758 | b137aa7 as pushed: six kinds of network cue | Eos fired a cue by number, GO, a cue by list and number, and a command line with spaces; a destination that refused took 1 s on Windows and held nothing else up |
+| 43594509473 | 5501a62: Eos down and back; load; a Mac's LAN | cinq reconnected to Eos on its own once Eos came back; 100 cues from two GOs and 10 after a restart arrived in order; cinq.app reached a console at the Mac's own address |
 
 What Eos does, offline:
 
@@ -97,6 +99,10 @@ What Darwin does:
   and after a relaunch, until the bundle was signed ad hoc under its own
   identifier, which cinq's build now does with rcodesign.
 
+For the console itself, `ion-xe/CHECKLIST.md` lists what to note and test
+at an Ion Xe, with `ion-xe/ion-test.toml`, a show that pings the console
+first and sends light only to universe 999.
+
 ## Traps
 
 - Eos's launcher shows a Windows paging-file dialog behind it at logon,
@@ -115,3 +121,8 @@ What Darwin does:
   click the exact `Allow`.
 - Files from the Nix store are read-only, so `codesign` of a copy needs
   `chmod -R u+w` first.
+- GNU/Linux lets a socket join only 20 multicast groups by default; past
+  that, joins fail with ENOBUFS, so `listen.py` joins only the universes
+  that the tests use.
+- On Windows, a TCP connection to a closed port on the same computer times
+  out rather than being refused.
