@@ -44,9 +44,9 @@ go() {
 }
 
 mark listening
-python3 eos/listen.py "$out/dmx.jsonl" 170 "$out/wire.pcap" &
+python3 eos/listen.py "$out/dmx.jsonl" 220 "$out/wire.pcap" &
 listener=$!
-(sleep 200 && kill "$listener" 2> /dev/null) &
+(sleep 250 && kill "$listener" 2> /dev/null) &
 sleep 3
 shot 0-listener
 allow 10
@@ -68,6 +68,17 @@ shot 2-app
 allow 5
 pid=$(pgrep -n -x cinq)
 go "$pid" 2-app
+kill "$pid"
+sleep 3
+
+# Same app again, now that the operator has allowed it
+mark again
+open -n --stdout "$out/again.log" --stderr "$out/again.log" "$app" --args "$PWD/eos/show.toml"
+sleep 8
+shot 3-again
+allow 5
+pid=$(pgrep -n -x cinq)
+go "$pid" 3-again
 kill "$pid"
 wait "$listener"
 mark finished

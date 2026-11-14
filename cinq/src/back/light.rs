@@ -88,7 +88,10 @@ impl Network {
         // Sandbox only: say why a packet does not go out
         let said = |what: &str, result: std::io::Result<()>| {
             if let Err(error) = result {
-                crate::warn::once(&format!("{what} via {}: {error}", self.address));
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0.0, |since| since.as_secs_f64());
+                eprintln!("{now:.3} {what} via {}: {error}", self.address);
             }
         };
         said("multicast interface", SockRef::from(socket).set_multicast_if_v4(&self.address));
