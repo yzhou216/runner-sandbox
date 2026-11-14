@@ -38,7 +38,12 @@ that writes each send that fails on standard error.
   signature of cinq.app.
 - **linux** runs `linux.toml` in cinq in headless sway on `ubuntu-latest`,
   with `fakeeos.py` standing in for a console, decoding the network cues
-  over TCP with SLIP and over UDP.
+  over TCP with SLIP and over UDP; `stress.sh` sends hundreds of cues; and
+  `lan.sh` runs `ion-xe/ion-test.toml` against a stand-in console at the
+  Ion Xe's address, 10.101.100.20, in a network namespace at the end of a
+  veth cable that comes out and goes back in.
+- **powercut** cuts a stand-in console off under cinq with iptables, as a
+  lost power supply does, and checks the cues after it comes back.
 
 ## Results
 
@@ -68,6 +73,9 @@ that writes each send that fails on standard error.
 | 43621864513 | Every job on 51d0edc | Cancelled for 7f5632a, which also warns on standard error of a lost connection |
 | 43622465685 | 7f5632a: the Ion Xe's show over a cable that comes out | ion-test.toml reached a stand-in console at 10.101.100.20 as written; a cue sent a second after the cable came out arrived 13 s after its GO, without a warning, once the cable was back; no Art-Net on a network without a broadcast address |
 | 43624566796 | 238fcfe: a new connection after each quiet second | The cue a second after the cable came out never arrived, and warned; every other cue arrived within 10 ms; Eos took a connection for each GO and ran ion-test.toml's cues; still no Art-Net on the cable, since GNU/Linux neither sends nor takes broadcasts on an address without `brd` |
+| 43625278634 | c9a6db4: sACN universe discovery | Eos and cinq sent discovery every 10 s, which `listen.py` logged as unknown, since it took packets under 126 bytes for broken; `stress.sh` could not bind its console while `linux.sh`'s still held port 8000 |
+| 43626553187, 43626694911, 43626762105 | d6b9350 | Cancelled for fixes to the scripts and to cinq |
+| 43627453872 | 27b7559: every job, after a review of the network output | All passed: Eos ran ion-test.toml's cues; on the cable, a GO while it was out and one a second after it came out never arrived, and warned, while every other cue arrived within 10 ms; Art-Net, sACN, and discovery of universe 999 reached the stand-in console; 360 cues under stress, memory flat at 55 MB |
 
 What Eos does, offline:
 
@@ -92,6 +100,15 @@ What cinq does:
 - Its network cues, OSC over TCP with SLIP to `127.0.0.1:3037`, made Eos
   fire `cue/1/1` and then `cue/1/2`; Eos faded channel 1 to 179 over 2.98 s
   and channels 2 and 3 to 204 and 255 over 4.98 s, the times of its cues.
+- A TCP connection kept open while its cable is out takes a message
+  without a word, and TCP delivers it once the cable goes back in: 13 s
+  after its GO in run 43622465685.  So cinq now keeps a connection only
+  while messages to its destination follow each other within a second, and
+  drops any message that cannot go out within a second of its cue.
+- It lists the universes that it sends every ten seconds, as sACN's
+  universe discovery asks; Eos does too, for its universe 1.
+- GNU/Linux neither sends nor takes Art-Net's directed broadcasts on an
+  address set without `brd`.
 
 What Darwin does:
 
