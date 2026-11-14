@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of the tree in cinq/ on BlackHole 16ch and BlackHole 2ch under
+# the quirks of Core Audio devices with quirks.sh, and prints the level of
+# each channel and how clean the tone stayed in each take, with glitch.sh.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  quirks:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-python@main
+        with:
+          python-version: "3.13"
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Install BlackHole 16ch, BlackHole 2ch, ffmpeg, and sounddevice
+        run: |
+          brew install --cask blackhole-16ch blackhole-2ch
+          brew install ffmpeg
+          python -m pip install --quiet sounddevice numpy
+          sudo killall coreaudiod || true
+          sleep 5
+      - name: Build cinq
+        run: nix build --out-link result-cinq ./cinq
+      - name: Play under the quirks of Core Audio
+        run: ./quirks.sh result-cinq/bin/cinq out
+      - name: Measure each take
+        if: always()
+        run: |
+          printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
+          for take in fallback rate-before rate-after default-before-2ch default-before-16ch \
+            default-after-2ch default-after-16ch; do
+            file=out/$take.wav
+            printf '%s\t%s\t%s\n' "$take" "$(./levels.sh "$file" 0.5 3.5 || true)" \
+              "$(./glitch.sh "$file" 1 1000 0.5 3.5 || true)"
+          done | tee out/takes.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: darwin-quirks
+          path: out
+          if-no-files-found: ignore
