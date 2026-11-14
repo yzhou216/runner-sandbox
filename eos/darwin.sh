@@ -62,7 +62,7 @@ kill "$pid"
 sleep 3
 
 mark app
-open -n "$app" --args "$PWD/eos/show.toml"
+open -n --stdout "$out/app.log" --stderr "$out/app.log" "$app" --args "$PWD/eos/show.toml"
 sleep 8
 shot 2-app
 allow 5

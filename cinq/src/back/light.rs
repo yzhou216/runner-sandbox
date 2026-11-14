@@ -85,10 +85,16 @@ impl Network {
             (self.broadcast, sacn::group(universe))
         };
         // Network that has gone since, which the next refresh leaves out
-        let _ = SockRef::from(socket).set_multicast_if_v4(&self.address);
-        let _ = socket.send_to(sacn, sacn_to);
+        // Sandbox only: say why a packet does not go out
+        let said = |what: &str, result: std::io::Result<()>| {
+            if let Err(error) = result {
+                crate::warn::once(&format!("{what} via {}: {error}", self.address));
+            }
+        };
+        said("multicast interface", SockRef::from(socket).set_multicast_if_v4(&self.address));
+        said("sACN", socket.send_to(sacn, sacn_to).map(drop));
         if let (Some(packet), Some(to)) = (artnet, artnet_to) {
-            let _ = socket.send_to(packet, (to, artnet::PORT));
+            said("Art-Net", socket.send_to(packet, (to, artnet::PORT)).map(drop));
         }
     }
 }
