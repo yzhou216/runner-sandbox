@@ -67,7 +67,8 @@ recordings of WASAPI's loopback set the floor of the rest at about 70 dB.
   malfunctions, which is how cpal tells ASIO's error, and took the driver
   two seconds after the first quit.  FlexASIO takes exclusive mode on
   VB-CABLE only in 16 bits: in 32 bits neither cinq could open it, and
-  cinq blamed its samples, which commit b4e792d reworded.
+  cinq blamed its samples, which commit b4e792d now tells apart from a
+  driver that offers no stream at all.
 - fallback: cinq found VB-CABLE by its name and played on it.
 - stopped: cinq warned that the device is not there, tried again every two
   seconds, and played once the service started.
