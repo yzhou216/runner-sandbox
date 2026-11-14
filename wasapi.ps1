@@ -120,7 +120,10 @@ if ($Revive) {
   $svv = Join-Path $work 'SoundVolumeView.exe'
   Invoke-WebRequest -OutFile (Join-Path $work 'svv.zip') https://www.nirsoft.net/utils/soundvolumeview-x64.zip
   Expand-Archive (Join-Path $work 'svv.zip') $work
-  $endpoint = $id -replace '^wasapi:', ''
+  # Endpoint of VB-CABLE, which FlexASIO plays on as well
+  $cable = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match '^wasapi:.*VB-Audio' } |
+    Select-Object -First 1
+  $endpoint = ($cable -split "`t", 2)[0] -replace '^wasapi:', ''
   function Devices([string]$name) {
     & $Cinq --audio-devices > (Join-Path $Out "devices-$name.tsv")
     Start-Process -Wait $svv -ArgumentList '/scomma', (Join-Path $Out "endpoints-$name.csv")
