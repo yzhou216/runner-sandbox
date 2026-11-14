@@ -20,7 +20,7 @@ use crate::{
         App, Message, Setting,
         view::{
             OUTPUT_NAME, SPACING, char_width,
-            devices::{Choice, choices},
+            devices::{Choice, choices, chosen},
             dropdown, faults, format, keep_keys, outputs, theme,
         },
     },
@@ -132,12 +132,7 @@ fn device<'a>(app: &'a App, output: &'a Output) -> Element<'a, Message> {
         name.to_owned()
     };
     let options = choices(&app.audio_devices, outputs::device(&Device::Default));
-    let selected = options
-        .iter()
-        .find(|choice| match &output.device {
-            Device::Default => choice.id.is_none(),
-            Device::Named { id, .. } => choice.id.as_ref() == Some(id),
-        })
+    let selected = chosen(&options, &output.device)
         .cloned()
         .filter(|_| !missing);
     let keymap = &app.config.keymap;

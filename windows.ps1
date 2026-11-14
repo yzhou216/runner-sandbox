@@ -52,6 +52,8 @@ $cable = Get-Content (Join-Path $Out 'devices.tsv') | Where-Object { $_ -match '
   Select-Object -First 1
 $id, $name = $cable -split "`t", 2
 $missing = 'wasapi:{0.0.0.00000000}.{11111111-2222-3333-4444-555555555555}'
+# Arguments as they are, braces and all, which Git's bash would glob
+$env:MSYS = 'noglob'
 bash (Join-Path $PSScriptRoot 'show.sh') $id $name 3 $missing |
   Set-Content -Path (Join-Path $work 'ui.cinq.toml') -Encoding utf8NoBOM
 Copy-Item (Join-Path $work 'ui.cinq.toml') $Out
@@ -90,4 +92,20 @@ Shot 'device-list'
 Start-Sleep 2
 Shot 'house-listed'
 $recorder.WaitForExit()
+Stop-Process $process -ErrorAction SilentlyContinue
+
+# Show made on another machine, whose House L and House R name an endpoint
+# that this one lacks, along with the name of VB-CABLE's, which the Device
+# list of House L should choose by that name
+$foreign = 'wasapi:{0.0.0.00000000}.{99999999-8888-7777-6666-555555555555}'
+bash (Join-Path $PSScriptRoot 'show.sh') $foreign $name 3 $missing |
+  Set-Content -Path (Join-Path $work 'foreign.cinq.toml') -Encoding utf8NoBOM
+Copy-Item (Join-Path $work 'foreign.cinq.toml') $Out
+$process = Start-Process $Cinq -PassThru -WorkingDirectory $work -ArgumentList 'foreign.cinq.toml'
+Start-Sleep 10
+$process.Refresh()
+[Win]::MoveWindow($process.MainWindowHandle, 0, 0, 1024, 728, $true) | Out-Null
+Start-Sleep 1
+Keys $process 'l'
+Shot 'foreign'
 Stop-Process $process -ErrorAction SilentlyContinue

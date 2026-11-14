@@ -4,7 +4,8 @@
 
 //! Tests of the labels of the audio devices
 
-use super::choices;
+use super::{choices, chosen};
+use crate::back::Device;
 
 #[test]
 fn devices_go_by_name_and_by_id_where_they_share_a_name() {
@@ -29,4 +30,40 @@ fn devices_go_by_name_and_by_id_where_they_share_a_name() {
             "alsa:house",
         ]
     );
+}
+
+#[test]
+fn output_chooses_its_device_by_id_or_else_by_its_only_name() {
+    let device = |id: &str, name: &str| (id.to_owned(), name.to_owned());
+    let devices = [
+        device("wasapi:{one}", "Speakers (VB-Audio Virtual Cable)"),
+        device("alsa:hw:CARD=1,DEV=0", "USB Audio"),
+        device("alsa:plughw:CARD=1,DEV=0", "USB Audio"),
+    ];
+    let options = choices(&devices, "Default device");
+    let named = |id: &str, name: &str| Device::Named {
+        id: id.to_owned(),
+        name: name.to_owned(),
+    };
+    let id = |device: &Device| chosen(&options, device).and_then(|option| option.id.clone());
+    assert_eq!(
+        chosen(&options, &Device::Default).map(|option| option.id.clone()),
+        Some(None)
+    );
+    assert_eq!(
+        id(&named("wasapi:{one}", "Speakers")).as_deref(),
+        Some("wasapi:{one}")
+    );
+    // Show made on another machine, whose ID this one lacks
+    assert_eq!(
+        id(&named(
+            "wasapi:{other}",
+            "Speakers (VB-Audio Virtual Cable)"
+        ))
+        .as_deref(),
+        Some("wasapi:{one}")
+    );
+    // Name of two devices, which no list can tell apart
+    assert_eq!(id(&named("alsa:hw:CARD=2,DEV=0", "USB Audio")), None);
+    assert_eq!(id(&named("coreaudio:gone", "Gone")), None);
 }

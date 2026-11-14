@@ -16,6 +16,8 @@ mod tests;
 
 use std::{fmt, iter};
 
+use crate::back::Device;
+
 /// Option of a list of audio devices
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct Choice {
@@ -53,4 +55,23 @@ pub(super) fn choices(devices: &[(String, String)], default: &str) -> Vec<Choice
         },
     });
     iter::once(default).chain(listed).collect()
+}
+
+/// Returns the option of `options` that `device` chooses: the default, the
+/// device of its ID, or else the only device of its name, as the sound
+/// output finds the device of a show made on a machine that gives it
+/// another ID
+pub(super) fn chosen<'a>(options: &'a [Choice], device: &Device) -> Option<&'a Choice> {
+    match device {
+        Device::Default => options.iter().find(|option| option.id.is_none()),
+        Device::Named { id, name } => options
+            .iter()
+            .find(|option| option.id.as_ref() == Some(id))
+            .or_else(|| {
+                let mut named = options.iter().filter(|option| {
+                    option.id.is_some() && !name.is_empty() && option.name == *name
+                });
+                named.next().filter(|_| named.next().is_none())
+            }),
+    }
 }
