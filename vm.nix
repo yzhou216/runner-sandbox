@@ -39,6 +39,6 @@ pkgs.testers.runNixOSTest {
     machine.wait_for_unit("multi-user.target")
     machine.succeed("cat /proc/asound/cards >&2")
     machine.succeed("${pkgs.bash}/bin/bash ${./alsa.sh} ${build}/bin/cinq /tmp/alsa >&2")
-    machine.copy_from_vm("/tmp/alsa", "")
+    machine.copy_from_machine("/tmp/alsa", "")
   '';
 }
