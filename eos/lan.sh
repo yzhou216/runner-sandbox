@@ -46,10 +46,10 @@ cable() { sudo ip link set light0 "$1"; mark "cable $1"; }
 sudo ip netns add console
 trap 'sudo ip netns del console 2> /dev/null || true; sudo ip link del light0 2> /dev/null || true' EXIT
 sudo ip link add light0 type veth peer name console0 netns console
-# Without a broadcast address, as ip address add leaves it, which cinq has
-# to work out for Art-Net
-sudo ip addr add 10.101.50.50/16 dev light0
-console ip addr add 10.101.100.20/16 dev console0
+# With broadcast addresses, without which GNU/Linux neither sends nor takes
+# Art-Net's broadcasts (no Art-Net at all in run 43624566796)
+sudo ip addr add 10.101.50.50/16 brd + dev light0
+console ip addr add 10.101.100.20/16 brd + dev console0
 console ip link set lo up
 console ip link set console0 up
 # Groups of sACN reach the console's only network

@@ -8,13 +8,13 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 ## Before you go
 
-- **cinq:** the build of `wip/light-cues` (5501a62), in one of these ways:
+- **cinq:** the build of `wip/light-cues` (c9a6db4), in one of these ways:
   - **With Nix:** `nix build github:yzhou216/cinq/wip/light-cues`.
   - **Without Nix:** artifact `cinq-x86_64-linux-packages` of cinq's
-    Packages run 43593847625.  It holds the deb, rpm, and Arch packages,
+    Packages run 43625230585.  It holds the deb, rpm, and Arch packages,
     and `cinq-0.1.4-aarch64-darwin.pkg` for a Mac with Apple silicon.
   - **Windows:** `cinq-x86_64-windows-built-on-x86_64-linux.exe`, an
-    artifact of the "Cross builds for Windows" run 43593847653.
+    artifact of the "Cross builds for Windows" run 43625230666.
 - **Unsigned builds:** none of these has a developer signature.
   - **Darwin:** the installer is refused at first; allow it under System
     Settings > Privacy & Security > Open Anyway, then run it again.
@@ -52,8 +52,9 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 2. Give the Ethernet port a free static address on the console's network,
    for example 10.101.50.50 with mask 255.255.0.0, and no router.  Ask
    which addresses are free first: the 10.101.100.x range is for consoles.
-   - **GNU/Linux:** `sudo ip address add 10.101.50.50/16 dev PORT`, with
-     PORT from `ip link`, or the same in NetworkManager.
+   - **GNU/Linux:** `sudo ip address add 10.101.50.50/16 brd + dev PORT`,
+     with PORT from `ip link`, or the same in NetworkManager.  Without
+     `brd +`, no Art-Net goes out; sACN still does.
    - **Darwin:** System Settings > Network > the Ethernet adapter >
      Details > TCP/IP: Configure IPv4 Manually.
    - **Windows:** Settings > Network & internet > Ethernet > IP
@@ -76,9 +77,11 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 3. **Fire a console cue.**  Ask the board operator first.  Cue 2 fires
    cue 1 of the console's cue list 1, and cue 3 presses its GO.  Edit the
    message to a cue that is safe to run.
-4. **Light output, only on universe 999.**  GO on cue 4.  sACNView should
-   show source "cinq", priority 100, universe 999, with 255 at address 1
-   and 128 at address 2.  GO on cue 5 takes them out.  Drive a real
+4. **Light output, only on universe 999.**  Within ten seconds of
+   starting cinq, sACNView should list source "cinq" on universe 999,
+   which cinq announces by sACN's universe discovery.  GO on cue 4.
+   sACNView should show priority 100, with 255 at address 1 and 128 at
+   address 2.  GO on cue 5 takes them out.  Drive a real
    universe only with the lighting designer's consent, since sACN at the
    same priority merges, highest takes precedence, with the console's
    output on ETC gear.

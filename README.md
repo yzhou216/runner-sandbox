@@ -67,6 +67,7 @@ that writes each send that fails on standard error.
 | 43600907511 | Every job on d14ade8 | All passed but powercut, whose build failed on a test that raced, fixed in 51d0edc |
 | 43621864513 | Every job on 51d0edc | Cancelled for 7f5632a, which also warns on standard error of a lost connection |
 | 43622465685 | 7f5632a: the Ion Xe's show over a cable that comes out | ion-test.toml reached a stand-in console at 10.101.100.20 as written; a cue sent a second after the cable came out arrived 13 s after its GO, without a warning, once the cable was back; no Art-Net on a network without a broadcast address |
+| 43624566796 | 238fcfe: a new connection after each quiet second | The cue a second after the cable came out never arrived, and warned; every other cue arrived within 10 ms; Eos took a connection for each GO and ran ion-test.toml's cues; still no Art-Net on the cable, since GNU/Linux neither sends nor takes broadcasts on an address without `brd` |
 
 What Eos does, offline:
 
