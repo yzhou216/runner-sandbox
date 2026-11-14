@@ -6,6 +6,7 @@
 
 use std::net::Ipv4Addr;
 
+use ::sacn::packet::{AcnRootLayerProtocol, E131RootLayerData};
 use if_addrs::Ifv4Addr;
 use uuid::Uuid;
 
@@ -63,4 +64,36 @@ fn network_without_a_broadcast_address_takes_the_one_of_its_mask() {
     assert_eq!(broadcast(&address(None)), Ipv4Addr::new(10, 101, 255, 255));
     let reported = Ipv4Addr::new(10, 101, 0, 255);
     assert_eq!(broadcast(&address(Some(reported))), reported);
+}
+
+#[test]
+fn universes_are_listed_for_discovery_on_pages_of_512() {
+    let universes: Vec<u16> = (1..=600).collect();
+    let pages = sacn::discovery(Uuid::nil(), &universes);
+    let listed: Vec<(u8, u8, Vec<u16>)> = pages
+        .iter()
+        .map(
+            |page| match AcnRootLayerProtocol::parse(page).unwrap().pdu.data {
+                E131RootLayerData::UniverseDiscoveryPacket(framing) => (
+                    framing.data.page,
+                    framing.data.last_page,
+                    framing.data.universes.into_owned(),
+                ),
+                other => panic!("{other:?} is not universe discovery"),
+            },
+        )
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            (0, 1, universes[..512].to_vec()),
+            (1, 1, universes[512..].to_vec())
+        ]
+    );
+    assert_eq!(
+        sacn::group(sacn::DISCOVERY)
+            .map(|group| group.to_string())
+            .as_deref(),
+        Some("239.255.250.214:5568")
+    );
 }

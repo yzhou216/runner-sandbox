@@ -50,13 +50,20 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 1. Turn Wi-Fi off, so that only the lighting network is up.
 2. Give the Ethernet port a free static address on the console's network,
-   for example 10.101.50.50 with mask 255.255.0.0.  Ask which addresses
-   are free first: the 10.101.100.x range is for consoles.
+   for example 10.101.50.50 with mask 255.255.0.0, and no router.  Ask
+   which addresses are free first: the 10.101.100.x range is for consoles.
+   - **GNU/Linux:** `sudo ip address add 10.101.50.50/16 dev PORT`, with
+     PORT from `ip link`, or the same in NetworkManager.
+   - **Darwin:** System Settings > Network > the Ethernet adapter >
+     Details > TCP/IP: Configure IPv4 Manually.
+   - **Windows:** Settings > Network & internet > Ethernet > IP
+     assignment > Edit > Manual.
 3. Check the link with `ping 10.101.100.20`.
 4. **Darwin:** answer Allow when cinq asks to find devices on local
    networks.  If you missed it, turn cinq on under System Settings >
    Privacy & Security > Local Network.
-5. **Windows:** allow cinq through the firewall if asked.
+5. **Windows:** if the firewall asks about cinq, either answer works,
+   since cinq only sends.
 6. Start cinq from a terminal, so that its warnings also go to the
    terminal: `cinq ion-test.toml`.
 
@@ -80,24 +87,25 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 - **cinq's sidebar** lists every failed network cue under Warnings, with
   its reason, until a message to that destination gets through.  The
-  terminal shows the same.
-  - *Connection refused:* the console is reachable, but nothing listens
-    on the port.  Check Third Party OSC, Allow Remotes, and the port
-    number.
-  - *Timed out:* nothing answered.  Check the address, the subnet mask,
-    the cable, and whether Wi-Fi is taking the route.
+  terminal shows each reason once.
+  - *Connection refused* (on Windows, *the target machine actively
+    refused it*): the console is reachable, but nothing listens on the
+    port.  Check Third Party OSC, Allow Remotes, and the port number.
+  - *connection timed out:* nothing answered within a second.  Check the
+    address, the subnet mask, the cable, and whether Wi-Fi is taking the
+    route.
+  - *Network is unreachable* (on Windows, *unreachable network*): the
+    laptop has no network for that address.  Check the cable and the
+    laptop's address.
   - *No route to host* on Darwin: Local Network permission is off.
-  - *Dropped after waiting a second behind earlier messages:* the message
-    was dropped on purpose.  cinq drops a message that cannot go out
-    within a second, rather than firing a console cue late.
-- **If the console loses its power or its cable,** the sidebar warns of a
-  lost connection within about ten seconds, even before the next GO.  The
-  next network cue then makes a new connection by itself.
-  - A GO in those ten seconds, before cinq notices, can be lost without a
-    warning.
-  - A console that quits normally, as when Eos restarts, closes the
-    connection without a warning.  The next GO reconnects, or warns if the
-    console is not back yet.
+  - *dropped after waiting a second behind earlier messages:* cinq
+    dropped the message on purpose, rather than firing a console cue
+    late.
+- **Each GO after a quiet second makes a new connection** to the console.
+  So a console that lost its power or its cable shows as *connection
+  timed out* at the next GO, and that cue never fires later, even once the
+  cable is back.  Tab 99 may log a connection for each GO.  The next GO
+  once the console is back goes through by itself.
 - **Wireshark,** with the filter `tcp.port == 3037`:
   - SYN, then SYN-ACK: the connection works.  If Tab 99 still shows
     nothing, check OSC RX.
@@ -109,3 +117,18 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
     `udp://10.101.100.20:8000` as the destination.
 - **Save** the Wireshark capture, a photo of Tab 99, cinq's terminal
   output, and the console's settings above, for me to look at.
+
+## Notes to take
+
+For each test, write down:
+
+1. **The time of each GO,** to find it in the capture and in Tab 99.
+2. **What Tab 99 showed,** word for word: the address, such as
+   `/eos/cue/1/1/fire`, and any error beside it.
+3. **What the console did:** the cue that fired, or the change on its
+   command line, and how long after the GO.
+4. **cinq's warning,** word for word, or that there was none.
+5. **For light output:** what sACNView showed (source, priority,
+   universe, levels), and whether anything on stage or in the console's
+   own output changed.  Nothing should, on universe 999.
+6. **Anything that differs** from this list, with a photo.

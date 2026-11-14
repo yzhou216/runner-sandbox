@@ -233,6 +233,8 @@ Art-Net, to the broadcast address of every IPv4 network that the computer
 is on, and as sACN, to the multicast group of the universe on each of those
 networks, as soon as they change and again every second.
 It sends both to the computer itself as well.
+Every ten seconds it lists the universes that it sends, as the universe
+discovery of sACN asks, so that monitors and receivers find them.
 Its sACN has the priority 100, the default of sACN, so that a receiver that
 merges sources of one priority takes the higher level of each address from
 *cinq* and any other source, such as a lighting console.

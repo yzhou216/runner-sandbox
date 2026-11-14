@@ -155,5 +155,10 @@ for proto, universe in (("sacn", 999), ("artnet", 998)):
     good = {"1": 255, "2": 128} in levels and levels[-1:] == [{}]
     wrong |= not good
     print(f"{'ok' if good else 'WRONG'}: {proto} universe {universe}: {len(levels)} changes, last {levels[-1:]}, sources {sorted(names, key=str)}")
+# Universe discovery, which lists universe 999
+listed = [h["discovery"] for h in heard if "discovery" in h and h.get("from") == "10.101.50.50"]
+good = [999] in listed
+wrong |= not good
+print(f"{'ok' if good else 'WRONG'}: sacn discovery: {listed}")
 sys.exit(wrong)
 CHECK

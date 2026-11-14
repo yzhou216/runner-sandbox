@@ -11,7 +11,9 @@
 //! computer is on, and as sACN to the multicast group of the universe on
 //! each of them, once it changes and again each second, as both protocols
 //! ask of a source, so that a node that starts late or loses a packet
-//! catches up.  A show without instruments sends nothing.
+//! catches up.  Every ten seconds it lists the universes that it sends, as
+//! sACN asks of a source, for receivers and monitors to find them.  A show
+//! without instruments sends nothing.
 //!
 //! When cinq ends, sACN receivers hold the levels for as long as they hold
 //! those of a source that has gone quiet, since a stream that said it had
@@ -27,7 +29,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr, UdpSocket},
     sync::mpsc::{self, RecvTimeoutError},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use if_addrs::{IfAddr, Ifv4Addr};
@@ -105,6 +107,7 @@ fn send(levels: &mpsc::Receiver<Universes>) {
     };
     let cid = sacn::cid();
     let mut latest = Universes::new();
+    let mut announced = None::<Instant>;
     // Each round sends every universe once, so that one count numbers the
     // packets of each in order, as sACN asks
     for sequence in (0..=u8::MAX).cycle() {
@@ -121,6 +124,16 @@ fn send(levels: &mpsc::Receiver<Universes>) {
                 .iter()
                 .for_each(|network| network.send(&socket, universe, artnet.as_deref(), &sacn));
         });
+        if !latest.is_empty() && announced.is_none_or(|at| at.elapsed() >= sacn::DISCOVERY_INTERVAL)
+        {
+            let universes: Vec<u16> = latest.keys().copied().collect();
+            sacn::discovery(cid, &universes).iter().for_each(|page| {
+                networks
+                    .iter()
+                    .for_each(|network| network.send(&socket, sacn::DISCOVERY, None, page));
+            });
+            announced = Some(Instant::now());
+        }
     }
 }
 

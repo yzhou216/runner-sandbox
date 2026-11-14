@@ -78,9 +78,14 @@ def sacn(data):
         return None
     # Root vector 4 and framing vector 2 mark data; 8 marks sync or discovery
     root, framing = struct.unpack(">I", data[18:22])[0], struct.unpack(">I", data[40:44])[0]
+    source = data[44:108].split(b"\0")[0].decode(errors="replace")
+    if (root, framing) == (8, 2):
+        # Universe discovery: page, last page, then the universes listed
+        count = (len(data) - 120) // 2
+        listed = list(struct.unpack(f">{count}H", data[120 : 120 + 2 * count]))
+        return {"discovery": listed, "page": data[118], "last": data[119], "name": source}
     if (root, framing) != (4, 2):
         return {"root": root, "framing": framing}
-    source = data[44:108].split(b"\0")[0].decode(errors="replace")
     priority, seq, options = data[108], data[111], data[112]
     universe = struct.unpack(">H", data[113:115])[0]
     count = struct.unpack(">H", data[123:125])[0]
