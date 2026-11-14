@@ -26,7 +26,8 @@ shot() { screencapture -x "$out/$1.png"; ./ui list > "$out/$1.txt" 2>&1; }
 # Presses every Allow that comes up within the first SECONDS
 allow() {
   for _ in 1 2 3; do
-    ./ui click --contains Allow "$1" || break
+    # Exact text, since Don't Allow holds Allow too and comes first
+    ./ui click Allow "$1" || break
     mark "pressed Allow"
     sleep 1
   done
