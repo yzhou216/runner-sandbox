@@ -81,10 +81,10 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
    starting cinq, sACNView should list source "cinq" on universe 999,
    which cinq announces by sACN's universe discovery.  GO on cue 4.
    sACNView should show priority 100, with 255 at address 1 and 128 at
-   address 2.  GO on cue 5 takes them out.  Drive a real
-   universe only with the lighting designer's consent, since sACN at the
-   same priority merges, highest takes precedence, with the console's
-   output on ETC gear.
+   address 2.  GO on cue 5 takes them out.  Drive a real universe only
+   with the lighting designer's consent, since sACN at the same priority
+   merges, highest takes precedence, with the console's output on ETC
+   gear.
 
 ## When something fails
 
