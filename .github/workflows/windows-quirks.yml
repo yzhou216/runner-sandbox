@@ -3,11 +3,10 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Plays cinq.exe of the tree in cinq/, which run 43572076799 of this branch
-# cross-built on GNU/Linux with
-# ASIO and open-timing.patch, which logs how long each opening of a device
-# takes, under the quirks of Windows audio devices with
-# quirks.ps1, and prints the level of each channel and how clean the tone
-# stayed in each take, with glitch.sh.
+# cross-built on GNU/Linux with ASIO and open-timing.patch, which logs how
+# long each opening of a device takes, under the quirks of Windows audio
+# devices with quirks.ps1, and prints the level of each channel and how
+# clean the tone stayed in each take, with glitch.sh.
 on: push
 permissions:
   contents: read
