@@ -24,7 +24,10 @@ GROUPS = [f"239.255.0.{n}" for n in range(1, 33)]
 
 
 def addresses():
-    names = {"127.0.0.1"}
+    """Returns the addresses of the networks to join the groups of sACN on:
+    the computer's own, by its name, and the default network, 0.0.0.0,
+    where its name says nothing"""
+    names = {"127.0.0.1", "0.0.0.0"}
     try:
         names |= set(socket.gethostbyname_ex(socket.gethostname())[2])
     except OSError:

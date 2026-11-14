@@ -82,3 +82,41 @@ jobs:
         with:
           name: cinq-windows
           path: cinq-windows
+  cinq-darwin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nix build ./cinq#aarch64-darwin
+          find -L result | head -40
+          tar -chf cinq-darwin.tar -C result .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinq-darwin
+          path: cinq-darwin.tar
+  # sACN and Art-Net of cinq on Darwin, where multicast picks its network
+  # otherwise than on GNU/Linux and Windows
+  darwin:
+    needs: cinq-darwin
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-darwin
+      - run: |
+          mkdir cinq-darwin && tar -xf cinq-darwin.tar -C cinq-darwin
+          cinq=$(find cinq-darwin -path '*bin/cinq' -type f | head -1)
+          [ -n "$cinq" ] || cinq=$(find cinq-darwin -path '*MacOS/cinq' -type f | head -1)
+          bash eos/darwin.sh "$PWD/$cinq" out
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin
+          path: out
