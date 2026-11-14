@@ -53,8 +53,9 @@ const OPEN_CHECK: Duration = Duration::from_secs(1);
 #[derive(Default)]
 struct Shared {
     /// Why the last message to each destination failed, or why its
-    /// connection was lost, by destination, until a later message gets there
-    problems: Mutex<BTreeMap<String, String>>,
+    /// connection was lost, by destination, with when, until a message sent
+    /// after it gets there
+    problems: Mutex<BTreeMap<String, (Instant, String)>>,
     /// Messages handed over that the thread has yet to send
     pending: AtomicUsize,
     /// TCP connections open
@@ -64,8 +65,26 @@ struct Shared {
 impl Shared {
     /// Locks the problems, which a thread that panicked while it held the
     /// lock leaves as they were
-    fn problems(&self) -> MutexGuard<'_, BTreeMap<String, String>> {
+    fn problems(&self) -> MutexGuard<'_, BTreeMap<String, (Instant, String)>> {
         self.problems.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Records why something to `destination` failed, now
+    fn failed(&self, destination: String, reason: String) {
+        self.problems()
+            .insert(destination, (Instant::now(), reason));
+    }
+
+    /// Forgets what failed for `destination` before `since`, when a message
+    /// began to go out, but not a connection lost while it went
+    fn sent(&self, destination: &str, since: Instant) {
+        let mut problems = self.problems();
+        if problems
+            .get(destination)
+            .is_some_and(|(when, _)| *when < since)
+        {
+            problems.remove(destination);
+        }
     }
 }
 
@@ -108,7 +127,7 @@ impl Network {
         self.shared
             .problems()
             .iter()
-            .map(|(destination, reason)| format!("Network cue to {destination}: {reason}"))
+            .map(|(destination, (_, reason))| format!("Network cue to {destination}: {reason}"))
             .collect()
     }
 
@@ -139,6 +158,7 @@ fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Shared
         },
     ) in messages.iter().flatten()
     {
+        let started = Instant::now();
         let sent = match &destination {
             _ if handed.elapsed() > PATIENCE => Err(io::Error::new(
                 ErrorKind::TimedOut,
@@ -165,14 +185,12 @@ fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Shared
             }
         };
         match sent {
-            Ok(()) => shared.problems().remove(&destination.to_string()),
+            Ok(()) => shared.sent(&destination.to_string(), started),
             Err(error) => {
                 warn::once(&format!("network cue to {destination}: {error}"));
-                shared
-                    .problems()
-                    .insert(destination.to_string(), error.to_string())
+                shared.failed(destination.to_string(), error.to_string());
             }
-        };
+        }
         shared.pending.fetch_sub(1, Ordering::Relaxed);
     }
 }

@@ -61,9 +61,7 @@ impl Connection {
         shared.open.fetch_add(1, Ordering::Relaxed);
         thread::spawn(move || {
             if let Err(error) = io::copy(&mut &replies, &mut io::sink()) {
-                shared
-                    .problems()
-                    .insert(destination, format!("lost the connection: {error}"));
+                shared.failed(destination, format!("lost the connection: {error}"));
             }
             closing.store(true, Ordering::Relaxed);
             shared.open.fetch_sub(1, Ordering::Relaxed);
