@@ -31,6 +31,8 @@ use std::{
     time::Duration,
 };
 
+use socket2::{SockRef, TcpKeepalive};
+
 use super::osc::{self, Destination, Outgoing};
 use crate::warn;
 
@@ -158,11 +160,18 @@ fn resolved(address: &str) -> io::Result<SocketAddr> {
 
 /// Returns a connection to the first address of `address`, whose writes
 /// give up as late as connecting does, so that a console that stops reading
-/// holds back the messages after it no longer than that
+/// holds back the messages after it no longer than that.  Keepalive probes
+/// it each second of quiet, so that a console that lost its power or its
+/// cable shows as closed within seconds, rather than taking the next message
+/// into a connection that has gone without a word.
 fn connected(address: &str) -> io::Result<Connection> {
     let stream = TcpStream::connect_timeout(&resolved(address)?, PATIENCE)?;
     stream.set_nodelay(true)?;
     stream.set_write_timeout(Some(PATIENCE))?;
+    let keepalive = TcpKeepalive::new()
+        .with_time(PATIENCE)
+        .with_interval(PATIENCE);
+    SockRef::from(&stream).set_tcp_keepalive(&keepalive)?;
     let closed = Arc::new(AtomicBool::new(false));
     let (replies, closing) = (stream.try_clone()?, Arc::clone(&closed));
     thread::spawn(move || {

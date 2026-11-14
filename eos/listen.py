@@ -105,7 +105,9 @@ def main():
     sel.register(bound(ARTNET), selectors.EVENT_READ, ("artnet", artnet))
     multicast = bound(SACN)
     for group in GROUPS:
-        for local in addresses():
+        # Loopback takes no joins: senders reach it by unicast, and its
+        # joins would count against the limit of the real networks
+        for local in (local for local in addresses() if not local.startswith("127.")):
             try:
                 multicast.setsockopt(
                     socket.IPPROTO_IP,

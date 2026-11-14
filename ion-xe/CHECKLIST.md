@@ -8,8 +8,17 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 ## Before you go
 
-- **cinq:** the build of `wip/light-cues`, from its CI artifacts, or from
-  `nix build github:yzhou216/cinq/wip/light-cues`.
+- **cinq:** the build of `wip/light-cues` (5501a62), in one of these ways:
+  - **With Nix:** `nix build github:yzhou216/cinq/wip/light-cues`.
+  - **Without Nix:** artifact `cinq-x86_64-linux-packages` of cinq's
+    Packages run 43593847625.  It holds the deb, rpm, and Arch packages,
+    and `cinq-0.1.4-aarch64-darwin.pkg` for a Mac with Apple silicon.
+  - **Windows:** `cinq-x86_64-windows-built-on-x86_64-linux.exe`, an
+    artifact of the "Cross builds for Windows" run 43593847653.
+- **Unsigned builds:** none of these has a developer signature.
+  - **Darwin:** the installer is refused at first; allow it under System
+    Settings > Privacy & Security > Open Anyway, then run it again.
+  - **Windows:** SmartScreen warns; choose More info > Run anyway.
 - **Test show:** `ion-test.toml`, from this branch.  Cue 1 only pings the
   console.  Cues 2 and 3 fire console cues.  Cues 4 and 5 send light levels
   to universe 999.
