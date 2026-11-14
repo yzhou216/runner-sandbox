@@ -1,0 +1,74 @@
+[[list]]
+name = "Knocks"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "memo"
+name = "One GO fires them all"
+advance = "continue"
+notes = "Continue fires the next cue once the post-wait is over, and follow once the action ends."
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "audio"
+name = "Knock"
+file = "sounds/knock.wav"
+post_wait = 1.5
+advance = "continue"
+level = 0.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "audio"
+name = "Knock again"
+file = "sounds/knock.wav"
+post_wait = 0.75
+advance = "continue"
+level = 0.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "audio"
+name = "Last knock"
+file = "sounds/knock.wav"
+advance = "follow"
+level = 0.0
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "wait"
+name = "Silence"
+duration = 2.0
+advance = "follow"
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "audio"
+name = "Bell"
+file = "sounds/bell.mp3"
+pre_wait = 0.5
+level = -6.0
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "audio"
+name = "Rain"
+file = "sounds/rain.flac"
+loop = true
+advance = "continue"
+level = -10.0
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "stop"
+name = "Rain stops"
+target = 7
+pre_wait = 4.0

@@ -59,6 +59,54 @@ jobs:
           name: alsa
           path: out
           if-no-files-found: ignore
+  realtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - name: Let the build of Nix use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            system-features = nixos-test benchmark big-parallel kvm
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Play on busy processors with and without real-time scheduling
+        run: |
+          nix build -L --impure --out-link result-rt --expr "import ./vm-rt.nix { workspace = \"$PWD\"; }" 2>&1 |
+            tail -n 100
+          mkdir -p out
+          cp -r result-rt/rt out/
+      - name: Count the quarters that a glitch spoils
+        if: always()
+        run: |
+          PATH=$(nix build --no-link --print-out-paths --inputs-from ./cinq nixpkgs#ffmpeg.bin)/bin:$PATH
+          mkdir -p out
+          notch=",bandreject=f=1000:width_type=h:w=300"
+          for name in usual realtime; do
+            echo "--- $name: threads of cinq"
+            cat "out/rt/$name-threads.txt" || true
+            printf '%s\t%s\t' "$name" "$(./glitch.sh "out/rt/$name.wav" 1 1000 1 9.5 || true)"
+            ffmpeg -hide_banner -f wav -i "out/rt/$name.wav" \
+              -af "pan=mono|c0=c0,aformat=sample_fmts=dbl$notch$notch$notch$notch,atrim=start=1:end=9.5,asetnsamples=n=12000,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.1.RMS_level:file=-" \
+              -f null - 2> /dev/null | sed -n 's/^lavfi.astats.1.RMS_level=//p' |
+              awk '$1 > -70 { spoiled++ } END { printf "%d of %d quarters spoiled\n", spoiled, NR }'
+          done | tee out/realtime.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: realtime
+          path: out
+          if-no-files-found: ignore
   jack:
     runs-on: ubuntu-latest
     timeout-minutes: 90
