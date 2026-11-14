@@ -40,17 +40,20 @@ jobs:
           git apply --directory=cinq open-timing.patch
           nix build --out-link result-cinq ./cinq
       - name: Play under the quirks of Core Audio
-        run: ./quirks.sh result-cinq/bin/cinq out
-      - name: Measure each take
+        run: ONLY=rate ./quirks.sh result-cinq/bin/cinq out
+      - name: Find the dips of the takes after the change of rate
         if: always()
         run: |
-          printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
-          for take in overrun fallback rate-before rate-after default-before-2ch default-before-16ch \
-            default-after-2ch default-after-16ch; do
-            file=out/$take.wav
-            printf '%s\t%s\t%s\n' "$take" "$(./levels.sh "$file" 0.5 3.5 || true)" \
-              "$(./glitch.sh "$file" 1 1000 0.5 3.5 || true)"
-          done | tee out/takes.tsv
+          # Where the level of each 50 ms falls 3 dB or more, in seconds of
+          # the host's clock, from the start that capture.py printed
+          for take in rate-after rate-after-b; do
+            start=$(sed -nE 's/^start ([0-9.]+)$/\1/p' "out/record-$take.log")
+            echo "--- $take, started at $start"
+            ffmpeg -hide_banner -f wav -i "out/$take.wav" \
+              -af "pan=mono|c0=c0,asetnsamples=n=4800,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.1.RMS_level:file=-" \
+              -f null - 2> /dev/null | sed -n 's/^lavfi.astats.1.RMS_level=//p' |
+              awk -v start="$start" '$1 < -33.1 { printf "dip at %.3f s, %.3f s into the take: %s dB\n", start + (NR - 1) * 0.05, (NR - 1) * 0.05, $1 }'
+          done
           for log in out/cinq-*.log; do
             echo "--- $log: openings of devices"
             cat "$log"

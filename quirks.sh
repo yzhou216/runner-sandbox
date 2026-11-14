@@ -100,6 +100,7 @@ sixteen=$(awk -F'\t' '$2 == "BlackHole 16ch" { print $1; exit }' "$out/devices.t
 } > "$work/overrun.cinq.toml"
 cp "$work"/*.cinq.toml "$out/"
 
+if [ -z "${ONLY:-}" ]; then
 launch overrun
 record "BlackHole 16ch" overrun 5
 shot overrun
@@ -110,14 +111,21 @@ record "BlackHole 16ch" fallback 5
 shot fallback
 quit
 
+fi
+
 launch rate
 record "BlackHole 16ch" rate-before 4
 core rate "BlackHole 16ch" 96000
 sleep 1
-record "BlackHole 16ch" rate-after 8 96000
+record "BlackHole 16ch" rate-after 8 96000 &
+first=$!
+sleep 1.5
+record "BlackHole 16ch" rate-after-b 6 96000
+wait "$first"
 shot rate-changed
 core rate "BlackHole 16ch" 48000
 quit
+[ -n "${ONLY:-}" ] && exit 0
 
 launch default
 record "BlackHole 2ch" default-before-2ch 4 &
