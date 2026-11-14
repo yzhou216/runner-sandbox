@@ -2,12 +2,10 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Cross-builds cinq for Windows on GNU/Linux from the tree in cinq/, whose
-# thread of sound on WASAPI keeps its usual priority, and from the tree in
-# cinq-rt/, built with cpal's feature realtime, which asks Windows to
-# schedule it for audio, then plays each on VB-CABLE on busy processors
-# with stress.ps1, and counts the quarters of a second that a glitch
-# spoils.
+# Cross-builds cinq of the tree in cinq/, commit 4f4d757, which schedules
+# its thread of sound on WASAPI for audio, for Windows on both processors,
+# then plays each build on VB-CABLE on busy processors with stress.ps1, and
+# counts the quarters of a second that a glitch spoils.
 on: push
 permissions:
   contents: read
@@ -29,13 +27,13 @@ jobs:
           extra_nix_config: |
             extra-substituters = https://yzhou216.cachix.org
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
-      - name: Cross-build both trees of cinq for Windows
+      - name: Cross-build cinq for Windows on both processors
         run: |
-          mkdir -p exe/usual exe/realtime
-          nix build --out-link usual ./cinq#x86_64-windows
-          cp "$(find -L usual -name cinq.exe -print -quit)" exe/usual/
-          nix build --out-link realtime ./cinq-rt#x86_64-windows
-          cp "$(find -L realtime -name cinq.exe -print -quit)" exe/realtime/
+          mkdir -p exe/x86_64 exe/aarch64
+          for cpu in x86_64 aarch64; do
+            nix build --out-link "result-$cpu" "./cinq#$cpu-windows"
+            cp "$(find -L "result-$cpu" -name cinq.exe -print -quit)" "exe/$cpu/"
+          done
           ls -l exe/*
       - uses: actions/upload-artifact@main
         with:
@@ -43,7 +41,15 @@ jobs:
           path: exe
   windows:
     needs: build
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            cpu: x86_64
+          - runner: windows-11-arm
+            cpu: aarch64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@main
@@ -60,29 +66,29 @@ jobs:
           choco install ffmpeg -y --no-progress | Select-Object -Last 2
           python -m pip install --quiet soundcard numpy
           (Get-CimInstance Win32_Processor).NumberOfLogicalProcessors
-      - name: Play on busy processors with and without scheduling for audio
+          & "exe/${{ matrix.cpu }}/cinq.exe" --audio-devices
+      - name: Play on busy processors
         shell: pwsh
         run: |
           $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
-          ./stress.ps1 out usual=exe/usual/cinq.exe realtime=exe/realtime/cinq.exe
+          ./stress.ps1 out "${{ matrix.cpu }}=exe/${{ matrix.cpu }}/cinq.exe"
       - name: Count the quarters that a glitch spoils
         if: always()
         run: |
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
           notch=",bandreject=f=1000:width_type=h:w=300"
-          for name in usual realtime; do
-            echo "--- $name: threads of cinq"
-            cat "out/$name-threads.txt" || true
-            printf '%s\t%s\t%s\t' "$name" "$(bash levels.sh "out/$name.wav" 1 9.5 || true)" \
-              "$(bash glitch.sh "out/$name.wav" 1 1000 1 9.5 || true)"
-            ffmpeg -hide_banner -f wav -i "out/$name.wav" \
-              -af "pan=mono|c0=c0,aformat=sample_fmts=dbl$notch$notch$notch$notch,atrim=start=1:end=9.5,asetnsamples=n=12000,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.1.RMS_level:file=-" \
-              -f null - 2> /dev/null | sed -n 's/^lavfi.astats.1.RMS_level=//p' |
-              awk '$1 > -80 { spoiled++ } END { printf "%d of %d quarters spoiled\n", spoiled, NR }'
-          done | tee out/realtime.tsv
+          name=${{ matrix.cpu }}
+          echo "--- $name: threads of cinq"
+          cat "out/$name-threads.txt" || true
+          printf '%s\t%s\t%s\t' "$name" "$(bash levels.sh "out/$name.wav" 1 9.5 || true)" \
+            "$(bash glitch.sh "out/$name.wav" 1 1000 1 9.5 || true)"
+          ffmpeg -hide_banner -f wav -i "out/$name.wav" \
+            -af "pan=mono|c0=c0,aformat=sample_fmts=dbl$notch$notch$notch$notch,atrim=start=1:end=9.5,asetnsamples=n=12000,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.1.RMS_level:file=-" \
+            -f null - 2> /dev/null | sed -n 's/^lavfi.astats.1.RMS_level=//p' |
+            awk '$1 > -80 { spoiled++ } END { printf "%d of %d quarters spoiled\n", spoiled, NR }'
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: windows
+          name: windows-${{ matrix.cpu }}
           path: out
           if-no-files-found: ignore

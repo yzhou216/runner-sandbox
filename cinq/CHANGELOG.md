@@ -58,6 +58,10 @@ Major changes and improvements in each release of cinq, newest first.
   which offers all of its channels as one device where its WDM mode offers
   them in pairs.  The ASIO SDK of Steinberg goes into such a build under
   the GPL version 3.
+- On Windows, the thread that plays sound on WASAPI devices, as the WDM
+  mode of the Dante Virtual Soundcard offers, asks Windows to schedule it
+  for audio, as audio programs do there, so that a busy machine is less
+  likely to break up the sound.
 
 ## v0.1.4
 
