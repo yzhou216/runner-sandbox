@@ -4,7 +4,7 @@
 
 # Plays cinq of the tree in cinq/ on devices that stand in for the quirks
 # of sound cards and JACK servers: with alsa.sh on the kernel's loopback
-# card in a NixOS virtual machine, which flake.nix builds, since the
+# card in a NixOS virtual machine, which vm.nix builds, since the
 # kernels of the runners have no sound, and with jack.sh on jackd's dummy
 # backend.  It prints the level of each channel and how clean the tone
 # stayed in each take, with glitch.sh.
@@ -38,13 +38,15 @@ jobs:
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Play on hw devices of ALSA in the virtual machine
         run: |
-          nix build -L --out-link result-alsa .#alsa 2>&1 | tail -n 200
+          nix build -L --impure --out-link result-alsa --expr "import ./vm.nix { workspace = \"$PWD\"; }" 2>&1 |
+            tail -n 200
           mkdir -p out
           cp -r result-alsa/alsa out/
       - name: Measure each take
         if: always()
         run: |
           PATH=$(nix build --no-link --print-out-paths --inputs-from ./cinq nixpkgs#ffmpeg.bin)/bin:$PATH
+          mkdir -p out
           printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
           for name in loop s16 s32 s24p float ch6 r44 r96 s24pplug ch6over; do
             file=out/alsa/$name.wav
