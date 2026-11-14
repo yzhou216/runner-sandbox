@@ -44,7 +44,9 @@ jobs:
           ALSA_PLUGIN_DIR=$(readlink -f pw)/lib/alsa-lib
           PW_JACK=$(readlink -f pw-1-jack)/lib
           ls "$ALSA_PLUGIN_DIR" "$PW_JACK"
-          timeout -k 10 300 dbus-run-session -- ./pipewire.sh result-cinq/bin/cinq show out
+          # Session bus of Nix's dbus, which looks for its configuration in /etc
+          session=$(find -L tools* -path '*/share/dbus-1/session.conf' | head -1)
+          timeout -k 10 300 dbus-run-session --config-file="$session" -- ./pipewire.sh result-cinq/bin/cinq show out
       - name: Measure each channel
         if: always()
         run: |
