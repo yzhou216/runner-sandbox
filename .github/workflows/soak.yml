@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Builds cinq of the trees in before/, commit e278505 of the audio-outputs
-# branch of yzhou216/cinq, whose sounds kira converts to the rate of the
-# device by cubic interpolation, and after/, commit 6e43900, which converts
-# them by windowed sinc interpolation, plays tones on JACK at 48 kHz with
-# resample.sh, and prints how far below each tone the rest lies.
+# branch of yzhou216/cinq, and after/, commit 6e43900 of its
+# resampler-prototype branch, and plays sixteen looping cues on 64
+# channels of JACK for five minutes with each, with soak.sh, which prints
+# the share of a processor that each took and the xruns of jackd.
 on: push
 permissions:
   contents: read
@@ -14,7 +14,7 @@ defaults:
   run:
     shell: bash
 jobs:
-  resampler:
+  soak:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -32,29 +32,29 @@ jobs:
         run: |
           nix build --out-link before-cinq ./before
           nix build --out-link after-cinq ./after
-          nix build --out-link tools --inputs-from ./after nixpkgs#sway nixpkgs#wtype \
+          nix build --out-link tools --inputs-from ./after nixpkgs#sway nixpkgs#wtype nixpkgs#grim \
             nixpkgs#ffmpeg nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
           nix build --out-link libjack --inputs-from ./after nixpkgs#libjack2
-      - name: Play the tones on JACK
+          nproc
+      - name: Play sixteen loops on 64 channels
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
           # Where cinq finds libjack, as it would in the system's libraries
           export LD_LIBRARY_PATH
           LD_LIBRARY_PATH=$(readlink -f libjack)/lib
-          timeout -k 10 600 ./resample.sh out before-cinq after-cinq
-      - name: Measure the rest below each tone
+          timeout -k 10 1200 ./soak.sh out 300 before-cinq after-cinq | tee out-summary.tsv
+      - name: Measure each port at the end
         if: always()
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          printf 'take\ttone dBFS\trest dBFS\n'
+          cp out-summary.tsv out/ || true
           for build in before-cinq after-cinq; do
-            for tone in 44100-10000 44100-15000 48000-10000; do
-              printf '%s\t%s\n' "$build-$tone" "$(./rest.sh "out/$build-$tone.wav" "${tone#*-}" || true)"
-            done
-          done | tee out/rest.tsv
+            echo "--- $build: level of each port"
+            ./levels.sh "out/$build.wav" 0.5 | tee "out/levels-$build.tsv" || true
+          done
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: resampler
+          name: soak
           path: out
           if-no-files-found: ignore
