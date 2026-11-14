@@ -292,6 +292,12 @@ hundredths of a second after its picture.
 A picture wider or taller than the largest texture of the GPU, as a video in
 4K or a large photograph is on some older GPUs, does not show.
 
+A sound whose sample rate differs from that of its device, as one of 44.1 kHz
+on a Dante network of 48 kHz, plays through cubic interpolation, which dulls
+its highest frequencies and adds faint tones to them: a tone of 10 kHz loses
+0.4 dB and gains others 26 dB below it.
+A sound at the rate of its device plays unchanged.
+
 ; if windows
 Each tick of the show clock waits for both windows to draw, since Windows would
 otherwise let a window that draws slowly keep the other from drawing at all.

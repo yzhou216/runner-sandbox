@@ -45,8 +45,10 @@ Major changes and improvements in each release of cinq, newest first.
 - On GNU/Linux and the BSDs, cinq also plays on the device of a running JACK
   server, such as PipeWire's, as `jack:output`, whose channels each reach
   the playback port of their number.  PulseAudio spreads a stream over every
-  channel of a device that has more, which JACK leaves alone.  Building on
-  GNU/Linux needs JACK, unless the build leaves out the default features.
+  channel of a device that has more, and the ALSA plugin of PipeWire takes
+  the channels past the second for those of surround sound, both of which
+  JACK leaves alone.  Building on GNU/Linux needs JACK, unless the build
+  leaves out the default features.
 - Audio devices that take samples only as integers of 32, 24, or 16 bits,
   such as the `hw` devices of most sound cards on ALSA, now play, where
   cinq played floating-point samples alone.

@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Cross-builds cinq of the tree in cinq/ for Windows on GNU/Linux, with
-# ASIO, then plays it with wasapi.ps1 on the playback device of VB-CABLE,
-# a virtual WASAPI device, and on FlexASIO, an ASIO driver that plays on
-# VB-CABLE in 32-bit integers.  Each time VB-CABLE goes away and comes back
-# midway through the cue, and then the audio service of Windows stops for
-# a while.  It prints the level of each channel before and after, and
-# how long each opening of a device took, which open-timing.patch logs.
+# ASIO and open-timing.patch, which logs how long each opening of a device
+# takes, then plays it under the quirks of Windows audio devices with
+# quirks.ps1, and prints the level of each channel and how clean the tone
+# stayed in each take, with glitch.sh.
 on: push
 permissions:
   contents: read
@@ -64,33 +62,29 @@ jobs:
             https://github.com/dechamps/FlexASIO/releases/download/flexasio-1.10b/FlexASIO-1.10b.exe
           Start-Process -Wait FlexASIO.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
           Copy-Item FlexASIO.toml (Join-Path $env:USERPROFILE 'FlexASIO.toml')
-      - name: Play on VB-CABLE, which goes away and comes back twice
+      - name: Play under the quirks of Windows audio devices
         shell: pwsh
         run: |
           $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
-          bash media.sh .
-          ./wasapi.ps1 -Cinq exe/cinq.exe -Sound music.flac -Out out/wasapi -Match '^wasapi:.*VB-Audio' -Revive
-      - name: Play on FlexASIO, whose device goes away and comes back twice
-        if: always()
-        shell: pwsh
-        run: |
-          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
-          ./wasapi.ps1 -Cinq exe/cinq.exe -Sound music.flac -Out out/asio -Match '^asio:' -Revive
-      - name: Measure each channel
+          ./quirks.ps1 -Cinq exe/cinq.exe -Out out
+      - name: Measure each take
         if: always()
         run: |
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
-          for take in {wasapi,asio}/{before,enabled,started}; do
-            echo "--- $take"
-            bash levels.sh "out/$take.wav" 1 | tee "out/$take.tsv" || true
-          done
-          for take in wasapi asio; do
-            echo "--- $take: times of opening devices"
-            cat "out/$take/cinq-err.txt" || true
+          printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
+          for take in asio-Int32 asio-Int16 asio-Int24 asio-Float32 asio-buffer-64 asio-buffer-441 \
+            asio-buffer-480 asio-buffer-4096 fallback stopped; do
+            file=out/$take.wav
+            printf '%s\t%s\t%s\n' "$take" "$(bash levels.sh "$file" 0.5 4.5 || true)" \
+              "$(bash glitch.sh "$file" 1 1000 0.5 4.5 || true)"
+          done | tee out/takes.tsv
+          for log in out/cinq-*.txt; do
+            echo "--- $log: openings of devices"
+            cat "$log"
           done
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: windows
+          name: windows-quirks
           path: out
           if-no-files-found: ignore
