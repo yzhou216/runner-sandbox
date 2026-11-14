@@ -28,8 +28,10 @@ jobs:
             extra-substituters = https://yzhou216.cachix.org
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Load the loopback card
+        continue-on-error: true
         run: |
-          sudo apt-get install -y "linux-modules-extra-$(uname -r)" > /dev/null || true
+          sudo apt-get update > /dev/null
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" > /dev/null || apt-cache search linux-modules-extra | tail -5
           sudo modprobe snd-aloop pcm_substreams=1
           sudo chmod a+rw /dev/snd/*
           cat /proc/asound/cards
