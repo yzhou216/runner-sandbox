@@ -37,26 +37,26 @@ jobs:
       - name: Play on PipeWire
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          mkdir show
-          cp partial.cinq.toml show/
-          bash media.sh show
+          bash media.sh .
           export ALSA_PLUGIN_DIR PW_JACK
           ALSA_PLUGIN_DIR=$(readlink -f pw)/lib/alsa-lib
           PW_JACK=$(readlink -f pw-1-jack)/lib
-          ls "$ALSA_PLUGIN_DIR" "$PW_JACK"
           # Session bus of Nix's dbus, which looks for its configuration in /etc
           session=$(find -L tools* -path '*/share/dbus-1/session.conf' -print -quit)
-          timeout -k 10 300 dbus-run-session --config-file="$session" -- ./pipewire.sh result-cinq/bin/cinq show out
+          timeout -k 10 900 dbus-run-session --config-file="$session" -- ./pipewire.sh result-cinq/bin/cinq music.flac out
       - name: Measure each channel
         if: always()
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          for name in jack alsa; do
-            echo "--- $name: links"
-            command grep -A1 'cpal\|cinq\|desk' "out/links-$name.txt" | head -40 || true
-            echo "--- $name: level of each channel of the sink"
-            ./levels.sh "out/$name.wav" 7.5 10.5 | tee "out/levels-$name.tsv" || true
-          done
+          echo "--- level of each channel of the sink, Ch K sent at -16.5 - 3 (K - 1) dB"
+          for sink in aux surround; do
+            for device in jack alsa; do
+              for channels in 3 4 6 8; do
+                take=$sink-$device-$channels
+                printf '%s\t%s\n' "$take" "$(./levels.sh "out/$take.wav" 7.5 10.5 || true)"
+              done
+            done
+          done | tee out/levels.tsv
       - if: always()
         uses: actions/upload-artifact@main
         with:

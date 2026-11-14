@@ -19,7 +19,7 @@ use std::{
     iter,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -27,7 +27,8 @@ use std::{
 use kira::backend::{
     Renderer,
     cpal::cpal::{
-        self, BufferSize, Device, FromSample, I24, SampleFormat, SizedSample, Stream, StreamConfig,
+        self, BufferSize, Device, ErrorKind, FromSample, I24, SampleFormat, SizedSample, Stream,
+        StreamConfig,
         traits::{DeviceTrait, HostTrait, StreamTrait},
     },
 };
@@ -59,6 +60,9 @@ pub(super) struct Mixer {
     channels: u16,
     /// Latest error of the stream, which it tells from its own thread
     error: Arc<Mutex<Option<String>>>,
+    /// Whether the stream has told an error after which it must be built
+    /// anew
+    lost: Arc<AtomicBool>,
     /// Moment the stream started, from which `called` counts
     started: Instant,
     /// Nanoseconds after `started` of the latest call of the stream for
@@ -95,10 +99,12 @@ impl Mixer {
         let (handed, gone) = RingBuffer::new(COMMANDS);
         let mix = Mix::new(usize::from(config.channels), SOUNDS, taken, handed);
         let error = Arc::new(Mutex::new(None));
+        let lost = Arc::new(AtomicBool::new(false));
         let started = Instant::now();
         let called = Arc::new(AtomicU64::new(0));
         let tells = Tells {
             error: Arc::clone(&error),
+            lost: Arc::clone(&lost),
             started,
             called: Arc::clone(&called),
         };
@@ -116,6 +122,7 @@ impl Mixer {
             sample_rate: config.sample_rate,
             channels: config.channels,
             error,
+            lost,
             started,
             called,
             next: 0,
@@ -154,13 +161,18 @@ impl Mixer {
         iter::from_fn(|| self.gone.pop().ok()).for_each(drop);
     }
 
-    /// Returns why the stream stopped, if it has asked for no sound for
-    /// [`STALL`]: the latest error that it told, if any.  Its errors alone
-    /// do not tell, since ALSA plays on after an underrun or a failed look
-    /// at its buffer, where WASAPI ends the stream after any failed call.
+    /// Returns why the stream stopped, if it has told an error after which
+    /// it must be built anew, or has asked for no sound for [`STALL`]: the
+    /// latest error that it told, if any.  Errors of the first kind tell at
+    /// once, since an ASIO driver that asks to be reset may play on, and a
+    /// device that goes or takes another sample rate need not hold the
+    /// cues.  Other errors alone do not tell, since ALSA plays on after an
+    /// underrun or a failed look at its buffer, where WASAPI ends the
+    /// stream after any failed call.
     pub(super) fn failure(&self) -> Option<String> {
         let called = Duration::from_nanos(self.called.load(Ordering::Relaxed));
-        (self.started.elapsed().saturating_sub(called) >= STALL).then(|| {
+        let stalled = self.started.elapsed().saturating_sub(called) >= STALL;
+        (self.lost.load(Ordering::Relaxed) || stalled).then(|| {
             self.error
                 .lock()
                 .ok()
@@ -186,10 +198,11 @@ const FORMATS: [SampleFormat; 4] = [
     SampleFormat::I16,
 ];
 
-/// What the thread of a stream tells the mixer: its latest error, and when
-/// it last asked for sound
+/// What the thread of a stream tells the mixer: its latest error, whether
+/// it must be built anew, and when it last asked for sound
 struct Tells {
     error: Arc<Mutex<Option<String>>>,
+    lost: Arc<AtomicBool>,
     started: Instant,
     called: Arc<AtomicU64>,
 }
@@ -243,6 +256,7 @@ where
 {
     let Tells {
         error,
+        lost,
         started,
         called,
     } = tells;
@@ -258,8 +272,21 @@ where
                 if let Ok(mut latest) = error.lock() {
                     *latest = Some(reported.to_string());
                 }
+                if ends(reported.kind()) {
+                    lost.store(true, Ordering::Relaxed);
+                }
             },
             None,
         )
         .map_err(|error| error.to_string())
+}
+
+/// Returns whether an error of `kind` means that the stream must be built
+/// anew: that its device or host has gone, or that it no longer plays as
+/// it was built to, as after a change of the sample rate of the device
+fn ends(kind: ErrorKind) -> bool {
+    matches!(
+        kind,
+        ErrorKind::DeviceNotAvailable | ErrorKind::HostUnavailable | ErrorKind::StreamInvalidated
+    )
 }

@@ -37,9 +37,11 @@ Major changes and improvements in each release of cinq, newest first.
 - A device that is not there, or that stops while it plays, as one unplugged
   or a Dante Virtual Soundcard that restarts, opens again on its own within
   two seconds of its return, and the cues that play on it pick up there
-  from where they are.  Meanwhile they wait for it for three seconds at
-  most, then go on by the clock of the show, so that the cues that follow
-  them still fire on time.
+  from where they are.  So does a device whose sample rate changes, as
+  Dante Controller can change that of the soundcard, at its new rate.
+  Meanwhile the cues wait for it until it tells that it stopped, or for
+  three seconds at most, then go on by the clock of the show, so that the
+  cues that follow them still fire on time.
 - On GNU/Linux and the BSDs, cinq also plays on the device of a running JACK
   server, such as PipeWire's, as `jack:output`, whose channels each reach
   the playback port of their number.  PulseAudio spreads a stream over every
