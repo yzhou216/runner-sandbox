@@ -11,7 +11,7 @@
 # eight as PulseAudio does.  pw-record records the sink each time.
 #
 # Usage: pipewire.sh CINQ SHOW OUT, with pipewire, wireplumber, pw-cli,
-# wpctl, pw-record, pw-jack, sway, wtype, dbus-run-session, and ffmpeg on
+# wpctl, pw-record, pw-link, pw-dump, sway, wtype, grim, and ffmpeg on
 # PATH, ALSA_PLUGIN_DIR naming the plugins of PipeWire for ALSA, PW_JACK
 # the directory of PipeWire's libjack, CINQ the program, SHOW the directory
 # of the show and its sound, and OUT the directory for what is recorded
@@ -67,12 +67,16 @@ for device in jack:output alsa:pipewire; do
   name=${device%%:*}
   sed "s|^device = .*|device = \"$device\"|; /^device_name = /d" "$show/partial.cinq.toml" > "$show/$name.cinq.toml"
   pw-record --target desk -P '{ stream.capture.sink=true }' --channels 8 --format f32 \
+    --channel-map AUX0,AUX1,AUX2,AUX3,AUX4,AUX5,AUX6,AUX7 \
     "$out/$name.wav" > "$out/record-$name.log" 2>&1 &
   recorder=$!
   (cd "$show" && LD_LIBRARY_PATH=$PW_JACK exec "$cinq" "$name.cinq.toml" > "$out/cinq-$name.log" 2>&1) &
   pid=$!
   sleep 6
   pw-link -l > "$out/links-$name.txt" 2>&1 || true
+  pw-link -o > "$out/ports-$name.txt" 2>&1 || true
+  pw-dump > "$out/dump-$name.json" 2>&1 || true
+  grim "$out/$name.png" || true
   wtype -s 300 -k space
   sleep 5
   wtype -s 300 -k Escape

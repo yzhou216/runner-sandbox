@@ -30,7 +30,7 @@ jobs:
       - name: Build cinq and the tools of the session
         run: |
           nix build --out-link result-cinq ./cinq
-          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype nixpkgs#grim \
             nixpkgs#ffmpeg nixpkgs#pipewire nixpkgs#wireplumber nixpkgs#dbus
           nix build --out-link pw --inputs-from ./cinq nixpkgs#pipewire.out nixpkgs#pipewire.jack
           ls -d pw*
