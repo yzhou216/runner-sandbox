@@ -6,8 +6,7 @@
 # Runs the light cues of show.toml in cinq on Darwin, where the network that
 # multicast leaves by is chosen otherwise than on GNU/Linux and Windows, and
 # records the sACN and Art-Net that come back to the same computer, as
-# Finder opens cinq.app: first as the build signs it, then signed again as a
-# whole bundle.  Darwin asks before a program first reaches the local
+# Finder opens cinq.app.  Darwin asks before a program first reaches the local
 # network, with the reason in cinq.app's Info.plist; ui, built from
 # screen.swift, presses Allow as the operator would.
 #
@@ -44,9 +43,9 @@ go() {
 }
 
 mark listening
-python3 eos/listen.py "$out/dmx.jsonl" 150 "$out/wire.pcap" &
+python3 eos/listen.py "$out/dmx.jsonl" 90 "$out/wire.pcap" &
 listener=$!
-(sleep 180 && kill "$listener" 2> /dev/null) &
+(sleep 120 && kill "$listener" 2> /dev/null) &
 sleep 3
 shot 0-listener
 allow 10
@@ -65,17 +64,10 @@ opened() {
   sleep 3
 }
 
-# cinq.app as the build signs it, its program alone under the name of the
-# file that rustc wrote, and then a copy signed as a whole bundle, under the
-# identifier of its Info.plist, which Darwin's privacy settings go by
+# cinq.app as the build signs it, now as a whole bundle under the
+# identifier of its Info.plist
 codesign -dv --verbose=4 "$app" > "$out/codesign-built.txt" 2>&1
 opened "$app" 1-built
-# Files from the Nix store are read-only, which codesign needs to write
-cp -R "$app" signed.app
-chmod -R u+w signed.app
-codesign --force --sign - --identifier io.yiyuzhou.cinq signed.app > "$out/codesign-signing.txt" 2>&1
-codesign -dv --verbose=4 signed.app > "$out/codesign-signed.txt" 2>&1
-opened "$PWD/signed.app" 2-signed
 wait "$listener"
 mark finished
 log show --last 10m --style compact \

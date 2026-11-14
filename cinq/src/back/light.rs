@@ -85,7 +85,7 @@ impl Network {
             (self.broadcast, sacn::group(universe))
         };
         // Network that has gone since, which the next refresh leaves out
-        // Sandbox only: say why a packet does not go out
+        // Sandbox only: say when and why a packet does not go out
         let said = |what: &str, result: std::io::Result<()>| {
             if let Err(error) = result {
                 let now = std::time::SystemTime::now()

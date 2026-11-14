@@ -13,6 +13,7 @@
       crate,
       sourceDateEpoch,
       installBundle,
+      signBundle,
       ...
     }:
     let
@@ -86,7 +87,16 @@
         };
       # cinq that `cross`, the Nixpkgs of a system that Nixpkgs builds
       # Rust's standard library for, cross-builds from the flake's package
-      nixpkgsCross = cross: cross.callPackage ./cinq.nix { inherit crate sourceDateEpoch installBundle; };
+      nixpkgsCross =
+        cross:
+        cross.callPackage ./cinq.nix {
+          inherit
+            crate
+            sourceDateEpoch
+            installBundle
+            signBundle
+            ;
+        };
       # Nixpkgs of FreeBSD on the processor `cpu`.  FreeBSD's libraries
       # write their symbol maps with clang's cpp, which Nixpkgs runs for
       # the system that builds them rather than for FreeBSD, and which on
@@ -141,11 +151,14 @@
               ${installBundle}
             '';
           }).overrideAttrs
-            # Apple's SDK again once the setup hooks have run on Darwin,
-            # where the hook of Nixpkgs' SDK sets an SDK whose libiconv is
-            # Nixpkgs', which a Mac without Nix lacks
             (
-              lib.optionalAttrs pkgs.stdenv.buildPlatform.isDarwin {
+              {
+                postFixup = signBundle;
+              }
+              # Apple's SDK again once the setup hooks have run on Darwin,
+              # where the hook of Nixpkgs' SDK sets an SDK whose libiconv is
+              # Nixpkgs', which a Mac without Nix lacks
+              // lib.optionalAttrs pkgs.stdenv.buildPlatform.isDarwin {
                 preBuild = "export SDKROOT=${pkgs.apple-sdk.src}";
               }
             );

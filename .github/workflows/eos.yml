@@ -87,7 +87,6 @@ jobs:
           name: cinq-windows
           path: cinq-windows
   cinq-darwin:
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -107,16 +106,14 @@ jobs:
   # sACN and Art-Net of cinq on Darwin, where multicast picks its network
   # otherwise than on GNU/Linux and Windows
   darwin:
+    needs: cinq-darwin
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      # cinq.app of run 43550373520, which logs each failed send
       - uses: actions/download-artifact@v4
         with:
           name: cinq-darwin
-          run-id: 43550373520
-          github-token: ${{ github.token }}
       - run: |
           mkdir cinq-darwin && tar -xf cinq-darwin.tar -C cinq-darwin
           bash eos/darwin.sh "$PWD/cinq-darwin/Applications/cinq.app" out

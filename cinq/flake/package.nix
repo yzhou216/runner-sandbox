@@ -13,12 +13,20 @@
       crate,
       sourceDateEpoch,
       installBundle,
+      signBundle,
       ...
     }:
     let
       # Bound here rather than read back from the packages, whose names
       # depend on whether the demo and the tutorial built from them evaluate
-      cinq = pkgs.callPackage ./cinq.nix { inherit crate sourceDateEpoch installBundle; };
+      cinq = pkgs.callPackage ./cinq.nix {
+        inherit
+          crate
+          sourceDateEpoch
+          installBundle
+          signBundle
+          ;
+      };
       demo = pkgs.callPackage ./demo.nix { inherit crate; };
       doc = pkgs.callPackage ./doc.nix {
         inherit
