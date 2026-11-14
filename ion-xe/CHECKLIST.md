@@ -8,13 +8,13 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 ## Before you go
 
-- **cinq:** the build of `wip/light-cues` (c9a6db4), in one of these ways:
+- **cinq:** the build of `wip/light-cues` (d6b9350), in one of these ways:
   - **With Nix:** `nix build github:yzhou216/cinq/wip/light-cues`.
   - **Without Nix:** artifact `cinq-x86_64-linux-packages` of cinq's
-    Packages run 43625230585.  It holds the deb, rpm, and Arch packages,
+    Packages run 43626531095.  It holds the deb, rpm, and Arch packages,
     and `cinq-0.1.4-aarch64-darwin.pkg` for a Mac with Apple silicon.
   - **Windows:** `cinq-x86_64-windows-built-on-x86_64-linux.exe`, an
-    artifact of the "Cross builds for Windows" run 43625230666.
+    artifact of the "Cross builds for Windows" run 43626531099.
 - **Unsigned builds:** none of these has a developer signature.
   - **Darwin:** the installer is refused at first; allow it under System
     Settings > Privacy & Security > Open Anyway, then run it again.

@@ -74,7 +74,8 @@ def artnet(data):
 
 def sacn(data):
     # Root layer ACN identifier, then framing and DMP layers of E1.31
-    if data[4:16] != b"ASC-E1.17\0\0\0" or len(data) < 126:
+    # Shortest is universe discovery that lists one universe
+    if data[4:16] != b"ASC-E1.17\0\0\0" or len(data) < 122:
         return None
     # Root vector 4 and framing vector 2 mark data; 8 marks sync or discovery
     root, framing = struct.unpack(">I", data[18:22])[0], struct.unpack(">I", data[40:44])[0]
@@ -84,7 +85,7 @@ def sacn(data):
         count = (len(data) - 120) // 2
         listed = list(struct.unpack(f">{count}H", data[120 : 120 + 2 * count]))
         return {"discovery": listed, "page": data[118], "last": data[119], "name": source}
-    if (root, framing) != (4, 2):
+    if (root, framing) != (4, 2) or len(data) < 126:
         return {"root": root, "framing": framing}
     priority, seq, options = data[108], data[111], data[112]
     universe = struct.unpack(">H", data[113:115])[0]
