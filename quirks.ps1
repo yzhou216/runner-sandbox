@@ -14,6 +14,8 @@
 # - exclusive-*: FlexASIO in WASAPI's exclusive mode, held by another cinq
 #   until that one quits, as another program can hold an ASIO driver.
 #   WASAPI's loopback hears no exclusive stream, so the screenshots tell.
+# - overrun: Left and Right on VB-CABLE, which has two channels, beside an
+#   output on its channel 3, which should warn while they play.
 # - fallback: a show made on another machine, whose outputs name an
 #   endpoint that this one lacks, along with the name of VB-CABLE's.
 # - stopped: cinq started while the audio service of Windows is stopped,
@@ -154,6 +156,50 @@ Shot 'exclusive-freed'
 Stop-Process $cinqProcess -ErrorAction SilentlyContinue
 Start-Sleep 2
 Flex 'Int32' 0 $false
+
+# Output on channel 3 of VB-CABLE, which has two, beside Left and Right,
+# which should play while it warns
+$overrun = @"
+[[output]]
+name = "Left"
+device = "$($cableId -replace '\\', '\\')"
+device_name = "$cableName"
+channels = "1"
+
+[[output]]
+name = "Right"
+device = "$($cableId -replace '\\', '\\')"
+device_name = "$cableName"
+channels = "2"
+
+[[output]]
+name = "Over"
+device = "$($cableId -replace '\\', '\\')"
+device_name = "$cableName"
+channels = "3"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Tone"
+file = "tone.wav"
+
+[list.cue.sends]
+Left = 0.0
+Right = -6.0
+Over = -6.0
+"@
+Set-Content -Path (Join-Path $work 'overrun.cinq.toml') -Value $overrun -Encoding utf8NoBOM
+Copy-Item (Join-Path $work 'overrun.cinq.toml') $Out
+$cinqProcess = Launch 'overrun'
+Record 'overrun'
+Shot 'overrun'
+Stop-Process $cinqProcess -ErrorAction SilentlyContinue
+Start-Sleep 2
 
 # Show of another machine
 Show 'fallback' 'wasapi:{0.0.0.00000000}.{00000000-0000-0000-0000-000000000000}' $cableName
