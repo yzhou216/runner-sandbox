@@ -7,7 +7,8 @@
 # -6 dB, on devices that stand in for the quirks of sound cards: ALSA's hw
 # plugin over the kernel's loopback card, held to one format of samples,
 # one count of channels, or one rate, as the hw devices of cards are, and
-# plug over the one of packed 24-bit samples.  arecord records the other
+# plug over the one of packed 24-bit samples, and last outputs on channels
+# 1 to 3 and 7 of the device of six channels.  arecord records the other
 # end of the loopback through plughw, and each take is NAME.wav in OUT,
 # with a screenshot of cinq as NAME.png.
 #
@@ -97,3 +98,29 @@ for name in loop s16 s32 s24p float ch6 r44 r96 s24pplug; do
   pid=''
   sleep 1
 done
+
+# Outputs on channels 1 to 3 of the device of six channels, and one on
+# channel 7, past them, which should warn while the others play
+{
+  for channel in 1 2 3; do
+    printf '[[output]]\nname = "Ch %s"\ndevice = "alsa:ch6"\nchannels = "%s"\n\n' "$channel" "$channel"
+  done
+  printf '[[output]]\nname = "Over"\ndevice = "alsa:ch6"\nchannels = "7"\n\n'
+  printf '[[list]]\nname = "Main"\n\n[[list.cue]]\nid = 1\nnumber = "1"\nkind = "audio"\nname = "Tone"\nfile = "tone.wav"\n\n'
+  printf '[list.cue.sends]\n"Ch 1" = 0.0\n"Ch 2" = -3.0\n"Ch 3" = -6.0\nOver = -6.0\n'
+} > "$work/ch6over.cinq.toml"
+(cd "$work" && exec "$cinq" ch6over.cinq.toml > "$out/cinq-ch6over.log" 2>&1) &
+pid=$!
+sleep 5
+wtype -s 300 -k space
+sleep 1
+timeout -k 2 9 arecord -D plughw:Loopback,1,0 -c 3 -r 48000 -f FLOAT_LE -t wav -d 5 "$out/ch6over.wav" \
+  > "$out/arecord-ch6over.log" 2>&1 &
+recorder=$!
+sleep 3
+grim "$out/ch6over.png" || true
+wait "$recorder" 2> /dev/null || true
+recorder=''
+kill "$pid" 2> /dev/null || true
+wait "$pid" 2> /dev/null || true
+pid=''

@@ -70,6 +70,8 @@ device, at which new cues send at 0 dB, and a show that has Main alone, as it
 was made, writes no outputs.
 An output that cannot play, as one whose device is not there, shows among the
 warnings, and the cues play on the others.
+So does an output on channels past those of its device, while the other outputs
+of the device play.
 *cinq* tries such a device again every two seconds, so that a device plugged in,
 or a Dante Virtual Soundcard started, plays with nothing for the operator to do.
 A device that stops while cues play on it, as one unplugged or a Dante Virtual

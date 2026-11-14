@@ -8,8 +8,10 @@
 //! The device opens with the fewest channels that it offers at its default
 //! sample rate that hold the channels asked for, in the first samples of
 //! [`FORMATS`] that it takes.  Opening with the most it offers would ask 64
-//! channels of the plug devices of ALSA, which take any number.  The mix
-//! itself runs on the thread of the stream, as [`mix`] tells.
+//! channels of the plug devices of ALSA, which take any number.  A device
+//! with fewer channels than asked for opens with all that it has, so that
+//! a typo in the channels of one output silences that output alone.  The
+//! mix itself runs on the thread of the stream, as [`mix`] tells.
 
 mod mix;
 #[cfg(test)]
@@ -58,6 +60,9 @@ pub(super) struct Mixer {
     gone: Consumer<Gone>,
     sample_rate: u32,
     channels: u16,
+    /// Channels that the outputs needed as the device opened, which can be
+    /// more than it has
+    asked: u16,
     /// Latest error of the stream, which it tells from its own thread
     error: Arc<Mutex<Option<String>>>,
     /// Whether the stream has told an error after which it must be built
@@ -121,6 +126,7 @@ impl Mixer {
             gone,
             sample_rate: config.sample_rate,
             channels: config.channels,
+            asked: channels,
             error,
             lost,
             started,
@@ -135,6 +141,10 @@ impl Mixer {
 
     pub(super) fn channels(&self) -> u16 {
         self.channels
+    }
+
+    pub(super) fn asked(&self) -> u16 {
+        self.asked
     }
 
     /// Mixes the sound that `renderer` makes at `gains`, and returns the
@@ -208,40 +218,61 @@ struct Tells {
 }
 
 /// Returns the configuration of the stream of `device`: its default sample
-/// rate, and the fewest channels that hold `channels` in the first of
-/// [`FORMATS`] that it takes, with that format
+/// rate, and the fewest channels that hold `channels`, or else all that it
+/// has, in the first of [`FORMATS`] that it takes, with that format.  A
+/// device of fewer channels than an output needs still opens, so that the
+/// outputs within its channels play, and only that output tells.
 fn config(device: &Device, channels: u16) -> Result<(StreamConfig, SampleFormat), String> {
     let rate = device
         .default_output_config()
         .map_err(|error| error.to_string())?
         .sample_rate();
-    let ranges: Vec<_> = device
+    let offered: Vec<_> = device
         .supported_output_configs()
         .map_err(|error| error.to_string())?
-        .filter(|range| {
-            (range.min_sample_rate()..=range.max_sample_rate()).contains(&rate)
-                && range.channels() >= channels
-        })
+        .filter(|range| (range.min_sample_rate()..=range.max_sample_rate()).contains(&rate))
+        .map(|range| (range.sample_format(), range.channels()))
         .collect();
-    let (format, fewest) = FORMATS
-        .into_iter()
-        .find_map(|format| {
-            let fewest = ranges
-                .iter()
-                .filter(|range| range.sample_format() == format)
-                .map(|range| range.channels())
-                .min()?;
-            Some((format, fewest))
-        })
-        .ok_or_else(|| {
-            format!("it takes no samples that cinq can play on {channels} channels at {rate} Hz")
-        })?;
+    let (format, count) = chosen(&offered, channels).ok_or_else(|| {
+        if offered.is_empty() {
+            format!("it offers no stream at {rate} Hz")
+        } else {
+            format!("it takes no samples that cinq can play at {rate} Hz")
+        }
+    })?;
     let config = StreamConfig {
-        channels: fewest,
+        channels: count,
         sample_rate: rate,
         buffer_size: BufferSize::Default,
     };
     Ok((config, format))
+}
+
+/// Returns the format and the count of channels to open from the formats
+/// and counts that a device `offered`: the first of [`FORMATS`] with the
+/// fewest channels that hold `channels`, or else the first with the most
+/// channels, or none where it offers none of them
+fn chosen(offered: &[(SampleFormat, u16)], channels: u16) -> Option<(SampleFormat, u16)> {
+    let counts = |format: SampleFormat| {
+        offered
+            .iter()
+            .filter(move |(offer, _)| *offer == format)
+            .map(|(_, count)| *count)
+    };
+    let holding = || {
+        FORMATS.into_iter().find_map(|format| {
+            counts(format)
+                .filter(|count| *count >= channels)
+                .min()
+                .map(|count| (format, count))
+        })
+    };
+    let most = || {
+        FORMATS
+            .into_iter()
+            .find_map(|format| counts(format).max().map(|count| (format, count)))
+    };
+    holding().or_else(most)
 }
 
 /// Opens the stream of `device` in samples of `T`, which `mix` fills

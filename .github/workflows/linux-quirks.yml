@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Plays cinq of the tree in cinq/ on devices that stand in for the quirks
-# of sound cards and JACK servers, with alsa.sh over the kernel's loopback
-# card and jack.sh over jackd's dummy backend, and prints the level of each
-# channel and how clean the tone stayed in each take, with glitch.sh.
+# of sound cards and JACK servers: with alsa.sh on the kernel's loopback
+# card in a NixOS virtual machine, which flake.nix builds, since the
+# kernels of the runners have no sound, and with jack.sh on jackd's dummy
+# backend.  It prints the level of each channel and how clean the tone
+# stayed in each take, with glitch.sh.
 on: push
 permissions:
   contents: read
@@ -13,7 +15,49 @@ defaults:
   run:
     shell: bash
 jobs:
-  quirks:
+  alsa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - name: Let the build of Nix use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            system-features = nixos-test benchmark big-parallel kvm
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Play on hw devices of ALSA in the virtual machine
+        run: |
+          nix build -L --out-link result-alsa .#alsa 2>&1 | tail -n 200
+          mkdir -p out
+          cp -r result-alsa/alsa out/
+      - name: Measure each take
+        if: always()
+        run: |
+          PATH=$(nix build --no-link --print-out-paths --inputs-from ./cinq nixpkgs#ffmpeg.bin)/bin:$PATH
+          printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
+          for name in loop s16 s32 s24p float ch6 r44 r96 s24pplug ch6over; do
+            file=out/alsa/$name.wav
+            printf '%s\t%s\t%s\n' "$name" "$(./levels.sh "$file" 1 4.5 || true)" \
+              "$(./glitch.sh "$file" 1 1000 1 4.5 || true)"
+          done | tee out/alsa-takes.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: alsa
+          path: out
+          if-no-files-found: ignore
+  jack:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -27,26 +71,13 @@ jobs:
           extra_nix_config: |
             extra-substituters = https://yzhou216.cachix.org
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
-      - name: Load the loopback card
-        continue-on-error: true
-        run: |
-          sudo apt-get update > /dev/null
-          sudo apt-get install -y "linux-modules-extra-$(uname -r)" > /dev/null || apt-cache search linux-modules-extra | tail -5
-          sudo modprobe snd-aloop pcm_substreams=1
-          sudo chmod a+rw /dev/snd/*
-          cat /proc/asound/cards
       - name: Build cinq and the tools of the session
         run: |
           nix build --out-link result-cinq ./cinq
           nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype nixpkgs#grim \
-            nixpkgs#ffmpeg nixpkgs#alsa-utils nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
+            nixpkgs#ffmpeg nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
           nix build --out-link libjack --inputs-from ./cinq nixpkgs#libjack2
-      - name: Play on devices held to one format, count of channels, or rate
-        run: |
-          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
-          timeout -k 10 600 ./alsa.sh result-cinq/bin/cinq out/alsa
       - name: Play on JACK servers of other rates, periods, and lifetimes
-        if: always()
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
           # Where cinq finds libjack, as it would in the system's libraries
@@ -58,21 +89,14 @@ jobs:
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
           printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
-          {
-            for name in loop s16 s32 s24p float ch6 r44 r96 s24pplug; do
-              file=out/alsa/$name.wav
-              printf 'alsa %s\t%s\t%s\n' "$name" "$(./levels.sh "$file" 1 4.5 || true)" \
-                "$(./glitch.sh "$file" 1 1000 1 4.5 || true)"
-            done
-            for name in rate-44100 rate-96000 period-64 period-4096 period-1000 ports-2 late restart; do
-              file=out/jack/$name.wav
-              printf 'jack %s\t%s\t%s\n' "$name" "$(./levels.sh "$file" 0.5 3.5 || true)" \
-                "$(./glitch.sh "$file" 1 1000 0.5 3.5 || true)"
-            done
-          } | tee out/takes.tsv
+          for name in rate-44100 rate-96000 period-64 period-4096 period-1000 ports-2 late restart; do
+            file=out/jack/$name.wav
+            printf '%s\t%s\t%s\n' "$name" "$(./levels.sh "$file" 0.5 3.5 || true)" \
+              "$(./glitch.sh "$file" 1 1000 0.5 3.5 || true)"
+          done | tee out/jack-takes.tsv
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: linux-quirks
+          name: jack
           path: out
           if-no-files-found: ignore

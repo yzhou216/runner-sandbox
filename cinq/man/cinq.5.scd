@@ -116,6 +116,9 @@ in its place, and follows it as it changes in the same way.
 	server with their number, which keeps every channel where its output
 	puts it, and so suits a device of more than two channels under
 	PipeWire.
+	Channels past the last playback port of the server connect to none, so
+	that a patchbay of JACK can connect them elsewhere, and *cinq* shows no
+	warning for them.
 ; if windows
 	A build with the feature _asio_, as Nix builds *cinq* for Windows, also
 	lists the ASIO drivers, by IDs that begin with _asio:_, beside the devices
@@ -123,6 +126,9 @@ in its place, and follows it as it changes in the same way.
 	The Dante Virtual Soundcard offers all of its channels as one ASIO
 	driver, while in WDM mode it offers each pair of its first 16 channels as
 	a device of its own.
+	An ASIO driver that another program holds, as one in exclusive mode can,
+	fails to open with a warning that its hardware is malfunctioning, which
+	clears once that program lets it go.
 ; end
 	It is the default device unless the file names another.
 

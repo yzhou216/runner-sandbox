@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use kira::{
     AudioManager, AudioManagerSettings, Frame,
-    backend::cpal::cpal::ErrorKind,
+    backend::cpal::cpal::{ErrorKind, SampleFormat},
     sound::static_sound::{StaticSoundData, StaticSoundSettings},
 };
 use rtrb::{Consumer, Producer, RingBuffer};
@@ -183,4 +183,33 @@ fn stream_is_built_anew_after_its_device_goes_but_not_after_an_underrun() {
     assert!(super::ends(ErrorKind::StreamInvalidated));
     assert!(!super::ends(ErrorKind::Xrun));
     assert!(!super::ends(ErrorKind::BackendError));
+}
+
+#[test]
+fn device_opens_with_the_fewest_channels_that_hold_the_outputs() {
+    let offered = [
+        (SampleFormat::F32, 2),
+        (SampleFormat::F32, 16),
+        (SampleFormat::I32, 64),
+    ];
+    assert_eq!(super::chosen(&offered, 3), Some((SampleFormat::F32, 16)));
+    assert_eq!(super::chosen(&offered, 2), Some((SampleFormat::F32, 2)));
+}
+
+#[test]
+fn device_of_too_few_channels_opens_with_all_it_has() {
+    let offered = [(SampleFormat::F32, 2), (SampleFormat::F32, 16)];
+    assert_eq!(super::chosen(&offered, 34), Some((SampleFormat::F32, 16)));
+}
+
+#[test]
+fn channels_that_fit_come_before_the_samples_that_kira_renders() {
+    let offered = [(SampleFormat::F32, 2), (SampleFormat::I16, 8)];
+    assert_eq!(super::chosen(&offered, 4), Some((SampleFormat::I16, 8)));
+}
+
+#[test]
+fn device_of_no_samples_that_cinq_plays_does_not_open() {
+    assert_eq!(super::chosen(&[], 2), None);
+    assert_eq!(super::chosen(&[(SampleFormat::U8, 2)], 2), None);
 }
