@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tells, on each image of GNU/Linux runners, whether the kernel has ALSA
+# and the loopback card, or the packages that would bring them.
+on: push
+permissions:
+  contents: read
+jobs:
+  sound:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-22.04, ubuntu-24.04, ubuntu-24.04-arm, ubuntu-22.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - name: Look for ALSA in the kernel
+        run: |
+          uname -r
+          grep -E '^CONFIG_SND(_ALOOP|_PCM|_TIMER)?=' "/boot/config-$(uname -r)" || echo "no CONFIG_SND"
+          find "/lib/modules/$(uname -r)" -name 'snd*aloop*' -o -name 'snd-pcm.ko*' | head -5
+          sudo apt-get update > /dev/null
+          apt-cache policy "linux-modules-extra-$(uname -r)" "linux-headers-$(uname -r)" | grep -E '^linux|Candidate'
+          if sudo apt-get install -y "linux-modules-extra-$(uname -r)" > /dev/null 2>&1 && sudo modprobe snd-aloop; then
+            echo "snd-aloop loaded"
+            cat /proc/asound/cards
+          fi
