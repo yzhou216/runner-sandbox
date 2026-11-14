@@ -24,7 +24,7 @@ mod tests;
 
 use std::{
     collections::BTreeMap,
-    net::{Ipv4Addr, SocketAddrV4, UdpSocket},
+    net::{Ipv4Addr, SocketAddr, UdpSocket},
     sync::mpsc::{self, RecvTimeoutError},
     thread,
     time::Duration,
@@ -79,25 +79,18 @@ impl Network {
     /// the network, or straight to the computer itself
     fn send(&self, socket: &UdpSocket, universe: u16, artnet: Option<&[u8]>, sacn: &[u8]) {
         let (artnet_to, sacn_to) = if self.loopback {
-            let to = SocketAddrV4::new(self.address, sacn::PORT);
-            (Some(self.address), to)
+            let to = SocketAddr::from((self.address, sacn::PORT));
+            (Some(self.address), Some(to))
         } else {
             (self.broadcast, sacn::group(universe))
         };
         // Network that has gone since, which the next refresh leaves out
-        // Sandbox only: say when and why a packet does not go out
-        let said = |what: &str, result: std::io::Result<()>| {
-            if let Err(error) = result {
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0.0, |since| since.as_secs_f64());
-                eprintln!("{now:.3} {what} via {}: {error}", self.address);
-            }
-        };
-        said("multicast interface", SockRef::from(socket).set_multicast_if_v4(&self.address));
-        said("sACN", socket.send_to(sacn, sacn_to).map(drop));
+        let _ = SockRef::from(socket).set_multicast_if_v4(&self.address);
+        if let Some(to) = sacn_to {
+            let _ = socket.send_to(sacn, to);
+        }
         if let (Some(packet), Some(to)) = (artnet, artnet_to) {
-            said("Art-Net", socket.send_to(packet, (to, artnet::PORT)).map(drop));
+            let _ = socket.send_to(packet, (to, artnet::PORT));
         }
     }
 }

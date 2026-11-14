@@ -31,7 +31,6 @@ ctrlc = { version = "3.5", features = [ # Problems screen left on Control+c
   "termination",
 ] }
 dirs = "7.0"
-fastrand = "2.4" # Identity of the sACN source
 iced = { version = "0.14", default-features = false, features = [ # Wayland alone, and cinq's own theme
   "advanced",
   "crisp",
@@ -70,6 +69,7 @@ pathdiff = "0.2"
 rayon = "1.12"
 rfd = "0.17"
 rust_h264 = "0.6" # Decoder of H.264 that needs no C++ compiler
+sacn = "0.11" # Packets of sACN
 serde = { version = "1.0", features = ["derive"] }
 socket2 = "0.6" # Network that multicast goes out on
 strum = { version = "0.28", features = ["derive"] }
@@ -89,6 +89,7 @@ toml = { version = "1.1", default-features = false, features = [
   "std",
 ] }
 unicode-width = "0.2" # Columns of a character on screen, which iced brings
+uuid = { version = "1", features = ["v4"] } # Identity of the sACN source
 yuv = "0.8" # Colors of the pictures of video cues, in RGBA
 
 [target.'cfg(unix)'.dependencies]

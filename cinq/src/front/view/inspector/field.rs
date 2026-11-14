@@ -138,7 +138,7 @@ fn network<'a>(cue: &Cue, editable: bool) -> Element<'a, Message> {
         .on_input_maybe(editable.then_some(move |text| Message::Edit(id, Edit::Destination(text))))
         .style(theme::field(Destination::parse(&cue.destination).is_some()))
         .width(room(DESTINATION_ROOM));
-    let message = text_input("/eos/cue/1/fire", &cue.message)
+    let message = text_input("/address arguments", &cue.message)
         .on_input_maybe(editable.then_some(move |text| Message::Edit(id, Edit::Message(text))))
         .style(theme::field(osc_packet(&cue.message).is_some()));
     row![destination, message].spacing(SPACING).into()

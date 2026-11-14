@@ -23,7 +23,11 @@ send /eos/newcmd "Chan 3 At Full#"
 wait 1
 send /eos/newcmd "Record Cue 2 Time 5#"
 wait 2
+send /eos/newcmd "Chan 1 Thru 3 At 20#"
+wait 1
+send /eos/newcmd "Record Cue 3 Time 2#"
+wait 2
 send /eos/newcmd "Chan 1 Thru 3 At 0#"
 wait 3
 mark programmed
-wait 240
+wait 300

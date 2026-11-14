@@ -432,7 +432,6 @@ dependencies = [
  "ctrlc",
  "dirs",
  "embed-manifest",
- "fastrand",
  "futures",
  "iced",
  "icns",
@@ -452,6 +451,7 @@ dependencies = [
  "rfd",
  "rust_h264",
  "rustix 1.1.6",
+ "sacn",
  "serde",
  "socket2",
  "strum",
@@ -465,6 +465,7 @@ dependencies = [
  "tokio",
  "toml",
  "unicode-width 0.2.3",
+ "uuid",
  "yuv",
 ]
 
@@ -3472,6 +3473,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
+name = "sacn"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fa6b27099bea4cf80b420fe02b1e2101721b1e13197e0a34a9f3811dd26d63f"
+dependencies = [
+ "byteorder",
+ "libc",
+ "socket2",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4473,6 +4487,17 @@ name = "utf_types"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
+
+[[package]]
+name = "uuid"
+version = "1.29.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bed99139f7dac9b5cfe5f17be4d66dc7079a34dee1d74bcc77217119240e267c"
+dependencies = [
+ "getrandom 0.4.3",
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "version_check"

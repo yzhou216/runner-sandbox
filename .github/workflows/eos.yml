@@ -52,9 +52,9 @@ jobs:
           name: cinq-windows
           path: cinq-windows
       - name: cinq fires Eos cues with network cues
-        timeout-minutes: 5
+        timeout-minutes: 8
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File eos/beside.ps1 network.toml 2
+          powershell -NoProfile -ExecutionPolicy Bypass -File eos/beside.ps1 network.toml 6
           sleep 10
           powershell -NoProfile -ExecutionPolicy Bypass -File eos/snap.ps1 fired
       - if: always()

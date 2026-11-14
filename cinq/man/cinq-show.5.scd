@@ -205,8 +205,9 @@ order, and has one level, its intensity, which one DMX address sets:
 
 *universe*
 	Universe of the instrument, from 1 to 32768, which is 1 by default.
-	As on lighting consoles, universe 1 is the Art-Net Port-Address 0, and
-	each universe after it the next Port-Address.
+	Universes count from 1, as in sACN, and Art-Net, which counts from 0,
+	carries universe 1 as its Port-Address 0 and each universe after it as
+	the next Port-Address, as most consoles do.
 
 *address*
 	DMX address of the instrument in its universe, from 1 to 512.
@@ -232,9 +233,9 @@ Art-Net, to the broadcast address of every IPv4 network that the computer
 is on, and as sACN, to the multicast group of the universe on each of those
 networks, as soon as they change and again every second.
 It sends both to the computer itself as well.
-Its sACN has the priority 100, the default of consoles such as Eos, so that
-a receiver that merges sources of one priority, as those of ETC do, takes
-the higher level of each address from *cinq* and the console.
+Its sACN has the priority 100, the default of sACN, so that a receiver that
+merges sources of one priority takes the higher level of each address from
+*cinq* and any other source, such as a lighting console.
 Instruments that share an address set it to the highest of their levels.
 When *cinq* ends, receivers of sACN hold its levels for as long as they
 hold those of any source that has gone quiet.
@@ -249,7 +250,8 @@ It takes no time, and does nothing else.
 The *destination* of a network cue is _host:port_ for TCP, whose packets
 *cinq* frames with SLIP, as OSC 1.1 asks of streams, or _udp://host:port_ for
 UDP, with one packet to each datagram.
-The host is a name or an IPv4 address.
+The host is an IPv4 address, or a name that *cinq* reaches at its first IPv4
+address.
 *cinq* keeps a TCP connection to a destination open once it has made it, and
 makes a new one once the destination closes it, as a console that restarts
 does.
@@ -265,11 +267,10 @@ A message that cannot go out, as when the destination refuses the connection
 or takes more than a second to take it, is lost, and *cinq* says so on
 standard error, once for each reason.
 
-The Eos family of consoles from ETC, such as the Ion Xe, takes OSC over TCP
-with SLIP on port 3037.
-It fires cue 5 of cue list 1 for _/eos/cue/1/5/fire_, and goes to the next
-cue for _/eos/key/go_0_, as the manual of Eos tells along with the other
-messages that it takes.
+Consoles and programs tell in their manuals which messages they take, and on
+which ports.
+For example, the Eos consoles of ETC take OSC over TCP with SLIP on port
+3037, and fire cue 5 of cue list 1 for _/eos/cue/1/5/fire_.
 
 # UNSAVED CHANGES
 

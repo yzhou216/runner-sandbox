@@ -4,6 +4,8 @@
 
 //! Tests of the packets that go out
 
+use uuid::Uuid;
+
 use super::{artnet, sacn};
 
 /// Port-Address of an ArtDmx packet, which follows its 8-byte ID, opcode,
@@ -29,7 +31,7 @@ fn universes_go_out_as_the_port_address_before_them_as_consoles_send_them() {
 #[test]
 fn sacn_data_packet_holds_its_universe_levels_and_the_lengths_of_its_layers() {
     let channels = std::array::from_fn(|i| i as u8);
-    let packet = sacn::packet([7; 16], 300, 9, &channels);
+    let packet = sacn::packet(Uuid::from_bytes([7; 16]), 300, 9, &channels);
     let word = |at: usize| u16::from_be_bytes([packet[at], packet[at + 1]]);
     assert_eq!(packet.len(), 638);
     assert_eq!(&packet[4..16], b"ASC-E1.17\0\0\0");
@@ -41,12 +43,8 @@ fn sacn_data_packet_holds_its_universe_levels_and_the_lengths_of_its_layers() {
     assert_eq!([packet[108], packet[111]], [100, 9]);
     assert_eq!([word(113), word(123)], [300, 513]);
     assert_eq!(&packet[125..129], [0, 0, 1, 2]);
-    assert_eq!(sacn::group(300).to_string(), "239.255.1.44:5568");
-}
-
-#[test]
-fn sacn_sources_differ_as_random_uuids() {
-    let (one, other) = (sacn::cid(), sacn::cid());
-    assert_ne!(one, other);
-    assert_eq!([one[6] >> 4, one[8] >> 6], [4, 0b10]);
+    assert_eq!(
+        sacn::group(300).map(|group| group.to_string()).as_deref(),
+        Some("239.255.1.44:5568")
+    );
 }

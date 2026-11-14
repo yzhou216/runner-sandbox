@@ -10,8 +10,8 @@ use std::path::Path;
 use super::*;
 use crate::back::{Destination, Outgoing, osc_packet};
 
-/// Returns a network cue that fires cue 1 of Eos at the address of an Ion
-/// Xe, after `pre_wait` seconds
+/// Returns a network cue that fires cue 1 of a console, after `pre_wait`
+/// seconds
 fn fire(id: u32, pre_wait: f32) -> Cue {
     Cue::new(CueId(id), id.to_string(), Kind::Network, "Fire cue 1")
         .destination("10.101.100.20:3037")

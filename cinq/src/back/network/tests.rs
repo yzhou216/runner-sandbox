@@ -48,6 +48,17 @@ fn tcp_messages_go_out_framed_and_open_a_new_connection_once_one_closes() {
 }
 
 #[test]
+fn messages_to_a_host_name_go_to_its_ipv4_address() {
+    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+    socket.set_read_timeout(Some(PATIENCE)).unwrap();
+    let port = socket.local_addr().unwrap().port();
+    Network::open().send(message(Destination::Udp(format!("localhost:{port}")), 4));
+    let mut datagram = [0; 16];
+    let length = socket.recv(&mut datagram).unwrap();
+    assert_eq!(datagram[..length], [4; 4]);
+}
+
+#[test]
 fn udp_messages_go_out_as_one_datagram_each() {
     let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
     socket.set_read_timeout(Some(PATIENCE)).unwrap();

@@ -10,7 +10,7 @@
 //! to a datagram.  A message reads as its address, then its arguments
 //! after spaces, each an integer, a decimal number, or else a string,
 //! which double quotes keep whole across spaces, as in
-//! `/eos/newcmd "Chan 1 At Full#"`.
+//! `/scene/recall "Act 1" 2`.
 
 #[cfg(test)]
 mod tests;
@@ -118,44 +118,28 @@ fn padded(text: &str) -> Vec<u8> {
         .collect()
 }
 
-#[derive(Default)]
 struct Word {
     text: String,
     quoted: bool,
 }
 
-/// Returns the words of `text`, split at spaces outside double quotes,
-/// which the words leave out
+/// Returns the words of `text`: what double quotes hold, whole, and the
+/// rest split at spaces
 fn words(text: &str) -> Vec<Word> {
-    let (words, last, _) = text.trim().chars().fold(
-        (Vec::new(), None::<Word>, false),
-        |(words, word, quoting), c| match c {
-            '"' => {
-                let word = word.unwrap_or_default();
-                (
-                    words,
-                    Some(Word {
-                        quoted: true,
-                        ..word
-                    }),
-                    !quoting,
-                )
-            }
-            c if c.is_whitespace() && !quoting => {
-                (words.into_iter().chain(word).collect(), None, false)
-            }
-            c => {
-                let Word { text, quoted } = word.unwrap_or_default();
-                (
-                    words,
-                    Some(Word {
-                        text: text + &c.to_string(),
-                        quoted,
-                    }),
-                    quoting,
-                )
-            }
-        },
-    );
-    words.into_iter().chain(last).collect()
+    text.split('"')
+        .enumerate()
+        .flat_map(|(part, between)| {
+            // Parts alternate between outside and inside the quotes
+            let quoted = part % 2 == 1;
+            let texts = if quoted {
+                vec![between]
+            } else {
+                between.split_whitespace().collect()
+            };
+            texts.into_iter().map(move |text| Word {
+                text: text.to_owned(),
+                quoted,
+            })
+        })
+        .collect()
 }

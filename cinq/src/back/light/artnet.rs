@@ -11,7 +11,8 @@ use super::Universe;
 pub(super) const PORT: u16 = 6454;
 
 /// Returns the ArtDmx packet of `universe`, which goes out as the
-/// Port-Address before it, as consoles send universe 1 as Port-Address 0
+/// Port-Address before it, since Art-Net counts from 0 where sACN counts
+/// from 1
 pub(super) fn packet(universe: u16, channels: &Universe) -> Option<Vec<u8>> {
     let output = Output {
         port_address: universe.checked_sub(1)?.try_into().ok()?,

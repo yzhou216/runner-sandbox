@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use super::items::replaced_where;
 
-/// Universes as lighting consoles number them, from 1, which Art-Net sends
-/// as its Port-Addresses from 0
+/// Universes as sACN numbers them, from 1, which Art-Net sends as its
+/// Port-Addresses from 0
 pub(super) const UNIVERSES: RangeInclusive<u16> = 1..=32_768;
 
 pub(super) const ADDRESSES: RangeInclusive<u16> = 1..=512;
