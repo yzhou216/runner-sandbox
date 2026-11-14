@@ -6,13 +6,11 @@
 
 use std::{
     io::Read,
-    net::{TcpListener, UdpSocket},
+    net::{TcpListener, TcpStream, UdpSocket},
     sync::atomic::Ordering,
     thread,
     time::{Duration, Instant},
 };
-
-use socket2::SockRef;
 
 use super::Network;
 use crate::back::osc::{Destination, Outgoing, framed};
@@ -27,25 +25,61 @@ fn message(destination: Destination, byte: u8) -> Vec<Outgoing> {
     }]
 }
 
-/// Returns the next SLIP frame that `listener` receives on a connection
-/// of its own, which the destination closes once it has read the frame
-fn frame(listener: &TcpListener) -> Vec<u8> {
-    let (mut stream, _) = listener.accept().unwrap();
+/// Returns the next connection that `listener` takes
+fn accepted(listener: &TcpListener) -> TcpStream {
+    let (stream, _) = listener.accept().unwrap();
     stream.set_read_timeout(Some(PATIENCE)).unwrap();
+    stream
+}
+
+/// Returns the next SLIP frame that arrives on `stream`
+fn next(mut stream: &TcpStream) -> Vec<u8> {
     let mut frame = vec![0; framed(&[0; 4]).len()];
     stream.read_exact(&mut frame).unwrap();
     frame
 }
 
+/// Returns the next SLIP frame that `listener` receives on a connection
+/// of its own, which the destination closes once it has read the frame
+fn frame(listener: &TcpListener) -> Vec<u8> {
+    next(&accepted(listener))
+}
+
 #[test]
-fn tcp_messages_go_out_framed_and_open_a_new_connection_once_one_closes() {
+fn tcp_messages_of_a_burst_go_out_framed_over_one_connection() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
+    let network = Network::open();
+    network.send(message(destination.clone(), 1));
+    network.send(message(destination, 2));
+    let stream = accepted(&listener);
+    assert_eq!(next(&stream), framed(&[1; 4]));
+    assert_eq!(next(&stream), framed(&[2; 4]));
+}
+
+#[test]
+fn tcp_message_after_a_quiet_second_goes_over_a_new_connection() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
+    let network = Network::open();
+    network.send(message(destination.clone(), 1));
+    let mut first = accepted(&listener);
+    assert_eq!(next(&first), framed(&[1; 4]));
+    thread::sleep(Duration::from_millis(1500));
+    network.send(message(destination, 2));
+    assert_eq!(frame(&listener), framed(&[2; 4]));
+    assert_eq!(first.read(&mut [0; 16]).unwrap(), 0);
+}
+
+#[test]
+fn tcp_message_after_the_destination_closed_goes_over_a_new_connection() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
     let network = Network::open();
     network.send(message(destination.clone(), 1));
     assert_eq!(frame(&listener), framed(&[1; 4]));
-    // Time for the thread that reads replies to find the connection closed
-    thread::sleep(Duration::from_secs(1));
+    // Time for the close to arrive, well within a burst
+    thread::sleep(Duration::from_millis(100));
     network.send(message(destination, 2));
     assert_eq!(frame(&listener), framed(&[2; 4]));
 }
@@ -113,26 +147,4 @@ fn message_that_waited_past_its_second_is_dropped_rather_than_sent_late() {
         network.problems()[0].ends_with("dropped after waiting a second behind earlier messages")
     );
     assert!(socket.recv(&mut [0; 16]).is_err());
-}
-
-#[test]
-fn connection_lost_to_an_error_shows_before_the_next_message() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
-    let network = Network::open();
-    network.send(message(destination, 8));
-    let (mut stream, _) = listener.accept().unwrap();
-    let mut frame = vec![0; framed(&[0; 4]).len()];
-    stream.read_exact(&mut frame).unwrap();
-    // Reset rather than close, as a console that went away and came back
-    // answers a connection that it no longer knows
-    SockRef::from(&stream)
-        .set_linger(Some(Duration::ZERO))
-        .unwrap();
-    drop(stream);
-    let start = Instant::now();
-    while network.problems().is_empty() && start.elapsed() < PATIENCE {
-        thread::sleep(Duration::from_millis(10));
-    }
-    assert!(network.problems()[0].contains(": lost the connection: "));
 }

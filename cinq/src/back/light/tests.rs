@@ -4,9 +4,12 @@
 
 //! Tests of the packets that go out
 
+use std::net::Ipv4Addr;
+
+use if_addrs::Ifv4Addr;
 use uuid::Uuid;
 
-use super::{artnet, sacn};
+use super::{artnet, broadcast, sacn};
 
 /// Port-Address of an ArtDmx packet, which follows its 8-byte ID, opcode,
 /// protocol version, sequence, and physical port
@@ -47,4 +50,17 @@ fn sacn_data_packet_holds_its_universe_levels_and_the_lengths_of_its_layers() {
         sacn::group(300).map(|group| group.to_string()).as_deref(),
         Some("239.255.1.44:5568")
     );
+}
+
+#[test]
+fn network_without_a_broadcast_address_takes_the_one_of_its_mask() {
+    let address = |broadcast| Ifv4Addr {
+        ip: Ipv4Addr::new(10, 101, 50, 50),
+        netmask: Ipv4Addr::new(255, 255, 0, 0),
+        prefixlen: 16,
+        broadcast,
+    };
+    assert_eq!(broadcast(&address(None)), Ipv4Addr::new(10, 101, 255, 255));
+    let reported = Ipv4Addr::new(10, 101, 0, 255);
+    assert_eq!(broadcast(&address(Some(reported))), reported);
 }

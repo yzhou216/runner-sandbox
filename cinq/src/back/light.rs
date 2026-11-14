@@ -30,7 +30,7 @@ use std::{
     time::Duration,
 };
 
-use if_addrs::IfAddr;
+use if_addrs::{IfAddr, Ifv4Addr};
 use socket2::SockRef;
 
 use super::{Workspace, workspace::Universe};
@@ -70,7 +70,7 @@ impl Lights {
 /// hearing broadcasts and multicast
 struct Network {
     address: Ipv4Addr,
-    broadcast: Option<Ipv4Addr>,
+    broadcast: Ipv4Addr,
     loopback: bool,
 }
 
@@ -80,7 +80,7 @@ impl Network {
     fn send(&self, socket: &UdpSocket, universe: u16, artnet: Option<&[u8]>, sacn: &[u8]) {
         let (artnet_to, sacn_to) = if self.loopback {
             let to = SocketAddr::from((self.address, sacn::PORT));
-            (Some(self.address), Some(to))
+            (self.address, Some(to))
         } else {
             (self.broadcast, sacn::group(universe))
         };
@@ -89,8 +89,8 @@ impl Network {
         if let Some(to) = sacn_to {
             let _ = socket.send_to(sacn, to);
         }
-        if let (Some(packet), Some(to)) = (artnet, artnet_to) {
-            let _ = socket.send_to(packet, (to, artnet::PORT));
+        if let Some(packet) = artnet {
+            let _ = socket.send_to(packet, (artnet_to, artnet::PORT));
         }
     }
 }
@@ -131,10 +131,19 @@ fn networks() -> Vec<Network> {
         .filter_map(|interface| match interface.addr {
             IfAddr::V4(ref address) => Some(Network {
                 address: address.ip,
-                broadcast: address.broadcast,
+                broadcast: broadcast(address),
                 loopback: interface.is_loopback(),
             }),
             IfAddr::V6(_) => None,
         })
         .collect()
+}
+
+/// Returns the broadcast address of a network: the one that it reports, or
+/// else the one that its mask gives, since an address set by hand, as with
+/// `ip address add` on GNU/Linux, can lack one
+fn broadcast(address: &Ifv4Addr) -> Ipv4Addr {
+    address
+        .broadcast
+        .unwrap_or_else(|| Ipv4Addr::from_bits(address.ip.to_bits() | !address.netmask.to_bits()))
 }

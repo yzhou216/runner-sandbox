@@ -6,14 +6,13 @@
 //!
 //! [`Network::send`] hands the messages that network cues sent in an update
 //! to a thread of its own, which sends each to its destination: over a TCP
-//! connection that it keeps open, as [`connection`] tells, or as one UDP
-//! datagram.  A message that waited more than [`PATIENCE`] behind others,
-//! as behind a console that does not answer, is dropped rather than sent
-//! late, since a cue of a console that fires late, once the console is
-//! back, does more harm than one that does not fire.  Why a message to a
-//! destination last failed, or why its connection was lost, stays for the
-//! interface to show until a message gets there, and warns once on standard
-//! error.
+//! connection that lasts through a burst of messages, as [`connection`]
+//! tells, or as one UDP datagram.  A message that waited more than
+//! [`PATIENCE`] behind others, as behind a console that does not answer, is
+//! dropped rather than sent late, since a cue of a console that fires late,
+//! once the console is back, does more harm than one that does not fire.
+//! Why a message to a destination last failed stays for the interface to
+//! show until a message gets there, and warns once on standard error.
 
 mod connection;
 #[cfg(test)]
@@ -22,11 +21,11 @@ mod tests;
 use std::{
     collections::BTreeMap,
     io::{self, ErrorKind},
-    net::{Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket},
+    net::{Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket},
     sync::{
         Arc, Mutex, MutexGuard, PoisonError,
         atomic::{AtomicUsize, Ordering},
-        mpsc,
+        mpsc::{self, RecvTimeoutError},
     },
     thread,
     time::{Duration, Instant},
@@ -34,58 +33,31 @@ use std::{
 
 use super::osc::{self, Destination, Outgoing};
 use crate::warn;
-use connection::Connection;
 
 /// Longest wait for a destination to take a TCP connection or a message,
-/// and for a message to wait behind others
+/// for a message to wait behind others, and for the next message of a
+/// burst
 const PATIENCE: Duration = Duration::from_secs(1);
 
 /// How often the interface looks for news of the output while messages are
 /// on their way
-const SENDING_CHECK: Duration = Duration::from_millis(100);
+const CHECK: Duration = Duration::from_millis(100);
 
-/// How often the interface looks for news of the output while connections
-/// are open, so that it shows a console that has gone before the next cue
-const OPEN_CHECK: Duration = Duration::from_secs(1);
-
-/// What the thread that sends shares with the interface and with the
-/// threads that read from connections
+/// What the thread that sends shares with the interface
 #[derive(Default)]
 struct Shared {
-    /// Why the last message to each destination failed, or why its
-    /// connection was lost, by destination, with when, until a message sent
-    /// after it gets there
-    problems: Mutex<BTreeMap<String, (Instant, String)>>,
+    /// Why the last message to each destination failed, by destination,
+    /// until one gets there
+    problems: Mutex<BTreeMap<String, String>>,
     /// Messages handed over that the thread has yet to send
     pending: AtomicUsize,
-    /// TCP connections open
-    open: AtomicUsize,
 }
 
 impl Shared {
     /// Locks the problems, which a thread that panicked while it held the
     /// lock leaves as they were
-    fn problems(&self) -> MutexGuard<'_, BTreeMap<String, (Instant, String)>> {
+    fn problems(&self) -> MutexGuard<'_, BTreeMap<String, String>> {
         self.problems.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Records why something to `destination` failed, now, and warns of it
-    fn failed(&self, destination: String, reason: String) {
-        warn::once(&format!("network cue to {destination}: {reason}"));
-        self.problems()
-            .insert(destination, (Instant::now(), reason));
-    }
-
-    /// Forgets what failed for `destination` before `since`, when a message
-    /// began to go out, but not a connection lost while it went
-    fn sent(&self, destination: &str, since: Instant) {
-        let mut problems = self.problems();
-        if problems
-            .get(destination)
-            .is_some_and(|(when, _)| *when < since)
-        {
-            problems.remove(destination);
-        }
     }
 }
 
@@ -128,68 +100,66 @@ impl Network {
         self.shared
             .problems()
             .iter()
-            .map(|(destination, (_, reason))| format!("Network cue to {destination}: {reason}"))
+            .map(|(destination, reason)| format!("Network cue to {destination}: {reason}"))
             .collect()
     }
 
     /// Returns how often the interface should look for news of the output,
-    /// which can change the problems: often while messages are on their
-    /// way, each second while connections are open, and never otherwise
+    /// which can change the problems while messages are on their way
     pub fn checks(&self) -> Option<Duration> {
-        if self.shared.pending.load(Ordering::Relaxed) > 0 {
-            Some(SENDING_CHECK)
-        } else if self.shared.open.load(Ordering::Relaxed) > 0 {
-            Some(OPEN_CHECK)
-        } else {
-            None
-        }
+        (self.shared.pending.load(Ordering::Relaxed) > 0).then_some(CHECK)
     }
 }
 
-fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Shared>) {
+fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Shared) {
     let Ok(udp) = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) else {
         return;
     };
-    let mut connections = BTreeMap::<String, Connection>::new();
-    for (
-        handed,
-        Outgoing {
-            destination,
-            packet,
-        },
-    ) in messages.iter().flatten()
-    {
-        let started = Instant::now();
-        let sent = match &destination {
-            _ if handed.elapsed() > PATIENCE => Err(io::Error::new(
-                ErrorKind::TimedOut,
-                "dropped after waiting a second behind earlier messages",
-            )),
-            Destination::Udp(address) => {
-                resolved(address).and_then(|to| udp.send_to(&packet, to).map(drop))
+    let mut connections = BTreeMap::<String, TcpStream>::new();
+    loop {
+        let batch = match messages.recv_timeout(PATIENCE) {
+            Ok(batch) => batch,
+            // End of a burst, after which the next message makes a new
+            // connection
+            Err(RecvTimeoutError::Timeout) => {
+                connections.clear();
+                continue;
             }
-            Destination::Tcp(address) => {
-                let frame = osc::framed(&packet);
-                // Connection kept open that fails anyway, which a new one
-                // replaces
-                connections
-                    .remove(address)
-                    .filter(Connection::is_open)
-                    .and_then(|connection| connection.written(&frame).ok())
-                    .map_or_else(
-                        || Connection::opened(address, &destination, shared)?.written(&frame),
-                        Ok,
-                    )
-                    .map(|connection| {
-                        connections.insert(address.clone(), connection);
-                    })
-            }
+            Err(RecvTimeoutError::Disconnected) => return,
         };
-        match sent {
-            Ok(()) => shared.sent(&destination.to_string(), started),
-            Err(error) => shared.failed(destination.to_string(), error.to_string()),
+        for (
+            handed,
+            Outgoing {
+                destination,
+                packet,
+            },
+        ) in batch
+        {
+            let sent = match &destination {
+                _ if handed.elapsed() > PATIENCE => Err(io::Error::new(
+                    ErrorKind::TimedOut,
+                    "dropped after waiting a second behind earlier messages",
+                )),
+                Destination::Udp(address) => {
+                    resolved(address).and_then(|to| udp.send_to(&packet, to).map(drop))
+                }
+                Destination::Tcp(address) => {
+                    let kept = connections.remove(address);
+                    connection::written(kept, address, &osc::framed(&packet)).map(|stream| {
+                        connections.insert(address.clone(), stream);
+                    })
+                }
+            };
+            let destination = destination.to_string();
+            match sent {
+                Ok(()) => drop(shared.problems().remove(&destination)),
+                Err(error) => {
+                    warn::once(&format!("network cue to {destination}: {error}"));
+                    shared.problems().insert(destination, error.to_string());
+                }
+            }
+            shared.pending.fetch_sub(1, Ordering::Relaxed);
         }
-        shared.pending.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

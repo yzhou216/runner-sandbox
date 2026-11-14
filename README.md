@@ -62,6 +62,11 @@ that writes each send that fails on standard error.
 | 43553927187 | Every job, with GNU/Linux | All passed (darwin-native on a second attempt, after cache.nixos.org broke off a download); on GNU/Linux sACN left eth0 and the network cues reached `fakeeos.py` as written, over TCP and UDP |
 | 43584888758 | b137aa7 as pushed: six kinds of network cue | Eos fired a cue by number, GO, a cue by list and number, and a command line with spaces; a destination that refused took 1 s on Windows and held nothing else up |
 | 43594509473 | 5501a62: Eos down and back; load; a Mac's LAN | cinq reconnected to Eos on its own once Eos came back; 100 cues from two GOs and 10 after a restart arrived in order; cinq.app reached a console at the Mac's own address |
+| 43597187624 | Power cut, first try | The two consoles of the script fought over port 3037 |
+| 43598804720 | Power cut, with keepalive (5f71ab1) and without (5501a62) | Without keepalive the first cue after the cut was lost without a word; with it, every cue arrived |
+| 43600907511 | Every job on d14ade8 | All passed but powercut, whose build failed on a test that raced, fixed in 51d0edc |
+| 43621864513 | Every job on 51d0edc | Cancelled for 7f5632a, which also warns on standard error of a lost connection |
+| 43622465685 | 7f5632a: the Ion Xe's show over a cable that comes out | ion-test.toml reached a stand-in console at 10.101.100.20 as written; a cue sent a second after the cable came out arrived 13 s after its GO, without a warning, once the cable was back; no Art-Net on a network without a broadcast address |
 
 What Eos does, offline:
 

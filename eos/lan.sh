@@ -12,7 +12,12 @@
 # The cable starts out, as when cinq starts before it goes in.  Once in,
 # ion-test.toml runs through: three network cues and two light cues on
 # universe 999.  Then cable.toml sends a cue, the cable comes out for 15
-# seconds, a cue goes while it is out, and two more once it is back.
+# seconds, a cue goes while it is out, and two more once it is back.  Then
+# the cable comes out again, and a cue goes a second later, before it goes
+# back in seven seconds after: a cue that TCP held while the cable was out
+# and delivered after it went back in would fire late (13 seconds late in
+# run 43622465685, before cinq made a new connection after each quiet
+# second).
 #
 # Usage: lan.sh FONTS OUT, with cinq, sway, wtype, grim, and python3 on
 # PATH, sudo, and FONTS the directory of the DejaVu fonts
@@ -41,6 +46,8 @@ cable() { sudo ip link set light0 "$1"; mark "cable $1"; }
 sudo ip netns add console
 trap 'sudo ip netns del console 2> /dev/null || true; sudo ip link del light0 2> /dev/null || true' EXIT
 sudo ip link add light0 type veth peer name console0 netns console
+# Without a broadcast address, as ip address add leaves it, which cinq has
+# to work out for Art-Net
 sudo ip addr add 10.101.50.50/16 dev light0
 console ip addr add 10.101.100.20/16 dev console0
 console ip link set lo up
@@ -101,7 +108,7 @@ sleep 3
 go after
 go 'after again'
 grim "$out/5-cable-back.png" || true
-# Out for less time than keepalive takes to notice
+# Out for a moment, just before a GO
 cable down
 sleep 1
 go blip 7

@@ -252,9 +252,10 @@ The *destination* of a network cue is _host:port_ for TCP, whose packets
 UDP, with one packet to each datagram.
 The host is an IPv4 address, or a name that *cinq* reaches at its first IPv4
 address.
-*cinq* keeps a TCP connection to a destination open once it has made it, and
-makes a new one once the destination closes it, as a console that restarts
-does.
+*cinq* keeps a TCP connection to a destination open while messages to it
+follow each other within a second, and makes a new one for the first message
+after that, so that a message never waits in a connection whose cable is
+out, to arrive late once it is back in.
 
 The *message* of a network cue holds its address, which starts with a slash,
 followed by its arguments after spaces, each an integer, a decimal number, or
@@ -264,13 +265,11 @@ it reads as a number.
 
 A network cue whose destination or message does not read as one cannot play.
 A message that cannot go out, as when the destination refuses the connection
-or takes more than a second to take it, is lost.
+or takes more than a second to take it, as a console that has lost its power
+or its cable does, is lost.
 So is a message that waits more than a second behind others, as behind a
 console that does not answer, since a cue that fires late can do more harm
 than one that does not fire.
-A console that loses its power or its cable shows among the warnings as a
-lost connection within about ten seconds, and the next message to it makes
-a new connection.
 The warnings in the sidebar say why until a message to the same destination
 gets there, and *cinq* says so on standard error as well, once for each
 reason.

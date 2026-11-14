@@ -81,6 +81,18 @@ jobs:
         with:
           name: restart
           path: out
+      - name: ion-test.toml, the show for the Ion Xe, sent to Eos on this computer
+        timeout-minutes: 8
+        run: |
+          shell() { powershell -NoProfile -ExecutionPolicy Bypass "$@"; }
+          sed 's/10\.101\.100\.20/127.0.0.1/' ion-xe/ion-test.toml > eos/ion-local.toml
+          shell -Command 'Stop-Process -Name cinq -Force -ErrorAction SilentlyContinue'
+          shell -File eos/beside.ps1 ion-local.toml 5
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ion-test
+          path: out
   # cinq with sACN and network cues, from a snapshot of commits not yet
   # pushed
   cinq-windows:
@@ -189,8 +201,8 @@ jobs:
         with:
           name: linux
           path: out
-  # A console that loses its power under cinq, whose keepalive finds it gone
-  # (without keepalive, 5501a62 lost the first cue after; run 43598804720)
+  # A console that loses its power under cinq: the first GO after it comes
+  # back has to arrive (5501a62 lost it without a word; run 43598804720)
   powercut:
     runs-on: ubuntu-latest
     timeout-minutes: 60
