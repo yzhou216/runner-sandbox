@@ -11,7 +11,8 @@ branch runs Eos, the Ion Xe's software, offline on `windows-latest`, to see
 whether cinq's light cues speak the protocols that Eos and the devices
 around it speak, and whether cinq can fire the cues of Eos with network
 cues, as QLab does.  cinq comes from snapshots of commits not yet pushed,
-in `cinq/`.
+in `cinq/`, which last held a164d31 with a patch, for this branch alone,
+that writes each send that fails on standard error.
 
 ## What runs
 
@@ -29,9 +30,12 @@ in `cinq/`.
   reaches the runner, as JSON lines and as a pcap for Wireshark.
   `osc.py` programs Eos over OSC, and `beside.ps1` runs cinq beside it.
 - **darwin** runs the light cues of `show.toml` in cinq.app on
-  `macos-latest`, first as a shell starts its program and then as Finder
-  opens it, and presses Allow on Darwin's Local Network prompt with `ui`,
-  built from `screen.swift`, which reads the screen with Vision.
+  `macos-latest`, as Finder opens it, and presses Allow on Darwin's Local
+  Network prompt with `ui`, built from `screen.swift`, which reads the
+  screen with Vision.  Earlier runs also started its program from a shell,
+  opened it twice, and signed a copy again.
+- **darwin-native** builds cinq with Nix on `macos-latest` and checks the
+  signature of cinq.app.
 
 ## Results
 
@@ -44,7 +48,14 @@ in `cinq/`.
 | 43510031736 | OSC on 3032, 3037, 3038; cinq beside Eos | 3037 with SLIP answered; Eos patched, recorded, and fired cues over OSC; tshark read Eos's and cinq's sACN on universe 1 |
 | 43512936545 | cinq's network cues fire Eos | Eos fired cue 1 and then cue 2 from cinq's two GOs, and faded its lights in their times |
 | 43544918926 | cinq's sACN on Darwin | Darwin's Local Network prompt held the packets back |
-| 43547670732 | Allow pressed; cinq.app opened | See below |
+| 43547670732 | Allow pressed; cinq.app opened | The program from a shell sent once allowed; cinq.app showed its own prompt, with its reason |
+| 43548703970 | The exact Allow | `ui click --contains Allow` had pressed Don't Allow; cinq.app's multicast still held back |
+| 43549278854 | Sends that fail, logged | `No route to host` (os error 65) for sACN multicast |
+| 43550373520 | cinq.app opened again once allowed | Still `No route to host` on every send, before and after Allow |
+| 43551360995 | Darwin's privacy log | `found bundle id cinq-94c18a24ea67fdd9 by PID`, `io.yiyuzhou.cinq by UUID`; codesign of a read-only copy failed |
+| 43551745057 | Copy signed under `io.yiyuzhou.cinq` | No send failed; its sACN reached the network |
+| 43552387371 | cinq.app signed by rcodesign at build | Failed only until Allow, then sent |
+| 43553147379 | cinq.app as Nix builds it on Darwin | Signed as `io.yiyuzhou.cinq`, valid on disk, satisfies its Designated Requirement |
 
 What Eos does, offline:
 
@@ -70,6 +81,18 @@ What cinq does:
   fire `cue/1/1` and then `cue/1/2`; Eos faded channel 1 to 179 over 2.98 s
   and channels 2 and 3 to 204 and 255 over 4.98 s, the times of its cues.
 
+What Darwin does:
+
+- It asks the operator whether a program may reach devices on the local
+  network the first time it tries, and until then sACN multicast fails
+  with `No route to host`, while Art-Net broadcast and loopback go out.
+- It keeps the answer for cinq.app under the identifier of its bundle,
+  `io.yiyuzhou.cinq`, and looks a running program up by the identifier of
+  its signature, which the linker had made the name of the file that rustc
+  wrote, `cinq-94c18a24ea67fdd9`.  So multicast stayed off after Allow,
+  and after a relaunch, until the bundle was signed ad hoc under its own
+  identifier, which cinq's build now does with rcodesign.
+
 ## Traps
 
 - Eos's launcher shows a Windows paging-file dialog behind it at logon,
@@ -82,4 +105,9 @@ What cinq does:
 - Darwin asks whether a program may reach devices on the local network the
   first time it tries, for programs started from the job's shell on behalf
   of `hosted-compute-agent`, and holds the packets back until someone
-  answers.
+  answers; a Python listener left unanswered stalled 17 minutes past its
+  own deadline.
+- `ui click --contains Allow` finds Don't Allow first, at the same height;
+  click the exact `Allow`.
+- Files from the Nix store are read-only, so `codesign` of a copy needs
+  `chmod -R u+w` first.
