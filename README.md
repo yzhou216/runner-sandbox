@@ -4,43 +4,39 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: scheduling the thread of sound on Windows
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This branch tells whether cinq on WASAPI, as on the Dante Virtual
+Soundcard in WDM mode, needs its thread of sound scheduled for audio.
+`cinq/` holds the tree of commit 8d260b2 of the `audio-outputs` branch of
+yzhou216/cinq, whose thread keeps its usual priority, and `cinq-rt/` the
+same tree built with cpal's feature `realtime`, which asks Windows to
+schedule that thread for audio, through MMCSS or else at time-critical
+priority.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What runs
 
-## Setup
+`.github/workflows/realtime.yml` cross-builds both trees for Windows on
+GNU/Linux, installs VB-CABLE, and runs `stress.ps1`, which plays a tone of
+1 kHz on VB-CABLE with each build for ten seconds while eight loops keep
+the four processors of the runner busy, and records it through WASAPI's
+loopback at high priority, so that the recorder itself keeps up.
+`glitch.sh` and a count of the quarters of a second whose rest rises
+above -80 dBFS tell how clean the tone stayed.
 
-Fork this repository, then clone it into the agent's skills directory:
+## Results
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+Run 43583510112 passed.
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+| Build    | Thread of sound          | Left, Right  | Rest below the tone | Quarters spoiled |
+| -------- | ------------------------ | ------------ | ------------------- | ---------------- |
+| usual    | normal priority          | -30.1, -36.1 | 70.0 dB             | 0 of 34          |
+| realtime | time-critical, priority 21 | -30.1, -36.1 | 70.0 dB           | 0 of 34          |
 
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- The feature works on Windows: one thread of the realtime build ran at
+  time-critical priority, where every thread of the usual build ran at
+  normal priority.
+- Neither build fell behind under eight loops of normal priority, so this
+  load cannot tell them apart.  The branch `cinq/2026-11-13-linux-quirks`
+  saw the thread of ALSA fall behind on two busy processors in a virtual
+  machine, where the feature changes nothing without RTKit.
