@@ -32,6 +32,10 @@ printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asou
 
 mark() { printf '%s %s\n' "$(date +%s.%N)" "$1" >> "$out/marks.txt"; }
 cut() { sudo iptables "$1" OUTPUT -o lo -p tcp --dport 3037 -j DROP; sudo iptables "$1" OUTPUT -o lo -p tcp --sport 3037 -j DROP; }
+# The network comes back however the script ends
+trap 'cut -D 2> /dev/null || true' EXIT
+# Until no earlier console holds the port
+while ss -ltn | grep -q ':3037 '; do sleep 1; done
 
 python3 "$here/fakeeos.py" "$out/console-1.txt" 15 &
 console=$!
@@ -57,15 +61,18 @@ go() {
 go before
 cut -I
 mark "cable out"
-kill "$console"
+kill "$console" || true
 wait "$console" || true
 sleep 20
 ss -tn > "$out/sockets.txt" 2>&1 || true
 cut -D
 mark "cable back"
 python3 "$here/fakeeos.py" "$out/console-2.txt" 15 &
+console=$!
 sleep 2
 go first
 go second
 sleep 3
+kill "$console" || true
+wait "$console" || true
 swaymsg exit > /dev/null 2>&1 || true
