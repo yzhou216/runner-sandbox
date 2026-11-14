@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays the show of show.sh with cinq of the tree in cinq/, commit f219f0f,
+# on GNU/Linux over JACK, on Darwin over BlackHole 16ch, and on Windows
+# over VB-CABLE, takes screenshots of how its outputs tell why they cannot
+# play, and prints the level of the two outputs that can.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype nixpkgs#grim \
+            nixpkgs#ffmpeg nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
+          nix build --out-link libjack --inputs-from ./cinq nixpkgs#libjack2
+      - name: Play the show and take the screenshots
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          # Where cinq finds libjack, as it would in the system's libraries
+          export LD_LIBRARY_PATH
+          LD_LIBRARY_PATH=$(readlink -f libjack)/lib
+          timeout -k 10 300 ./linux.sh result-cinq/bin/cinq out
+          ./levels.sh out/house.wav 0.5 3.5 | tee out/levels.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: linux
+          path: out
+          if-no-files-found: ignore
+  darwin:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-python@main
+        with:
+          python-version: "3.13"
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Install BlackHole 16ch, ffmpeg, and sounddevice
+        run: |
+          brew install --cask blackhole-16ch
+          brew install ffmpeg
+          python -m pip install --quiet sounddevice numpy
+          sudo killall coreaudiod || true
+          sleep 5
+      - name: Build cinq
+        run: nix build --out-link result-cinq ./cinq
+      - name: Play the show and take the screenshots
+        run: |
+          ./darwin.sh result-cinq/bin/cinq out
+          ./levels.sh out/house.wav 0.5 3.5 | cut -f1-4 | tee out/levels.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: darwin
+          path: out
+          if-no-files-found: ignore
+  build-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Cross-build cinq for Windows
+        run: |
+          nix build --out-link result ./cinq#x86_64-windows
+          mkdir exe
+          cp "$(find -L result -name cinq.exe -print -quit)" exe/
+      - uses: actions/upload-artifact@main
+        with:
+          name: exe
+          path: exe
+  windows:
+    needs: build-windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/download-artifact@main
+        with:
+          name: exe
+          path: exe
+      - uses: LABSN/sound-ci-helpers@v1
+      - name: Start Windows Audio and install the recorders
+        shell: pwsh
+        run: |
+          Set-Service Audiosrv -StartupType Automatic
+          Start-Service Audiosrv
+          choco install ffmpeg -y --no-progress | Select-Object -Last 2
+          python -m pip install --quiet soundcard numpy
+      - name: Play the show and take the screenshots
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
+          ./windows.ps1 -Cinq exe/cinq.exe -Out out
+      - name: Measure the outputs that play
+        if: always()
+        run: |
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          bash levels.sh out/house.wav 0.5 4.5 | tee out/levels.tsv
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: windows
+          path: out
+          if-no-files-found: ignore
