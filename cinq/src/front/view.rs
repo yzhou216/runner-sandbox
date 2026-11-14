@@ -153,6 +153,7 @@ fn char_width() -> f32 {
 fn warnings(app: &App) -> usize {
     app.workspace.problems().count()
         + usize::from(app.audio_error.is_some())
+        + app.network_problems.len()
         + usize::from(app.file_problem.is_some())
         + usize::from(app.keep_problem.is_some())
         + usize::from(app.device_problem.is_some())

@@ -11,11 +11,13 @@ param([string]$Steps)
 
 . "$PSScriptRoot\ui.ps1"
 
+# Marks that earlier runs left, which this one has to add to
+$marks = @(Select-String -Path "$out\osc.txt" -Pattern '## programmed' -ErrorAction SilentlyContinue).Count
 Start-Process python -ArgumentList "`"$root\eos\osc.py`"", "`"$out\osc.txt`"", "`"$root\eos\$Steps`"" -WindowStyle Hidden `
-    -RedirectStandardOutput "$out\osc-out.txt" -RedirectStandardError "$out\osc-err.txt"
+    -RedirectStandardOutput "$out\osc-out-$marks.txt" -RedirectStandardError "$out\osc-err-$marks.txt"
 for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep 2
-    if (Select-String -Path "$out\osc.txt" -Pattern '## programmed' -Quiet -ErrorAction SilentlyContinue) {
+    if (@(Select-String -Path "$out\osc.txt" -Pattern '## programmed' -ErrorAction SilentlyContinue).Count -gt $marks) {
         Log 'programmed'
         Shot 'programmed'
         exit 0

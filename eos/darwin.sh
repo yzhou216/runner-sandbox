@@ -43,9 +43,9 @@ go() {
 }
 
 mark listening
-python3 eos/listen.py "$out/dmx.jsonl" 90 "$out/wire.pcap" &
+python3 eos/listen.py "$out/dmx.jsonl" 130 "$out/wire.pcap" &
 listener=$!
-(sleep 120 && kill "$listener" 2> /dev/null) &
+(sleep 160 && kill "$listener" 2> /dev/null) &
 sleep 3
 shot 0-listener
 allow 10
@@ -68,6 +68,20 @@ opened() {
 # identifier of its Info.plist
 codesign -dv --verbose=4 "$app" > "$out/codesign-built.txt" 2>&1
 opened "$app" 1-built
+
+# Network cues to a console at the Mac's own address on the network, which
+# Darwin's local network privacy covers as it does a console's
+address=$(ipconfig getifaddr en0)
+python3 eos/fakeeos.py "$out/console.txt" 60 3037 8000 "$address" &
+sed "s/127.0.0.1/$address/" eos/lan.toml > lan.toml
+mark lan
+open -n --stdout "$out/2-lan.log" --stderr "$out/2-lan.log" "$app" --args "$PWD/lan.toml"
+sleep 8
+shot 2-lan
+allow 5
+pid=$(pgrep -n -x cinq)
+go "$pid" 2-lan
+kill "$pid"
 wait "$listener"
 mark finished
 log show --last 10m --style compact \

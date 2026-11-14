@@ -264,8 +264,10 @@ it reads as a number.
 
 A network cue whose destination or message does not read as one cannot play.
 A message that cannot go out, as when the destination refuses the connection
-or takes more than a second to take it, is lost, and *cinq* says so on
-standard error, once for each reason.
+or takes more than a second to take it, is lost.
+The warnings in the sidebar say why until a message to the same destination
+gets there, and *cinq* says so on standard error as well, once for each
+reason.
 
 Consoles and programs tell in their manuals which messages they take, and on
 which ports.

@@ -8,7 +8,7 @@ use std::{
     io::Read,
     net::{TcpListener, UdpSocket},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use super::Network;
@@ -67,4 +67,30 @@ fn udp_messages_go_out_as_one_datagram_each() {
     let mut datagram = [0; 16];
     let length = socket.recv(&mut datagram).unwrap();
     assert_eq!(datagram[..length], [3; 4]);
+}
+
+/// Waits until `network` has sent or given up on every message
+fn settled(network: &Network) {
+    let start = Instant::now();
+    while network.sending() && start.elapsed() < PATIENCE {
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn failure_to_reach_a_destination_shows_until_a_message_gets_there() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    drop(listener);
+    let network = Network::open();
+    network.send(message(Destination::Tcp(address.to_string()), 5));
+    settled(&network);
+    let problems = network.problems();
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].starts_with(&format!("Network cue to {address}: ")));
+    let listener = TcpListener::bind(address).unwrap();
+    network.send(message(Destination::Tcp(address.to_string()), 6));
+    assert_eq!(frame(&listener), framed(&[6; 4]));
+    settled(&network);
+    assert!(network.problems().is_empty());
 }

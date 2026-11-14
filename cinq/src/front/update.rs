@@ -104,6 +104,8 @@ impl App {
             // Keys typed halfway went by the bindings before, so the update
             // drops them, as it does for most messages
             Message::Reconfigured(config) => Self { config, ..self },
+            // Update that follows picks up what the network output found
+            Message::NetworkChecked => self,
             Message::LinkOpened(result) => Self {
                 link_problem: result.err(),
                 ..self
@@ -185,6 +187,7 @@ impl App {
                 | Message::Loaded(..)
                 | Message::Recheck
                 | Message::Rechecked(..)
+                | Message::NetworkChecked
                 | Message::LinkOpened(_)
                 | Message::AudioDevicesListed(_)
                 | Message::AudioDeviceKept(_)

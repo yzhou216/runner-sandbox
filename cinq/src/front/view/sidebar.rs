@@ -42,6 +42,10 @@ pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
             .style(text::danger)
             .into()
     });
+    let network = app
+        .network_problems
+        .iter()
+        .map(|problem| text(problem).style(text::danger).into());
     let files = [&app.file_problem, &app.keep_problem, &app.device_problem]
         .into_iter()
         .flatten()
@@ -77,6 +81,7 @@ pub(super) fn view(app: &App, width: f32) -> Element<'_, Message> {
             column(
                 device
                     .into_iter()
+                    .chain(network)
                     .chain(files)
                     .chain(settings)
                     .chain(problems)

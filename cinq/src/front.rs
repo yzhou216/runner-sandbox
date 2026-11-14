@@ -136,6 +136,12 @@ struct App {
     /// a directory to keep them in
     reader: Option<Reader>,
     audio_error: Option<String>,
+    /// Why messages of network cues to each destination failed, until one
+    /// gets there
+    network_problems: Vec<String>,
+    /// Whether messages of network cues are on their way, whose outcome the
+    /// interface checks for until they are not
+    network_sending: bool,
     /// ID and name of each audio device, as they were listed last
     audio_devices: Vec<(String, String)>,
     /// Why the configuration file did not keep the audio device chosen

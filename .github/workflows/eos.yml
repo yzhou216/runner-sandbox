@@ -62,6 +62,25 @@ jobs:
         with:
           name: fired
           path: out
+      - name: Eos goes down and comes back while cinq runs
+        timeout-minutes: 20
+        run: |
+          shell() { powershell -NoProfile -ExecutionPolicy Bypass "$@"; }
+          shell -Command 'Stop-Process -Name cinq -Force -ErrorAction SilentlyContinue'
+          shell -File eos/beside.ps1 restart.toml 1
+          shell -Command 'Stop-Process -Name Eos, ETC_LaunchOffline -Force'
+          sleep 5
+          shell -File eos/go.ps1 down 1
+          shell -File eos/snap.ps1 down
+          shell -File eos/start.ps1 -Again
+          shell -File eos/program.ps1 steps-3.txt
+          shell -File eos/go.ps1 back 1
+          shell -File eos/snap.ps1 back
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restart
+          path: out
   # cinq with sACN and network cues, from a snapshot of commits not yet
   # pushed
   cinq-windows:
@@ -154,11 +173,12 @@ jobs:
         run: |
           nix build ./cinq
           nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
-          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#python3
+          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#python3
       - name: Run
         run: |
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PWD/result/bin:$PATH
           bash eos/linux.sh "$(readlink -f fonts)/share/fonts" out
+          bash eos/stress.sh "$(readlink -f fonts)/share/fonts" out/stress
       - if: always()
         uses: actions/upload-artifact@v4
         with:

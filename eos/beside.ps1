@@ -17,8 +17,9 @@ $exe = "$root\cinq-windows\bin\cinq.exe"
 
 $env:ICED_BACKEND = 'tiny-skia'
 Log "starting $exe"
+$name = [IO.Path]::GetFileNameWithoutExtension($Show)
 $cinq = Start-Process $exe -ArgumentList "`"$root\eos\$Show`"" -PassThru `
-    -RedirectStandardOutput "$out\cinq-out.txt" -RedirectStandardError "$out\cinq-err.txt"
+    -RedirectStandardOutput "$out\cinq-$name-out.txt" -RedirectStandardError "$out\cinq-$name-err.txt"
 $window = $null
 for ($i = 0; $i -lt 30 -and -not $window; $i++) {
     Start-Sleep 1
@@ -26,13 +27,5 @@ for ($i = 0; $i -lt 30 -and -not $window; $i++) {
 }
 if (-not $window) { Log 'no cinq window'; Shot 'beside-none'; exit 1 }
 Start-Sleep 3
-Shot 'beside-start'
-foreach ($cue in 1..$Gos) {
-    $null = [Input]::SetForegroundWindow($window.MainWindowHandle)
-    Start-Sleep -Milliseconds 300
-    Log "GO for cue $cue"
-    [System.Windows.Forms.SendKeys]::SendWait(' ')
-    Start-Sleep 8
-    Shot "beside-cue-$cue"
-}
-(Windows | ForEach-Object Text) -join "`n" | Set-Content "$out\uia\beside-end.txt"
+Shot "$name-start"
+& "$PSScriptRoot\go.ps1" $name $Gos

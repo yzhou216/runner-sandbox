@@ -5,12 +5,20 @@
 # Starts listen.py and Eos's offline launcher, chooses Offline w/viz, which
 # sends sACN or Art-Net for visualizers without a license key, and waits
 # until the main window of Eos has been up for half a minute.  Both programs
-# outlive the step, until the runner cleans up at the end of the job.
+# outlive the step, until the runner cleans up at the end of the job.  With
+# -Again, it starts Eos alone, as after Eos went down.
+#
+# Usage: start.ps1 [-Again]
+
+param([switch]$Again)
 
 . "$PSScriptRoot\ui.ps1"
 
-Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 3000, "`"$out\wire.pcap`"" -WindowStyle Hidden `
-    -RedirectStandardOutput "$out\listen-out.txt" -RedirectStandardError "$out\listen-err.txt"
+if (-not $Again) {
+    Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 3000, "`"$out\wire.pcap`"" -WindowStyle Hidden `
+        -RedirectStandardOutput "$out\listen-out.txt" -RedirectStandardError "$out\listen-err.txt"
+}
+$phase = if ($Again) { 'again' } else { 'start' }
 $launcher = 'C:\Program Files\ETC\EosFamily\v3\ETC_Launch\ETC_LaunchOffline.exe'
 Log "starting $launcher"
 Start-Process $launcher -WorkingDirectory (Split-Path $launcher)
@@ -25,7 +33,7 @@ $open = $null
 $deadline = (Get-Date).AddMinutes(12)
 for ($i = 0; (Get-Date) -lt $deadline; $i++) {
     Start-Sleep 3
-    $tree = Snapshot 'start'
+    $tree = Snapshot $phase
     # Console mode comes first, as two buttons with only a logo each, Eos
     # on the left and Element 2 on the right
     if ($tree | Where-Object { $_.Name -eq 'Please select your console mode' }) {
@@ -35,7 +43,7 @@ for ($i = 0; (Get-Date) -lt $deadline; $i++) {
     if (-not $viz) { $viz = Press $tree 'w/ ?viz' 'Button|RadioButton|ListItem|Text|Custom' }
     $null = (Press $tree 'I accept|I agree|accept the') -or (Press $tree '^(OK|Continue|Accept|Start|Launch)$')
     if ($i % 7 -eq 0) {
-        Shot ('start-{0:D3}' -f $i)
+        Shot ("$phase-{0:D3}" -f $i)
         Get-Process | Where-Object { $_.ProcessName -match 'eos|etc_|nomad|augment|python' } |
             ForEach-Object { '{0} {1} cpu={2:F0}s ws={3}MB "{4}"' -f $_.ProcessName, $_.Id, $_.CPU, [int]($_.WorkingSet64 / 1MB), $_.MainWindowTitle } |
             Add-Content "$out\processes.txt"
@@ -47,7 +55,7 @@ for ($i = 0; (Get-Date) -lt $deadline; $i++) {
     }
     if ($open -and ((Get-Date) - $open).TotalSeconds -gt 30) { break }
 }
-Shot 'start-end'
+Shot "$phase-end"
 Get-NetUDPEndpoint | Where-Object LocalPort -in 5568, 6454, 8000, 8001, 3037 | Format-Table -AutoSize | Out-String | Add-Content "$out\ports.txt"
 Get-NetTCPConnection -State Listen | Where-Object OwningProcess -in (Get-Process | Where-Object ProcessName -match 'eos').Id |
     Format-Table -AutoSize | Out-String | Add-Content "$out\ports.txt"

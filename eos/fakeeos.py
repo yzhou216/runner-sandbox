@@ -5,7 +5,7 @@
 """Stand in for a console that takes OSC: decode what arrives over TCP,
 framed with SLIP, and over UDP, and log each message with its time.
 
-Usage: fakeeos.py LOG SECONDS [TCP_PORT [UDP_PORT]]
+Usage: fakeeos.py LOG SECONDS [TCP_PORT [UDP_PORT [HOST]]]
 """
 
 import selectors
@@ -24,11 +24,12 @@ def main():
     stop = time.monotonic() + float(sys.argv[2])
     tcp_port = int(sys.argv[3]) if len(sys.argv) > 3 else 3037
     udp_port = int(sys.argv[4]) if len(sys.argv) > 4 else 8000
+    host = sys.argv[5] if len(sys.argv) > 5 else "127.0.0.1"
     sel = selectors.DefaultSelector()
-    server = socket.create_server(("127.0.0.1", tcp_port), reuse_port=True)
+    server = socket.create_server((host, tcp_port), reuse_port=True)
     sel.register(server, selectors.EVENT_READ, "accept")
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp.bind(("127.0.0.1", udp_port))
+    udp.bind((host, udp_port))
     sel.register(udp, selectors.EVENT_READ, "udp")
     buffers = {}
 

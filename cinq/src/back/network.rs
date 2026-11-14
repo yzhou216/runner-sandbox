@@ -11,8 +11,9 @@
 //! such as the state that a console reports, since a destination whose
 //! replies go unread can stall, and that marks the connection closed once
 //! the destination closes it, so that the next message opens a new one
-//! rather than going into a connection that has gone.  A message that
-//! cannot go out warns once on standard error.
+//! rather than going into a connection that has gone.  The reason that a
+//! message to a destination last failed stays, for the interface to show,
+//! until a message gets there, and warns once on standard error.
 
 #[cfg(test)]
 mod tests;
@@ -22,8 +23,8 @@ use std::{
     io::{self, ErrorKind, Write},
     net::{Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs, UdpSocket},
     sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, MutexGuard, PoisonError,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc,
     },
     thread,
@@ -40,21 +41,53 @@ const PATIENCE: Duration = Duration::from_secs(1);
 
 pub struct Network {
     sender: mpsc::Sender<Vec<Outgoing>>,
+    /// Why the last message to each destination that failed did, by
+    /// destination, until a later one gets there
+    problems: Arc<Mutex<BTreeMap<String, String>>>,
+    /// Messages handed to the thread that it has yet to send
+    pending: Arc<AtomicUsize>,
 }
 
 impl Network {
     pub fn open() -> Self {
         let (sender, messages) = mpsc::channel();
-        thread::spawn(move || send(&messages));
-        Self { sender }
+        let network = Self {
+            sender,
+            problems: Arc::default(),
+            pending: Arc::default(),
+        };
+        let (problems, pending) = (Arc::clone(&network.problems), Arc::clone(&network.pending));
+        thread::spawn(move || send(&messages, &problems, &pending));
+        network
     }
 
     pub fn send(&self, messages: Vec<Outgoing>) {
         if !messages.is_empty() {
+            self.pending.fetch_add(messages.len(), Ordering::Relaxed);
             // Thread has gone only where it could not open a socket
             let _ = self.sender.send(messages);
         }
     }
+
+    /// Returns why messages to destinations failed, one line for each
+    pub fn problems(&self) -> Vec<String> {
+        locked(&self.problems)
+            .iter()
+            .map(|(destination, reason)| format!("Network cue to {destination}: {reason}"))
+            .collect()
+    }
+
+    /// Returns whether messages are on their way, which can change the
+    /// problems once they arrive or fail
+    pub fn sending(&self) -> bool {
+        self.pending.load(Ordering::Relaxed) > 0
+    }
+}
+
+/// Locks the problems, which a thread that panicked while it held the
+/// lock leaves as they were
+fn locked(problems: &Mutex<BTreeMap<String, String>>) -> MutexGuard<'_, BTreeMap<String, String>> {
+    problems.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 /// TCP connection to a destination, with whether the destination has
@@ -64,7 +97,11 @@ struct Connection {
     closed: Arc<AtomicBool>,
 }
 
-fn send(messages: &mpsc::Receiver<Vec<Outgoing>>) {
+fn send(
+    messages: &mpsc::Receiver<Vec<Outgoing>>,
+    problems: &Mutex<BTreeMap<String, String>>,
+    pending: &AtomicUsize,
+) {
     let Ok(udp) = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) else {
         return;
     };
@@ -98,9 +135,14 @@ fn send(messages: &mpsc::Receiver<Vec<Outgoing>>) {
                     })
             }
         };
-        if let Err(error) = sent {
-            warn::once(&format!("network cue to {destination}: {error}"));
-        }
+        match sent {
+            Ok(()) => locked(problems).remove(&destination.to_string()),
+            Err(error) => {
+                warn::once(&format!("network cue to {destination}: {error}"));
+                locked(problems).insert(destination.to_string(), error.to_string())
+            }
+        };
+        pending.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
