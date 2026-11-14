@@ -20,7 +20,8 @@ import sys
 import time
 
 ARTNET, SACN = 6454, 5568
-GROUPS = [f"239.255.0.{n}" for n in range(1, 33)]
+# Groups of universes 1 to 32, and of universe discovery
+GROUPS = [f"239.255.0.{n}" for n in range(1, 33)] + ["239.255.250.214"]
 
 
 def addresses():

@@ -104,7 +104,7 @@ jobs:
   darwin:
     needs: cinq-darwin
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -112,9 +112,7 @@ jobs:
           name: cinq-darwin
       - run: |
           mkdir cinq-darwin && tar -xf cinq-darwin.tar -C cinq-darwin
-          cinq=$(find cinq-darwin -path '*bin/cinq' -type f | head -1)
-          [ -n "$cinq" ] || cinq=$(find cinq-darwin -path '*MacOS/cinq' -type f | head -1)
-          bash eos/darwin.sh "$PWD/$cinq" out
+          bash eos/darwin.sh "$PWD/cinq-darwin/Applications/cinq.app" out
       - if: always()
         uses: actions/upload-artifact@v4
         with:

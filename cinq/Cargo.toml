@@ -4,7 +4,7 @@
 
 [package]
 name = "cinq"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 rust-version = "1.91" # Path::with_added_extension in the build script
 description = "Minimal cue-based show controller in the spirit of QLab"

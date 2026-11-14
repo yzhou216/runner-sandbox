@@ -4,27 +4,69 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Runs the light cues of show.toml in cinq on Darwin, where the network that
-# multicast leaves by is chosen otherwise than on GNU/Linux and Windows,
-# and records the sACN and Art-Net that come back to the same computer.
+# multicast leaves by is chosen otherwise than on GNU/Linux and Windows, and
+# records the sACN and Art-Net that come back to the same computer: first
+# the program of cinq.app as a shell starts it, then cinq.app as Finder
+# opens it.  Darwin asks before a program first reaches the local network,
+# the second time with the reason in cinq.app's Info.plist; ui, built from
+# screen.swift, presses Allow as the operator would.
 #
-# Usage: darwin.sh CINQ OUT
-set -euo pipefail
+# Usage: darwin.sh APP OUT, with APP the path of cinq.app
+set -uo pipefail
 
-cinq=$1
+app=$1
 out=$2
 mkdir -p "$out"
+swiftc -O -o ui eos/screen.swift
 ifconfig > "$out/ifconfig.txt"
-python3 eos/listen.py "$out/dmx.jsonl" 45 "$out/wire.pcap" &
+# Times of what happens, in seconds since the epoch, which BSD date gives
+# whole
+mark() { printf '%s %s\n' "$(python3 -c 'import time; print(time.time())')" "$1" >> "$out/marks.txt"; }
+shot() { screencapture -x "$out/$1.png"; ./ui list > "$out/$1.txt" 2>&1; }
+# Presses every Allow that comes up within the first SECONDS
+allow() {
+  for _ in 1 2 3; do
+    ./ui click --contains Allow "$1" || break
+    mark "pressed Allow"
+    sleep 1
+  done
+}
+# Presses GO twice in the cinq of process PID, with a screenshot after each
+go() {
+  for cue in 1 2; do
+    osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $1) to true" || true
+    osascript -e 'tell application "System Events" to keystroke " "' || true
+    mark "GO $cue"
+    sleep 8
+    shot "$2-cue-$cue"
+  done
+}
+
+mark listening
+python3 eos/listen.py "$out/dmx.jsonl" 170 "$out/wire.pcap" &
 listener=$!
-sleep 1
-ICED_BACKEND=tiny-skia "$cinq" eos/show.toml > "$out/cinq.log" 2>&1 &
+(sleep 200 && kill "$listener" 2> /dev/null) &
+sleep 3
+shot 0-listener
+allow 10
+
+mark binary
+"$app/Contents/MacOS/cinq" eos/show.toml > "$out/binary.log" 2>&1 &
 pid=$!
-sleep 10
-for cue in 1 2; do
-  osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $pid) to true" || true
-  osascript -e 'tell application "System Events" to keystroke " "' || true
-  sleep 8
-  screencapture -x "$out/cue-$cue.png"
-done
+sleep 8
+shot 1-binary
+allow 5
+go "$pid" 1-binary
+kill "$pid"
+sleep 3
+
+mark app
+open -n "$app" --args "$PWD/eos/show.toml"
+sleep 8
+shot 2-app
+allow 5
+pid=$(pgrep -n -x cinq)
+go "$pid" 2-app
+kill "$pid"
 wait "$listener"
-kill "$pid" || true
+mark finished
