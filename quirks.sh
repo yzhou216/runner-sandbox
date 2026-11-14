@@ -12,6 +12,8 @@
 # - rate-before and rate-after: BlackHole 16ch before and after its rate
 #   goes from 48 to 96 kHz midway through the cue, as Dante Controller
 #   changes that of the Dante Virtual Soundcard;
+# - overrun: outputs on channels 1-2 of BlackHole 16ch and on 17-18, past
+#   its channels, of which the first should play and the second warn;
 # - default-before and default-after, each of both devices: an output on
 #   the default device, before and after the default output of the system
 #   goes from BlackHole 2ch to BlackHole 16ch midway through the cue.
@@ -91,7 +93,17 @@ sixteen=$(awk -F'\t' '$2 == "BlackHole 16ch" { print $1; exit }' "$out/devices.t
   output Main '' '' 1-2
   cue 'Main = 0.0'
 } > "$work/default.cinq.toml"
+{
+  output Low "$sixteen" "BlackHole 16ch" 1-2
+  output High "$sixteen" "BlackHole 16ch" 17-18
+  cue 'Low = 0.0' 'High = -6.0'
+} > "$work/overrun.cinq.toml"
 cp "$work"/*.cinq.toml "$out/"
+
+launch overrun
+record "BlackHole 16ch" overrun 5
+shot overrun
+quit
 
 launch fallback
 record "BlackHole 16ch" fallback 5
@@ -101,9 +113,9 @@ quit
 launch rate
 record "BlackHole 16ch" rate-before 4
 core rate "BlackHole 16ch" 96000
-sleep 5
+sleep 1
+record "BlackHole 16ch" rate-after 8 96000
 shot rate-changed
-record "BlackHole 16ch" rate-after 5 96000
 core rate "BlackHole 16ch" 48000
 quit
 

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays cinq of the tree in cinq/ on BlackHole 16ch and BlackHole 2ch under
+# Plays cinq of the tree in cinq/, with open-timing.patch, which logs how
+# long each opening of a device takes, on BlackHole 16ch and BlackHole 2ch under
 # the quirks of Core Audio devices with quirks.sh, and prints the level of
 # each channel and how clean the tone stayed in each take, with glitch.sh.
 on: push
@@ -34,19 +35,26 @@ jobs:
           sudo killall coreaudiod || true
           sleep 5
       - name: Build cinq
-        run: nix build --out-link result-cinq ./cinq
+        run: |
+          # Times of each opening of a device, on standard error
+          git apply --directory=cinq open-timing.patch
+          nix build --out-link result-cinq ./cinq
       - name: Play under the quirks of Core Audio
         run: ./quirks.sh result-cinq/bin/cinq out
       - name: Measure each take
         if: always()
         run: |
           printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
-          for take in fallback rate-before rate-after default-before-2ch default-before-16ch \
+          for take in overrun fallback rate-before rate-after default-before-2ch default-before-16ch \
             default-after-2ch default-after-16ch; do
             file=out/$take.wav
             printf '%s\t%s\t%s\n' "$take" "$(./levels.sh "$file" 0.5 3.5 || true)" \
               "$(./glitch.sh "$file" 1 1000 0.5 3.5 || true)"
           done | tee out/takes.tsv
+          for log in out/cinq-*.log; do
+            echo "--- $log: openings of devices"
+            cat "$log"
+          done
       - if: always()
         uses: actions/upload-artifact@main
         with:

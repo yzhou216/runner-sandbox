@@ -1,0 +1,20 @@
+--- a/src/back/audio/mixer.rs
++++ b/src/back/audio/mixer.rs
+@@ -81,6 +81,17 @@
+         name: Option<&str>,
+         channels: u16,
+     ) -> Result<Self, String> {
++        let began = Instant::now();
++        let opened = Self::opened(device, name, channels);
++        eprintln!("open {:?}: {} ms, {}", device, began.elapsed().as_millis(), opened.as_ref().err().map_or("ok", String::as_str));
++        opened
++    }
++
++    fn opened(
++        device: Option<&str>,
++        name: Option<&str>,
++        channels: u16,
++    ) -> Result<Self, String> {
+         let found = match device {
+             Some(id) => device::find(id, name)?,
+             None => cpal::default_host()

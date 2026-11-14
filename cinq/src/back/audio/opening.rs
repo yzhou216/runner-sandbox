@@ -28,16 +28,16 @@ pub(super) const RETRY: Duration = Duration::from_secs(2);
 
 impl Audio {
     /// Opens the devices again where the outputs need others than are
-    /// open, or more channels of one, which restarts the sounds that play
-    /// as [`Audio::route`] does.  A device that fails to open, or that
-    /// stops, opens again as [`Audio::revived`] tells.  Outputs that move
-    /// within the channels that are open only ramp the sounds there, as the
-    /// next sync does.
+    /// open, or more channels of one than it opened for, which restarts
+    /// the sounds that play as [`Audio::route`] does.  A device that fails
+    /// to open, or that stops, opens again as [`Audio::revived`] tells.
+    /// Outputs that move within the channels that are open only ramp the
+    /// sounds there, as the next sync does.
     pub(super) fn patched(&mut self, patch: Patch) {
         let needs = patch.needs();
         let fits = needs.len() == self.mixers.len()
             && needs.iter().all(|need| match self.mixers.get(&need.key) {
-                Some(Ok(mixer)) => mixer.channels() >= need.channels,
+                Some(Ok(mixer)) => mixer.asked() >= need.channels,
                 Some(Err(_)) => true,
                 None => false,
             });
