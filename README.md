@@ -4,43 +4,58 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq: WASAPI and ASIO devices that go away and come back
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+This branch plays cinq on Windows the two ways it can reach the Dante
+Virtual Soundcard, which no runner can run, since it is licensed per
+machine: on a WASAPI device, as the soundcard's WDM mode offers each pair
+of its channels, and on an ASIO driver, as its ASIO mode offers all of
+them.  VB-CABLE, a virtual WASAPI device, and FlexASIO, an open ASIO
+driver that plays on VB-CABLE in 32-bit integers, stand in for them.
+Midway through the cue the device goes away and comes back, as the
+soundcard does when it restarts.  `cinq/` holds the tree of commit 70a247e
+of the `audio-outputs` branch of yzhou216/cinq.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What runs
 
-## Setup
+`.github/workflows/wasapi.yml` cross-builds cinq for Windows on GNU/Linux
+with `nix build ./cinq#x86_64-windows`, which builds it with ASIO, after
+applying `open-timing.patch`, which logs on standard error how long each
+opening of a device takes.  On `windows-latest`, LABSN/sound-ci-helpers
+installs VB-CABLE, the job starts the audio service and installs FlexASIO
+with `FlexASIO.toml`, and `wasapi.ps1` runs twice, once on VB-CABLE and
+once on FlexASIO.
 
-Fork this repository, then clone it into the agent's skills directory:
+- `wasapi.ps1` writes a show whose outputs are Left on channel 1 and Right
+  on channel 2, with a cue that sends to them at 0 and -6 dB, fires the cue
+  with a key, and records VB-CABLE through WASAPI's loopback with
+  `loopback.py`.
+- Midway through, it disables the endpoint of VB-CABLE with NirSoft's
+  SoundVolumeView, as the Sound control panel would, enables it again, and
+  records, then stops the audio service of Windows, starts it again, and
+  records once more.
+- `levels.sh` prints the RMS level of each channel of each recording.
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+## Results
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+Run 43546277276 passed.  The music is -16.5 dBFS on each channel at 0 dB.
 
-## Contributing
+| Take                            | WASAPI        | ASIO          |
+| ------------------------------- | ------------- | ------------- |
+| Before                          | -16.5 / -22.5 | -16.5 / -22.5 |
+| After the endpoint came back    | -16.5 / -22.5 | -16.5 / -22.5 |
+| After the audio service came back | -16.5 / -22.5 | -16.5 / -22.5 |
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+- While the device was gone, cinq showed a warning on each output and the
+  clock of the cue ran on.  Each time it came back, cinq took it up again
+  by itself, and the cue played on there from where it was.
+- An opening of a device took 16 to 101 ms when it succeeded, and 0 ms on
+  WASAPI and 10 to 85 ms on FlexASIO when the device was gone.  cinq tries
+  again every two seconds on the thread of its window.
+- While the endpoint of VB-CABLE was disabled, `cinq --audio-devices`
+  listed nothing, not even FlexASIO, which could not start without it.
+- Run 43545351280 before it passed the same way without the timing patch.
+  Runs 43512437619 and earlier removed VB-CABLE's device node with devcon,
+  which Windows defers until a reboot while the device plays: the device
+  that was playing stayed and kept playing, and a second one appeared
+  beside it.
