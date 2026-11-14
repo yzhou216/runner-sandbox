@@ -69,7 +69,7 @@ Run 43511682488 on `ubuntu-latest` passed, with the table below in dBFS,
 - The board kept its subscriptions by name while cinq's device was away
   between the shows, as Dante devices do, and they came back by
   themselves once cinq's device showed again.
-- Runs 43412756236 to 43508448445 before it found the poll deadlock and
-  tried two forms of the patch; the last of them passed, but its
-  `measure.sh` misplaced the steps, since ffmpeg tells the times of a
-  seek from the point it seeks to.
+- Runs 43412756236 to 43508448445 came before.  They found the poll
+  deadlock and tried two forms of the patch, and the last of them passed,
+  though its `measure.sh` misplaced the steps, since ffmpeg tells times
+  after a seek from the point it seeks to.
