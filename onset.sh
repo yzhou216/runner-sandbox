@@ -3,9 +3,8 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Prints the seconds of the host's clock at which channel CHANNEL of FILE
-# first sounds, from START, the time on that clock of the first sample of
-# FILE.
+# Prints the time in seconds at which channel CHANNEL of FILE first
+# sounds, from START, the time of the first sample of FILE.
 #
 # Usage: onset.sh FILE CHANNEL START, with ffmpeg on PATH and CHANNEL
 # counted from 1

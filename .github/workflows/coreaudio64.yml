@@ -4,7 +4,8 @@
 
 # Plays cinq of the tree in cinq/ on BlackHole 64ch and BlackHole 2ch at
 # once with multi.sh, and prints the level of each channel that sounds and
-# how far apart the two devices start the cue.
+# how far apart the two devices start the cue, after capture.py has checked
+# that BlackHole 64ch gives back each of its channels apart.
 on: push
 permissions:
   contents: read
@@ -17,19 +18,25 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@main
+      - uses: actions/setup-python@main
+        with:
+          python-version: "3.13"
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             extra-substituters = https://yzhou216.cachix.org
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
-      - name: Install BlackHole 64ch, BlackHole 2ch, and ffmpeg
+      - name: Install BlackHole 64ch, BlackHole 2ch, ffmpeg, and sounddevice
         run: |
           brew install --cask blackhole-64ch blackhole-2ch
           brew install ffmpeg
+          python -m pip install --quiet sounddevice numpy
           sudo killall coreaudiod || true
           sleep 5
           system_profiler SPAudioDataType
+      - name: Check BlackHole 64ch without cinq
+        run: python capture.py tones "BlackHole 64ch" | tee tones.tsv
       - name: Build cinq
         run: nix build --out-link result-cinq ./cinq
       - name: Play on both devices
@@ -39,15 +46,15 @@ jobs:
       - name: Measure each channel and the onsets
         if: always()
         run: |
+          cp tones.tsv out/ || true
           echo "--- BlackHole 2ch, last 4 s"
           ./levels.sh out/two.wav -4 | tee out/levels-two.tsv
           echo "--- BlackHole 64ch, last 4 s, channels that sound"
           ./levels.sh out/many.wav -4 | tee out/levels-many.tsv |
             awk -F'\t' '{ for (i = 1; i <= NF; i++) if ($i != "-") printf "%d: %s\n", i, $i }'
-          mapfile -t starts < <(sed -nE 's/.*Duration: N\/A, start: ([0-9.]+).*/\1/p' out/record.log)
-          echo "--- starts of the recordings: ${starts[*]}"
-          two=$(./onset.sh out/two.wav 1 "${starts[0]}")
-          many=$(./onset.sh out/many.wav 3 "${starts[1]}")
+          start() { sed -nE 's/^start ([0-9.]+)$/\1/p' "out/record-$1.log"; }
+          two=$(./onset.sh out/two.wav 1 "$(start two)")
+          many=$(./onset.sh out/many.wav 3 "$(start many)")
           awk -v two="$two" -v many="$many" \
             'BEGIN { printf "BlackHole 64ch starts %.1f ms after BlackHole 2ch\n", (many - two) * 1000 }'
       - if: always()
