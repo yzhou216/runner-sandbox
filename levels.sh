@@ -16,6 +16,6 @@ else
   window=(-ss "$start")
 fi
 [ -n "$end" ] && window+=(-to "$end")
-ffmpeg -hide_banner "${window[@]}" -i "$file" \
+ffmpeg -hide_banner -f wav "${window[@]}" -i "$file" \
   -af astats=measure_perchannel=RMS_level:measure_overall=none -f null - 2>&1 |
   awk '/RMS level dB/ { level = $NF; printf "%s%s", (n++ ? "\t" : ""), (level == "-inf" || level < -70 ? "-" : sprintf("%.1f", level)) } END { print "" }'

@@ -141,7 +141,7 @@ Stop-Process $cinqProcess -ErrorAction SilentlyContinue
 Start-Sleep 2
 
 # FlexASIO in exclusive mode, held by another cinq
-Flex 'Int32' 0 $true
+Flex 'Int16' 0 $true
 Show 'holder' 'asio:FlexASIO' 'FlexASIO'
 Show 'exclusive' 'asio:FlexASIO' 'FlexASIO'
 $holder = Launch 'holder'

@@ -2,46 +2,21 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Cross-builds cinq of the tree in cinq/ for Windows on GNU/Linux, with
+# Plays cinq.exe of the tree in cinq/, which run 43572076799 of this branch
+# cross-built on GNU/Linux with
 # ASIO and open-timing.patch, which logs how long each opening of a device
-# takes, then plays it under the quirks of Windows audio devices with
+# takes, under the quirks of Windows audio devices with
 # quirks.ps1, and prints the level of each channel and how clean the tone
 # stayed in each take, with glitch.sh.
 on: push
 permissions:
   contents: read
+  actions: read
 defaults:
   run:
     shell: bash
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@main
-      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
-      # makes the installer of Nix 2.35.4 fail with permission denied
-      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
-      - uses: cachix/install-nix-action@master
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            extra-substituters = https://yzhou216.cachix.org
-            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
-      - name: Cross-build cinq for Windows
-        run: |
-          # Times of each opening of a device, on standard error
-          git apply --directory=cinq open-timing.patch
-          nix build --out-link result ./cinq#x86_64-windows
-          mkdir exe
-          cp "$(find -L result -name cinq.exe | head -1)" exe/
-          ls -l exe
-      - uses: actions/upload-artifact@main
-        with:
-          name: exe
-          path: exe
   windows:
-    needs: build
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -49,6 +24,8 @@ jobs:
       - uses: actions/download-artifact@main
         with:
           name: exe
+          run-id: 43572076799
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: exe
       - uses: LABSN/sound-ci-helpers@v1
       - name: Start Windows Audio, install FlexASIO and the recorders
