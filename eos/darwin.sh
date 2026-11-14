@@ -65,12 +65,15 @@ opened() {
   sleep 3
 }
 
-# cinq.app as the build signs it, its program alone, and then a copy signed
-# as a whole bundle, Info.plist included
+# cinq.app as the build signs it, its program alone under the name of the
+# file that rustc wrote, and then a copy signed as a whole bundle, under the
+# identifier of its Info.plist, which Darwin's privacy settings go by
 codesign -dv --verbose=4 "$app" > "$out/codesign-built.txt" 2>&1
 opened "$app" 1-built
+# Files from the Nix store are read-only, which codesign needs to write
 cp -R "$app" signed.app
-codesign --force --deep --sign - signed.app
+chmod -R u+w signed.app
+codesign --force --sign - --identifier io.yiyuzhou.cinq signed.app > "$out/codesign-signing.txt" 2>&1
 codesign -dv --verbose=4 signed.app > "$out/codesign-signed.txt" 2>&1
 opened "$PWD/signed.app" 2-signed
 wait "$listener"
