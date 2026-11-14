@@ -223,9 +223,13 @@ struct Tells {
 /// device of fewer channels than an output needs still opens, so that the
 /// outputs within its channels play, and only that output tells.
 fn config(device: &Device, channels: u16) -> Result<(StreamConfig, SampleFormat), String> {
+    let id = device.id().map(|id| id.to_string()).unwrap_or_default();
     let rate = device
         .default_output_config()
-        .map_err(|error| error.to_string())?
+        .map_err(|error| match error.kind() {
+            ErrorKind::UnsupportedConfig => unplayable(&id),
+            _ => error.to_string(),
+        })?
         .sample_rate();
     let offered: Vec<_> = device
         .supported_output_configs()
@@ -237,7 +241,7 @@ fn config(device: &Device, channels: u16) -> Result<(StreamConfig, SampleFormat)
         if offered.is_empty() {
             format!("it offers no stream at {rate} Hz")
         } else {
-            format!("it takes no samples that cinq can play at {rate} Hz")
+            unplayable(&id)
         }
     })?;
     let config = StreamConfig {
@@ -246,6 +250,18 @@ fn config(device: &Device, channels: u16) -> Result<(StreamConfig, SampleFormat)
         buffer_size: BufferSize::Default,
     };
     Ok((config, format))
+}
+
+/// Returns why the device of `id` cannot play, as it takes no samples that
+/// cinq can play, such as the packed 24-bit samples that some USB
+/// interfaces alone take on ALSA, which cpal cannot write.  The hw device
+/// of a card names its plughw device, which converts them.
+fn unplayable(id: &str) -> String {
+    let plug = id
+        .strip_prefix("alsa:hw:")
+        .map(|card| format!("; alsa:plughw:{card} converts them"))
+        .unwrap_or_default();
+    format!("it takes no samples that cinq can play{plug}")
 }
 
 /// Returns the format and the count of channels to open from the formats

@@ -213,3 +213,15 @@ fn device_of_no_samples_that_cinq_plays_does_not_open() {
     assert_eq!(super::chosen(&[], 2), None);
     assert_eq!(super::chosen(&[(SampleFormat::U8, 2)], 2), None);
 }
+
+#[test]
+fn hw_device_of_samples_that_cinq_cannot_play_names_its_plughw_device() {
+    assert_eq!(
+        super::unplayable("alsa:hw:CARD=USB,DEV=0"),
+        "it takes no samples that cinq can play; alsa:plughw:CARD=USB,DEV=0 converts them"
+    );
+    assert_eq!(
+        super::unplayable("asio:FlexASIO"),
+        "it takes no samples that cinq can play"
+    );
+}
