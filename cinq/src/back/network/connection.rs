@@ -15,14 +15,17 @@ use std::{
     io::{self, ErrorKind, Read, Write},
     iter,
     net::TcpStream,
+    time::Instant,
 };
 
-use super::{PATIENCE, resolved};
+use super::{PATIENCE, left, resolved};
 
-/// Returns a connection to the first IPv4 address of `address`, whose
-/// writes give up as late as connecting does
-fn connected(address: &str) -> io::Result<TcpStream> {
-    let stream = TcpStream::connect_timeout(&resolved(address)?, PATIENCE)?;
+/// Returns a connection to the first IPv4 address of `address`, made in
+/// the time that a message handed over at `handed` has left, whose writes
+/// give up within [`PATIENCE`]
+fn connected(address: &str, handed: Instant) -> io::Result<TcpStream> {
+    let to = resolved(address)?;
+    let stream = TcpStream::connect_timeout(&to, left(handed)?)?;
     stream.set_nodelay(true)?;
     stream.set_write_timeout(Some(PATIENCE))?;
     Ok(stream)
@@ -39,14 +42,19 @@ fn open(stream: &TcpStream) -> bool {
         && stream.set_nonblocking(false).is_ok()
 }
 
-/// Returns the connection to `address` once it has written `frame`: `kept`,
-/// while the destination has it open, or else a new one
+/// Returns the connection to `address` once it has written `frame`, the
+/// message handed over at `handed`, if it still has time: `kept`, while the
+/// destination has it open, or else a new one
 pub(super) fn written(
     kept: Option<TcpStream>,
     address: &str,
     frame: &[u8],
+    handed: Instant,
 ) -> io::Result<TcpStream> {
     kept.filter(open)
-        .map_or_else(|| connected(address), Ok)
-        .and_then(|stream| (&stream).write_all(frame).map(|()| stream))
+        .map_or_else(|| connected(address, handed), Ok)
+        .and_then(|stream| {
+            left(handed)?;
+            (&stream).write_all(frame).map(|()| stream)
+        })
 }

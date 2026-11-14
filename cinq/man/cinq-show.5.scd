@@ -266,12 +266,11 @@ Double quotes keep a string whole across spaces, and keep it a string where
 it reads as a number.
 
 A network cue whose destination or message does not read as one cannot play.
-A message that cannot go out, as when the destination refuses the connection
-or takes more than a second to take it, as a console that has lost its power
-or its cable does, is lost.
-So is a message that waits more than a second behind others, as behind a
-console that does not answer, since a cue that fires late can do more harm
-than one that does not fire.
+A message that cannot go out within a second of its cue starting is lost, as
+when the destination refuses the connection or does not take it in time, as a
+console that has lost its power or its cable does, or when the message waits
+behind others, since a cue that fires late can do more harm than one that
+does not fire.
 The warnings in the sidebar say why until a message to the same destination
 gets there, and *cinq* says so on standard error as well, once for each
 reason.

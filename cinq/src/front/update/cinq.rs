@@ -78,8 +78,10 @@ impl Cinq {
         let app = App {
             stage: app.stage.with_pictures(&workspace, pictures).with_due(due),
             audio_error: self.audio.error().map(str::to_owned),
-            network_problems: self.network.problems(),
+            // Checks first, so that the problems read after the last check
+            // are the final ones
             network_checks: self.network.checks(),
+            network_problems: self.network.problems(),
             workspace,
             ..app
         }

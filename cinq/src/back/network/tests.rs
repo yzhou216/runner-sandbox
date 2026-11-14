@@ -5,7 +5,8 @@
 //! Tests of messages going out over loopback
 
 use std::{
-    io::Read,
+    io::{ErrorKind, Read},
+    iter,
     net::{TcpListener, TcpStream, UdpSocket},
     sync::atomic::Ordering,
     thread,
@@ -25,9 +26,20 @@ fn message(destination: Destination, byte: u8) -> Vec<Outgoing> {
     }]
 }
 
-/// Returns the next connection that `listener` takes
+/// Returns the next connection that `listener` takes, which a broken test
+/// waits for in vain rather than forever
 fn accepted(listener: &TcpListener) -> TcpStream {
-    let (stream, _) = listener.accept().unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let start = Instant::now();
+    let (stream, _) = iter::repeat_with(|| listener.accept())
+        .find_map(|accepted| {
+            assert!(start.elapsed() < PATIENCE, "no connection arrived");
+            thread::sleep(Duration::from_millis(10));
+            accepted.ok()
+        })
+        .unwrap();
+    // Taken from a listener that does not block, which some systems pass on
+    stream.set_nonblocking(false).unwrap();
     stream.set_read_timeout(Some(PATIENCE)).unwrap();
     stream
 }
@@ -58,16 +70,21 @@ fn tcp_messages_of_a_burst_go_out_framed_over_one_connection() {
 }
 
 #[test]
-fn tcp_message_after_a_quiet_second_goes_over_a_new_connection() {
+fn tcp_message_after_a_quiet_second_goes_over_a_new_connection_while_others_go_out() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let destination = Destination::Tcp(listener.local_addr().unwrap().to_string());
+    let elsewhere = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let other = Destination::Udp(elsewhere.local_addr().unwrap().to_string());
     let network = Network::open();
     network.send(message(destination.clone(), 1));
     let mut first = accepted(&listener);
     assert_eq!(next(&first), framed(&[1; 4]));
-    thread::sleep(Duration::from_millis(1500));
-    network.send(message(destination, 2));
-    assert_eq!(frame(&listener), framed(&[2; 4]));
+    (0..5).for_each(|_| {
+        thread::sleep(Duration::from_millis(300));
+        network.send(message(other.clone(), 2));
+    });
+    network.send(message(destination, 3));
+    assert_eq!(frame(&listener), framed(&[3; 4]));
     assert_eq!(first.read(&mut [0; 16]).unwrap(), 0);
 }
 
@@ -138,13 +155,33 @@ fn message_that_waited_past_its_second_is_dropped_rather_than_sent_late() {
     socket
         .set_read_timeout(Some(Duration::from_millis(500)))
         .unwrap();
-    let destination = Destination::Udp(socket.local_addr().unwrap().to_string());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let destinations = [
+        Destination::Udp(socket.local_addr().unwrap().to_string()),
+        Destination::Tcp(listener.local_addr().unwrap().to_string()),
+    ];
     let network = Network::open();
     let handed = Instant::now().checked_sub(Duration::from_secs(2)).unwrap();
-    network.send_since(message(destination, 7), handed);
+    network.send_since(
+        destinations
+            .into_iter()
+            .flat_map(|to| message(to, 7))
+            .collect(),
+        handed,
+    );
     settled(&network);
+    let problems = network.problems();
+    assert_eq!(problems.len(), 2);
     assert!(
-        network.problems()[0].ends_with("dropped after waiting a second behind earlier messages")
+        problems
+            .iter()
+            .all(|problem| problem.ends_with(": dropped rather than sent more than a second late"))
     );
     assert!(socket.recv(&mut [0; 16]).is_err());
+    listener.set_nonblocking(true).unwrap();
+    assert!(
+        listener
+            .accept()
+            .is_err_and(|error| error.kind() == ErrorKind::WouldBlock)
+    );
 }

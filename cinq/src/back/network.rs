@@ -7,12 +7,13 @@
 //! [`Network::send`] hands the messages that network cues sent in an update
 //! to a thread of its own, which sends each to its destination: over a TCP
 //! connection that lasts through a burst of messages, as [`connection`]
-//! tells, or as one UDP datagram.  A message that waited more than
-//! [`PATIENCE`] behind others, as behind a console that does not answer, is
-//! dropped rather than sent late, since a cue of a console that fires late,
-//! once the console is back, does more harm than one that does not fire.
-//! Why a message to a destination last failed stays for the interface to
-//! show until a message gets there, and warns once on standard error.
+//! tells, or as one UDP datagram.  A message that cannot go out within
+//! [`PATIENCE`] of being handed over, as one behind a console that does not
+//! answer or one whose host takes long to find, is dropped rather than sent
+//! late, since a cue of a console that fires late, once the console is
+//! back, does more harm than one that does not fire.  Why a message to a
+//! destination last failed stays for the interface to show until a message
+//! gets there, and warns once on standard error.
 
 mod connection;
 #[cfg(test)]
@@ -34,9 +35,8 @@ use std::{
 use super::osc::{self, Destination, Outgoing};
 use crate::warn;
 
-/// Longest wait for a destination to take a TCP connection or a message,
-/// for a message to wait behind others, and for the next message of a
-/// burst
+/// Longest that a message may take to go out once handed over, and longest
+/// quiet that a TCP connection outlasts
 const PATIENCE: Duration = Duration::from_secs(1);
 
 /// How often the interface looks for news of the output while messages are
@@ -112,21 +112,17 @@ impl Network {
 }
 
 fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Shared) {
-    let Ok(udp) = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)) else {
-        return;
-    };
-    let mut connections = BTreeMap::<String, TcpStream>::new();
+    // Connections, each with when it last took a message
+    let mut connections = BTreeMap::<String, (Instant, TcpStream)>::new();
     loop {
         let batch = match messages.recv_timeout(PATIENCE) {
             Ok(batch) => batch,
-            // End of a burst, after which the next message makes a new
-            // connection
-            Err(RecvTimeoutError::Timeout) => {
-                connections.clear();
-                continue;
-            }
+            Err(RecvTimeoutError::Timeout) => Vec::new(),
             Err(RecvTimeoutError::Disconnected) => return,
         };
+        // End of a burst to a destination, after which the next message to
+        // it makes a new connection, whatever else goes out meanwhile
+        connections.retain(|_, (used, _)| used.elapsed() <= PATIENCE);
         for (
             handed,
             Outgoing {
@@ -136,18 +132,21 @@ fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Shared) {
         ) in batch
         {
             let sent = match &destination {
-                _ if handed.elapsed() > PATIENCE => Err(io::Error::new(
-                    ErrorKind::TimedOut,
-                    "dropped after waiting a second behind earlier messages",
-                )),
-                Destination::Udp(address) => {
-                    resolved(address).and_then(|to| udp.send_to(&packet, to).map(drop))
-                }
+                Destination::Udp(address) => left(handed)
+                    .and_then(|_| resolved(address))
+                    .and_then(|to| left(handed).map(|_| to))
+                    .and_then(|to| {
+                        UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?
+                            .send_to(&packet, to)
+                            .map(drop)
+                    }),
                 Destination::Tcp(address) => {
-                    let kept = connections.remove(address);
-                    connection::written(kept, address, &osc::framed(&packet)).map(|stream| {
-                        connections.insert(address.clone(), stream);
-                    })
+                    let kept = connections.remove(address).map(|(_, stream)| stream);
+                    connection::written(kept, address, &osc::framed(&packet), handed).map(
+                        |stream| {
+                            connections.insert(address.clone(), (Instant::now(), stream));
+                        },
+                    )
                 }
             };
             let destination = destination.to_string();
@@ -161,6 +160,20 @@ fn send(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Shared) {
             shared.pending.fetch_sub(1, Ordering::Relaxed);
         }
     }
+}
+
+/// Returns how long a message handed over at `handed` has left to go out
+/// in, or why it is too late to
+fn left(handed: Instant) -> io::Result<Duration> {
+    PATIENCE
+        .checked_sub(handed.elapsed())
+        .filter(|left| !left.is_zero())
+        .ok_or_else(|| {
+            io::Error::new(
+                ErrorKind::TimedOut,
+                "dropped rather than sent more than a second late",
+            )
+        })
 }
 
 /// Returns the first IPv4 address that `address`, a host and a port, reads

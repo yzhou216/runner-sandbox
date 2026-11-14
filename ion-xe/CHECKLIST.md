@@ -8,13 +8,13 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 ## Before you go
 
-- **cinq:** the build of `wip/light-cues` (d6b9350), in one of these ways:
+- **cinq:** the build of `wip/light-cues` (27b7559), in one of these ways:
   - **With Nix:** `nix build github:yzhou216/cinq/wip/light-cues`.
   - **Without Nix:** artifact `cinq-x86_64-linux-packages` of cinq's
-    Packages run 43626531095.  It holds the deb, rpm, and Arch packages,
+    Packages run 43627428668.  It holds the deb, rpm, and Arch packages,
     and `cinq-0.1.4-aarch64-darwin.pkg` for a Mac with Apple silicon.
   - **Windows:** `cinq-x86_64-windows-built-on-x86_64-linux.exe`, an
-    artifact of the "Cross builds for Windows" run 43626531099.
+    artifact of the "Cross builds for Windows" run 43627428738.
 - **Unsigned builds:** none of these has a developer signature.
   - **Darwin:** the installer is refused at first; allow it under System
     Settings > Privacy & Security > Open Anyway, then run it again.
@@ -101,8 +101,9 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
     laptop has no network for that address.  Check the cable and the
     laptop's address.
   - *No route to host* on Darwin: Local Network permission is off.
-  - *dropped after waiting a second behind earlier messages:* cinq
-    dropped the message on purpose, rather than firing a console cue
+  - *dropped rather than sent more than a second late:* the message could
+    not go out within a second of its cue, as behind an earlier one that
+    timed out.  cinq drops it on purpose, rather than firing a console cue
     late.
 - **Each GO after a quiet second makes a new connection** to the console.
   So a console that lost its power or its cable shows as *connection
