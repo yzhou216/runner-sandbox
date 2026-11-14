@@ -7,7 +7,8 @@
 # a virtual WASAPI device, and on FlexASIO, an ASIO driver that plays on
 # VB-CABLE in 32-bit integers.  Each time VB-CABLE goes away and comes back
 # midway through the cue, and then the audio service of Windows stops for
-# a while.  It prints the level of each channel before and after.
+# a while.  It prints the level of each channel before and after, and
+# how long each opening of a device took, which open-timing.patch logs.
 on: push
 permissions:
   contents: read
@@ -31,6 +32,8 @@ jobs:
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Cross-build cinq for Windows
         run: |
+          # Times of each opening of a device, on standard error
+          git apply --directory=cinq open-timing.patch
           nix build --out-link result ./cinq#x86_64-windows
           mkdir exe
           cp "$(find -L result -name cinq.exe | head -1)" exe/
@@ -80,6 +83,10 @@ jobs:
           for take in {wasapi,asio}/{before,enabled,started}; do
             echo "--- $take"
             bash levels.sh "out/$take.wav" 1 | tee "out/$take.tsv" || true
+          done
+          for take in wasapi asio; do
+            echo "--- $take: times of opening devices"
+            cat "out/$take/cinq-err.txt" || true
           done
       - if: always()
         uses: actions/upload-artifact@main
