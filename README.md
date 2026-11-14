@@ -36,6 +36,9 @@ that writes each send that fails on standard error.
   opened it twice, and signed a copy again.
 - **darwin-native** builds cinq with Nix on `macos-latest` and checks the
   signature of cinq.app.
+- **linux** runs `linux.toml` in cinq in headless sway on `ubuntu-latest`,
+  with `fakeeos.py` standing in for a console, decoding the network cues
+  over TCP with SLIP and over UDP.
 
 ## Results
 
@@ -56,6 +59,7 @@ that writes each send that fails on standard error.
 | 43551745057 | Copy signed under `io.yiyuzhou.cinq` | No send failed; its sACN reached the network |
 | 43552387371 | cinq.app signed by rcodesign at build | Failed only until Allow, then sent |
 | 43553147379 | cinq.app as Nix builds it on Darwin | Signed as `io.yiyuzhou.cinq`, valid on disk, satisfies its Designated Requirement |
+| 43553927187 | Every job, with GNU/Linux | All passed (darwin-native on a second attempt, after cache.nixos.org broke off a download); on GNU/Linux sACN left eth0 and the network cues reached `fakeeos.py` as written, over TCP and UDP |
 
 What Eos does, offline:
 
