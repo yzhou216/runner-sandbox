@@ -31,6 +31,7 @@ ip -4 addr > "$out/ip.txt"
 python3 "$here/listen.py" "$out/dmx.jsonl" 60 "$out/wire.pcap" &
 listener=$!
 python3 "$here/fakeeos.py" "$out/console.txt" 60 &
+console=$!
 sway -c "$work/sway.config" > "$out/sway.log" 2>&1 &
 for _ in $(seq 100); do
   socket=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-[0-9]' -printf '%f\n' | head -1)
@@ -50,5 +51,6 @@ for cue in 1 2 3; do
   printf '%s GO %s\n' "$(date +%s.%N)" "$cue" >> "$out/marks.txt"
   sleep 5
 done
-wait "$listener"
+# The console too, which holds its ports until it ends
+wait "$listener" "$console"
 swaymsg exit > /dev/null 2>&1 || true
