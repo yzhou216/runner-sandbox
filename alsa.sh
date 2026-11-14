@@ -6,7 +6,8 @@
 # Plays a tone of 1 kHz on three outputs, on channels 1 to 3 at 0, -3, and
 # -6 dB, on devices that stand in for the quirks of sound cards: ALSA's hw
 # plugin over the kernel's loopback card, held to one format of samples,
-# one count of channels, or one rate, as the hw devices of cards are, and
+# one count of channels, or one rate, as the hw devices of cards are, under
+# ALSA's copy plugin, which passes that on and lists the device, and
 # plug over the one of packed 24-bit samples, and last outputs on channels
 # 1 to 3 and 7 of the device of six channels.  arecord records the other
 # end of the loopback through plughw, and each take is NAME.wav in OUT,
@@ -48,10 +49,14 @@ devices=(
   printf 'pcm.!default { type null }\n'
   for device in "${devices[@]}"; do
     name=${device%%:*}
-    printf 'pcm.%s {\n  type hw\n  card Loopback\n  device 0\n  subdevice 0\n  %s\n  hint {\n    show on\n    description "%s"\n  }\n}\n' \
-      "$name" "${device#*:}" "Quirk $name"
+    # hw device held to the quirk, under copy, which passes on what the hw
+    # device takes and, unlike a hw device of the configuration, lists
+    printf 'pcm.held_%s {\n  type hw\n  card Loopback\n  device 0\n  subdevice 0\n  %s\n}\n' \
+      "$name" "${device#*:}"
+    printf 'pcm.%s {\n  type copy\n  slave.pcm held_%s\n  hint {\n    show on\n    description "%s"\n  }\n}\n' \
+      "$name" "$name" "Quirk $name"
   done
-  printf 'pcm.s24pplug {\n  type plug\n  slave.pcm s24p\n  hint {\n    show on\n    description "Quirk s24p through plug"\n  }\n}\n'
+  printf 'pcm.s24pplug {\n  type plug\n  slave.pcm held_s24p\n  hint {\n    show on\n    description "Quirk s24p through plug"\n  }\n}\n'
 } > "$HOME/.asoundrc"
 cp "$HOME/.asoundrc" "$out/asoundrc"
 cat /proc/asound/cards > "$out/cards.txt"
