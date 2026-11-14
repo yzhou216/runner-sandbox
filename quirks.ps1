@@ -10,7 +10,8 @@
 #   configuration file changes midway through the cue, to each type of
 #   sample and to buffers of 64, 441, 480, and 4096 frames.  FlexASIO
 #   reloads the file and asks cinq to reset, as the driver of the Dante
-#   Virtual Soundcard does when its settings change.
+#   Virtual Soundcard does when its settings change.  In asio-listing,
+#   the list of devices of an output opens and closes while it plays.
 # - exclusive-*: FlexASIO in WASAPI's exclusive mode, held by another cinq
 #   until that one quits, as another program can hold an ASIO driver.
 #   WASAPI's loopback hears no exclusive stream, so the screenshots tell.
@@ -39,6 +40,8 @@ using System.Runtime.InteropServices;
 public static class Win {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, bool repaint);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
 }
 '@
 function Shot([string]$name) {
@@ -55,6 +58,13 @@ function Record([string]$name) {
   Start-Process python -Wait -NoNewWindow `
     -RedirectStandardOutput (Join-Path $Out "record-$name.log") `
     -ArgumentList (Join-Path $PSScriptRoot 'loopback.py'), 'VB-Audio', '5', (Join-Path $Out "$name.wav")
+}
+# Clicks at x, y of the desktop
+function Click([int]$x, [int]$y) {
+  [Win]::SetCursorPos($x, $y) | Out-Null
+  Start-Sleep -Milliseconds 100
+  [Win]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+  [Win]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
 }
 function Keys($process, [string]$keys) {
   $process.Refresh()
@@ -139,6 +149,25 @@ foreach ($change in @(
   Shot $change.name
   Record $change.name
 }
+# Lists of devices opened while FlexASIO plays, which load each ASIO driver
+# to ask what it offers, the one that plays among them.  The outputs view
+# shows the Device list of the selected output in the inspector, about
+# 186 pixels above the bottom of the window.
+Keys $cinqProcess 'l'
+Start-Sleep 1
+$listing = Start-Process python -PassThru -NoNewWindow `
+  -RedirectStandardOutput (Join-Path $Out 'record-asio-listing.log') `
+  -ArgumentList (Join-Path $PSScriptRoot 'loopback.py'), 'VB-Audio', '5', (Join-Path $Out 'asio-listing.wav')
+Start-Sleep 1
+Click 600 542
+Start-Sleep 1
+Shot 'asio-listing'
+Click 600 542
+Start-Sleep 1
+Click 600 542
+Start-Sleep 1
+Click 600 542
+$listing.WaitForExit()
 Stop-Process $cinqProcess -ErrorAction SilentlyContinue
 Start-Sleep 2
 

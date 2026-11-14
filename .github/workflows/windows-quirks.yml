@@ -73,7 +73,7 @@ jobs:
           export PATH="/c/ProgramData/chocolatey/bin:$PATH"
           printf 'take\tlevels of the channels\ttone\tlowest quarter\trest below the tone\n'
           for take in asio-Int32 asio-Int16 asio-Int24 asio-Float32 asio-buffer-64 asio-buffer-441 \
-            asio-buffer-480 asio-buffer-4096 overrun fallback stopped; do
+            asio-buffer-480 asio-buffer-4096 asio-listing overrun fallback stopped; do
             file=out/$take.wav
             printf '%s\t%s\t%s\n' "$take" "$(bash levels.sh "$file" 0.5 4.5 || true)" \
               "$(bash glitch.sh "$file" 1 1000 0.5 4.5 || true)"
