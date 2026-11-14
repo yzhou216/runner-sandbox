@@ -4,43 +4,31 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# Copies into an emulated aarch64 FreeBSD machine
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+cinq's CI copies a closure into an aarch64 FreeBSD 15.1 machine that
+`vmactions/freebsd-vm` emulates on `ubuntu-latest`, and that copy failed
+about once in 25 jobs, always in rsync ("failed verification", "protocol
+incompatibility").  This branch measured how often each way of copying
+fails and how.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+Run 43632768905: one job built cinq's `aarch64-freebsd` closure at
+yzhou216/cinq fe73a0c (103,720,960 bytes), and ten jobs each started the
+machine once with `sync: no` and copied the closure 12 times by each method,
+480 copies in all, comparing its SHA-256 inside the machine with the
+runner's and hashing a mismatch again.
 
-## Setup
+| Method | Intact | Failed, noticed | Corrupt, unnoticed |
+|---|---|---|---|
+| rsync | 113 | 7 | 0 |
+| rsync `--checksum-choice=md5` | 112 | 8 | 0 |
+| scp | 105 | 1 | 14 |
+| tar over ssh | 89 | 0 | 31 |
 
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Every corrupt copy hashed the same twice, so the damage is on the disk, not
+in the hash.  SSH's MAC guards the wire, so the data is damaged inside the
+emulated machine, between sshd and the program that writes it, and the
+longer the chain of pipes, the more often.  rsync's own checksum notices
+every damaged copy, whichever checksum it uses, and no copy that rsync
+finished was damaged, so retrying rsync is the fix.  The x86_64 machines,
+which run under KVM, never failed in about 290 jobs of cinq's CI.
