@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Two cue lists of five memo cues, which need no media
+
+[[list]]
+name = "List A"
+
+[[list.cue]]
+id = 1
+number = "A1"
+kind = "memo"
+name = "Cue A1"
+
+[[list.cue]]
+id = 2
+number = "A2"
+kind = "memo"
+name = "Cue A2"
+
+[[list.cue]]
+id = 3
+number = "A3"
+kind = "memo"
+name = "Cue A3"
+
+[[list.cue]]
+id = 4
+number = "A4"
+kind = "memo"
+name = "Cue A4"
+
+[[list.cue]]
+id = 5
+number = "A5"
+kind = "memo"
+name = "Cue A5"
+
+[[list]]
+name = "List B"
+
+[[list.cue]]
+id = 11
+number = "B1"
+kind = "memo"
+name = "Cue B1"
+
+[[list.cue]]
+id = 12
+number = "B2"
+kind = "memo"
+name = "Cue B2"
+
+[[list.cue]]
+id = 13
+number = "B3"
+kind = "memo"
+name = "Cue B3"
+
+[[list.cue]]
+id = 14
+number = "B4"
+kind = "memo"
+name = "Cue B4"
+
+[[list.cue]]
+id = 15
+number = "B5"
+kind = "memo"
+name = "Cue B5"

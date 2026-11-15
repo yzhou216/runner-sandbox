@@ -1,0 +1,125 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# cinq's keys of Vim (the snapshot of 852f6bd in cinq/, with its keys,
+# messages, and selection logged to standard error) on GNU/Linux, Windows
+# (x86_64 and aarch64), and Darwin, each with a show of two cue lists of five
+# memo cues.  Each job uploads the logs and screenshots that it took.
+name: cinq keys
+on: push
+permissions:
+  actions: read
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-windows, aarch64-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          nix build ./cinq#${{ matrix.target }} --print-build-logs
+          mkdir cinq-windows && cp -rL result/. cinq-windows/ && find cinq-windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinq-${{ matrix.target }}
+          path: cinq-windows
+  windows:
+    needs: build-windows
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-windows
+          - os: windows-11-arm
+            target: aarch64-windows
+    name: windows (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-${{ matrix.target }}
+          path: cinq-windows
+      - name: Clear the desktop of windows-11-arm
+        if: matrix.os == 'windows-11-arm'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File keys/prep.ps1
+      - name: Keys and mouse buttons
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File keys/windows.ps1
+      - if: always()
+        run: bash keys/verdict.sh out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keys-${{ matrix.target }}
+          path: out
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq and the tools
+        run: |
+          nix build --out-link cinq ./cinq --print-build-logs
+          nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#dbus nixpkgs#xdg-desktop-portal nixpkgs#xdg-desktop-portal-gtk
+          nix shell --inputs-from ./cinq nixpkgs#gcc nixpkgs#wayland-scanner -c bash keys/vptr.sh vptr-build
+          for link in tools*; do echo "$(readlink -f "$link")/bin" >> "$GITHUB_PATH"; done
+          echo "$PWD/vptr-build" >> "$GITHUB_PATH"
+          # The share directories hold the portals and their D-Bus services
+          echo "PORTAL_SHARE=$(for link in tools*; do printf '%s:' "$(readlink -f "$link")/share"; done)" >> "$GITHUB_ENV"
+          echo "$(readlink -f cinq)/bin" >> "$GITHUB_PATH"
+          echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
+      - name: Keys and mouse buttons
+        run: |
+          mkdir out
+          { uname -a; nproc; } | tee out/runner.txt
+          bash keys/linux.sh "$FONTS" out
+      - if: always()
+        run: bash keys/verdict.sh out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keys-linux
+          path: out
+  darwin:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq
+        run: |
+          nix build ./cinq --print-build-logs
+          cp -R result/Applications/cinq.app cinq.app
+          chmod -R u+w cinq.app
+      - name: Keys and mouse buttons
+        run: bash keys/darwin.sh "$PWD/cinq.app" out
+      - if: always()
+        run: bash keys/verdict.sh out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keys-darwin
+          path: out

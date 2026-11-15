@@ -6,6 +6,17 @@
 //!
 //! Only [`cinq`] reaches the parts with side effects.
 
+/// Prints a line to standard error with the time in seconds since the epoch,
+/// for the sandbox tests of the keys
+macro_rules! sandbox {
+    ($($arg:tt)*) => {{
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |time| time.as_secs_f64());
+        eprintln!("SANDBOX {at:.3} {}", format_args!($($arg)*));
+    }};
+}
+
 mod cinq;
 mod clipboard;
 mod clock;
@@ -61,7 +72,7 @@ impl App {
                 | Message::SwitchList(_)
                 | Message::Row(_)
         ) {
-            eprintln!("SANDBOX message {message:?}");
+            sandbox!("message {message:?}");
         }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
@@ -256,8 +267,8 @@ impl App {
         };
         if !passive {
             let selected = app.selected_row().map(|row| row + 1);
-            eprintln!(
-                "SANDBOX update {} | list={} rows={} selected_row={:?} selected_id={:?} clipboard_or_keys={:?}",
+            sandbox!(
+                "update {} | list={} rows={} selected_row={:?} selected_id={:?} clipboard_or_keys={:?}",
                 shown.chars().take(100).collect::<String>(),
                 app.list + 1,
                 app.current().cues.len(),

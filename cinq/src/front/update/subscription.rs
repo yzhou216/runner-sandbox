@@ -101,7 +101,7 @@ impl App {
 /// that a click drops a command typed halfway
 fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<Message> {
     if let Event::Mouse(mouse::Event::ButtonPressed(button)) = &event {
-        eprintln!("SANDBOX mouse button pressed {button:?}");
+        sandbox!("mouse button pressed {button:?}");
     }
     matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_))).then_some(Message::Clicked)
 }

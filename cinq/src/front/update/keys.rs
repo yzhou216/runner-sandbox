@@ -28,8 +28,8 @@ use crate::front::{
 impl App {
     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
         let outcome = self.config.keymap.parse(&self.keys, press);
-        eprintln!(
-            "SANDBOX press {press:?} repeat={repeat} -> action={:?} pending={:?}",
+        sandbox!(
+            "press {press:?} repeat={repeat} -> action={:?} pending={:?}",
             outcome.action, outcome.pending
         );
         let app = Self {
@@ -102,7 +102,7 @@ pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
         ..
     } = &event
     {
-        eprintln!("SANDBOX raw key={key:?} modified={modified_key:?} modifiers={modifiers:?}");
+        sandbox!("raw key={key:?} modified={modified_key:?} modifiers={modifiers:?}");
     }
     let KeyPress { press, repeat, .. } = KeyPress::of(&event)?;
     press.map(|press| Message::Typed { press, repeat })
