@@ -33,16 +33,22 @@ go() {
     fi
   done
 }
-# allow SECONDS LABEL: presses Allow on Darwin's Local Network prompt if one
-# comes up within SECONDS, as the exact text, since Don't Allow holds Allow
-# too and comes first; returns whether it pressed
+# allow SECONDS LABEL: presses Allow on Darwin's Local Network prompt while
+# one comes up within SECONDS, as the exact text, since Don't Allow holds
+# Allow too and comes first, and takes a screenshot after each press, since
+# a second prompt can follow the first (one for hosted-compute-agent after
+# the one for cinq, on Darwin 26); returns whether it pressed
 allow() {
-  if ./ui click Allow "$1" > "$OUT/allow-$2.txt" 2>&1; then
-    mark "pressed Allow ($2)"
-    return 0
-  fi
-  mark "no Allow prompt ($2)"
-  return 1
+  local pressed=1
+  for press in 1 2 3; do
+    ./ui click Allow "$1" > "$OUT/allow-$2-$press.txt" 2>&1 || break
+    mark "pressed Allow ($2, press $press)"
+    pressed=0
+    sleep 1
+    shot "after-allow-$2-$press"
+  done
+  [ "$pressed" = 0 ] || mark "no Allow prompt ($2)"
+  return "$pressed"
 }
 # stamped FILE: prepends the time of day to each line that FILE gains
 stamped() {

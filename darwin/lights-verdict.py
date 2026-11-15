@@ -61,15 +61,18 @@ listed = [p["discovery"] for p in packets if p.get("discovery") is not None]
 check([1, 2, 999] in listed, f"sACN discovery lists the universes: {sorted({tuple(x) for x in listed})}, {len(listed)} packets")
 
 # Before and after Allow
-first, allow = at("GO 1"), at("pressed Allow (cinq)")
-prompt = allow is not None
-print(f"Local Network prompt for cinq.app: {'pressed Allow at +%.1f s after GO 1' % (allow - first) if prompt else 'none appeared'}")
+first = at("GO 1")
+presses = [s for s, r in marks if r.startswith("pressed Allow (cinq")]
+prompt = bool(presses)
+print(f"Local Network prompts for cinq.app: {len(presses)} Allow presses, at +%s s after GO 1" % [round(p - first, 1) for p in presses] if prompt and first else "Local Network prompts for cinq.app: none appeared")
 if first is not None:
-    split = allow if prompt else first + 4
-    way = lambda p: f"{p['proto']} from {p['from']}"
-    print("before Allow, from GO 1 to the press:", count(between(first, split), way))
-    print("after Allow, the 5 s that follow:", count(between(split, split + 5), way))
-    print("after Allow, packets per second by protocol, sender, and universe, 13 s idle:")
+    split = presses[0] if prompt else first + 4
+    last = presses[-1] if prompt else split
+    way = lambda p: f"{p["proto"]} from {p["from"]}"
+    print("before the first Allow, from GO 1:", count(between(first, split), way))
+    print("between the first and the last Allow:", count(between(split, last), way))
+    print("the 5 s after the last Allow:", count(between(last, last + 5), way))
+    print("packets by protocol, sender, and universe in the 13 s idle stretch:")
     start, end = at("idle start"), at("idle end")
     window = between(start + 1, end)
     for key, n in sorted(count(window, lambda p: (p["proto"], p["from"], p["universe"], str(p.get("discovery")))).items()):

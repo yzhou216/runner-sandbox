@@ -61,4 +61,4 @@ jobs:
         with:
           name: cable-intel-cargo
           path: out/cable
-# Run 2: go.applescript fixed
+# Run 3: Allow pressed until no prompt is left
