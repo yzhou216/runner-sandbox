@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: milestone-1
+on: push
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  # Course CI's checks on the rebased hold branch
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config \
+            libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
+            libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
+      - uses: taiki-e/install-action@nextest
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: milestone-1
+      - name: Run fmt check
+        working-directory: milestone-1
+        run: cargo fmt --check
+      - name: Run Clippy
+        working-directory: milestone-1
+        run: cargo clippy --no-default-features --features ci -- -D warnings
+      - name: Run tests
+        working-directory: milestone-1
+        run: >-
+          cargo nextest run --no-default-features --features ci
+          --no-fail-fast --retries 2
+
