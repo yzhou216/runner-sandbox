@@ -97,7 +97,14 @@ impl<'b> Choice<'b> {
     }
 
     pub(super) fn press(&self, key: &Key, press: Option<Press>, shell: &mut Shell<'_, Message>) {
-        match reply(self.dropdown.keymap, key, press) {
+        let answer = reply(self.dropdown.keymap, key, press);
+        eprintln!(
+            "SANDBOX {:.3} menu key={key:?} press={press:?} reply={answer:?}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0.0, |time| time.as_secs_f64())
+        );
+        match answer {
             Reply::Step(offset) => self.highlight(self.stepped(offset), shell),
             Reply::Page(sign) => self.highlight(self.stepped(sign * self.page()), shell),
             Reply::First => self.highlight((!self.dropdown.names.is_empty()).then_some(0), shell),

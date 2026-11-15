@@ -6,6 +6,17 @@
 //!
 //! Only [`cinq`] reaches the parts with side effects.
 
+/// Prints a line to standard error with the time in seconds since the epoch,
+/// for the sandbox tests of the keys
+macro_rules! sandbox {
+    ($($arg:tt)*) => {{
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |time| time.as_secs_f64());
+        eprintln!("SANDBOX {at:.3} {}", format_args!($($arg)*));
+    }};
+}
+
 mod cinq;
 mod clipboard;
 mod clock;
@@ -42,6 +53,40 @@ pub(super) use stage::Stage;
 
 impl App {
     fn handled(self, message: Message) -> (Self, Task<Message>) {
+        if matches!(
+            message,
+            Message::Back(_)
+                | Message::Forward(_)
+                | Message::Page(..)
+                | Message::Step(_)
+                | Message::Open
+                | Message::SidePressed(..)
+                | Message::Copy(_)
+                | Message::Cut(_)
+                | Message::Paste(..)
+                | Message::Delete(_)
+                | Message::Undo(_)
+                | Message::Redo(_)
+                | Message::StepList(_)
+                | Message::SwitchList(_)
+                | Message::Row(_)
+                | Message::Across(..)
+                | Message::Search { .. }
+                | Message::Searching(_)
+                | Message::SearchAccepted
+                | Message::SearchStep(_)
+                | Message::Scroll(_)
+                | Message::Place(_)
+                | Message::InView(..)
+                | Message::Landed { .. }
+                | Message::Reached { .. }
+                | Message::MenuOpen(_)
+                | Message::NewKind(_)
+                | Message::ToggleHelp
+                | Message::CloseHelp
+        ) {
+            sandbox!("message {message:?}");
+        }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),

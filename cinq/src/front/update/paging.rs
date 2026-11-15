@@ -42,7 +42,21 @@ impl App {
         let (list, from) = (self.list, self.selected);
         let task = measured(
             move |row| Message::Landed { list, from, row },
-            move |shape| landing(page, count, scroll, shape, cues, current),
+            move |shape| {
+                sandbox!(
+                    "page {page:?} count={count:?} view={} content={} cues={cues} fit={} moves={}",
+                    shape.view,
+                    shape.content,
+                    rows_fitting(shape.view, shape.content, cues),
+                    rows(
+                        page,
+                        count,
+                        scroll,
+                        rows_fitting(shape.view, shape.content, cues)
+                    )
+                );
+                landing(page, count, scroll, shape, cues, current)
+            },
         );
         (Self { scroll, ..self }, task)
     }
@@ -160,6 +174,14 @@ pub(super) fn measured(
 ) -> Task<Message> {
     operate(Viewport::of(view::CUES)).then(move |shape| {
         land(shape).map_or_else(Task::none, |landing| {
+            sandbox!(
+                "measured view={} content={} scrolled={} -> offset={} row={}",
+                shape.view,
+                shape.content,
+                shape.scrolled,
+                landing.offset,
+                landing.row + 1
+            );
             let offset = AbsoluteOffset {
                 x: None,
                 y: Some(landing.offset),

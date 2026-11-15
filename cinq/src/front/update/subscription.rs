@@ -113,6 +113,9 @@ impl App {
 /// Reports a press of any mouse button, captured by a widget or not, so
 /// that a click drops a command typed halfway
 fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<Message> {
+    if let Event::Mouse(mouse::Event::ButtonPressed(button)) = &event {
+        sandbox!("mouse button pressed {button:?}");
+    }
     matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_))).then_some(Message::Clicked)
 }
 
