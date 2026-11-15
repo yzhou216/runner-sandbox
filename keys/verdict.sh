@@ -169,7 +169,7 @@ if [ -f "$out/ops.timeline" ]; then
   st=$?; check "11 d u does not undo: rows $pasted to $stray, keys left $pending" "$st" "$(segment ops 11-du | grep '^press\|^message\|^update' | tail -n 4)"
   typed=$(segment ops 11-2d | grep '^update' | tail -n 1)
   after=$(segment ops 11-ctrl-c | grep '^update' | tail -n 1)
-  ! printf '%s\n' "$typed" | grep -q 'keys=\[\]' && segment ops 11-ctrl-c | grep -q 'action=Some((Cancel' && printf '%s\n' "$after" | grep -q 'keys=\[\]' &&
+  ! printf '%s\n' "$typed" | grep -q 'keys=\[\]' && segment ops 11-ctrl-c | grep -q "press Press { key: Char('c'), ctrl: true" && printf '%s\n' "$after" | grep -q 'keys=\[\]' &&
     ! segment ops 11-ctrl-c | grep -q 'message Cut\|message Delete\|message Copy\|across=Some' && [ "$(rows_of 11-ctrl-c)" = "$stray" ]
   st=$?; check "11 Control+c after 2 d drops the typed keys ($(printf '%s\n' "$typed" | sed -n 's/.* keys=\(\[[^]]*\]\).*/\1/p') to $(printf '%s\n' "$after" | sed -n 's/.* keys=\(\[[^]]*\]\).*/\1/p')) and cuts nothing: rows $stray to $(rows_of 11-ctrl-c)" "$st" "$(segment ops 11-2d | grep '^press\|^message\|^update' | tail -n 3; segment ops 11-ctrl-c | grep '^press\|^message\|^update' | tail -n 4)"
 fi
@@ -209,7 +209,7 @@ fi
 if [ -f "$out/line.timeline" ]; then
   upd() { segment line "$1" | grep '^update' | tail -n 1; }
   row_of() { number selected_row "$(state line "$1")"; }
-  text_of() { upd "$1" | sed -n 's/.* search=\(None\|Some(("[^"]*", [a-z]*))\).*/\1/p'; }
+  text_of() { upd "$1" | sed -nE 's/.* search=(None|Some\(\("[^"]*", [a-z]*\)\)).*/\1/p'; }
   both() { [ "$(row_of "$1")" = "$2" ] && [ "$(text_of "$1")" = "$3" ]; }
   [ "$(row_of 12-gg)" = 1 ] && [ "$(row_of 12-enter-bl)" = 2 ] && [ "$(row_of 12-enter-br)" = 4 ] && [ "$(row_of 12-gg-2)" = 1 ] && both 12-b 2 'Some(("B", false))'
   st=$?; check "12 /Bl Enter, /Br Enter, gg, / B: rows $(for l in 12-gg 12-enter-bl 12-enter-br 12-gg-2 12-b; do printf '%s ' "$(row_of "$l")"; done)(1 2 4 1 2), text $(text_of 12-b)" "$st" "$(for l in 12-enter-bl 12-enter-br 12-b; do upd "$l"; done)"
