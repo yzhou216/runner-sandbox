@@ -58,6 +58,26 @@ fn operators_over_a_motion_tell_the_cues_cut_or_copied_as_the_keys_of_a_cut_do()
         told(&across(Copy, Last, None)),
         Some(("Copied 9 cues", false))
     );
-    // A delete is not a cut, so it tells nothing of the clipboard
+    // Delete is not a cut, so it tells nothing of the clipboard
     assert_eq!(told(&across(Delete, Next, None)), None);
+}
+
+#[test]
+fn a_cut_is_told_as_a_cut_by_the_change_it_records_and_a_delete_as_a_delete() {
+    use crate::front::{keymap::Action, view::format};
+    let done = |message| after(show(Some(CueId(4))), [message]);
+    let told = |app: &App| {
+        let (_, change) = app
+            .workspace
+            .latest_change()
+            .expect("a removal is a change");
+        format::change(&app.workspace, change)
+    };
+    assert_eq!(told(&done(Message::Cut(2))), "cut 2 cues");
+    assert_eq!(told(&done(Message::Delete(2))), "deleted 2 cues");
+    let operated = done(Message::Across(Action::Cut, Action::Next, None));
+    assert_eq!(told(&operated), "cut 2 cues");
+    // Undoing tells the same words
+    let undone = done(Message::Cut(1)).handled(Message::Undo(1)).0;
+    assert_eq!(told(&undone), "cut cue 4");
 }

@@ -6,46 +6,22 @@
 //! and the keys send, and the reports of the clock, of the configuration
 //! file's watch, and of the work done on threads of its own
 
+mod line;
 mod scrolling;
+mod tab;
 
 use std::{ffi::OsString, path::PathBuf, time::Instant};
 
 use iced::{Size, mouse, window};
-use strum::{Display, VariantArray};
 
 use super::{
     keymap::{Action, Press, config::Config},
-    update::{Read, Saved},
+    update::{Measured, Read, Saved},
 };
 use crate::back::{Command, CueId, Edit, Kind, Place};
+pub use line::LineKey;
 pub use scrolling::{Height, Page};
-
-/// Page of the inspector, which goes by its name
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, VariantArray)]
-pub enum Tab {
-    #[default]
-    Basics,
-    #[strum(to_string = "Time & Loops")]
-    Time,
-    Levels,
-}
-
-impl Tab {
-    /// Returns the tab `offset` places to the right, wrapping around at
-    /// either end
-    pub fn stepped(self, offset: isize) -> Self {
-        let count = Self::VARIANTS.len() as isize;
-        // Reduced first, since a count as large as a number can hold would
-        // overflow the sum
-        Self::VARIANTS[(self as isize + offset.rem_euclid(count)).rem_euclid(count) as usize]
-    }
-
-    /// Returns the tab with a number, counted from one, or the last tab
-    /// when there are fewer
-    pub fn numbered(number: usize) -> Self {
-        Self::VARIANTS[number.saturating_sub(1).min(Self::VARIANTS.len() - 1)]
-    }
-}
+pub use tab::Tab;
 
 /// Where the caret lands in a field that a key focuses, and what it selects
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +52,9 @@ pub enum Focus {
 pub enum Message {
     Go,
     Panic,
+    /// Drops the keys typed so far, gives up the search line, and takes the
+    /// keyboard out of a field, without touching playback
+    Cancel,
     PauseAll,
     ResumeAll,
     Stop(CueId),
@@ -101,6 +80,14 @@ pub enum Message {
         from: Option<CueId>,
         row: usize,
     },
+    /// What a measure of the cue list or of the help page found
+    Measured(Measured),
+    /// The mouse may have scrolled the cue list, so that it is measured again
+    Remeasure,
+    /// A window has drawn, which measures the cue list when no measure of it
+    /// is kept, as the window opens and after a change that made it out of
+    /// date, since the list is laid out only once the window has drawn
+    Drawn(window::Id),
     /// Scrolls the cue list a number of rows, down when positive, and keeps
     /// the selection in view
     Scroll(isize),
@@ -115,8 +102,9 @@ pub enum Message {
         from: Option<CueId>,
         row: usize,
     },
-    /// Scrolls the cue list to put the selected row at a height in view
-    Place(Height),
+    /// Scrolls the cue list to put the selected row at a height in view, after
+    /// selecting the row that the count typed before the keys names
+    Place(Height, Option<usize>),
     /// A drop-down list opened its menu, or its menu closed
     MenuOpen(bool),
     StandbySelected,
@@ -134,6 +122,8 @@ pub enum Message {
     },
     /// Text of the search line, as typed so far
     Searching(String),
+    /// Edits the text of the search line with a key of Vim's command line
+    SearchKey(LineKey),
     /// Accepts the text of the search line
     SearchAccepted,
     /// Selects the cue a number of matches of the last search further on in

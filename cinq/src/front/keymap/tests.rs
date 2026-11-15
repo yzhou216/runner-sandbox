@@ -5,6 +5,7 @@
 //! Tests of the key bindings, with the helpers that read the keys they
 //! type
 
+mod cancel;
 mod dropping;
 mod file;
 mod manual;
@@ -143,7 +144,7 @@ fn a_key_may_pick_in_a_menu_and_scroll_the_cue_list() {
     assert_eq!(action("3 Control+y"), Some((Action::ScrollUp, Some(3))));
     assert_eq!(menu("Control+e"), Some(Action::CloseMenu));
     assert_eq!(menu("Control+y"), Some(Action::Pick));
-    // The keys of the list are no keys of a menu
+    // Keys of the list are no keys of a menu
     assert_eq!(menu("Control+d"), None);
 }
 
@@ -184,7 +185,7 @@ fn a_clash_over_g_j_g_k_and_the_search_keys_is_found_in_the_place_they_act_in() 
         with(Action::Pick, "g k").conflicts(),
         ["`g k` is bound to both previous and pick, so pick goes without"]
     );
-    // The search keys act in the cue list only, so a menu may use them
+    // Search keys act in the cue list only, so a menu may use them
     assert_eq!(with(Action::Pick, "?").conflicts(), Vec::<String>::new());
     assert_eq!(
         with(Action::CloseMenu, "n").conflicts(),

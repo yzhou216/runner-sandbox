@@ -55,7 +55,7 @@ fn counts_before_the_operator_or_the_motion_or_both_multiply() {
         across(&most),
         Some((Action::Cut, Action::Next, Some(usize::MAX)))
     );
-    // The parts stay apart in the outcome
+    // Parts stay apart in the outcome
     let outcome = typed("2 d 3 j");
     assert_eq!(outcome.action, Some((Action::Cut, Some(2))));
     assert_eq!(outcome.motion, Some((Action::Next, Some(3))));
@@ -90,7 +90,7 @@ fn key_that_is_no_motion_drops_the_operator_and_the_key_as_vim_does() {
     ] {
         assert_eq!(typed(keys), dropped, "{keys}");
     }
-    // The next key starts afresh
+    // Next key starts afresh
     assert_eq!(action("d x j"), Some((Action::Next, None)));
 }
 
@@ -116,7 +116,7 @@ fn operator_key_follows_a_rebinding_that_doubles_a_key() {
     assert_eq!(across("D j"), Some((Action::Cut, Action::Next, None)));
     assert_eq!(across("2 D G"), Some((Action::Cut, Action::Last, Some(2))));
     assert_eq!(across("d j"), None);
-    // The key of Copy stays an operator
+    // Key of Copy stays an operator
     assert_eq!(across("y k"), Some((Action::Copy, Action::Previous, None)));
 }
 
@@ -192,17 +192,19 @@ fn box_lists_the_motions_after_an_operator_with_what_they_do() {
             ("g j", Action::Next, Some(Action::Cut)),
             ("ArrowDown", Action::Next, Some(Action::Cut)),
             ("Control+n", Action::Next, Some(Action::Cut)),
+            ("+", Action::Next, Some(Action::Cut)),
             ("k", Action::Previous, Some(Action::Cut)),
             ("g k", Action::Previous, Some(Action::Cut)),
             ("ArrowUp", Action::Previous, Some(Action::Cut)),
             ("Control+p", Action::Previous, Some(Action::Cut)),
+            ("-", Action::Previous, Some(Action::Cut)),
             ("g g", Action::First, Some(Action::Cut)),
             ("Control+Home", Action::First, Some(Action::Cut)),
             ("G", Action::Last, Some(Action::Cut)),
             ("Control+End", Action::Last, Some(Action::Cut)),
         ]
     );
-    // A count in the middle changes nothing, and half a motion narrows it
+    // Count in the middle changes nothing, and half a motion narrows it
     assert_eq!(next("2 d 3"), after_d);
     assert_eq!(
         next("d g"),

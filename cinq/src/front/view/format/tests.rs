@@ -62,3 +62,20 @@ fn added_cues_are_told_by_the_number_of_the_one_or_else_by_how_many() {
     assert_eq!(told(1), "added cue 1");
     assert_eq!(told(3), "added 3 cues");
 }
+
+#[test]
+fn cut_cues_stay_cut_in_the_words_of_the_change_and_deleted_ones_stay_deleted() {
+    let memo = |id: u32| Cue::new(CueId(id), id.to_string(), Kind::Memo, "Note").build();
+    let shown = Workspace::new(vec![CueList::new("Main", vec![memo(1), memo(2), memo(3)])]);
+    let told = |command: fn(Vec<CueId>) -> Command, ids: &[u32]| {
+        let removed = shown
+            .clone()
+            .apply(command(ids.iter().map(|&id| CueId(id)).collect()));
+        let (_, latest) = removed.latest_change().expect("a removal is a change");
+        change(&removed, latest)
+    };
+    assert_eq!(told(Command::Cut, &[2]), "cut cue 2");
+    assert_eq!(told(Command::Cut, &[1, 2]), "cut 2 cues");
+    assert_eq!(told(Command::Delete, &[2]), "deleted cue 2");
+    assert_eq!(told(Command::Delete, &[1, 2]), "deleted 2 cues");
+}

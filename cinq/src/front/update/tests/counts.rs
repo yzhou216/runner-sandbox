@@ -100,6 +100,6 @@ fn tab_back_by_a_count_wraps_as_a_single_step_does() {
     assert_eq!(shown(None, Tab::Basics), Tab::Levels);
     assert_eq!(shown(Some(2), Tab::Levels), Tab::Basics);
     assert_eq!(shown(Some(4), Tab::Levels), Tab::Time);
-    // A count as large as a number can hold, which a sum would overflow
+    // Count as large as a number can hold, which a sum would overflow
     assert_eq!(shown(Some(usize::MAX), Tab::Time), Tab::Time.stepped(-1));
 }

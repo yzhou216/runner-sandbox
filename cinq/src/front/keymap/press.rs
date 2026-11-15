@@ -89,6 +89,12 @@ impl Press {
         })
     }
 
+    /// Returns whether Control or Alt is held, with which a character key
+    /// types nothing
+    pub(super) fn holds_control_or_alt(self) -> bool {
+        self.ctrl || self.alt
+    }
+
     /// Returns whether the key is pressed with no modifier held
     pub fn is_bare(self) -> bool {
         self == self.bare()

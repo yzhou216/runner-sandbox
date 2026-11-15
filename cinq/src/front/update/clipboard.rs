@@ -23,7 +23,9 @@ use crate::{
 /// more, which keeps a count typed by mistake from filling the memory
 pub(super) const PASTE_LIMIT: usize = 1000;
 
-const CUT: &str = "Cut";
+/// What the status bar tells when a paste finds nothing to paste, as Vim
+/// does with its E353
+const EMPTY: &str = "The clipboard is empty";
 
 /// What the latest copy or cut told, which the status bar shows until the
 /// operator does anything else
@@ -47,12 +49,13 @@ impl App {
     /// holds, in place of what the clipboard held.  Copying changes no show,
     /// so that show mode leaves it, as Vim yanks in a read-only buffer.
     pub(super) fn with_copied(self, count: usize) -> Self {
-        self.clipped(count, "Copied")
+        self.clipped(count, "Copied", false)
     }
 
     /// Fills the clipboard as [`App::with_copied`] does, and tells what went
-    /// there, by the `verb` that the status bar starts with
-    fn clipped(self, count: usize, verb: &str) -> Self {
+    /// there, by the `verb` that the status bar starts with, and whether a
+    /// `cut` takes the cues out of the show
+    fn clipped(self, count: usize, verb: &str, cut: bool) -> Self {
         let Some(first) = self.selected_row() else {
             return self;
         };
@@ -63,7 +66,7 @@ impl App {
             .collect();
         let clipped = Clipped {
             told: format::clipped(verb, &cues),
-            cut: verb == CUT,
+            cut,
         };
         Self {
             clipboard: Clipboard {
@@ -80,7 +83,8 @@ impl App {
     /// either.
     pub(super) fn cut(self, count: usize) -> Self {
         if self.editable() {
-            self.clipped(count, CUT).without_selected(count)
+            self.clipped(count, "Cut", true)
+                .taking_away(count, Command::Cut)
         } else {
             self
         }
@@ -89,7 +93,7 @@ impl App {
     /// Pastes the clipboard `count` times in a row next to the selection,
     /// on the side that `place` picks, or at the end of the list without a
     /// selection, and selects the first cue pasted, as far as
-    /// [`PASTE_LIMIT`] allows.  An empty clipboard pastes nothing.  Another
+    /// [`PASTE_LIMIT`] allows.  An empty clipboard pastes nothing and tells so.  Another
     /// show keeps no target of the cues but those that are copied with it,
     /// which the paste points at their new copies.
     pub(super) fn with_pasted(self, place: fn(CueId) -> Place, count: usize) -> Self {
@@ -107,7 +111,10 @@ impl App {
             })
             .collect();
         if cues.is_empty() {
-            return self;
+            return Self {
+                remark: Some(EMPTY),
+                ..self
+            };
         }
         let first = self.workspace.next_cue_id();
         let paste = Command::Paste {

@@ -73,6 +73,12 @@ impl App {
     }
 
     pub(super) fn without_selected(self, count: usize) -> Self {
+        self.taking_away(count, Command::Delete)
+    }
+
+    /// Removes the selected cue and the cues below it, as many as `count`
+    /// holds, with the command that `remove` makes of their identities
+    pub(super) fn taking_away(self, count: usize, remove: fn(Vec<CueId>) -> Command) -> Self {
         let Some(first) = self.selected_row() else {
             return self;
         };
@@ -81,7 +87,7 @@ impl App {
             .take(count)
             .map(|cue| cue.id)
             .collect();
-        self.send(Command::Delete(ids)).showing(None, Some(first))
+        self.send(remove(ids)).showing(None, Some(first))
     }
 
     /// Undoes up to `count` changes, and stops quietly at the oldest.  An

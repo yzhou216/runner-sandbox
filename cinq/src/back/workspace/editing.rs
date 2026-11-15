@@ -78,8 +78,8 @@ impl Workspace {
     }
 
     /// Deletes cues as one change, with the places they had and where
-    /// standby was before and after
-    pub(super) fn deleted(self, ids: &[CueId]) -> Self {
+    /// standby was before and after, and whether they were cut
+    pub(super) fn deleted(self, ids: &[CueId], cut: bool) -> Self {
         // Cues in the order of their places, which is the order undo puts
         // them back in
         let cues: Vec<Placed> = ids
@@ -107,7 +107,7 @@ impl Workspace {
                 after: workspace.lists[list].standby,
             })
             .collect();
-        workspace.recorded(Change::Deleted { cues, standby })
+        workspace.recorded(Change::Deleted { cues, standby, cut })
     }
 
     pub(super) fn moved(self, id: CueId, by: isize) -> Self {

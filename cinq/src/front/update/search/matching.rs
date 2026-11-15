@@ -24,6 +24,13 @@ pub(super) fn rows_after(
     })
 }
 
+/// Tells whether a step from row `from` to row `to` went past the end of the
+/// list, which a step to the same row does, as the only match is the one
+/// that it began on
+pub(super) fn wrapped(from: usize, to: usize, backward: bool) -> bool {
+    if backward { to >= from } else { to <= from }
+}
+
 /// Returns whether the name or the number of the cue holds `needle`, which
 /// is lowercase, in any case
 pub(super) fn matches(cue: &Cue, needle: &str) -> bool {

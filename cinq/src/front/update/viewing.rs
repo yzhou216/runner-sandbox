@@ -11,7 +11,7 @@
 
 use iced::Task;
 
-use super::paging::{Landing, measured, viewport::Shape};
+use super::paging::{Landing, viewport::Shape};
 use crate::front::{App, Message, message::Height};
 
 /// Slack for the rounding of a row height that is the quotient of a sum
@@ -24,11 +24,10 @@ impl App {
     pub(super) fn scrolled(self, rows: isize) -> (Self, Task<Message>) {
         let (cues, current) = (self.current().cues.len(), self.selected_row());
         let (list, from) = (self.list, self.selected);
-        let task = measured(
+        self.landing(
             move |row| Message::Landed { list, from, row },
             move |shape| scroll(rows, shape, cues, current),
-        );
-        (self, task)
+        )
     }
 }
 
@@ -80,11 +79,10 @@ impl App {
     pub(super) fn in_view(self, height: Height, count: Option<usize>) -> (Self, Task<Message>) {
         let cues = self.current().cues.len();
         let (list, from) = (self.list, self.selected);
-        let task = measured(
+        self.landing(
             move |row| Message::Reached { list, from, row },
             move |shape| in_view(height, count, shape, cues),
-        );
-        (self, task)
+        )
     }
 }
 
@@ -116,15 +114,19 @@ pub(super) fn in_view(
 impl App {
     /// Scrolls the cue list to put the selected row at `height` in view,
     /// as `z t`, `z z`, and `z b` do in Vim, and leaves the selection on its
-    /// cue.
-    pub(super) fn placed(self, height: Height) -> (Self, Task<Message>) {
-        let (cues, current) = (self.current().cues.len(), self.selected_row());
-        let (list, from) = (self.list, self.selected);
-        let task = measured(
+    /// cue.  A count names the row, counted from one, that they select first,
+    /// as `{count}zt` does, which is no jump.
+    pub(super) fn placed(self, height: Height, count: Option<usize>) -> (Self, Task<Message>) {
+        let app = match count {
+            Some(row) => self.at_row(row),
+            None => self,
+        };
+        let (cues, current) = (app.current().cues.len(), app.selected_row());
+        let (list, from) = (app.list, app.selected);
+        app.landing(
             move |row| Message::Landed { list, from, row },
             move |shape| place(height, shape, cues, current?),
-        );
-        (self, task)
+        )
     }
 }
 

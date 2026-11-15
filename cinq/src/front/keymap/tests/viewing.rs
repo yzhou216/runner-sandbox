@@ -26,7 +26,7 @@ fn a_key_after_z_that_puts_no_row_in_view_drops_the_z_and_itself() {
     assert_eq!(typed("z w"), dropped);
     assert_eq!(typed("z j"), dropped);
     assert_eq!(typed("3 z w"), dropped);
-    // The next key starts afresh
+    // Next key starts afresh
     assert_eq!(action("z w j"), Some((Action::Next, None)));
 }
 
@@ -35,4 +35,28 @@ fn h_m_and_l_select_the_rows_in_view_and_take_the_count_of_h_and_l() {
     assert_eq!(action("H"), Some((Action::TopRow, None)));
     assert_eq!(action("M"), Some((Action::MiddleRow, None)));
     assert_eq!(action("3 L"), Some((Action::BottomRow, Some(3))));
+}
+
+#[test]
+fn z_followed_by_enter_dot_or_minus_places_the_row_as_z_t_z_z_and_z_b_do() {
+    assert_eq!(action("z Enter"), Some((Action::RowToTop, None)));
+    assert_eq!(action("z ."), Some((Action::RowToMiddle, None)));
+    assert_eq!(action("z -"), Some((Action::RowToBottom, None)));
+    // Count goes with them, and Enter alone stays the key of standby
+    assert_eq!(action("5 z ."), Some((Action::RowToMiddle, Some(5))));
+    assert_eq!(action("Enter"), Some((Action::Standby, None)));
+    assert_eq!(Keymap::default().conflicts(), Vec::<String>::new());
+}
+
+#[test]
+fn plus_and_minus_move_to_the_next_and_previous_cue_as_in_vim() {
+    assert_eq!(action("+"), Some((Action::Next, None)));
+    assert_eq!(action("3 -"), Some((Action::Previous, Some(3))));
+    // And they are motions after an operator, as the other keys of the moves
+    assert_eq!(
+        typed("d +").across(),
+        Some((Action::Cut, Action::Next, None))
+    );
+    let cua = Keymap::from(Preset::Cua);
+    assert_eq!(cua.parse(&[], one("+").expect("a key")).action, None);
 }

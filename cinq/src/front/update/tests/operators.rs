@@ -50,7 +50,7 @@ pub(super) fn typing(app: App, keys: &[&str]) -> App {
 fn cutting_down_takes_the_rows_in_one_change_and_fills_the_clipboard_in_order() {
     let app = across(show(Some(CueId(4))), Cut, Next, Some(2));
     assert_eq!(rows(&app), [1, 2, 3, 7, 8, 9, 10, 11, 12]);
-    // The cue that took the place of the first row cut
+    // Cue that took the place of the first row cut
     assert_eq!(app.selected, Some(CueId(7)));
     assert_eq!(pasted(app), ["4", "5", "6"]);
 }

@@ -175,7 +175,7 @@ fn keys_that_move_by_a_page_are_those_of_vim_and_act_in_no_field() {
         );
         assert!(!keymap.acts_in_fields(one(keys).unwrap()), "{keys}");
     });
-    // The keys of the prefixes g and d stay theirs, apart from Control+d
+    // Keys of the prefixes g and d stay theirs, apart from Control+d
     assert_eq!(action("g g"), Some((Action::First, None)));
     assert_eq!(action("d d"), Some((Action::Cut, None)));
     assert_eq!(typed("d").pending.len(), 1);

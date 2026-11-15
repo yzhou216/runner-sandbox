@@ -6,11 +6,13 @@
 //!
 //! The update cannot tell how many rows the cue list shows, which depends
 //! on the window and on how far the long names wrap, so a widget operation
-//! measures the list as it is laid out.  The list then scrolls by the rows
-//! that the selection moves, as Vim scrolls the window with its cursor, so
-//! that the selection keeps its place on the screen.  The help page
-//! scrolls by the same measure, in lines.
+//! measures the list as it is laid out, and the app keeps the measure for
+//! the keys that follow at once.  The list then scrolls by the rows that the
+//! selection moves, as Vim scrolls the window with its cursor, so that the
+//! selection keeps its place on the screen.  The help page scrolls by the
+//! same measure, in lines.
 
+pub(super) mod kept;
 pub(super) mod viewport;
 
 use iced::{
@@ -20,7 +22,7 @@ use iced::{
 };
 
 use crate::front::{
-    App, Message,
+    App, MAIN_SIZE, Message,
     message::Page,
     step,
     view::{self, line_height},
@@ -40,55 +42,60 @@ impl App {
         let scroll = self.scrolling(page, count);
         let (cues, current) = (self.current().cues.len(), self.selected_row());
         let (list, from) = (self.list, self.selected);
-        let task = measured(
+        Self { scroll, ..self }.landing(
             move |row| Message::Landed { list, from, row },
-            move |shape| {
-                sandbox!(
-                    "page {page:?} count={count:?} view={} content={} cues={cues} fit={} moves={}",
-                    shape.view,
-                    shape.content,
-                    rows_fitting(shape.view, shape.content, cues),
-                    rows(
-                        page,
-                        count,
-                        scroll,
-                        rows_fitting(shape.view, shape.content, cues)
-                    )
-                );
-                landing(page, count, scroll, shape, cues, current)
-            },
-        );
-        (Self { scroll, ..self }, task)
+            move |shape| landing(page, count, scroll, shape, cues, current),
+        )
     }
 
     /// Scrolls the help page by a page of the window it is open in.  The
     /// count of a half page sets its lines, shared with the cue list, and
-    /// the count of a whole page is its pages.
+    /// the count of a whole page is its pages.  The page is as tall as the
+    /// main window while it is laid out too late to be measured, as it is
+    /// when it has just opened.
     pub(super) fn help_paged(self, page: Page, count: Option<usize>) -> (Self, Task<Message>) {
         let scroll = self.scrolling(page, count);
-        let task = operate(Viewport::of(view::HELP)).then(move |shape| {
-            let lines = |lines: usize| lines as f32 * line_height();
-            let distance = match (page.is_half(), scroll) {
-                (true, Some(scroll)) => lines(scroll),
-                (true, None) => shape.view / 2.0,
-                (false, _) => {
-                    let page = (shape.view - lines(OVERLAP)).max(line_height());
-                    page * count.unwrap_or(1) as f32
-                }
-            };
-            let offset = AbsoluteOffset {
-                x: 0.0,
-                y: page.sign() as f32 * distance,
-            };
-            operation::scroll_by(view::HELP, offset)
-        });
-        (Self { scroll, ..self }, task)
+        let by = move |view: f32| {
+            operation::scroll_by(view::HELP, help_offset(page, count, scroll, view))
+        };
+        let (shown, window) = self.help_heights();
+        let task = match shown {
+            Some(view) => by(view),
+            None => {
+                let window = window.unwrap_or(MAIN_SIZE.height);
+                operate(Viewport::of(view::HELP))
+                    .collect()
+                    .then(move |shapes| by(shapes.first().map_or(window, |shape| shape.view)))
+            }
+        };
+        (Self { scroll, ..self }, task.chain(kept::measure_help()))
     }
 
     /// Returns the rows of a half page once `count` is typed before the keys
     /// of `page`, the count of a whole page being no such setting
     fn scrolling(&self, page: Page, count: Option<usize>) -> Option<usize> {
         count.filter(|_| page.is_half()).or(self.scroll)
+    }
+}
+
+/// Returns how far a move by `page` scrolls the help page, `view` being the
+/// height in view, `count` the count typed before the keys, and `scroll`
+/// the lines of a half page that a count set
+pub(super) fn help_offset(
+    page: Page,
+    count: Option<usize>,
+    scroll: Option<usize>,
+    view: f32,
+) -> AbsoluteOffset {
+    let lines = |lines: usize| lines as f32 * line_height();
+    let distance = match (page.is_half(), scroll) {
+        (true, Some(scroll)) => lines(scroll),
+        (true, None) => view / 2.0,
+        (false, _) => (view - lines(OVERLAP)).max(line_height()) * count.unwrap_or(1) as f32,
+    };
+    AbsoluteOffset {
+        x: 0.0,
+        y: page.sign() as f32 * distance,
     }
 }
 
@@ -174,19 +181,7 @@ pub(super) fn measured(
 ) -> Task<Message> {
     operate(Viewport::of(view::CUES)).then(move |shape| {
         land(shape).map_or_else(Task::none, |landing| {
-            sandbox!(
-                "measured view={} content={} scrolled={} -> offset={} row={}",
-                shape.view,
-                shape.content,
-                shape.scrolled,
-                landing.offset,
-                landing.row + 1
-            );
-            let offset = AbsoluteOffset {
-                x: None,
-                y: Some(landing.offset),
-            };
-            operation::scroll_to(view::CUES, offset).chain(Task::done(arrive(landing.row)))
+            kept::scroll(landing.offset).chain(Task::done(arrive(landing.row)))
         })
     })
 }

@@ -30,11 +30,11 @@ fn the_keys_of_one_action_share_a_line_after_an_operator() {
     };
     assert_eq!(
         line("Cut the selected cue and the next"),
-        Some("j, g j, ArrowDown, Control+n")
+        Some("j, g j, ArrowDown, Control+n, +")
     );
     assert_eq!(
         line("Cut the selected cue and the previous"),
-        Some("k, g k, ArrowUp, Control+p")
+        Some("k, g k, ArrowUp, Control+p, -")
     );
     assert_eq!(line("Cut the selected cue to the clipboard"), Some("d"));
 }

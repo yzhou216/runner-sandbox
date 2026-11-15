@@ -21,6 +21,7 @@ impl Action {
             Action::Go => Message::Go,
             Action::Panic => Message::Panic,
             Action::Standby => Message::StandbySelected,
+            Action::Cancel => Message::Cancel,
             Action::Next => Message::Step(step),
             Action::Previous => Message::Step(-step),
             Action::First => Message::Row(times),
@@ -34,9 +35,9 @@ impl Action {
             Action::TopRow => Message::InView(Height::Top, count),
             Action::MiddleRow => Message::InView(Height::Middle, count),
             Action::BottomRow => Message::InView(Height::Bottom, count),
-            Action::RowToMiddle => Message::Place(Height::Middle),
-            Action::RowToTop => Message::Place(Height::Top),
-            Action::RowToBottom => Message::Place(Height::Bottom),
+            Action::RowToMiddle => Message::Place(Height::Middle, count),
+            Action::RowToTop => Message::Place(Height::Top, count),
+            Action::RowToBottom => Message::Place(Height::Bottom, count),
             Action::NextList => Message::StepList(step),
             Action::PreviousList => Message::StepList(-step),
             Action::NextTab => count.map_or(Message::StepTab(1), Message::ShowTab),
@@ -71,5 +72,26 @@ impl Action {
             Action::Help => Message::ToggleHelp,
             Action::CloseHelp => Message::CloseHelp,
         }
+    }
+
+    /// Returns whether the action edits the show or fills the clipboard,
+    /// which the stage window leaves to the main window: the operator cannot
+    /// see the cue list from there, so a key held down by mistake would change
+    /// cues out of sight
+    pub fn edits_the_show(self) -> bool {
+        matches!(
+            self,
+            Action::AddBelow
+                | Action::AddAbove
+                | Action::Cut
+                | Action::Copy
+                | Action::PasteBelow
+                | Action::PasteAbove
+                | Action::Delete
+                | Action::MoveDown
+                | Action::MoveUp
+                | Action::Undo
+                | Action::Redo
+        )
     }
 }

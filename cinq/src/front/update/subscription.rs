@@ -13,7 +13,7 @@ mod tests;
 
 use std::time::Duration;
 
-use iced::{Event, Size, Subscription, event, keyboard, mouse, time, window};
+use iced::{Event, Size, Subscription, Task, event, keyboard, mouse, time, window};
 use itertools::chain;
 
 use super::keys;
@@ -50,6 +50,7 @@ impl App {
             .as_ref()
             .is_some_and(|search| search.warned)
             .then(|| time::every(NO_MATCH).map(|_| Message::SearchSettled));
+        let drawing = self.unmeasured().then(|| event::listen_with(drawn));
         let always = [
             keyboard::listen().filter_map(keys::key_press),
             event::listen_with(clicked),
@@ -64,7 +65,14 @@ impl App {
             })
             .map(Message::Reconfigured)
         });
-        Subscription::batch(chain!(always, ticks, rechecks, settling, reconfigured))
+        Subscription::batch(chain!(
+            always,
+            drawing,
+            ticks,
+            rechecks,
+            settling,
+            reconfigured
+        ))
     }
 
     /// Returns the windows whose drawing the ticks of the clock wait for:
@@ -90,13 +98,20 @@ impl App {
     /// Returns the state once `window` has changed to `size`, which counts
     /// it as minimized while it has no size, as minimized windows have on
     /// Windows
-    pub(super) fn resized(self, window: window::Id, size: Size) -> Self {
+    pub(super) fn resized(self, window: window::Id, size: Size) -> (Self, Task<Message>) {
         let app = self.with_minimized(window, size.width == 0.0 || size.height == 0.0);
-        // Rows of a half page that a count set, which Vim resets as the window changes size
+        if app.main != Some(window) {
+            return (app, Task::none());
+        }
+        // Rows of a half page that a count set, which Vim resets as the window
+        // changes size, and the measures with them, which the task measures
+        // anew so that the first page key finds one kept
         Self {
-            scroll: app.scroll.filter(|_| app.main != Some(window)),
+            scroll: None,
             ..app
         }
+        .with_window_height(size.height)
+        .revealed()
     }
 
     pub(super) fn with_minimized(self, window: window::Id, minimized: bool) -> Self {
@@ -111,12 +126,21 @@ impl App {
 }
 
 /// Reports a press of any mouse button, captured by a widget or not, so
-/// that a click drops a command typed halfway
+/// that a click drops a command typed halfway, and the end of a press or a
+/// turn of the wheel, after which the cue list may have scrolled
 fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<Message> {
-    if let Event::Mouse(mouse::Event::ButtonPressed(button)) = &event {
-        sandbox!("mouse button pressed {button:?}");
+    match event {
+        Event::Mouse(mouse::Event::ButtonPressed(_)) => Some(Message::Clicked),
+        Event::Mouse(mouse::Event::ButtonReleased(_) | mouse::Event::WheelScrolled { .. }) => {
+            Some(Message::Remeasure)
+        }
+        _ => None,
     }
-    matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_))).then_some(Message::Clicked)
+}
+
+fn drawn(event: Event, _status: event::Status, window: window::Id) -> Option<Message> {
+    matches!(event, Event::Window(window::Event::RedrawRequested(_)))
+        .then_some(Message::Drawn(window))
 }
 
 fn focused(event: Event, _status: event::Status, id: window::Id) -> Option<Message> {

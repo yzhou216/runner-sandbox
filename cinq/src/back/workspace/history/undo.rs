@@ -76,7 +76,7 @@ impl Workspace {
             Change::Added { cues, standby, .. } | Change::Pasted { cues, standby, .. } => self
                 .with_standby_moved(standby.reversed())
                 .removed(cues.iter().map(|placed| placed.cue.id)),
-            Change::Deleted { cues, standby } => {
+            Change::Deleted { cues, standby, .. } => {
                 let restored = cues.into_iter().fold(self, Self::with_placed);
                 standby
                     .into_iter()

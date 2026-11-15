@@ -13,6 +13,7 @@ mod button;
 mod dropdown;
 mod hide;
 mod keep_keys;
+mod line_keys;
 mod marked_row;
 mod pictures;
 mod wrap;
@@ -24,6 +25,7 @@ pub use button::button;
 pub use dropdown::dropdown;
 pub use hide::hide;
 pub use keep_keys::keep_keys;
+pub use line_keys::line_keys;
 pub use marked_row::marked_row;
 pub use pictures::{Layer, pictures};
 

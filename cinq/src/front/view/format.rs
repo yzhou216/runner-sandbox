@@ -144,10 +144,13 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
             [placed] => format!("pasted cue {}", number(&placed.cue)),
             cues => format!("pasted {} cues", cues.len()),
         },
-        Change::Deleted { cues, .. } => match cues.as_slice() {
-            [placed] => format!("deleted cue {}", number(&placed.cue)),
-            cues => format!("deleted {} cues", cues.len()),
-        },
+        Change::Deleted { cues, cut, .. } => {
+            let verb = if *cut { "cut" } else { "deleted" };
+            match cues.as_slice() {
+                [placed] => format!("{verb} cue {}", number(&placed.cue)),
+                cues => format!("{verb} {} cues", cues.len()),
+            }
+        }
         Change::Moved { cue, .. } => format!("moved cue {}", named(*cue)),
         Change::Edited { cue, redo, .. } => {
             let cue = named(*cue);

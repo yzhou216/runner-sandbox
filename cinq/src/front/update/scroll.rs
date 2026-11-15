@@ -30,12 +30,15 @@ impl App {
     /// The first cue snaps the list back to its start, as the window opened
     /// it, since the row itself begins a separator below the start.
     pub(super) fn revealed(self) -> (Self, Task<Message>) {
-        let task = match self.selected_row() {
+        // Scrolling moves the list away from the shape kept
+        let app = self.remeasured();
+        let task = match app.selected_row() {
             Some(0) => operation::snap_to(view::CUES, RelativeOffset::START),
             Some(_) => operate(Measure::default()).discard(),
             None => Task::none(),
         };
-        (self, task)
+        let measure = app.measure_cues();
+        (app, task.chain(measure))
     }
 }
 
@@ -76,9 +79,12 @@ impl Operation for Measure {
             return Outcome::None;
         };
         let margin = (MARGIN_ROWS * row.height).min(((height - row.height) / 2.0).max(0.0));
-        let top = row.y - origin - margin;
-        let bottom = row.y + row.height - origin + margin;
-        let Some(offset) = reveal(top, bottom, scrolled, height) else {
+        let span = Span {
+            top: row.y - origin,
+            height: row.height,
+            margin,
+        };
+        let Some(offset) = scrolling_to(span, scrolled, height) else {
             return Outcome::None;
         };
         let offset = AbsoluteOffset {
@@ -86,5 +92,39 @@ impl Operation for Measure {
             y: Some(offset.max(0.0)),
         };
         Outcome::Chain(Box::new(scrollable::scroll_to(Id::new(view::CUES), offset)))
+    }
+}
+
+/// The selected row, and the margin that the list keeps above and below it
+#[derive(Clone, Copy)]
+pub(super) struct Span {
+    pub(super) top: f32,
+    pub(super) height: f32,
+    pub(super) margin: f32,
+}
+
+/// Returns where the cue list scrolls to in order to show the row of `span`
+/// and its margin: as little as it can, but to the middle of the view when
+/// the row lies far outside it, and `None` when it is in view.  The rule is
+/// the one of Vim's `update_topline` and `scroll_cursor_bot` (src/move.c,
+/// `:help scroll-cursor`), read in rows of the view with the margin as
+/// `scrolloff`.  Above the view, a row centers once its top, less the margin,
+/// lies half the view less one row above the top of the view, and at least
+/// two rows.  Below it, the row centers once its bottom lies more than half
+/// the view plus a row past the bottom of the view, whatever the margin.
+pub(super) fn scrolling_to(span: Span, scrolled: f32, height: f32) -> Option<f32> {
+    let Span {
+        top,
+        height: row,
+        margin,
+    } = span;
+    let (top, bottom) = (top - margin, top + row + margin);
+    let half = ((height / row / 2.0).floor() - 1.0).max(2.0) * row;
+    let far_above = scrolled - top >= half;
+    let far_below = bottom - margin - (scrolled + height) > height / 2.0 + row;
+    if far_above || far_below {
+        Some((top + bottom - height) / 2.0)
+    } else {
+        reveal(top, bottom, scrolled, height)
     }
 }

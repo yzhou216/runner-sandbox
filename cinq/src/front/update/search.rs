@@ -19,7 +19,9 @@
 //! made while typing and a cancel are no jumps.  Every move that a search
 //! makes goes through [`App::searched_to`].
 
+pub(super) mod line;
 mod matching;
+mod stepping;
 
 use iced::{
     Task,
@@ -32,7 +34,18 @@ use crate::{
     back::CueId,
     front::{App, Message, view},
 };
-use matching::{found, matching, within_a_lap};
+use line::Recall;
+use matching::{found, wrapped};
+
+/// What the status bar tells when a search goes past the end of the list and
+/// goes on from the other end, as Vim tells when the search hits the bottom
+fn continued(backward: bool) -> &'static str {
+    if backward {
+        "Search continued at the bottom"
+    } else {
+        "Search continued at the top"
+    }
+}
 
 /// Search line while it is open
 pub(in crate::front) struct Search {
@@ -46,14 +59,20 @@ pub(in crate::front) struct Search {
     missed: bool,
     /// Whether the line tells so, which it does for a while
     pub warned: bool,
+    /// Searches that the keys of recall went through, while the text is one of
+    /// them
+    recall: Option<Recall>,
 }
 
 /// Search accepted last, which the keys of the next and previous match
 /// repeat
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(in crate::front) struct Searched {
     pub text: String,
     pub backward: bool,
+    /// Searches accepted before, oldest first, which the keys of recall go
+    /// through.  Nothing clears them.
+    pub history: Vec<String>,
 }
 
 impl Search {
@@ -64,6 +83,7 @@ impl Search {
             began,
             missed: false,
             warned: false,
+            recall: None,
         }
     }
 }
@@ -112,6 +132,9 @@ impl App {
         let cue = found(&self.current().cues, &text, row, backward)
             .map(|row| self.current().cues[row].id);
         let missed = !text.is_empty() && cue.is_none();
+        let went_round = row
+            .zip(cue.and_then(|cue| self.current().position(cue)))
+            .is_some_and(|(from, to)| wrapped(from, to, backward));
         let app = Self {
             search: Some(Search {
                 text,
@@ -119,7 +142,9 @@ impl App {
                 missed,
                 warned: missed,
                 began,
+                recall: None,
             }),
+            remark: went_round.then(|| continued(backward)),
             ..self
         };
         app.searched_to(cue.or(began.cue())).revealed()
@@ -137,6 +162,7 @@ impl App {
             let searched = Searched {
                 text: self.searched.text.clone(),
                 backward: search.backward,
+                ..self.searched.clone()
             };
             let (app, task) = Self { searched, ..self }
                 .search_cancelled()
@@ -148,16 +174,22 @@ impl App {
         }
         let (began, searched) = (
             search.began,
-            Searched {
-                text: search.text.clone(),
-                backward: search.backward,
-            },
+            self.searched
+                .clone()
+                .accepting(search.text.clone(), search.backward),
         );
+        let went_round = began
+            .cue()
+            .and_then(|began| self.current().position(began))
+            .zip(self.selected_row())
+            .is_some_and(|(from, to)| wrapped(from, to, searched.backward));
+        let remark = went_round.then(|| continued(searched.backward));
         // The moves of the preview were no jumps, so the jump is the one from
         // where the search began to the match
         Self {
             search: None,
             searched,
+            remark,
             ..self
         }
         .jumped_from(began)
@@ -202,23 +234,6 @@ impl App {
             }),
             ..self
         }
-    }
-
-    /// Selects the cue `offset` matches of the last search further on in the
-    /// direction that it went, or the other way when negative, wrapping
-    /// around.  It does nothing before a search, or when no cue matches.  Vim
-    /// counts the keys of the next and previous match among its jumps, so
-    /// this one is a jump.
-    pub(super) fn search_stepped(self, offset: isize) -> (Self, Task<Message>) {
-        let Searched { text, backward } = &self.searched;
-        let backward = *backward != (offset < 0);
-        let cues = &self.current().cues;
-        let steps = within_a_lap(offset.unsigned_abs(), matching(cues, text));
-        let row = (0..steps).fold(self.selected_row(), |row, _| {
-            found(cues, text, row, backward).or(row)
-        });
-        let cue = row.map(|row| cues[row].id).or(self.selected);
-        self.jumping(|app| app.searched_to(cue)).revealed()
     }
 
     fn revealed_unfocused(self) -> (Self, Task<Message>) {

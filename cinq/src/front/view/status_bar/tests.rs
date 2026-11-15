@@ -5,7 +5,11 @@
 //! Tests of the hints that fit in the status bar, and of the room that the
 //! search line keeps from them
 
-use super::{NO_MATCH, SEARCH_ROOM, clipped, fitted, hints as hinted, mark, search_columns};
+mod cancel;
+
+use super::{
+    NO_MATCH, SEARCH_ROOM, clipped, columns, fitted, hints as hinted, mark, search_columns,
+};
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Workspace},
     front::{
@@ -95,6 +99,24 @@ fn a_cut_names_the_keys_that_paste_and_undo_while_a_copy_names_only_the_paste_ke
         clipped(&shown("Copied 3 cues", false)).as_deref(),
         Some("Copied 3 cues | p: paste")
     );
+    // Show mode locks pasting, so no key is offered
+    let locked = App {
+        workspace: Workspace::default().apply(Command::ShowMode(true)),
+        ..shown("Copied 3 cues", false)
+    };
+    assert_eq!(clipped(&locked).as_deref(), Some("Copied 3 cues"));
+}
+
+#[test]
+fn what_a_key_remarked_shows_in_the_bar_before_anything_else() {
+    let app = App {
+        remark: Some("The clipboard is empty"),
+        ..App::default()
+    };
+    let told = hinted(&app)
+        .into_iter()
+        .find_map(|(action, hint)| action.is_none().then_some(hint));
+    assert_eq!(told.as_deref(), Some("The clipboard is empty"));
 }
 
 #[test]

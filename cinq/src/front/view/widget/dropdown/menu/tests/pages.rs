@@ -52,3 +52,47 @@ fn home_and_end_move_the_highlight_to_the_first_and_last_option() {
     assert_eq!(picked_after(4, std::slice::from_ref(&end)), Some(29));
     assert_eq!(picked_after(4, &[end, home]), Some(0));
 }
+
+#[test]
+fn g_g_moves_the_highlight_to_the_first_option_as_capital_g_does_to_the_last() {
+    let letter = |text: &str| Key::Character(text.into());
+    let (g, capital) = (letter("g"), letter("G"));
+    assert_eq!(
+        picked_after(4, &[capital.clone(), g.clone(), g.clone()]),
+        Some(0)
+    );
+    assert_eq!(picked_after(4, std::slice::from_ref(&capital)), Some(29));
+    // g j and g k move as j and k do
+    assert_eq!(picked_after(4, &[g.clone(), letter("j")]), Some(1));
+    assert_eq!(
+        picked_after(4, &[capital, g.clone(), letter("k")]),
+        Some(28)
+    );
+    // Key that completes no motion drops the g, which then waits afresh
+    assert_eq!(
+        picked_after(4, &[letter("G"), g.clone(), letter("x"), g.clone()]),
+        Some(29)
+    );
+    assert_eq!(
+        picked_after(4, &[letter("G"), g.clone(), letter("x"), g.clone(), g]),
+        Some(0)
+    );
+}
+
+#[test]
+fn closing_the_menu_drops_a_g_that_waits() {
+    let g = Key::Character("g".into());
+    let keymap = Keymap::default();
+    let shared = Shared::default();
+    let list = dropdown(OPTIONS, Some(OPTIONS[0]), Message::Step, &keymap);
+    let choice = Choice::new(&list, &shared);
+    let mut messages = Vec::new();
+    let mut shell = Shell::new(&mut messages);
+    choice.open(&mut shell);
+    choice.press(&g, Press::from_key(&g, Modifiers::empty()), &mut shell);
+    choice.close(&mut shell);
+    choice.open(&mut shell);
+    choice.press(&g, Press::from_key(&g, Modifiers::empty()), &mut shell);
+    assert!(shared.is_open());
+    assert_eq!(shared.highlight.take(), None);
+}

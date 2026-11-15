@@ -55,6 +55,8 @@ pub(super) struct Shared {
     /// Options that the open menu shows at once, or none before it is laid
     /// out, which the keys of a page move the highlight by
     fit: Cell<usize>,
+    /// Keys of a motion typed halfway, such as the first `g` of `g g`
+    waiting: Cell<Vec<Press>>,
 }
 
 impl Shared {
@@ -87,6 +89,7 @@ impl<'b> Choice<'b> {
             self.shared.open.set(true);
             self.shared.highlight.set(None);
             self.shared.reveal.set(true);
+            self.shared.waiting.take();
             shell.publish(Message::MenuOpen(true));
         }
         if let Some(message) = &self.dropdown.on_open {
@@ -97,14 +100,16 @@ impl<'b> Choice<'b> {
     }
 
     pub(super) fn press(&self, key: &Key, press: Option<Press>, shell: &mut Shell<'_, Message>) {
-        let answer = reply(self.dropdown.keymap, key, press);
-        eprintln!(
-            "SANDBOX {:.3} menu key={key:?} press={press:?} reply={answer:?}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0.0, |time| time.as_secs_f64())
-        );
-        match answer {
+        let keymap = self.dropdown.keymap;
+        let (motion, waiting) = press.map_or_else(Default::default, |press| {
+            keymap.menu_motion(&self.shared.waiting.take(), press)
+        });
+        self.shared.waiting.set(waiting);
+        let reply = match (reply(keymap, key, press), motion.and_then(Reply::moving)) {
+            (Reply::Keep, Some(moved)) => moved,
+            (reply, _) => reply,
+        };
+        match reply {
             Reply::Step(offset) => self.highlight(self.stepped(offset), shell),
             Reply::Page(sign) => self.highlight(self.stepped(sign * self.page()), shell),
             Reply::First => self.highlight((!self.dropdown.names.is_empty()).then_some(0), shell),
@@ -161,6 +166,7 @@ impl<'b> Choice<'b> {
     /// open menu while one is open
     pub(super) fn close(&self, shell: &mut Shell<'_, Message>) {
         self.shared.open.set(false);
+        self.shared.waiting.take();
         shell.publish(Message::MenuOpen(false));
     }
 }
@@ -188,6 +194,19 @@ enum Reply {
     Keep,
 }
 
+impl Reply {
+    /// Returns what a motion does
+    fn moving(action: Action) -> Option<Self> {
+        match action {
+            Action::Next => Some(Self::Step(1)),
+            Action::Previous => Some(Self::Step(-1)),
+            Action::First => Some(Self::First),
+            Action::Last => Some(Self::Last),
+            _ => None,
+        }
+    }
+}
+
 /// Decides what a key does, given the press it makes when the key bindings
 /// can name it
 fn reply(keymap: &Keymap, key: &Key, press: Option<Press>) -> Reply {
@@ -201,7 +220,7 @@ fn reply(keymap: &Keymap, key: &Key, press: Option<Press>) -> Reply {
         (Some(action), _) if action.acts_at_once() => Reply::Close,
         (Some(Action::Help), _) => Reply::Pass,
         (Some(Action::Pick), _) => Reply::Pick,
-        (Some(Action::CloseMenu), _) => Reply::Dismiss,
+        (Some(Action::CloseMenu | Action::Cancel), _) => Reply::Dismiss,
         (_, Key::Named(Named::Enter)) => Reply::Pick,
         // The keys of a page, as Vim's popup menu has them, whichever keys
         // the keymap binds, unless held with a modifier

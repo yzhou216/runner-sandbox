@@ -4,6 +4,10 @@
 
 //! Tests of copying, cutting, and pasting cues
 
+mod targets;
+
+pub(in crate::front::update::tests) use targets::{fading, targets};
+
 use super::*;
 use crate::back::{Cue, Kind};
 
@@ -94,12 +98,22 @@ fn delete_leaves_the_clipboard_alone_and_undo_does_not_touch_it() {
 }
 
 #[test]
-fn pasting_with_an_empty_clipboard_does_nothing_and_tells_nothing() {
+fn pasting_with_an_empty_clipboard_changes_nothing_and_says_that_it_is_empty() {
     let app = after(show(Some(CueId(4))), [Message::Paste(Place::After, 1)]);
     assert_eq!(rows(&app).len(), 12);
     assert_eq!(app.selected, Some(CueId(4)));
     assert!(app.workspace.latest_change().is_none());
     assert_eq!(app.told, None);
+    assert_eq!(app.remark, Some("The clipboard is empty"));
+    // Next key of any action takes the remark away
+    let (moved, _) = app.next(Message::Step(1));
+    assert_eq!(moved.remark, None);
+    // Paste that finds cues says nothing
+    let pasted = after(
+        show(Some(CueId(4))),
+        [Message::Copy(1), Message::Paste(Place::After, 1)],
+    );
+    assert_eq!(pasted.remark, None);
 }
 
 #[test]
@@ -167,82 +181,4 @@ fn a_clipboard_of_more_than_a_thousand_cues_pastes_a_thousand() {
     assert_eq!(rows(&app).len(), 1500 + 1000);
     let app = after(app, [Message::Paste(Place::After, 2)]);
     assert_eq!(rows(&app).len(), 1500 + 2000);
-}
-
-/// Returns the state of a show of audio cue 1, fade cue 2 that targets it,
-/// and audio cue 3, with cue 1 selected
-pub(super) fn fading() -> App {
-    let fade = Cue::new(CueId(2), "2", Kind::Fade, "Fade")
-        .target(CueId(1))
-        .build();
-    App {
-        workspace: Workspace::new(vec![CueList::new("Main", vec![audio(1), fade, audio(3)])]),
-        selected: Some(CueId(1)),
-        ..App::default()
-    }
-}
-
-/// Returns the identity and target of each cue of the first list
-pub(super) fn targets(app: &App) -> Vec<(u32, Option<u32>)> {
-    app.workspace.lists()[0]
-        .cues
-        .iter()
-        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
-        .collect()
-}
-
-#[test]
-fn a_fade_cut_with_its_target_targets_the_new_copy_where_it_is_pasted() {
-    let app = after(
-        fading(),
-        [
-            Message::Cut(2),
-            Message::Select(CueId(3)),
-            Message::Paste(Place::After, 1),
-        ],
-    );
-    assert_eq!(targets(&app), [(3, None), (4, None), (5, Some(4))]);
-}
-
-#[test]
-fn a_fade_copied_with_its_target_targets_the_new_copy_and_the_old_one_stays() {
-    let app = after(
-        fading(),
-        [
-            Message::Copy(2),
-            Message::Select(CueId(3)),
-            Message::Paste(Place::After, 1),
-        ],
-    );
-    let expected = [(1, None), (2, Some(1)), (3, None), (4, None), (5, Some(4))];
-    assert_eq!(targets(&app), expected);
-}
-
-#[test]
-fn each_paste_of_a_count_targets_the_copy_of_its_own_round() {
-    let app = after(
-        fading(),
-        [
-            Message::Copy(2),
-            Message::Select(CueId(3)),
-            Message::Paste(Place::After, 2),
-        ],
-    );
-    assert_eq!(
-        targets(&app)[3..],
-        [(4, None), (5, Some(4)), (6, None), (7, Some(6))]
-    );
-}
-
-#[test]
-fn a_fade_copied_without_its_target_keeps_it_while_it_is_there() {
-    let app = after(
-        fading(),
-        [
-            Message::Select(CueId(2)),
-            Message::Copy(1),
-            Message::Paste(Place::After, 1),
-        ],
-    );
-    assert_eq!(targets(&app)[2], (4, Some(1)));
 }

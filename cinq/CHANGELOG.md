@@ -10,6 +10,34 @@ Major changes and improvements in each release of cinq, newest first.
 
 ## Unreleased
 
+- A move or jump that leaves the selected cue far outside the cue list, such
+  as `G`, `n`, or going back, scrolls the list to put it in the middle, much
+  as Vim does, with its thresholds: seven rows above the view and 13 rows
+  below it in a view of 23 rows.  A move to a row near the view still scrolls
+  by the least, as does `GO` moving the standby a row.
+- A count before `z t`, `z z`, or `z b` selects that row first and then puts
+  it in place, as `{count}zt` does in Vim, and `z Enter`, `z .`, and `z -`
+  do what `z t`, `z z`, and `z b` do.  `+` and `-` select the next and the
+  previous cue in the vi keymap, as in Vim.
+- The search line takes the keys of Vim's command line: `Control+w` deletes
+  the word before the cursor, `Control+u` everything before it, and
+  `ArrowUp` and `ArrowDown` recall the older and newer of the last fifty
+  searches accepted that start with the text typed.  The keys act on the
+  end of the text, as the text field does not tell where its cursor is, and
+  leave the cursor there.
+- `Control+c` cancels in the vi keymap, as in Vim, through the new `cancel`
+  action, which has no key in the cua keymap, where `Control+c` copies.  It
+  drops the keys typed so far, closes the search line with the selection
+  going back to where the search began, takes the keyboard out of a text
+  field, and closes an open drop-down list without picking, and never
+  stops playback, so that no one reaches for `Escape`, which is Panic.  The
+  status bar hints the key while keys wait or the search line is open.  A
+  text field with a selection still copies it first.
+- While the stage window has the keyboard, the keys that change the show or
+  fill the clipboard, such as `x`, `Delete`, `o`, `u`, `p`, and the
+  operators, do nothing, as the keys of editing a name, of searching, and
+  of the help page already did, so that a key held down there cannot change
+  cues out of sight.  `GO`, `Panic`, `standby`, and the moves still act.
 - While a drop-down list is open, the status bar hints the keys that pick and
   close it, such as `Control+y: pick | Control+e: close` in the vi keymap and
   `Enter: pick | F4: close` in the cua keymap, and gives way when the bar is
@@ -53,7 +81,8 @@ Major changes and improvements in each release of cinq, newest first.
   `Control+e` closes the list without picking one in the vi keymap, as in
   Vim's popup menu, and `F4` closes it in the cua keymap.  Closing it
   with these keys, unlike with Escape, does not also panic, through the new
-  `pick` and `close_menu` actions.
+  `pick` and `close_menu` actions.  `g g` goes to the first option, as `G`
+  goes to the last.
 - A count before the keys of `add_below` and `add_above`, such as `3 o`,
   adds that many cues in a row, at most a thousand, as one change for undo,
   and selects the last of them, as the cursor of Vim goes to the last line
@@ -81,9 +110,11 @@ Major changes and improvements in each release of cinq, newest first.
   to another field, and opening a show.  `n` and `N`, or `F3` and
   `Shift+F3`, find the next match in the direction of the last search and in
   the other, wrapping around, and a count goes round the matches at most
-  once.  Searches are jumps, so that `back` returns to where a search began
-  or to the cue before a step to the next match.  `?` no longer shows the
-  help page in the vi keymap, as it searches, so that `F1` is its key there.
+  once, and the status bar says when a search or a step wrapped around or
+  found no match.  Searches are jumps, so that `back` returns to where a
+  search began or to the cue before a step to the next match.  `?` no longer
+  shows the help page in the vi keymap, as it searches, so that `F1` is its
+  key there.
 - Cues can be copied, cut, and pasted with a clipboard of cinq's own that
   outlasts the show it was filled from: `y y`, `p`, and `P` in the vi
   keymap copy and paste, `d d`, `x`, and `Delete` cut, and `Control+c`,
@@ -91,8 +122,10 @@ Major changes and improvements in each release of cinq, newest first.
   A count copies or cuts that many cues and pastes that many times, a paste
   is one change that undo takes back, and a fade pasted together with its
   target targets the new copy, as in QLab.  The status bar tells what was
-  cut or copied and names the key that pastes.  The `copy` action works in
-  show mode, as Vim yanks in a read-only buffer.  The cua `Delete` key still
+  cut or copied and names the key that pastes, and undo and redo still call
+  a cut a cut.  A paste with nothing to paste says that the clipboard is
+  empty.  The `copy` action works in show mode, as Vim yanks in a read-only
+  buffer.  The cua `Delete` key still
   deletes without copying, through the new `copy`, `cut`, `paste_below`, and
   `paste_above` actions, while `delete` has no key in the vi keymap.
 - The keys of Vim that move by a page work in the vi keymap: `Control+d` and

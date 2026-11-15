@@ -9,7 +9,7 @@ use iced::keyboard::Key;
 
 use super::{
     press,
-    search::{opened, opened_backward, searched, show},
+    search::{opened, opened_backward, searched, show, typed},
 };
 use crate::{
     back::CueId,
@@ -32,7 +32,7 @@ fn next_and_previous_match_wrap_around_the_list() {
     assert_eq!(previous.selected, Some(CueId(1)));
     let previous = stepped(previous, -1);
     assert_eq!(previous.selected, Some(CueId(4)));
-    // A count repeats the step
+    // Count repeats the step
     assert_eq!(stepped(previous, 3).selected, Some(CueId(1)));
     assert_eq!(
         stepped(stepped(searched(opened(2), "o"), -1), -2).selected,
@@ -137,7 +137,7 @@ fn a_huge_count_steps_at_most_one_lap() {
     assert_eq!(stepped(100_000_000), Some(CueId(4)));
     assert_eq!(stepped(isize::MAX), Some(CueId(1)));
     assert_eq!(stepped(isize::MIN), Some(CueId(4)));
-    // A count equal to the matches comes back to the same cue, as in Vim
+    // Count equal to the matches comes back to the same cue, as in Vim
     assert_eq!(stepped(2), Some(CueId(4)));
     assert_eq!(stepped(-2), Some(CueId(4)));
     assert_eq!(stepped(3), Some(CueId(1)));
@@ -159,8 +159,59 @@ fn stepping_with_no_matching_cue_does_nothing_at_any_count() {
         searched: Searched {
             text: "zz".to_owned(),
             backward: false,
+            ..Searched::default()
         },
         ..show(Some(CueId(3)))
     };
     assert_eq!(stepped(missing, isize::MAX).selected, Some(CueId(3)));
+}
+
+const TOP: Option<&str> = Some("Search continued at the top");
+const BOTTOM: Option<&str> = Some("Search continued at the bottom");
+
+#[test]
+fn a_search_that_goes_past_the_end_of_the_list_tells_where_it_continued() {
+    // Cues 1 and 4 hold Storm, so that a search from 4 goes round to 1
+    assert_eq!(typed(opened(4), "storm").remark, TOP);
+    assert_eq!(searched(opened(4), "storm").remark, TOP);
+    assert_eq!(searched(opened(1), "storm").remark, None);
+    assert_eq!(typed(opened_backward(1), "storm").remark, BOTTOM);
+    assert_eq!(searched(opened_backward(1), "storm").remark, BOTTOM);
+    assert_eq!(searched(opened_backward(4), "storm").remark, None);
+}
+
+#[test]
+fn the_keys_of_the_next_and_previous_match_tell_where_they_continued_too() {
+    let accepted = searched(opened(1), "storm");
+    assert_eq!(accepted.remark, None);
+    let next = stepped(accepted, 1);
+    assert_eq!((next.selected, next.remark), (Some(CueId(1)), TOP));
+    let previous = stepped(next, -1);
+    assert_eq!(
+        (previous.selected, previous.remark),
+        (Some(CueId(4)), BOTTOM)
+    );
+    // Step that stays within the list tells nothing, and takes the remark away
+    assert_eq!(stepped(previous, -1).remark, None);
+    // Count that goes round tells it
+    assert_eq!(stepped(searched(opened(1), "storm"), 3).remark, TOP);
+}
+
+#[test]
+fn the_next_match_with_no_match_says_no_cue_matches_as_typing_does() {
+    let none = searched(opened(2), "storm");
+    let lost = App {
+        searched: Searched {
+            text: "zzz".to_owned(),
+            backward: false,
+            ..Searched::default()
+        },
+        ..none
+    };
+    assert_eq!(stepped(lost, 1).remark, Some("No cue matches"));
+    // Before any search too
+    assert_eq!(
+        stepped(show(Some(CueId(2))), 1).remark,
+        Some("No cue matches")
+    );
 }

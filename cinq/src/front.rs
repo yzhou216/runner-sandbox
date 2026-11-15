@@ -28,7 +28,9 @@ use iced::{Size, window};
 use crate::back::{Audio, CueId, CueList, Kind, Video, Workspace};
 use keymap::{Press, config::Config};
 use message::{Caret, Focus, Message, Tab};
-use update::{Clipboard, Clipped, History, Keeper, Reader, Search, Searched, Show, Stage};
+use update::{
+    Clipboard, Clipped, History, Keeper, Measures, Reader, Search, Searched, Show, Stage,
+};
 
 /// Opens the main window with the show in `show`, or a new show without
 /// one, and runs the interface until the main window closes.  The key
@@ -141,6 +143,8 @@ struct App {
     device_problem: Option<String>,
     /// Rows that a half page moves in the cue list, once a count has set them
     scroll: Option<usize>,
+    /// What the latest measures of the cue list and the help page found
+    measures: Measures,
     list: usize,
     /// Places that jumps left, for going back to them
     history: History,
@@ -155,6 +159,9 @@ struct App {
     /// What the latest copy or cut told, until the operator does anything
     /// else
     clipped: Option<Clipped>,
+    /// What the latest key found to say that is no change, such as an empty
+    /// clipboard, until the operator does anything else
+    remark: Option<&'static str>,
     /// Kind of cue that Add cue creates
     new_kind: Kind,
     /// Time of the last clock tick, or `None` while the clock is stopped

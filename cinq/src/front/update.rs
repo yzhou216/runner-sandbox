@@ -6,17 +6,6 @@
 //!
 //! Only [`cinq`] reaches the parts with side effects.
 
-/// Prints a line to standard error with the time in seconds since the epoch,
-/// for the sandbox tests of the keys
-macro_rules! sandbox {
-    ($($arg:tt)*) => {{
-        let at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0.0, |time| time.as_secs_f64());
-        eprintln!("SANDBOX {at:.3} {}", format_args!($($arg)*));
-    }};
-}
-
 mod cinq;
 mod clipboard;
 mod clock;
@@ -47,46 +36,13 @@ pub(super) use clipboard::{Clipboard, Clipped};
 use dispatch::on_own_thread;
 pub(super) use history::History;
 use link::{edit_config, open_link};
+pub(super) use paging::kept::{Measured, Measures};
 pub(super) use search::{Search, Searched};
 pub(super) use show::{Keeper, Read, Reader, Saved, Show};
 pub(super) use stage::Stage;
 
 impl App {
     fn handled(self, message: Message) -> (Self, Task<Message>) {
-        if matches!(
-            message,
-            Message::Back(_)
-                | Message::Forward(_)
-                | Message::Page(..)
-                | Message::Step(_)
-                | Message::Open
-                | Message::SidePressed(..)
-                | Message::Copy(_)
-                | Message::Cut(_)
-                | Message::Paste(..)
-                | Message::Delete(_)
-                | Message::Undo(_)
-                | Message::Redo(_)
-                | Message::StepList(_)
-                | Message::SwitchList(_)
-                | Message::Row(_)
-                | Message::Across(..)
-                | Message::Search { .. }
-                | Message::Searching(_)
-                | Message::SearchAccepted
-                | Message::SearchStep(_)
-                | Message::Scroll(_)
-                | Message::Place(_)
-                | Message::InView(..)
-                | Message::Landed { .. }
-                | Message::Reached { .. }
-                | Message::MenuOpen(_)
-                | Message::NewKind(_)
-                | Message::ToggleHelp
-                | Message::CloseHelp
-        ) {
-            sandbox!("message {message:?}");
-        }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),
@@ -105,13 +61,30 @@ impl App {
                 self.at_row(row.saturating_add(1))
             }
             Message::Landed { .. } => self,
+            Message::Measured(Measured::Cues {
+                serial,
+                list,
+                cues,
+                shape,
+            }) => self.with_measure(serial, list, cues, shape),
+            Message::Measured(Measured::Help(view)) => self.with_help_measure(view),
+            Message::Drawn(window) if self.main == Some(window) && self.unmeasured() => {
+                let measure = self.measure_cues();
+                return (self, measure);
+            }
+            Message::Drawn(_) => self,
+            Message::Remeasure => {
+                let app = self.remeasured();
+                let measure = app.measure_cues();
+                return (app, measure);
+            }
             Message::Scroll(rows) => return self.scrolled(rows),
             Message::InView(height, count) => return self.in_view(height, count),
             Message::Reached { list, from, row } if self.list == list && self.selected == from => {
                 self.jumping(|app| app.at_row(row.saturating_add(1)))
             }
             Message::Reached { .. } => self,
-            Message::Place(height) => return self.placed(height),
+            Message::Place(height, count) => return self.placed(height, count),
             Message::MenuOpen(open) => Self { menu: open, ..self },
             Message::SwitchList(list) => {
                 return self
@@ -135,13 +108,12 @@ impl App {
             }
             Message::Search { backward } => return self.searching(backward),
             Message::Searching(text) => return self.search_typed(text),
+            Message::SearchKey(key) => return self.search_edited(key),
             Message::SearchAccepted => return self.search_accepted(),
             Message::SearchStep(offset) => return self.search_stepped(offset),
             Message::Undo(count) => return self.undone(count).revealed(),
             Message::Redo(count) => return self.redone(count).revealed(),
-            Message::Resized(window, size) if self.main == Some(window) => {
-                return self.resized(window, size).revealed();
-            }
+            Message::Resized(window, size) => return self.resized(window, size),
             Message::Recheck => return self.recheck(),
             Message::Open => return self.with_task(Self::choose_show),
             Message::Opened(read) => return self.opened(*read).revealed(),
@@ -182,6 +154,8 @@ impl App {
                     (app, Task::none())
                 };
             }
+            // Keys typed so far went already, as for any message
+            Message::Cancel => return self.cancelled(),
             Message::PauseAll => self.send(Command::Pause(true)),
             Message::ResumeAll => self.send(Command::Pause(false)),
             Message::Stop(id) => self.send(Command::Stop(id)),
@@ -229,7 +203,6 @@ impl App {
             }
             Message::SidePressed(..) => self,
             // Stage window holds no cue list to keep in view
-            Message::Resized(window, size) => self.resized(window, size),
             Message::WindowFocused(window) => Self {
                 stage: self.stage.with_keyboard_in(window),
                 ..self

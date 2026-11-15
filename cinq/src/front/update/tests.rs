@@ -7,22 +7,25 @@
 //! window, the selection after deleting or undo takes the selected cue
 //! away, the selection that follows standby, the sound file chosen for a
 //! new cue, a level typed halfway, a link of the help page that fails to
-//! open, loading the files of the show, the window drawn before a show has
-//! opened, the clipboard, and the keys that enter the name of a cue
+//! open, the clipboard, and the keys that enter the name of a cue
 
 mod adding;
+mod cancel;
 mod clipboard;
 mod clipped;
 mod clock;
 mod counts;
 mod help_page;
 mod history;
+mod loading;
 mod matches;
 mod naming;
 mod operators;
 mod operators_pasting;
 mod paging;
+mod scrolling;
 mod search;
+mod search_line;
 mod search_places;
 mod side_buttons;
 mod viewing;
@@ -36,7 +39,7 @@ use iced::{
 };
 
 use crate::{
-    back::{CueId, CueList, Load, Place, Workspace, audio, load_files},
+    back::{CueId, CueList, Place, Workspace, audio},
     front::{App, MAIN_SIZE, Message, Tab, keymap::Press},
 };
 
@@ -116,7 +119,7 @@ fn undoing_an_addition_or_a_paste_selects_the_cue_that_was_selected_when_it_was_
     assert_eq!(undo(Message::Add(Place::Before, 1)), Some(CueId(4)));
     assert_eq!(undo(Message::Paste(Place::After, 1)), Some(CueId(4)));
     assert_eq!(undo(Message::Paste(Place::Before, 1)), Some(CueId(4)));
-    // A paste of several cues, and the selection moved before the undo
+    // Paste of several cues, and the selection moved before the undo
     let moved = selected_after(vec![
         Message::Paste(Place::After, 3),
         Message::Select(CueId(9)),
@@ -226,24 +229,4 @@ fn link_that_fails_to_open_shows_until_the_help_page_closes() {
     assert_eq!(closed.link_problem, None);
     let (unseen, _) = closed.next(failure());
     assert_eq!(unseen.link_problem, None);
-}
-
-#[test]
-fn one_load_runs_at_a_time_until_what_it_found_comes_back() {
-    let app = show(None);
-    let found = load_files(Load::all(&app.workspace, app.workspace.unloaded()));
-    let (loading, first) = app.load();
-    let (still, again) = loading.load();
-    assert_eq!(first.units(), 1);
-    assert_eq!(again.units(), 0);
-    assert!(still.loading);
-    let show = still.show.id();
-    let done = still.loaded(show, found);
-    assert!(!done.loading);
-    assert_eq!(done.workspace.unloaded().count(), 0);
-}
-
-#[test]
-fn window_draws_before_a_show_has_opened() {
-    let _ = crate::front::view::view(&App::default());
 }

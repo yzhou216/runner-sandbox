@@ -54,7 +54,7 @@ fn pasted_cue_keeps_a_free_number_and_takes_the_next_one_otherwise() {
         |workspace: &Workspace, id: u32| workspace.cue(CueId(id)).unwrap().number.clone();
     let copied = shown.clone().apply(paste(copy.clone(), Place::End));
     assert_eq!(numbered(&copied, 3), "3");
-    // A cue that was cut leaves its number free, so that moving it keeps it
+    // Cue that was cut leaves its number free, so that moving it keeps it
     let moved = shown
         .apply(delete(&[2]))
         .apply(paste(copy.clone(), Place::End));
@@ -149,7 +149,7 @@ fn a_target_among_the_cues_pasted_goes_to_their_copy_in_each_round() {
             .target(CueId(target))
             .build()
     };
-    // The first fade targets the cue after it, and the second the cue before
+    // First fade targets the cue after it, and the second the cue before
     let shown = workspace(vec![fade(1, 2), audio(2), fade(3, 4), audio(4)]);
     let cues = copies(&shown, &[1, 2]);
     let twice = [cues.clone(), cues].concat();

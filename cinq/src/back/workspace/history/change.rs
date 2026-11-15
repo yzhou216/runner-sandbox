@@ -27,10 +27,11 @@ pub enum Change {
         standby: Standby,
     },
     /// Cues deleted, with the places they had in order, and the standby of
-    /// each list they left
+    /// each list they left, and whether they were cut to the clipboard
     Deleted {
         cues: Vec<Placed>,
         standby: Vec<Standby>,
+        cut: bool,
     },
     /// Cue moved within its list, from one place to another
     Moved { cue: CueId, from: usize, to: usize },

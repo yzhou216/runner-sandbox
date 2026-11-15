@@ -6,6 +6,8 @@
 //! its view, and of putting the selected row in view, in the cue list and on
 //! the help page
 
+use iced::Task;
+
 use super::{
     paging::{letter, shaped, typed},
     show,
@@ -59,11 +61,11 @@ fn scrolling_a_row_stops_at_either_end_of_the_list() {
 #[test]
 fn keys_of_a_row_scroll_measure_the_cue_list_and_move_no_selection_themselves() {
     let (after, started) = typed(show(Some(CueId(2))), "e", &[]);
-    assert_eq!((after.selected, started), (Some(CueId(2)), 1));
+    assert_eq!((after.selected, started), (Some(CueId(2)), 2));
     let (after, started) = typed(after, "y", &["3"]);
     assert_eq!(
         (after.selected, after.scroll, started),
-        (Some(CueId(2)), None, 1)
+        (Some(CueId(2)), None, 2)
     );
 }
 
@@ -103,7 +105,7 @@ fn a_count_counts_the_rows_from_the_top_or_the_bottom_and_stops_in_view() {
     assert_eq!(in_view_at(Height::Bottom, Some(3), 10.0), 27);
     assert_eq!(in_view_at(Height::Top, Some(99), 10.0), 29);
     assert_eq!(in_view_at(Height::Bottom, Some(99), 10.0), 10);
-    // A count has no meaning for the middle
+    // Count has no meaning for the middle
     assert_eq!(in_view_at(Height::Middle, Some(3), 10.0), 19);
 }
 
@@ -154,8 +156,8 @@ fn keys_of_top_middle_and_bottom_measure_the_cue_list_before_the_selection_moves
     };
     ["H", "M", "L"]
         .into_iter()
-        .for_each(|key| assert_eq!(typed(key, &[]), (Some(CueId(2)), 1), "{key}"));
-    assert_eq!(typed("H", &["3"]), (Some(CueId(2)), 1));
+        .for_each(|key| assert_eq!(typed(key, &[]), (Some(CueId(2)), 2), "{key}"));
+    assert_eq!(typed("H", &["3"]), (Some(CueId(2)), 2));
 }
 
 /// Returns the offset in rows that puts `current` at `height` in the list
@@ -181,7 +183,7 @@ fn z_stops_at_either_end_of_the_list() {
     assert_eq!(placed(Height::Top, 55), 40.0);
     assert_eq!(placed(Height::Middle, 58), 40.0);
     assert!(place(Height::Top, shaped(0.0), 0, 0).is_none());
-    // A list that fits its view does not scroll
+    // List that fits its view does not scroll
     let fits = Shape {
         content: 100.0,
         ..shaped(0.0)
@@ -199,8 +201,29 @@ fn keys_of_z_measure_the_cue_list_and_leave_the_selection_alone() {
     };
     ["z", "t", "b"]
         .into_iter()
-        .for_each(|key| assert_eq!(keys(key), (Some(CueId(2)), 0, 0, 1), "z {key}"));
+        .for_each(|key| assert_eq!(keys(key), (Some(CueId(2)), 0, 0, 2), "z {key}"));
     // Without a selected cue there is no row to place
-    let (_, task) = show(None).handled(Message::Place(Height::Top));
-    assert_eq!(task.units(), 1);
+    let (_, task) = show(None).handled(Message::Place(Height::Top, None));
+    assert_eq!(task.units(), 2);
+}
+
+#[test]
+fn a_count_before_the_keys_of_z_selects_that_row_first_and_is_no_jump() {
+    let placed = |count| {
+        show(Some(CueId(2)))
+            .handled(Message::Place(Height::Top, count))
+            .0
+    };
+    assert_eq!(placed(None).selected, Some(CueId(2)));
+    assert_eq!(placed(Some(5)).selected, Some(CueId(5)));
+    // Row past the end is the last, as for the keys of the first and last
+    assert_eq!(placed(Some(99)).selected, Some(CueId(12)));
+    assert!(!placed(Some(5)).can_go_back());
+    // Key reaches the message with the count
+    let (typed, task) = ["5", "z", "z"]
+        .iter()
+        .fold((show(Some(CueId(2))), Task::none()), |(app, _), key| {
+            app.typed(super::press(letter(key)), false)
+        });
+    assert_eq!((typed.selected, task.units()), (Some(CueId(5)), 2));
 }

@@ -74,7 +74,7 @@ fn search_goes_on_past_the_selection_and_ends_on_it_last_as_in_vim() {
     // Cue 4 holds the text, and the search wraps around to the other cue
     assert_eq!(typed(opened(4), "STORM").selected, Some(CueId(1)));
     assert_eq!(typed(opened(1), "storm").selected, Some(CueId(4)));
-    // The selection alone holds it, so the search comes back to it
+    // Selection alone holds it, so the search comes back to it
     assert_eq!(typed(opened(5), "wind").selected, Some(CueId(5)));
 }
 

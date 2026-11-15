@@ -30,6 +30,7 @@ Copy the selected cue & \key{y y}, \key{Y} & \key{Control+c} \\
 Paste below the selection & \key{p} & \key{Control+v} \\
 Paste above the selection & \key{P} & \key{Control+V} \\
 Delete the selected cue, no copy & none & \key{Delete} \\
+Cancel what is typed halfway & \key{Control+c} & none \\
 Edit the name of the selected cue & \key{i}, \key{a}, \key{A} & \key{F2} \\
 Edit the name from its start & \key{I} & none \\
 Change the name, selecting all of it & \key{c c}, \key{S} & none \\
@@ -59,8 +60,8 @@ bar names the keys that pick and close it, and \key{PageDown}, \key{PageUp},
 
 \begin{enumerate}
 \item Press the help key that the status bar names, \key{F1} in both
-  keymaps.  The help page lists every action with its keys and its name in
-  the configuration file, as Figure~\ref{fig:help} shows.
+  keymaps.  The help page lists every action that has a key, with its keys
+  and its name in the configuration file, as Figure~\ref{fig:help} shows.
 \item Press the same key again to close the page.  GO and Panic also close
   it, so that the show stays in view while it runs.
 \end{enumerate}
@@ -99,28 +100,36 @@ last cue.  A number before the operator, before the motion, or both
 multiplies, so that \key{2 d 3 j} cuts seven cues.  A key that does not
 continue the sequence cancels it and does nothing, as Vim beeps and drops the
 keys typed so far, so that a mistyped \key{d x} cuts nothing.  The keys for GO
-and Panic act immediately, even in the middle of a sequence.
+and Panic act immediately, even in the middle of a sequence.  \key{Control+c}
+cancels a sequence in the vi keymap, as it does in Vim, and the status bar
+hints it while a sequence waits, so that no one reaches for \key{Escape},
+which is Panic.
 
 \section{Searching the cues}
 
 A long cue list is easier to search than to scroll.
 
 \begin{enumerate}
-\item Press the search key, \key{/} in the vi keymap, or \key{?} to search up the
-  list.  A search line opens at the left of the status bar.
+\item Press the search key, \key{/} in the vi keymap, or \key{?} to search
+  up the list.  The cua keymap uses \key{Control+f}.  A search line opens at
+  the left of the status bar.
 \item Type part of a cue's name or number.  The selection moves to the first
   cue after the selection that holds the text, in any case, and the list
   scrolls to it.  The search wraps around the list and ends on the selection,
   so that the selection is the match only when no other cue holds the text.
   When no cue holds the text, the line says so and the selection goes back to
   where the search began.
-\item Press \key{Enter} to accept the search.  \key{Escape}, which is also
-  Panic, closes the line and puts the selection back, and any click closes it
-  and leaves the selection where it is.
+\item While typing, \key{Control+w} deletes the last word and \key{Control+u}
+  the whole line, as in Vim, and \key{ArrowUp} and \key{ArrowDown} recall
+  earlier searches that start with the text.
+\item Press \key{Enter} to accept the search.  \key{Control+c} in the vi
+  keymap, and \key{Escape}, which is also Panic, close the line and put the
+  selection back, and any click closes it and leaves the selection where it
+  is.
 \item Press \key{n} for the next match in the direction of the search, wrapping
   around at the end of the list, and \key{N} for the next match in the other
-  direction.  \key{Enter} on an empty line repeats the last search.  The cua keymap uses \key{F3} and
-  \key{Shift+F3}.
+  direction.  \key{Enter} on an empty line repeats the last search.  The cua
+  keymap uses \key{F3} and \key{Shift+F3}.
 \end{enumerate}
 
 Searches are jumps, as in Vim.  After a search, \key{Control+o} goes back to

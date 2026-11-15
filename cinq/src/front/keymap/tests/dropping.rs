@@ -14,7 +14,7 @@ fn key_that_ends_no_command_drops_the_keys_typed_so_far_and_itself() {
     assert_eq!(typed("g w"), dropped);
     assert_eq!(typed("4 w"), dropped);
     assert_eq!(typed("2 g w"), dropped);
-    // The next key starts afresh
+    // Next key starts afresh
     assert_eq!(action("g w j"), Some((Action::Next, None)));
     assert_eq!(action("2 g j"), Some((Action::Next, Some(2))));
 }
@@ -25,6 +25,21 @@ fn g_j_and_g_k_move_the_selection_as_j_and_k_do_for_a_vim_user_who_types_them() 
     assert_eq!(action("3 g k"), Some((Action::Previous, Some(3))));
     assert_eq!(
         Keymap::default().listed(Action::Next),
-        "j, g j, ArrowDown, Control+n"
+        "j, g j, ArrowDown, Control+n, +"
     );
+}
+
+#[test]
+fn digits_past_the_largest_count_are_not_kept() {
+    let digits = "9 ".repeat(100);
+    let held = typed(&digits);
+    assert_eq!(held.pending.len(), 20);
+    assert_eq!(
+        action(&format!("{digits} j")),
+        Some((Action::Next, Some(usize::MAX)))
+    );
+    // After an operator, the second count saturates the same way
+    assert_eq!(typed(&format!("d {digits}")).pending.len(), 21);
+    // Key that is no digit still ends the keys
+    assert_eq!(typed(&format!("{digits} w")), Outcome::default());
 }

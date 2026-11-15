@@ -10,12 +10,14 @@
 //! bindings and act on the cue list while the operator types.  While one of
 //! the fields has the keyboard focus, this region keeps the keys that the
 //! field let through, apart from the keys that act in fields, which are
-//! those of GO and Panic, those that move between fields, those that go
-//! back and forward, and those that open and save shows.  Enter leaves a
-//! text field.  A field that takes a key of GO or Panic without typing it,
-//! as iced's text fields take Escape to give up the keyboard, leaves the key
-//! to act all the same.  The region decides as each key arrives, so keys act
-//! in the order the operator typed them.
+//! those of GO, Panic, and cancel, those that move between fields, those that
+//! go back and forward, and those that open and save shows.  Enter leaves a
+//! text field.  A field that takes a key of GO, Panic, or cancel without
+//! typing it, as iced's text fields take Escape to give up the keyboard and
+//! Control+c to copy a selection, leaves the key to act all the same, but a
+//! letter that a user binds to cancel still types in the field.  The region
+//! decides as each key arrives, so keys act in the order the operator typed
+//! them.
 
 use iced::{
     Element, Event, Rectangle, Renderer,
@@ -59,8 +61,9 @@ impl Intercept for Keep<'_> {
             return;
         };
         if shell.is_event_captured() {
-            let typed = matches!(key, Key::Character(_) | Key::Named(Named::Space));
-            if let Some(press) = press.filter(|&press| !typed && self.0.acts_at_once(press)) {
+            let character = matches!(key, Key::Character(_) | Key::Named(Named::Space));
+            let acts = |press| self.0.acts_when_captured(press, character);
+            if let Some(press) = press.filter(|&press| acts(press)) {
                 shell.publish(Message::Typed { press, repeat });
             }
             return;

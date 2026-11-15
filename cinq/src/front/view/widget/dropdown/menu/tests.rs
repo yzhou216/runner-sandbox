@@ -6,20 +6,16 @@
 //! its highlight, and of what keys and clicks leave to the widgets under it
 
 mod announcing;
+mod mouse;
 mod pages;
 mod picking;
 
 use iced::{
-    Event, Point, Size,
-    advanced::{
-        Shell,
-        layout::{Layout, Node},
-    },
+    advanced::Shell,
     keyboard::{Key, Modifiers, key::Named},
-    mouse,
 };
 
-use super::{Choice, Reply, Shared, reply, rows::Rows};
+use super::{Choice, Reply, Shared, reply};
 use crate::front::{
     Message,
     keymap::{Keymap, Preset, Press},
@@ -85,6 +81,8 @@ fn keys_move_pick_close_or_wait_as_the_keymap_binds_them() {
         (Preset::Vi, named(Named::Enter), none, Reply::Pick),
         (Preset::Vi, letter("y"), ctrl, Reply::Pick),
         (Preset::Vi, letter("e"), ctrl, Reply::Dismiss),
+        (Preset::Vi, letter("c"), ctrl, Reply::Dismiss),
+        (Preset::Cua, letter("c"), ctrl, Reply::Keep),
         (Preset::Cua, named(Named::F4), none, Reply::Dismiss),
         (Preset::Cua, letter("y"), ctrl, Reply::Keep),
         (Preset::Cua, letter("e"), ctrl, Reply::Keep),
@@ -186,80 +184,4 @@ fn help_acts_through_the_menu_and_leaves_it_open_on_its_row() {
         assert_eq!(choice.shared.highlight.get(), Some(1));
     });
     assert!(highlight.open);
-}
-
-#[test]
-fn click_beside_the_menu_closes_it_and_acts_unless_it_lands_on_the_list() {
-    let closed = |captured| Outcome {
-        open: false,
-        captured,
-        picked: None,
-    };
-    assert_eq!(
-        outcome(|choice, shell| choice.click_beside(false, shell)),
-        closed(false)
-    );
-    assert_eq!(
-        outcome(|choice, shell| choice.click_beside(true, shell)),
-        closed(true)
-    );
-}
-
-#[test]
-fn mouse_highlights_the_row_under_it_and_picks_the_row_it_presses() {
-    let rows = Node::with_children(
-        Size::new(100.0, 90.0),
-        (0..3)
-            .map(|row| {
-                Node::new(Size::new(100.0, 30.0)).move_to(Point::new(0.0, 30.0 * row as f32))
-            })
-            .collect(),
-    );
-    let at = |y| mouse::Cursor::Available(Point::new(10.0, y));
-    let moved = Event::Mouse(mouse::Event::CursorMoved {
-        position: Point::new(10.0, 40.0),
-    });
-    let press = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
-    let picked = outcome(|choice, shell| {
-        let list = Rows(choice);
-        list.before(&moved, Layout::new(&rows), at(40.0), shell);
-        assert_eq!(choice.shared.highlight.get(), Some(1));
-        assert!(!shell.is_event_captured());
-        list.before(&press, Layout::new(&rows), at(100.0), shell);
-        assert_eq!(choice.shared.highlight.get(), Some(1));
-        list.before(&press, Layout::new(&rows), at(70.0), shell);
-    });
-    assert_eq!(
-        picked,
-        Outcome {
-            open: false,
-            captured: true,
-            picked: Some(3),
-        }
-    );
-}
-
-#[test]
-fn highlight_follows_the_selected_option_until_a_key_moves_it() {
-    let keymap = Keymap::default();
-    let shared = Shared::default();
-    let mut messages = Vec::new();
-    let list =
-        dropdown(OPTIONS, Some(OPTIONS[0]), Message::Step, &keymap).on_open(Message::Clicked);
-    Choice::new(&list, &shared).open(&mut Shell::new(&mut messages));
-    assert!(matches!(
-        messages[..],
-        [Message::MenuOpen(true), Message::Clicked]
-    ));
-    // Options listed afresh under the open menu put the selected one last
-    let relisted = dropdown([3, 2, 1], Some(OPTIONS[0]), Message::Step, &keymap);
-    let choice = Choice::new(&relisted, &shared);
-    assert_eq!(choice.highlighted(), Some(2));
-    let up = Key::Named(Named::ArrowUp);
-    choice.press(
-        &up,
-        Press::from_key(&up, Modifiers::empty()),
-        &mut Shell::new(&mut messages),
-    );
-    assert_eq!(choice.highlighted(), Some(1));
 }

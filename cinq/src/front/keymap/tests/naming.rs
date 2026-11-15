@@ -16,7 +16,7 @@ fn keys_of_vim_enter_the_name_at_its_end_or_start_or_change_all_of_it() {
     assert_eq!(edit("S"), Some(Action::ChangeName));
     assert_eq!(edit("c c"), Some(Action::ChangeName));
     assert!(typed("c").pending.len() == 1 && typed("c").action.is_none());
-    // The first c is no operator, so a key after it drops both
+    // First c is no operator, so a key after it drops both
     assert_eq!(typed("c j"), Outcome::default());
     assert_eq!(edit("2 c c"), Some(Action::ChangeName));
 }

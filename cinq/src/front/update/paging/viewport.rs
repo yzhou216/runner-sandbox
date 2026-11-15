@@ -14,7 +14,7 @@ use iced::{
 
 /// How a scrollable sits in its view
 #[derive(Debug, Clone, Copy)]
-pub(in crate::front::update) struct Shape {
+pub struct Shape {
     /// Height of the part in view
     pub view: f32,
     /// Height of all the content

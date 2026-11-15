@@ -83,7 +83,7 @@ fn the_moves_of_typing_and_a_cancel_leave_the_history_as_it_was() {
     let (backspaced, _) =
         typed(typed(opened(2), "w"), "").handled(Message::Searching(String::new()));
     assert!(!backspaced.can_go_back());
-    // A click keeps the preview and accepts nothing
+    // Click keeps the preview and accepts nothing
     let (clicked, _) = typed(opened(2), "wind").next(Message::Clicked);
     assert!(!clicked.can_go_back());
 }

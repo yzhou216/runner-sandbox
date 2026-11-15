@@ -44,6 +44,9 @@ pub enum Command {
     },
     /// Removes cues, stopping those that are running, as one change
     Delete(Vec<CueId>),
+    /// Removes cues as [`Command::Delete`] does, and records that they went
+    /// to the clipboard, so that the change is told as a cut
+    Cut(Vec<CueId>),
     /// Moves a cue within its list by a number of places, downwards when
     /// positive, as far as the ends of the list allow
     Move { cue: CueId, by: isize },
@@ -75,6 +78,7 @@ impl Command {
             Command::Add { .. }
                 | Command::Paste { .. }
                 | Command::Delete(_)
+                | Command::Cut(_)
                 | Command::Move { .. }
                 | Command::Edit(..)
                 | Command::Restore(_)
