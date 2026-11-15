@@ -52,22 +52,25 @@ mark sway up
 "$cinq" "$show" > >(python3 "$here/stamp.py" > "$out/cinq.log") 2>&1 &
 cinq_pid=$!
 for _ in $(seq 120); do
-  swaymsg -t get_tree | grep -Eq '"app_id": ?"cinq"' && break
+  swaymsg -t get_tree | grep -Eq '"app_id": ?"cinq"|"name": ?"[^"]* - cinq"' && break
   kill -0 "$cinq_pid" 2> /dev/null || { mark "cinq ended before its window"; break; }
   sleep 0.5
 done
+# FreeBSD's window has no app ID (cinq sets one on GNU/Linux alone), but a title
 # What sway and cinq look like if the window did not come
 swaymsg -t get_tree > "$out/tree-before.json" 2>&1 || true
 swaymsg -t get_outputs > "$out/outputs.json" 2>&1 || true
 ps -ax > "$out/ps.txt" 2>&1 || true
 ls -l "$XDG_RUNTIME_DIR" > "$out/run-dir.txt" 2>&1 || true
-if ! swaymsg -t get_tree | grep -Eq '"app_id": ?"cinq"'; then
+if ! swaymsg -t get_tree | grep -Eq '"app_id": ?"cinq"|"name": ?"[^"]* - cinq"'; then
   mark "no window of cinq after 60 s"
   exit 1
 fi
 mark window up
 sleep 5
-swaymsg -q '[app_id="cinq"] focus'
+swaymsg -q '[app_id="cinq"] focus' || swaymsg -q '[title=" - cinq$"] focus' || true
+# shellcheck disable=SC2009
+ps -ax -o pid,time,pcpu,args | grep '[c]inq' > "$out/cpu-before-go.txt" || true
 mark GO
 wtype -s 300 ' '
 sleep 30.3
@@ -81,6 +84,8 @@ sleep 5
 if command -v grim > /dev/null; then grim "$out/screen.png" || true; fi
 sleep 8
 mark end
+# shellcheck disable=SC2009
+ps -ax -o pid,time,pcpu,args | grep '[c]inq' > "$out/cpu-end.txt" || true
 swaymsg -t get_tree > "$out/tree.json" || true
 swaymsg exit > /dev/null 2>&1 || true
 sleep 2
