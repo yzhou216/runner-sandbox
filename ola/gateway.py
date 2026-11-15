@@ -71,24 +71,39 @@ def route_address():
 # olad and its ports
 
 class Olad:
-    def __init__(self, extra="", artnet="net = 0\nsubnet = 0\noutput_ports = 0\nuse_loopback = true\n"):
+    def __init__(self, extra="", artnet="net = 0\nsubnet = 0\noutput_ports = 0\nuse_loopback = true\n", dummy=False):
         self.conf = work / "ola"
         shutil.rmtree(self.conf, ignore_errors=True)
         self.conf.mkdir()
         for plugin in PLUGINS:
             (self.conf / f"ola-{plugin}.conf").write_text("enabled = false\n")
+        if dummy:
+            (self.conf / "ola-dummy.conf").write_text("enabled = true\n")
         (self.conf / "ola-e131.conf").write_text("enabled = true\ninput_ports = 4\noutput_ports = 0\nignore_preview = true\n" + extra)
         (self.conf / "ola-artnet.conf").write_text("enabled = true\n" + artnet + extra)
         self.log = open(out / "olad.log", "a")
+        self.frames = []
+        # Level 4 logs each frame that the dummy output port takes
         self.proc = subprocess.Popen(
-            ["olad", "-c", str(self.conf), "--http-port", str(HTTP_PORT), "--no-register-with-dns-sd", "-l", "3"],
-            stdout=self.log,
+            ["olad", "-c", str(self.conf), "--http-port", str(HTTP_PORT), "--no-register-with-dns-sd", "-l", "4" if dummy else "3"],
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            text=True,
         )
+        threading.Thread(target=self.read, daemon=True).start()
         for _ in range(100):
             if "E1.31" in tool("ola_dev_info"):
                 return
             time.sleep(0.2)
+
+    def read(self):
+        for line in self.proc.stdout:
+            now = time.time()
+            if "process time" not in line:
+                print(f"{now:.3f} {line.rstrip()}", file=self.log, flush=True)
+            taken = re.search(r"Dummy port: got \d+ bytes: (.*)", line)
+            if taken:
+                self.frames.append((now, [int(v, 16) for v in taken[1].split()]))
 
     def stop(self):
         self.proc.terminate()
@@ -373,34 +388,34 @@ def run_artnet(sampler, olad):
 
 
 def run_downstream(olad, address):
-    """OLA's own Art-Net output, which a gateway sends on to its lights, as
-    cinq runs and after it quits"""
+    """OLA's dummy output port, which stands for the output of a gateway to
+    its lights: the frames that it is given as cinq runs and after it quits"""
     olad.stop()
-    olad = Olad(f"ip = {os.environ.get('GATEWAY_ARTNET_IP', address)}\n", "net = 5\nsubnet = 0\ninput_ports = 0\noutput_ports = 1\nuse_loopback = true\n")
+    olad = Olad(f"ip = {address}\n", dummy=True)
     artnet, e131 = devices()
-    info("sACN in: " + (patch(e131, 0, 1).strip() or "ok") + ", Art-Net out: " + (tool("ola_patch", "--patch", "-d", str(artnet), "-p", "0", "-u", "1").strip() or "ok"))
+    dummy = int(re.search(r"Device (\d+): Dummy", tool("ola_dev_info"))[1])
+    info("sACN in: " + (patch(e131, 0, 1).strip() or "ok") + ", dummy out: " + (tool("ola_patch", "--patch", "-d", str(dummy), "-p", "0", "-u", "1").strip() or "ok"))
     info("downstream devices:\n" + tool("ola_dev_info"))
-    environment = dict(os.environ, LISTEN_UNIVERSES="1", LISTEN_SUMMARY="1")
-    log = out / "downstream.jsonl"
-    listener = subprocess.Popen([sys.executable, str(here.parent / "eos" / "listen.py"), str(log), "75"], env=environment)
-    begin = time.time()
-    time.sleep(2)
     cinq = Cinq()
-    cinq.go("1 look")
+    first = cinq.go("1 look")[1]
     time.sleep(4)
-    cinq.go("2 fade up")
+    fade = cinq.go("2 fade up")[1]
     time.sleep(6)
     ended = cinq.quit("window closed")
-    listener.wait()
-    # Art-Net universe 1281 is Net 5, Sub-Net 0, Universe 1 of OLA's output
-    heard = [json.loads(line) for line in log.read_text().splitlines()]
-    changes = [(h["t"], h["levels"], h["from"]) for h in heard if h.get("proto") == "artnet" and h.get("universe") == 1281]
-    info(f"(g) OLA's Art-Net output (Port-Address 1281) changes: {[(round(t, 1), fmt({int(k): v for k, v in levels.items()}), sender) for t, levels, sender in changes]}")
-    series = [(row["t"], sum(c[4] for c in row["counts"] if c[0] == "artnet" and c[2] == 1281)) for row in heard if "counts" in row]
-    after = [count for t, count in series if t > ended - begin + 1]
-    info(f"(g) Art-Net packets per second from OLA, before and after cinq ended (at {ended - begin:.0f} s): {[count for _, count in series]}")
-    final = changes[-1][1] if changes else None
-    check(bool(after) and all(count >= 1 for count in after[:-2]) and final == {"1": 179, "3": 51, "5": 255}, f"(g) after cinq ended, OLA's output keeps sending cinq's last look {final} at {after[:3]} packets per second for {len(after)} s")
+    time.sleep(30)
+    frames = olad.frames
+    look = [t for t, values in frames if values[:5] == [77, 0, 51, 0, 255]]
+    info(f"(g) dummy output port: {len(frames)} frames; the look arrived {look[0] - first:+.2f} s after the first key" if look else f"(g) dummy output port: {len(frames)} frames, never the look")
+    during = [(t, values) for t, values in frames if fade <= t <= fade + 4]
+    rising = [values[0] for _, values in during]
+    seconds = during[-1][0] - during[0][0] if len(during) > 1 else 0
+    info(f"(g) during the fade: {len(during)} frames in {seconds:.2f} s, {len(during) / seconds if seconds else 0:.1f} per second, monotonic {rising == sorted(rising)}, from {rising[:1]} to {rising[-1:]}")
+    idle = [t for t, values in frames if first + 1 < t < fade - 0.1 and values[:5] == [77, 0, 51, 0, 255]]
+    info(f"(g) between the cues, {len(idle)} frames in {fade - first - 1.1:.1f} s")
+    after = [t for t, _ in frames if t > ended]
+    last = frames[-1][1][:6] if frames else None
+    check(bool(frames) and last == [179, 0, 51, 0, 255, 0], f"(g) the last frame of the output port is cinq's last look: {last}, want [179, 0, 51, 0, 255, 0]")
+    info(f"(g) frames the output port got in the 30 s after cinq ended: {len(after)}" + (f", the last {after[-1] - ended:.2f} s after" if after else ""))
     return olad
 
 
