@@ -128,6 +128,7 @@ jobs:
   freebsd-unit:
     name: unit tests on ${{ matrix.arch }}-freebsd
     needs: src
+    if: ${{ !contains(github.event.head_commit.message, '[skip freebsd unit]') }}
     strategy:
       fail-fast: false
       matrix:
