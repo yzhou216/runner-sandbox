@@ -1,0 +1,203 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Network cues for fakeeos.py: TCP with SLIP and UDP, a burst, GOs apart, and destinations that fail
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "network"
+name = "burst 1"
+destination = "127.0.0.1:3037"
+message = '/burst 1'
+advance = "continue"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "burst 2"
+destination = "127.0.0.1:3037"
+message = '/burst 2'
+advance = "continue"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "network"
+name = "burst 3"
+destination = "127.0.0.1:3037"
+message = '/burst 3'
+advance = "continue"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "network"
+name = "burst 4"
+destination = "127.0.0.1:3037"
+message = '/burst 4'
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "network"
+name = "UDP arguments"
+destination = "udp://127.0.0.1:8000"
+message = '/test "hello world" 7 2.5 "12" -4 1e3 abc'
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "network"
+name = "TCP arguments"
+destination = "127.0.0.1:3037"
+message = '/test "hello world" 7 2.5 "12" -4 1e3 abc'
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "network"
+name = "single 1"
+destination = "127.0.0.1:3037"
+message = '/single 1'
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "network"
+name = "single 2"
+destination = "127.0.0.1:3037"
+message = '/single 2'
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "network"
+name = "rapid 1"
+destination = "127.0.0.1:3037"
+message = '/rapid 1'
+
+[[list.cue]]
+id = 10
+number = "10"
+kind = "network"
+name = "rapid 2"
+destination = "127.0.0.1:3037"
+message = '/rapid 2'
+
+[[list.cue]]
+id = 11
+number = "11"
+kind = "network"
+name = "localhost by name"
+destination = "localhost:3037"
+message = '/by-name 1'
+
+[[list.cue]]
+id = 12
+number = "12"
+kind = "network"
+name = "refused"
+destination = "127.0.0.1:3999"
+message = '/refused 1'
+
+[[list.cue]]
+id = 13
+number = "13"
+kind = "network"
+name = "recovered 1"
+destination = "127.0.0.1:3037"
+message = '/recovered 1'
+
+[[list.cue]]
+id = 14
+number = "14"
+kind = "network"
+name = "no answer"
+destination = "203.0.113.7:3037"
+message = '/silent 1'
+
+[[list.cue]]
+id = 15
+number = "15"
+kind = "network"
+name = "recovered 2"
+destination = "127.0.0.1:3037"
+message = '/recovered 2'
+
+[[list.cue]]
+id = 16
+number = "16"
+kind = "network"
+name = "broadcast"
+destination = "255.255.255.255:3037"
+message = '/broadcast 1'
+
+[[list.cue]]
+id = 17
+number = "17"
+kind = "network"
+name = "multicast"
+destination = "224.0.0.1:3037"
+message = '/multicast 1'
+
+[[list.cue]]
+id = 18
+number = "18"
+kind = "network"
+name = "any address"
+destination = "0.0.0.0:3037"
+message = '/any 1'
+
+[[list.cue]]
+id = 19
+number = "19"
+kind = "network"
+name = "no such name"
+destination = "nonexistent.invalid:3037"
+message = '/nameless 1'
+
+[[list.cue]]
+id = 20
+number = "20"
+kind = "network"
+name = "recovered 3"
+destination = "127.0.0.1:3037"
+message = '/recovered 3'
+
+[[list.cue]]
+id = 21
+number = "21"
+kind = "network"
+name = "before restart"
+destination = "127.0.0.1:3037"
+message = '/before-restart 1'
+
+[[list.cue]]
+id = 22
+number = "22"
+kind = "network"
+name = "after restart"
+destination = "127.0.0.1:3037"
+message = '/after-restart 1'
+
+[[list.cue]]
+id = 23
+number = "23"
+kind = "network"
+name = "UDP to nobody"
+destination = "udp://127.0.0.1:8999"
+message = '/udp-nobody 1'
+
+[[list.cue]]
+id = 24
+number = "24"
+kind = "network"
+name = "last"
+destination = "udp://127.0.0.1:8000"
+message = '/last 1'
+
