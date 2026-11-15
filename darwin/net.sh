@@ -19,7 +19,7 @@ mkdir -p "$OUT"
 # shellcheck source=common.sh
 . darwin/common.sh
 
-python3 darwin/fakeeos.py "$OUT/console.txt" 100 3037 8000 127.0.0.1 &
+python3 darwin/fakeeos.py "$OUT/console.txt" 150 3037 8000 127.0.0.1 &
 console=$!
 sleep 1
 mark "open cinq.app"
@@ -40,11 +40,11 @@ sleep 4
 shot 2-refused
 go "$pid" burst 3 0.3
 sleep 4
-go "$pid" apart 1
+go "$pid" apart-1
 sleep 4
-go "$pid" apart 2
+go "$pid" apart-2
 sleep 4
-go "$pid" apart 3
+go "$pid" apart-3
 sleep 4
 # Console gone for one GO, then back
 kill "$console"

@@ -36,13 +36,13 @@ cable() {
 }
 # Whether a plain connection to the console gets through within 2 seconds
 reach() {
-  if nc -z -w 2 "$console" 3037 > /dev/null 2>&1; then r=reaches; else r="does not reach"; fi
+  if nc -z -G 2 -w 2 "$console" 3037 > /dev/null 2>&1; then r=reaches; else r="does not reach"; fi
   mark "nc $r the console ($1)"
 }
 # shellcheck disable=SC2024 # The file is the runner's own
 sudo pfctl -E >> "$OUT/pfctl.txt" 2>&1
 cable in
-python3 darwin/fakeeos.py "$OUT/console.txt" 140 3037 8000 "$console" &
+python3 darwin/fakeeos.py "$OUT/console.txt" 300 3037 8000 "$console" &
 standin=$!
 sleep 1
 reach "cable in"
