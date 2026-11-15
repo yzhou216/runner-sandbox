@@ -26,8 +26,8 @@ $python = (Get-Command python).Source
 $probe = Join-Path (Split-Path $python) 'probe.exe'
 Copy-Item $python $probe
 Log "titles before: $(Titles)"
-$listener = Start-Process $probe -PassThru -WindowStyle Hidden -ArgumentList '-c',
-    '"import socket, time; s = socket.socket(); s.bind((chr(48), 5999)); s.listen(); time.sleep(150)"'
+$listener = Start-Process $probe -PassThru -WindowStyle Hidden -ArgumentList "`"$PSScriptRoot\probe.py`"" `
+    -RedirectStandardOutput "$out\probe-out.txt" -RedirectStandardError "$out\probe-err.txt"
 Start-Sleep 6
 Log "titles with the listener: $(Titles)"
 Log "rules of the copy: $((Rules) -join '; ')"
