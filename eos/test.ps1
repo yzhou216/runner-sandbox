@@ -31,6 +31,12 @@ route print -4 | Add-Content "$out\network.txt"
 Get-NetFirewallProfile | Format-Table -AutoSize Name, Enabled, DefaultInboundAction, DefaultOutboundAction | Out-String | Set-Content "$out\firewall.txt"
 $rulesBefore = Get-NetFirewallRule | ForEach-Object DisplayName | Sort-Object -Unique
 
+# Python listens in this test, which brings up the firewall's prompt on
+# windows-11-arm and takes the keys meant for cinq (firewall.ps1 looks at
+# that prompt on its own), so allow it first.  cinq itself only sends, and
+# any prompt of its own shows in the screenshots.
+New-NetFirewallRule -DisplayName 'sandbox python' -Direction Inbound -Action Allow -Program (Get-Command python).Source -Profile Any | Out-Null
+
 function WindowsNow([string]$label) {
     (Windows | ForEach-Object Text) -join "`n" | Set-Content "$out\uia\windows-$label.txt"
     Shot "windows-$label"
@@ -89,11 +95,13 @@ function Warned([string]$label, [string]$err, [double]$seconds = 5) {
 
 # Phase 1: light cues, seen by a listener on this computer
 Mark 'phase lights'
+Start-Cinq 'lights.toml' 'lights'
+Start-Sleep 5
+WindowsNow 'lights-cinq-alone'
 $listener = Start-Process python -ArgumentList "`"$root\eos\listen.py`"", "`"$out\dmx.jsonl`"", 300, "`"$out\wire.pcap`"" -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput "$out\listen-out.txt" -RedirectStandardError "$out\listen-err.txt"
 Mark "listener pid $($listener.Id)"
 Start-Sleep 4
-Start-Cinq 'lights.toml' 'lights'
 Get-NetUDPEndpoint | Where-Object OwningProcess -in $listener.Id, $cinq.Id | Format-Table -AutoSize LocalAddress, LocalPort, OwningProcess | Out-String | Set-Content "$out\ports-lights.txt"
 WindowsNow 'lights-start'
 Start-Sleep 12

@@ -147,6 +147,17 @@ public static class Windows32 {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    // Titles of every visible window that has one
+    public static string[] Titles() {
+        var found = new List<string>();
+        EnumWindows((h, l) => {
+            var s = new StringBuilder(512);
+            GetWindowText(h, s, s.Capacity);
+            if (IsWindowVisible(h) && s.Length > 0) { found.Add(s.ToString()); }
+            return true;
+        }, IntPtr.Zero);
+        return found.ToArray();
+    }
     // Posts WM_CLOSE to every visible window whose title holds TEXT and
     // returns their titles
     public static string[] Close(string text) {

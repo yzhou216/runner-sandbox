@@ -67,6 +67,14 @@ jobs:
         with:
           name: cues-${{ matrix.target }}
           path: out
+      - name: Firewall prompt of a listening program
+        timeout-minutes: 5
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/firewall.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firewall-${{ matrix.target }}
+          path: out
   # Eos, an x86_64 program, under the emulation of windows-11-arm
   eos:
     needs: build
