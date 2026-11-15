@@ -1,0 +1,106 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Builds cinq's deb, rpm, and Arch packages with Nix on x86_64 and aarch64,
+# then installs each in containers of the distributions that take it, and runs
+# distro/show.toml there in headless sway beside listen.py and fakeeos.py
+name: Distributions
+on: push
+permissions:
+  actions: read
+  contents: read
+env:
+  CINQ: github:yzhou216/cinq/97af215a58520fe2a30ae5d2bffb98f90800a9e6
+defaults:
+  run:
+    shell: bash
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the packages
+        run: |
+          df -h / /nix | tee df.txt
+          nix build --out-link deb "$CINQ#deb"
+          nix build --out-link rpm "$CINQ#rpm"
+          nix build --out-link archlinux "$CINQ#archlinux"
+          mkdir pkgs
+          cp -L deb/*.deb rpm/*.rpm archlinux/*.pkg.tar.zst pkgs/
+          ls -l pkgs
+          sha256sum pkgs/*
+          df -h / /nix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkgs-${{ matrix.arch }}
+          path: pkgs
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-latest, arch: x86_64, kind: deb, image: "debian:testing"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: deb, image: "debian:stable"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: deb, image: "ubuntu:24.04"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: deb, image: "ubuntu:25.10"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: deb, image: "ubuntu:rolling"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: rpm, image: "fedora:latest"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: rpm, image: "fedora:rawhide"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: rpm, image: "opensuse/tumbleweed"}
+          - {runner: ubuntu-latest, arch: x86_64, kind: arch, image: "archlinux:latest"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: deb, image: "debian:testing"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: deb, image: "debian:stable"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: deb, image: "ubuntu:24.04"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: deb, image: "ubuntu:25.10"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: deb, image: "ubuntu:rolling"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: rpm, image: "fedora:latest"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: rpm, image: "fedora:rawhide"}
+          - {runner: ubuntu-24.04-arm, arch: aarch64, kind: rpm, image: "opensuse/tumbleweed"}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkgs-${{ matrix.arch }}
+          path: pkgs
+      - name: Install and run in a container
+        env:
+          IMAGE: ${{ matrix.image }}
+          KIND: ${{ matrix.kind }}
+        run: |
+          mkdir out
+          mkdir pkg
+          case $KIND in
+            deb) cp pkgs/*.deb pkg/ ;;
+            rpm) cp pkgs/*.rpm pkg/ ;;
+            arch) cp pkgs/*.pkg.tar.zst pkg/ ;;
+          esac
+          docker run --rm --privileged -v "$PWD/distro:/w:ro" -v "$PWD/pkg:/pkg:ro" -v "$PWD/out:/out" \
+            "$IMAGE" bash /w/run.sh "$KIND" 2>&1 | tee out/container.log
+      - if: always()
+        run: echo "name=$(echo "${{ matrix.image }}-${{ matrix.arch }}" | tr ':/' '--')" >> "$GITHUB_OUTPUT"
+        id: name
+      - if: always()
+        run: tar -cf out.tar out
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.name }}
+          path: out.tar
