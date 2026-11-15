@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Network cues to destinations that fail: nothing listens on TCP port 3999
+# of the loopback address (refused), nothing on its UDP port 3999, a name
+# that does not resolve, and an address that no route answers for (a timeout)
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "network"
+name = "Refused"
+destination = "127.0.0.1:3999"
+message = "/refused 1"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "UDP to a closed port"
+destination = "udp://127.0.0.1:3999"
+message = "/closed 1"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "network"
+name = "Name that does not resolve"
+destination = "nonexistent.invalid:3037"
+message = "/name 1"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "network"
+name = "No route answers"
+destination = "10.255.255.1:3037"
+message = "/silent 1"
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "network"
+name = "Refused again"
+destination = "127.0.0.1:3999"
+message = "/refused 2"

@@ -95,6 +95,14 @@ jobs:
         with:
           name: ${{ matrix.arch }}-powercut
           path: out/powercut
+      - name: Network cues to destinations that fail
+        if: always()
+        run: bash ola/gateway.sh "$FONTS" out/refuse refuse.py refuse.toml
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-refuse
+          path: out/refuse
       - name: OLA as a gateway to DMX
         if: always()
         run: bash ola/gateway.sh "$FONTS" out/gateway

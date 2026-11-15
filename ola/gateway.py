@@ -71,14 +71,14 @@ def route_address():
 # olad and its ports
 
 class Olad:
-    def __init__(self, extra=""):
+    def __init__(self, extra="", artnet="net = 0\nsubnet = 0\noutput_ports = 0\nuse_loopback = true\n"):
         self.conf = work / "ola"
         shutil.rmtree(self.conf, ignore_errors=True)
         self.conf.mkdir()
         for plugin in PLUGINS:
             (self.conf / f"ola-{plugin}.conf").write_text("enabled = false\n")
         (self.conf / "ola-e131.conf").write_text("enabled = true\ninput_ports = 4\noutput_ports = 0\nignore_preview = true\n" + extra)
-        (self.conf / "ola-artnet.conf").write_text("enabled = true\nnet = 0\nsubnet = 0\noutput_ports = 0\nuse_loopback = true\n" + extra)
+        (self.conf / "ola-artnet.conf").write_text("enabled = true\n" + artnet + extra)
         self.log = open(out / "olad.log", "a")
         self.proc = subprocess.Popen(
             ["olad", "-c", str(self.conf), "--http-port", str(HTTP_PORT), "--no-register-with-dns-sd", "-l", "3"],
@@ -372,6 +372,38 @@ def run_artnet(sampler, olad):
     cinq.quit("window closed")
 
 
+def run_downstream(olad, address):
+    """OLA's own Art-Net output, which a gateway sends on to its lights, as
+    cinq runs and after it quits"""
+    olad.stop()
+    olad = Olad(f"ip = {os.environ.get('GATEWAY_ARTNET_IP', address)}\n", "net = 5\nsubnet = 0\ninput_ports = 0\noutput_ports = 1\nuse_loopback = true\n")
+    artnet, e131 = devices()
+    info("sACN in: " + (patch(e131, 0, 1).strip() or "ok") + ", Art-Net out: " + (tool("ola_patch", "--patch", "-d", str(artnet), "-p", "0", "-u", "1").strip() or "ok"))
+    info("downstream devices:\n" + tool("ola_dev_info"))
+    environment = dict(os.environ, LISTEN_UNIVERSES="1", LISTEN_SUMMARY="1")
+    log = out / "downstream.jsonl"
+    listener = subprocess.Popen([sys.executable, str(here.parent / "eos" / "listen.py"), str(log), "75"], env=environment)
+    begin = time.time()
+    time.sleep(2)
+    cinq = Cinq()
+    cinq.go("1 look")
+    time.sleep(4)
+    cinq.go("2 fade up")
+    time.sleep(6)
+    ended = cinq.quit("window closed")
+    listener.wait()
+    # Art-Net universe 1281 is Net 5, Sub-Net 0, Universe 1 of OLA's output
+    heard = [json.loads(line) for line in log.read_text().splitlines()]
+    changes = [(h["t"], h["levels"], h["from"]) for h in heard if h.get("proto") == "artnet" and h.get("universe") == 1281]
+    info(f"(g) OLA's Art-Net output (Port-Address 1281) changes: {[(round(t, 1), fmt({int(k): v for k, v in levels.items()}), sender) for t, levels, sender in changes]}")
+    series = [(row["t"], sum(c[4] for c in row["counts"] if c[0] == "artnet" and c[2] == 1281)) for row in heard if "counts" in row]
+    after = [count for t, count in series if t > ended - begin + 1]
+    info(f"(g) Art-Net packets per second from OLA, before and after cinq ended (at {ended - begin:.0f} s): {[count for _, count in series]}")
+    final = changes[-1][1] if changes else None
+    check(bool(after) and all(count >= 1 for count in after[:-2]) and final == {"1": 179, "3": 51, "5": 255}, f"(g) after cinq ended, OLA's output keeps sending cinq's last look {final} at {after[:3]} packets per second for {len(after)} s")
+    return olad
+
+
 def main():
     olad = Olad()
     address = route_address()
@@ -390,6 +422,11 @@ def main():
     info("after patching:\n" + tool("ola_dev_info") + tool("ola_uni_info"))
     sampler = Sampler([0, 1, 2, 998, 999])
     sampler.start()
+    # Only the last phase, for trying it out
+    if os.environ.get("GATEWAY_ONLY") == "downstream":
+        run_downstream(olad, address).stop()
+        sampler.done = True
+        return
     cinq = Cinq()
     steps = (
         lambda: run_levels(sampler, cinq),
@@ -403,6 +440,7 @@ def main():
     run_loss(sampler, "window closed", "window closed")
     run_loss(sampler, "killed", "killed")
     run_artnet(sampler, olad)
+    olad = run_downstream(olad, address)
     sampler.done = True
     sampler.dump()
     olad.stop()

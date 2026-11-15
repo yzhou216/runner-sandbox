@@ -4,10 +4,12 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 # Runs gateway.py, which plays gateway.toml in cinq into OLA's sACN and
-# Art-Net inputs, in a headless sway session of its own.
+# Art-Net inputs, in a headless sway session of its own, or another script
+# with its show, such as refuse.py with refuse.toml.
 #
-# Usage: gateway.sh FONTS OUT, with cinq, sway, wtype, python3, and OLA's
-# tools on PATH, and FONTS the directory of the DejaVu fonts
+# Usage: gateway.sh FONTS OUT [SCRIPT SHOW], with cinq, sway, wtype, grim,
+# python3, and OLA's tools on PATH, and FONTS the directory of the DejaVu
+# fonts
 set -euo pipefail
 
 here=$(dirname "$(readlink -f "$0")")
@@ -40,7 +42,7 @@ export SWAYSOCK
 until swaymsg -t get_version > /dev/null 2>&1; do sleep 0.5; done
 
 status=0
-python3 "$here/gateway.py" "$out" "$here/gateway.toml" "$work" || status=$?
+python3 "$here/${3:-gateway.py}" "$out" "$here/${4:-gateway.toml}" "$work" || status=$?
 swaymsg exit > /dev/null 2>&1 || true
 wait "$sway" || true
 exit "$status"
