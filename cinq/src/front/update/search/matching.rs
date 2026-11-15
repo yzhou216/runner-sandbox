@@ -1,0 +1,72 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Which rows a search finds, and in what order
+//!
+//! A row is the texts that a search matches: the name and the number of a
+//! cue, or the name of an output.
+
+/// Returns the `count` rows that follow `row` down the list, wrapping around
+/// and ending on `row`, or up the list when `backward`.  Without a row they
+/// begin at the top, or at the bottom going up.
+pub(super) fn rows_after(
+    row: Option<usize>,
+    count: usize,
+    backward: bool,
+) -> impl Iterator<Item = usize> {
+    let row = row.unwrap_or(if backward { 0 } else { count.saturating_sub(1) });
+    (1..=count).map(move |offset| {
+        if backward {
+            (row + count - offset % count) % count
+        } else {
+            (row + offset) % count
+        }
+    })
+}
+
+/// Tells whether a step from row `from` to row `to` went past the end of the
+/// list, which a step to the same row does, as the only match is the one
+/// that it began on
+pub(super) fn wrapped(from: usize, to: usize, backward: bool) -> bool {
+    if backward { to >= from } else { to <= from }
+}
+
+/// Returns whether one of the texts of a row holds `needle`, which is
+/// lowercase, in any case
+pub(super) fn matches(texts: &[&str], needle: &str) -> bool {
+    !needle.is_empty()
+        && texts
+            .iter()
+            .any(|text| text.to_lowercase().contains(needle))
+}
+
+/// Returns the first row after `row` that matches `text`, wrapping around,
+/// so that `row` is the last to match
+pub(super) fn found(
+    rows: &[Vec<&str>],
+    text: &str,
+    row: Option<usize>,
+    backward: bool,
+) -> Option<usize> {
+    let needle = text.to_lowercase();
+    rows_after(row, rows.len(), backward).find(|&row| matches(&rows[row], &needle))
+}
+
+/// Returns how many rows hold `text`
+pub(super) fn matching(rows: &[Vec<&str>], text: &str) -> usize {
+    let needle = text.to_lowercase();
+    rows.iter().filter(|texts| matches(texts, &needle)).count()
+}
+
+/// Returns how many steps over `matches` matches end on the match that
+/// `steps` steps end on, at most one lap, so that a count as large as the
+/// operator can type never keeps the window waiting.  A whole number of laps
+/// ends where it began, which is the last lap rather than none.
+pub(super) fn within_a_lap(steps: usize, matches: usize) -> usize {
+    match (steps.checked_rem(matches), steps) {
+        (None | Some(0), 0) | (None, _) => 0,
+        (Some(0), _) => matches,
+        (Some(rest), _) => rest,
+    }
+}
