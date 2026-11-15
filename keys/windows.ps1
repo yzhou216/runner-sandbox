@@ -77,6 +77,30 @@ $script:phase = ''
 $script:window = $null
 $script:cinq = $null
 
+# Counts the lines of cinq's standard error that match PATTERN, which cinq still
+# holds open for writing
+function Count-Log([string]$pattern) {
+    try {
+        $f = [IO.File]::Open("$out\$script:phase.err", 'Open', 'Read', 'ReadWrite,Delete')
+        $r = New-Object IO.StreamReader($f)
+        $n = 0
+        while (($line = $r.ReadLine()) -ne $null) { if ($line -match $pattern) { $n++ } }
+        $r.Dispose()
+        $n
+    } catch { 0 }
+}
+
+# Waits until cinq has logged COUNT lines that match PATTERN, since a runner
+# that draws slowly, such as windows-11-arm, handles a key long after it came
+function Wait-Log([string]$pattern, [int]$count, [int]$seconds = 40) {
+    $end = (Get-Date).AddSeconds($seconds)
+    while ((Count-Log $pattern) -lt $count -and (Get-Date) -lt $end) { Start-Sleep -Milliseconds 250 }
+    if ((Count-Log $pattern) -lt $count) { Log "timeout: fewer than $count lines of $pattern" }
+}
+
+$script:presses = 0
+$script:buttons = 0
+
 function Step([string]$label) {
     Add-Content "$out\$script:phase.marks" ('{0:F3} MARK {1}' -f (Epoch), $label)
     Log "step $label"
@@ -102,6 +126,8 @@ function Key([string]$label, [string[]]$specs) {
         [Native]::Combo([uint16]$vk[$names[-1]], [uint16[]]$mods)
         Start-Sleep -Milliseconds 250
     }
+    $script:presses += $specs.Count
+    Wait-Log ' press Press ' $script:presses
     Start-Sleep -Seconds 1
 }
 
@@ -117,11 +143,15 @@ function Button([string]$label, [uint32]$which) {
     Step $label
     $sent = [Native]::XButton($which)
     Log "SendInput XBUTTON$which returned $sent"
+    $script:buttons++
+    Wait-Log ' mouse button pressed ' $script:buttons
     Start-Sleep -Seconds 1
 }
 
 function Start-Cinq([string]$name) {
     $script:phase = $name
+    $script:presses = 0
+    $script:buttons = 0
     $config = Join-Path $env:TEMP "cinq-$name"
     New-Item -ItemType Directory -Force -Path $config | Out-Null
     Copy-Item "$PSScriptRoot\$name.toml" "$config\config.toml"
@@ -173,8 +203,12 @@ Shot 'vi-4-undone'
 Key '5-ctrl-o' 'ctrl+o'
 Shot 'vi-5-after-ctrl-o'
 Key '5-ctrl-l' 'ctrl+l'
-Start-Sleep 3
-$tree = Snapshot 'vi-5-dialog'
+$tree = $null
+for ($i = 0; $i -lt 12; $i++) {
+    Start-Sleep 3
+    $tree = Snapshot 'vi-5-dialog'
+    if ($tree | Where-Object { $_.Kind -eq 'Button' -and $_.Name -eq 'Cancel' }) { break }
+}
 ($tree | ForEach-Object Text) -join "`n" | Set-Content "$out\vi-5-windows.txt"
 Step '5-cancel'
 $pressed = Press $tree '^Cancel$' 'Button'

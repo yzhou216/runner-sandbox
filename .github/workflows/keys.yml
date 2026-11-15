@@ -79,7 +79,7 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build cinq and the tools
         run: |
-          nix build --out-link cinq ./cinq --print-build-logs
+          nix build --out-link cinq-build ./cinq --print-build-logs
           nix build --inputs-from ./cinq --out-link fonts nixpkgs#dejavu_fonts
           nix build --inputs-from ./cinq --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#dbus nixpkgs#xdg-desktop-portal nixpkgs#xdg-desktop-portal-gtk
           nix shell --inputs-from ./cinq nixpkgs#gcc nixpkgs#wayland-scanner -c bash keys/vptr.sh vptr-build
@@ -87,7 +87,7 @@ jobs:
           echo "$PWD/vptr-build" >> "$GITHUB_PATH"
           # The share directories hold the portals and their D-Bus services
           echo "PORTAL_SHARE=$(for link in tools*; do printf '%s:' "$(readlink -f "$link")/share"; done)" >> "$GITHUB_ENV"
-          echo "$(readlink -f cinq)/bin" >> "$GITHUB_PATH"
+          echo "$(readlink -f cinq-build)/bin" >> "$GITHUB_PATH"
           echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
       - name: Keys and mouse buttons
         run: |

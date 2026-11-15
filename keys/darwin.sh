@@ -30,6 +30,15 @@ focus() {
   done
   return 0
 }
+# wait_log PATTERN COUNT: waits until cinq has logged COUNT lines that match
+# PATTERN, up to 40 seconds
+wait_log() {
+  for _ in $(seq 80); do
+    [ "$(grep -c -- "$1" "$OUT/$phase.err")" -ge "$2" ] && return
+    sleep 0.5
+  done
+  mark "timeout: fewer than $2 lines of $1"
+}
 # key LABEL SPEC: marks the step, then posts the key with CGEvent
 key() {
   local label=$1 spec
@@ -41,17 +50,20 @@ key() {
     "$work/inject" key "$spec" >> "$OUT/inject.txt" 2>&1
     sleep 0.3
   done
+  presses=$((presses + $#))
+  wait_log ' press Press ' "$presses"
   sleep 1
 }
-# button LABEL NUMBER: moves the pointer to the middle of the window of cinq,
+# button LABEL NUMBER: moves the pointer to the middle of the window of cinq, which
+# start put at 60, 60 with the size 900 by 640,
 # then presses the other button NUMBER
 button() {
   focus
-  local x y
-  read -r x y < <(osascript -e 'tell application "System Events" to tell (first process whose unix id is '"$pid"') to get {(item 1 of position of window 1) + (item 1 of size of window 1) / 2, (item 2 of position of window 1) + (item 2 of size of window 1) / 2}' | tr -d ',' | awk '{ printf "%d %d\n", $1, $2 }')
-  printf 'pointer %s %s\n' "$x" "$y" >> "$OUT/inject.txt"
+  local x=510 y=380
   mark "$1"
   "$work/inject" button "$2" "$x" "$y" >> "$OUT/inject.txt" 2>&1
+  buttons=$((buttons + 1))
+  wait_log ' mouse button pressed ' "$buttons"
   sleep 1
 }
 
@@ -59,6 +71,9 @@ swiftc -O -o "$work/inject" "$here/inject.swift" 2>&1 | tail -n 20
 { sw_vers; uname -m; osascript -e 'tell application "Finder" to get bounds of window of desktop'; } > "$OUT/system.txt" 2>&1 || true
 
 start() {
+  phase=$1
+  presses=0
+  buttons=0
   marks=$OUT/$1.marks
   : > "$marks"
   mkdir -p "$work/$1"
@@ -106,20 +121,12 @@ shot vi-5-after-ctrl-o
 key 5-ctrl-l ctrl+l
 sleep 3
 shot vi-5-dialog
-# Names of the windows that cinq has, the file dialog among them
-windows() { osascript -e 'tell application "System Events" to get name of every window of (first process whose unix id is '"$pid"')'; }
-windows > "$OUT/vi-5-windows.txt" 2>&1 || true
-osascript -e 'tell application "System Events" to tell (first process whose unix id is '"$pid"') to get entire contents of window 1' > "$OUT/vi-5-dialog-ui.txt" 2>&1 || true
+osascript "$here/windows.applescript" > "$OUT/vi-5-windows.txt" 2>&1 || true
 mark 5-cancel
-for target in 'button "Cancel" of window 1' 'button "Cancel" of sheet 1 of window 1' 'button "Cancel" of window "Open"'; do
-  if osascript -e "tell application \"System Events\" to tell (first process whose unix id is $pid) to click $target" >> "$OUT/vi-5-cancel.txt" 2>&1; then
-    printf 'cancelled with %s\n' "$target" >> "$OUT/vi-5-cancel.txt"
-    break
-  fi
-done
+osascript "$here/cancel.applescript" > "$OUT/vi-5-cancel.txt" 2>&1 || true
 sleep 2
 shot vi-5-after-cancel
-windows > "$OUT/vi-5-windows-after.txt" 2>&1 || true
+osascript "$here/windows.applescript" > "$OUT/vi-5-windows-after.txt" 2>&1 || true
 # 6. Other buttons 3 and 4 of the mouse
 key 6-gg g g
 key 6-l l

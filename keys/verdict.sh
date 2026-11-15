@@ -88,7 +88,7 @@ if [ -f "$out/vi.timeline" ]; then
   v 5-ctrl-l | grep -q 'message Open'
   check "5 Control+l sends Open" $? "$(v 5-ctrl-l)"
   if [ -f "$out/vi-5-windows.txt" ]; then
-    grep -q 'Open' "$out/vi-5-windows.txt" && ! grep -q 'Open' "$out/vi-5-windows-after.txt"
+    grep -q 'Open show' "$out/vi-5-windows.txt" && ! grep -q 'Open show' "$out/vi-5-windows-after.txt"
     check "5 the file dialog showed after Control+l and is gone after the cancel" $? "$(cat "$out/vi-5-windows.txt" "$out/vi-5-windows-after.txt" 2>&1)"
   fi
   if grep -q 'Escape' "$out/vi.timeline" "$out/cua.timeline" 2> /dev/null; then
