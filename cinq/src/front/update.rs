@@ -6,6 +6,17 @@
 //!
 //! Only [`cinq`] reaches the parts with side effects.
 
+/// Prints a line to standard error with the time in seconds since the epoch,
+/// for the sandbox tests of the keys
+macro_rules! sandbox {
+    ($($arg:tt)*) => {{
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |time| time.as_secs_f64());
+        eprintln!("SANDBOX {at:.3} {}", format_args!($($arg)*));
+    }};
+}
+
 mod cinq;
 mod clipboard;
 mod clock;
@@ -43,6 +54,20 @@ pub(super) use stage::Stage;
 
 impl App {
     fn handled(self, message: Message) -> (Self, Task<Message>) {
+        if !matches!(
+            message,
+            Message::Tick(_)
+                | Message::Typed { .. }
+                | Message::Measured(_)
+                | Message::Remeasure
+                | Message::Drawn(_)
+                | Message::Resized(..)
+                | Message::WindowFocused(_)
+                | Message::Clicked
+                | Message::Nothing
+        ) {
+            sandbox!("message {}", format!("{message:?}").chars().take(200).collect::<String>());
+        }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),

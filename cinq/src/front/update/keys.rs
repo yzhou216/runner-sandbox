@@ -27,6 +27,12 @@ use crate::front::{
 impl App {
     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
         let outcome = self.config.keymap.parse(&self.keys, press);
+        sandbox!(
+            "press {press:?} repeat={repeat} -> action={:?} pending={:?} across={:?}",
+            outcome.action,
+            outcome.pending,
+            outcome.across()
+        );
         let across = outcome.across();
         let app = Self {
             keys: outcome.pending,
@@ -132,6 +138,15 @@ impl App {
 /// Reads a key that no widget captured, with Shift applied, so that Shift
 /// and `g` make `G`
 pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
+    if let keyboard::Event::KeyPressed {
+        key,
+        modified_key,
+        modifiers,
+        ..
+    } = &event
+    {
+        sandbox!("raw key={key:?} modified={modified_key:?} modifiers={modifiers:?}");
+    }
     let KeyPress { press, repeat, .. } = KeyPress::of(&event)?;
     press.map(|press| Message::Typed { press, repeat })
 }
