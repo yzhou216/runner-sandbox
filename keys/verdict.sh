@@ -33,6 +33,14 @@ state() { segment "$@" | grep -o 'list=[0-9]* rows=[0-9]* selected_row=[^ ]* sel
 number() { printf '%s\n' "$2" | sed -n "s/.*$1=\(Some(\)\{0,1\}\([0-9]*\).*/\2/p"; }
 has_step() { grep -q "^=== $2\$" "$out/$1.timeline"; }
 
+# stray_keys FILE...: lines where Space, Escape, GO, or Panic reached cinq,
+# apart from the dumps of the configuration and of the opened show, which
+# list the bindings of the keymap in an order of their own
+stray_keys() {
+  grep -H -n 'Named(Escape)\|Named(Space)\|action=Some((Go\|action=Some((Panic' "$@" 2> /dev/null |
+    grep -v ':update \(Reconfigured\|Opened\)'
+}
+
 pass() { printf 'PASS %s\n' "$1"; }
 fail() { printf 'FAIL %s: %s\n' "$1" "$2"; }
 # check NAME STATUS DETAIL: passes when STATUS is 0
@@ -91,8 +99,9 @@ if [ -f "$out/vi.timeline" ]; then
     grep -q 'Open show' "$out/vi-5-windows.txt" && ! grep -q 'Open show' "$out/vi-5-windows-after.txt"
     st=$?; check "5 the file dialog showed after Control+l and is gone after the cancel" "$st" "$(cat "$out/vi-5-windows.txt" "$out/vi-5-windows-after.txt" 2>&1)"
   fi
-  if grep -q 'Named(Escape)' "$out/vi.timeline" "$out/cua.timeline" 2> /dev/null; then
-    fail "5 no Escape reached cinq" "$(grep -n 'Named(Escape)' "$out/vi.timeline" "$out/cua.timeline" | head -n 3)"
+  stray=$(stray_keys "$out/vi.timeline" "$out/cua.timeline")
+  if [ -n "$stray" ]; then
+    fail "5 no Escape reached cinq" "$(printf '%s\n' "$stray" | head -n 3)"
   else
     pass "5 no Escape reached cinq"
   fi
@@ -207,30 +216,30 @@ if [ -f "$out/view.timeline" ]; then
   show() { measured view "$1" | awk '{ printf "view %s content %s scrolled %s -> offset %s row %s", $1, $2, $3, $4, $5 }'; }
   sh_e1=$(show 9-ctrl-e-1); sh_e3=$(show 9-ctrl-e-3)
   shape 9-ctrl-e-1 'abs(offset - (scrolled + rh)) < 0.6 && row == 2' 0 0
-  st=$?; check "9 Control+e scrolls a row, and selection moves onto the first row in view: $sh_e1" "$st" "$(segment view 9-ctrl-e-1)"
+  st=$?; check "9 Control+e scrolls a row, and selection moves onto the first row in view: $sh_e1" "$st" "$(segment view 9-ctrl-e-1 | grep '^press\|^measured\|^update Landed\|^update Reached')"
   o1=$(measured view 9-ctrl-e-1 | cut -d' ' -f4)
   shape 9-ctrl-e-2 'abs(scrolled - before) < 1 && abs(offset - (scrolled + rh)) < 0.6 && row == 3' "$o1" 0
-  st=$?; check "9 Control+e again: row 3, view starts where the last scroll put it" "$st" "$(segment view 9-ctrl-e-2)"
+  st=$?; check "9 Control+e again: row 3, view starts where the last scroll put it" "$st" "$(segment view 9-ctrl-e-2 | grep '^press\|^measured\|^update Landed\|^update Reached')"
   o2=$(measured view 9-ctrl-e-2 | cut -d' ' -f4)
   shape 9-ctrl-e-3 'abs(scrolled - before) < 1 && abs(offset - (scrolled + rh)) < 0.6 && row == 4' "$o2" 0
-  st=$?; check "9 Control+e a third time: $sh_e3" "$st" "$(segment view 9-ctrl-e-3)"
+  st=$?; check "9 Control+e a third time: $sh_e3" "$st" "$(segment view 9-ctrl-e-3 | grep '^press\|^measured\|^update Landed\|^update Reached')"
   o3=$(measured view 9-ctrl-e-3 | cut -d' ' -f4)
   shape 9-ctrl-y 'abs(scrolled - before) < 1 && abs(offset - (scrolled - rh)) < 0.6 && row == last_row && row > top && row <= bottom + 1' "$o3" "$(measured view 9-ctrl-e-3 | cut -d' ' -f5)"
-  st=$?; check "9 Control+y scrolls back a row, selection stays in view: $(show 9-ctrl-y)" "$st" "$(segment view 9-ctrl-y)"
+  st=$?; check "9 Control+y scrolls back a row, selection stays in view: $(show 9-ctrl-y)" "$st" "$(segment view 9-ctrl-y | grep '^press\|^measured\|^update Landed\|^update Reached')"
   oy=$(measured view 9-ctrl-y | cut -d' ' -f4)
   shape 9-H 'abs(scrolled - before) < 1 && abs(offset - scrolled) < 0.6 && row == top + 1' "$oy" 0
-  st=$?; check "9 H selects the top row in view: $(show 9-H)" "$st" "$(segment view 9-H)"
+  st=$?; check "9 H selects the top row in view: $(show 9-H)" "$st" "$(segment view 9-H | grep '^press\|^measured\|^update Landed\|^update Reached')"
   shape 9-L 'abs(scrolled - before) < 1 && abs(offset - scrolled) < 0.6 && row == bottom + 1' "$oy" 0
-  st=$?; check "9 L selects the bottom row in view: $(show 9-L)" "$st" "$(segment view 9-L)"
+  st=$?; check "9 L selects the bottom row in view: $(show 9-L)" "$st" "$(segment view 9-L | grep '^press\|^measured\|^update Landed\|^update Reached')"
   row_l=$(measured view 9-L | cut -d' ' -f5)
   shape 9-zz 'abs(scrolled - before) < 1 && row == last_row && abs(offset - clamp(((row - 1) * rh + row * rh - view) / 2, 0, max)) < 0.6' "$oy" "$row_l"
-  st=$?; check "9 z z puts the selected row at the middle: $(show 9-zz)" "$st" "$(segment view 9-zz)"
+  st=$?; check "9 z z puts the selected row at the middle: $(show 9-zz)" "$st" "$(segment view 9-zz | grep '^press\|^measured\|^update Landed\|^update Reached')"
   oz=$(measured view 9-zz | cut -d' ' -f4)
   shape 9-zt 'abs(scrolled - before) < 1 && row == last_row && abs(offset - clamp((row - 1) * rh, 0, max)) < 0.6' "$oz" "$row_l"
-  st=$?; check "9 z t puts the selected row at the top: $(show 9-zt)" "$st" "$(segment view 9-zt)"
+  st=$?; check "9 z t puts the selected row at the top: $(show 9-zt)" "$st" "$(segment view 9-zt | grep '^press\|^measured\|^update Landed\|^update Reached')"
   ot=$(measured view 9-zt | cut -d' ' -f4)
   shape 9-H-after-zt 'abs(scrolled - before) < 1 && row == last_row' "$ot" "$row_l"
-  st=$?; check "9 H after z t is the selected row itself: $(show 9-H-after-zt)" "$st" "$(segment view 9-H-after-zt)"
+  st=$?; check "9 H after z t is the selected row itself: $(show 9-H-after-zt)" "$st" "$(segment view 9-H-after-zt | grep '^press\|^measured\|^update Landed\|^update Reached')"
 fi
 
 # 10. A drop-down list: Tab focuses it, Enter opens it, Control+y picks,
@@ -253,9 +262,9 @@ fi
 # No Space or Escape, which would be GO or Panic, in any phase
 timelines=$(for phase in vi cua ops search view menu; do [ -f "$out/$phase.timeline" ] && printf '%s ' "$out/$phase.timeline"; done)
 # shellcheck disable=SC2086
-if [ -n "$timelines" ] && grep -q 'Named(Escape)\|Named(Space)\|action=Some((Go\|action=Some((Panic' $timelines; then
-  # shellcheck disable=SC2086
-  fail "no Space or Escape reached cinq in any phase" "$(grep -n 'Named(Escape)\|Named(Space)\|action=Some((Go\|action=Some((Panic' $timelines | head -n 3)"
+stray=$(stray_keys $timelines)
+if [ -n "$timelines" ] && [ -n "$stray" ]; then
+  fail "no Space or Escape reached cinq in any phase" "$(printf '%s\n' "$stray" | head -n 3)"
 else
   pass "no Space or Escape reached cinq in any phase"
 fi

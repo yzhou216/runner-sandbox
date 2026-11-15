@@ -109,11 +109,23 @@ function Main-Window {
     Get-Process -Id $script:cinq.Id -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
 }
 
+function Send-Specs([string[]]$specs) {
+    foreach ($spec in $specs) {
+        $names = $spec.ToLower() -split '\+'
+        $mods = @()
+        if ($names.Count -gt 1) { $mods = @($names[0..($names.Count - 2)] | ForEach-Object { [uint16]$vk[$_] }) }
+        [Native]::Combo([uint16]$vk[$names[-1]], [uint16[]]$mods)
+        Start-Sleep -Milliseconds 250
+    }
+}
+
 # Sends one key, as keys like 'ctrl+o', 'shift+g', 'alt+left', or 'l', in
 # the foreground window after the update window of the subsystem is closed,
 # then waits until cinq has logged one more line that matches PATTERN for each
 # key.  The keys that the keymap reads log a press, while those typed into the
 # search line or the menu of a drop-down list log what the call's pattern names.
+# A key that left no line at all after 40 s went astray (windows-11-arm lost one
+# in run 43729064095), so it goes once more.
 function Key([string]$label, [string[]]$specs, [string]$pattern = ' press Press ') {
     CloseWsl
     $w = Main-Window
@@ -122,12 +134,14 @@ function Key([string]$label, [string[]]$specs, [string]$pattern = ' press Press 
     Start-Sleep -Milliseconds 400
     $before = Count-Log $pattern
     Step $label
-    foreach ($spec in $specs) {
-        $names = $spec.ToLower() -split '\+'
-        $mods = @()
-        if ($names.Count -gt 1) { $mods = @($names[0..($names.Count - 2)] | ForEach-Object { [uint16]$vk[$_] }) }
-        [Native]::Combo([uint16]$vk[$names[-1]], [uint16[]]$mods)
-        Start-Sleep -Milliseconds 250
+    Send-Specs $specs
+    Wait-Log $pattern ($before + 1)
+    if ((Count-Log $pattern) -eq $before) {
+        Log "resending $label"
+        CloseWsl
+        $null = [Native]::SetForegroundWindow($w.MainWindowHandle)
+        Start-Sleep -Milliseconds 400
+        Send-Specs $specs
     }
     Wait-Log $pattern ($before + $specs.Count)
     Start-Sleep -Seconds 1
