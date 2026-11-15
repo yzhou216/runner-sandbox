@@ -43,6 +43,26 @@ impl App {
     }
 
     fn handled(self, message: Message) -> (Self, Task<Message>) {
+        if matches!(
+            message,
+            Message::Back(_)
+                | Message::Forward(_)
+                | Message::Page(..)
+                | Message::Step(_)
+                | Message::Open
+                | Message::SidePressed(..)
+                | Message::Copy(_)
+                | Message::Cut(_)
+                | Message::Paste(..)
+                | Message::Delete(_)
+                | Message::Undo(_)
+                | Message::Redo(_)
+                | Message::StepList(_)
+                | Message::SwitchList(_)
+                | Message::Row(_)
+        ) {
+            eprintln!("SANDBOX message {message:?}");
+        }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),
@@ -228,11 +248,24 @@ impl App {
             typed_level: self.typed_level.filter(|_| passive || clicked),
             ..self
         };
+        let shown = format!("{message:?}");
         let (app, task) = app.handled(message);
         let app = Self {
             link_problem: app.link_problem.filter(|_| app.help),
             ..app
         };
+        if !passive {
+            let selected = app.selected_row().map(|row| row + 1);
+            eprintln!(
+                "SANDBOX update {} | list={} rows={} selected_row={:?} selected_id={:?} clipboard_or_keys={:?}",
+                shown.chars().take(100).collect::<String>(),
+                app.list + 1,
+                app.current().cues.len(),
+                selected,
+                app.selected,
+                app.keys,
+            );
+        }
         (app, task)
     }
 }

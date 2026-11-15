@@ -37,6 +37,9 @@ impl App {
         let task = operate(Viewport::of(view::CUES)).map(move |(view, content)| {
             let fit = rows_fitting(view, content, cues);
             let moved = isize::try_from(rows(page, count, scroll, fit)).unwrap_or(isize::MAX);
+            eprintln!(
+                "SANDBOX page {page:?} count={count:?} view={view} content={content} cues={cues} fit={fit} moves={moved}"
+            );
             Message::Step(page.sign() * moved)
         });
         (Self { scroll, ..self }, task)
