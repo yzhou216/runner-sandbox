@@ -18,6 +18,7 @@ defaults:
     shell: bash
 jobs:
   build:
+    if: github.run_attempt == 0 # skipped, ran in 43693917753
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +42,7 @@ jobs:
   # Light cues and network cues, driven with SendKeys
   cues:
     needs: build
+    if: github.run_attempt == 0 # skipped, ran in 43693917753
     strategy:
       fail-fast: false
       matrix:
@@ -67,17 +69,10 @@ jobs:
         with:
           name: cues-${{ matrix.target }}
           path: out
-      - name: Firewall prompt of a listening program
-        timeout-minutes: 5
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/firewall.ps1
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: firewall-${{ matrix.target }}
-          path: out
   # Eos, an x86_64 program, under the emulation of windows-11-arm
   eos:
     needs: build
+    if: github.run_attempt == 0 # skipped, ran in 43693917753
     runs-on: windows-11-arm
     timeout-minutes: 60
     steps:
@@ -124,4 +119,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eos-fired
+          path: out
+  # The prompt of Windows Defender Firewall for a program that listens, and
+  # what answers it
+  firewall:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clear the desktop of windows-11-arm
+        if: matrix.os == 'windows-11-arm'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/prep.ps1
+      - name: Firewall prompt of a listening program
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File eos/firewall.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firewall-${{ matrix.os }}
           path: out

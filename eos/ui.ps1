@@ -147,6 +147,18 @@ public static class Windows32 {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    // Brings the first visible window whose title holds TEXT to the front
+    public static bool Focus(string text) {
+        bool done = false;
+        EnumWindows((h, l) => {
+            var s = new StringBuilder(512);
+            GetWindowText(h, s, s.Capacity);
+            if (!done && IsWindowVisible(h) && s.ToString().Contains(text)) { done = SetForegroundWindow(h); }
+            return true;
+        }, IntPtr.Zero);
+        return done;
+    }
     // Titles of every visible window that has one
     public static string[] Titles() {
         var found = new List<string>();
