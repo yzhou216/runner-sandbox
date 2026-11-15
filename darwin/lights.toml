@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Instruments on universes 1, 2, and 999, and three light cues: levels that
+# are known percentages, a fade of four seconds, and out
+[[instrument]]
+id = 1
+name = "Front"
+address = 1
+
+[[instrument]]
+id = 2
+name = "Back"
+address = 2
+
+[[instrument]]
+id = 3
+name = "Side"
+universe = 2
+address = 1
+
+[[instrument]]
+id = 4
+name = "Far"
+universe = 999
+address = 5
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Preset"
+duration = 0.0
+
+[list.cue.lights]
+1 = 20.0
+3 = 50.0
+4 = 100.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "light"
+name = "Fade"
+duration = 4.0
+
+[list.cue.lights]
+1 = 70.0
+2 = 50.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "light"
+name = "Out"
+duration = 0.0
+
+[list.cue.lights]
+1 = 0.0
+2 = 0.0
+3 = 0.0
+4 = 0.0

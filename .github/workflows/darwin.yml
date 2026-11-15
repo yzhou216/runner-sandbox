@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# cinq's light and network cues on each Darwin runner, with cinq built
+# natively by Nix: sACN and Art-Net beside a listener, network cues beside
+# a stand-in console, and a cable pulled with pf.  Each phase uploads what it
+# found, since a runner that dies uploads nothing more.
+name: Darwin lights and network cues
+on: push
+permissions:
+  actions: read
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  CINQ: github:yzhou216/cinq/97af215a58520fe2a30ae5d2bffb98f90800a9e6
+jobs:
+  darwin:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15-intel, macos-14, macos-26]
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq
+        run: |
+          mkdir out
+          { sw_vers; uname -m; } | tee out/runner.txt
+          nix build "$CINQ#cinq" --print-build-logs 2>&1 | tail -n 60 | tee out/build.txt
+          cp -R result/Applications/cinq.app cinq.app
+          chmod -R u+w cinq.app
+          file cinq.app/Contents/MacOS/* | tee -a out/runner.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.runner }}
+          path: out
+      - name: Helpers
+        run: |
+          swiftc -O -o ui darwin/screen.swift
+          python3 --version
+      - name: Lights
+        run: bash darwin/lights.sh "$PWD/cinq.app" out/lights
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lights-${{ matrix.runner }}
+          path: out/lights
+      - name: Network cues
+        run: bash darwin/net.sh "$PWD/cinq.app" out/net
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-${{ matrix.runner }}
+          path: out/net
+      - name: Cable pulled
+        run: bash darwin/cable.sh "$PWD/cinq.app" out/cable
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cable-${{ matrix.runner }}
+          path: out/cable
