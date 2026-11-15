@@ -19,7 +19,7 @@ mkdir -p "$out"
 say() { printf '%s\n' "$*" | tee -a "$out/report.txt"; }
 mark() { printf '%s %s\n' "$(date +%s.%N)" "$1" >> "$out/marks.txt"; }
 # wtype sleeps 300 ms before it types, so the key lands that long after this
-pressed() { printf '%s %s\n' "$(awk -v t="$(date +%s.%N)" 'BEGIN { printf "%.3f", t + 0.3 }')" "$1" >> "$out/marks.txt"; }
+pressed() { printf '%s %s\n' "$(date -d "+0.3 seconds" +%s.%N)" "$1" >> "$out/marks.txt"; }
 
 {
   # shellcheck source=/dev/null
