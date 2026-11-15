@@ -134,7 +134,7 @@ keys g
 sleep 1
 shot keys
 keys g
-keys '?'
+keys -k F1
 sleep 1
 shot help
 keys q

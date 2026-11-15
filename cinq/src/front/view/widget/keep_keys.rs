@@ -10,12 +10,12 @@
 //! bindings and act on the cue list while the operator types.  While one of
 //! the fields has the keyboard focus, this region keeps the keys that the
 //! field let through, apart from the keys that act in fields, which are
-//! those of GO and Panic, those that move between fields, and those that
-//! open and save shows.  Enter leaves a text field.  A field that takes a
-//! key of GO or Panic without typing it, as iced's text fields take Escape
-//! to give up the keyboard, leaves the key to act all the same.  The region
-//! decides as each key arrives, so keys act in the order the operator typed
-//! them.
+//! those of GO and Panic, those that move between fields, those that go
+//! back and forward, and those that open and save shows.  Enter leaves a
+//! text field.  A field that takes a key of GO or Panic without typing it,
+//! as iced's text fields take Escape to give up the keyboard, leaves the key
+//! to act all the same.  The region decides as each key arrives, so keys act
+//! in the order the operator typed them.
 
 use iced::{
     Element, Event, Rectangle, Renderer,

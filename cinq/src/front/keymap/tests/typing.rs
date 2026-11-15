@@ -65,30 +65,24 @@ fn key_bound_with_the_modifiers_held_goes_to_its_own_action() {
 }
 
 #[test]
-fn key_that_breaks_off_a_command_starts_a_new_one() {
-    assert_eq!(action("d i"), Some((Action::Edit, None)));
-    assert_eq!(action("2 g j"), Some((Action::Next, None)));
-    assert_eq!(typed("g z"), typed("z"));
-    assert!(typed("4 z").pending.is_empty());
-}
-
-#[test]
 fn keys_typed_halfway_list_what_can_follow_them() {
     let keymap = Keymap::default();
     let next = |text: &str| -> Vec<(String, Action)> {
         keymap
             .continuations(&keys(text))
-            .map(|(rest, action)| (written(rest), action))
+            .map(|(rest, action, _)| (written(rest), action))
             .collect()
     };
     let g = [
+        ("j".to_owned(), Action::Next),
+        ("k".to_owned(), Action::Previous),
         ("g".to_owned(), Action::First),
         ("t".to_owned(), Action::NextTab),
         ("T".to_owned(), Action::PreviousTab),
     ];
     assert_eq!(next("g"), g);
     assert_eq!(next("1 2 g"), g);
-    assert_eq!(next("2 d"), [("d".to_owned(), Action::Cut)]);
+    assert_eq!(next("2 d")[0], ("d".to_owned(), Action::Cut));
     assert!(next("3").is_empty());
     assert_eq!(keymap.continuations(&[]).count(), 0);
 }
@@ -222,4 +216,25 @@ fn cua_copies_cuts_and_pastes_with_control_and_deletes_with_delete_alone() {
     assert_eq!(action("Control+v"), Some(Action::PasteBelow));
     assert_eq!(action("Control+V"), Some(Action::PasteAbove));
     assert_eq!(action("Delete"), Some(Action::Delete));
+}
+
+#[test]
+fn capital_y_copies_like_y_y_and_takes_a_count() {
+    assert_eq!(action("Y"), Some((Action::Copy, None)));
+    assert_eq!(action("3 Y"), Some((Action::Copy, Some(3))));
+    assert_eq!(action("y y"), Some((Action::Copy, None)));
+    assert!(typed("Y").pending.is_empty());
+    // Y is bound by itself, so it makes no operator
+    assert_eq!(typed("Y j").action, Some((Action::Next, None)));
+}
+
+#[test]
+fn counts_reach_the_actions_that_add_cues() {
+    assert_eq!(action("3 o"), Some((Action::AddBelow, Some(3))));
+    assert_eq!(action("2 O"), Some((Action::AddAbove, Some(2))));
+    assert!(matches!(
+        Action::AddBelow.message(Some(3)),
+        Message::Add(_, 3)
+    ));
+    assert!(matches!(Action::AddAbove.message(None), Message::Add(_, 1)));
 }

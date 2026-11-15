@@ -117,6 +117,12 @@ impl Keymap {
         hidden.chain(cut_short).collect()
     }
 
+    /// Returns the bindings that act on the cue list, which are all that a
+    /// key typed there reads, and not those of an open menu
+    fn typable(&self) -> impl Iterator<Item = Binding<'_>> + Clone {
+        self.bound().filter(|(action, _)| action.acts_in_list())
+    }
+
     fn bound(&self) -> impl Iterator<Item = Binding<'_>> + Clone {
         Action::VARIANTS.iter().flat_map(move |&action| {
             self.keys(action)
@@ -142,8 +148,13 @@ fn binding(text: &str) -> Result<Vec<Press>, String> {
 }
 
 /// Describes how one of two bindings, in the order of [`Action::VARIANTS`],
-/// hides the other, if one does
+/// hides the other, if one does.  Bindings of actions that act in different
+/// places, such as picking in a menu and scrolling the cue list, hide
+/// nothing.
 fn conflict((earlier, keys): Binding, (later, other): Binding) -> Option<String> {
+    if !earlier.shares_place(later) {
+        return None;
+    }
     if keys == other {
         let (earlier, later) = (earlier.name(), later.name());
         return Some(format!(

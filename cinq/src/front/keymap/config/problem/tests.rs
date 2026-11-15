@@ -121,6 +121,8 @@ fn sidebar_lists_each_problem_after_the_line_it_lies_on() {
         [
             "config.toml:2: no action is named `fly`",
             // Binding that hides another lies in no one place
+            "config.toml: `g` comes first, so `g j` can never be typed",
+            "config.toml: `g` comes first, so `g k` can never be typed",
             "config.toml: `g` comes first, so `g g` can never be typed",
             "config.toml: `g` comes first, so `g t` can never be typed",
             "config.toml: `g` comes first, so `g T` can never be typed",

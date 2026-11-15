@@ -37,7 +37,7 @@ fn file_chooses_a_keymap_and_replaces_the_keys_of_the_actions_it_names() {
 #[test]
 fn file_reports_what_it_cannot_use_and_keeps_the_rest() {
     let (keymap, _, problems) =
-        config::parse("colour = 1\n[keys]\nfly = \"f\"\nnext = [\"Foo\", \"n\"]\nlast = \"1 G\"\n");
+        config::parse("colour = 1\n[keys]\nfly = \"f\"\nnext = [\"Foo\", \"m\"]\nlast = \"1 G\"\n");
     assert_eq!(
         messages(&problems),
         [
@@ -47,7 +47,7 @@ fn file_reports_what_it_cannot_use_and_keeps_the_rest() {
             "next: `Foo` names no key",
         ]
     );
-    assert_eq!(keymap.keys(Action::Next), [keys("n")]);
+    assert_eq!(keymap.keys(Action::Next), [keys("m")]);
     assert!(keymap.keys(Action::Last).is_empty());
 }
 
@@ -64,6 +64,8 @@ fn file_reports_bindings_that_hide_others() {
     assert_eq!(
         messages(&problems),
         [
+            "`g` comes first, so `g j` can never be typed",
+            "`g` comes first, so `g k` can never be typed",
             "`g` comes first, so `g g` can never be typed",
             "`g` comes first, so `g t` can never be typed",
             "`g` comes first, so `g T` can never be typed",

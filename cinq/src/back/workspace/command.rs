@@ -27,8 +27,14 @@ pub enum Command {
     Standby { list: usize, cue: Option<CueId> },
     /// Locks editing for a performance, or unlocks it
     ShowMode(bool),
-    /// Adds a cue of a kind at a place in a list
-    Add { list: usize, kind: Kind, at: Place },
+    /// Adds a number of cues of a kind in a row at a place in a list, as one
+    /// change
+    Add {
+        list: usize,
+        kind: Kind,
+        at: Place,
+        count: usize,
+    },
     /// Pastes copies of cues, in order, at a place in a list as one change,
     /// each with an identity of its own
     Paste {

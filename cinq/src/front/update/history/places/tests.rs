@@ -49,12 +49,30 @@ fn a_place_is_remembered_once() {
 }
 
 #[test]
-fn a_jump_after_going_back_drops_the_places_ahead() {
+fn a_jump_after_going_back_keeps_the_places_ahead_behind() {
     let history = jumped_from([cue(1), cue(2)]);
     let (spot, history) = history.back(cue(3), 1, everywhere).expect("a place behind");
     assert!(history.can_go_forward(spot, everywhere));
     let history = history.jumped(spot);
     assert_eq!(history.ahead, []);
+    assert_eq!(history.behind, [cue(1), cue(3), cue(2)]);
+}
+
+#[test]
+fn going_back_after_a_jump_visits_what_vim_visits() {
+    // 10G 20G Control+o 30G Control+o Control+o, from the first line
+    let history = jumped_from([cue(1), cue(10)]);
+    let (spot, history) = history
+        .back(cue(20), 1, everywhere)
+        .expect("a place behind");
+    assert_eq!(spot, cue(10));
+    let history = history.jumped(spot);
+    let (spot, history) = history
+        .back(cue(30), 1, everywhere)
+        .expect("a place behind");
+    assert_eq!(spot, cue(10));
+    let (spot, _) = history.back(spot, 1, everywhere).expect("a place behind");
+    assert_eq!(spot, cue(20));
 }
 
 #[test]

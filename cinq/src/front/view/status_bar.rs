@@ -14,36 +14,56 @@
 //! help page give way in turn, each one whole, and then the status gives way
 //! from its end, so that the keys typed so far and what the latest change
 //! told always show in full.
+//! An open search line takes the place of the status, and the hints give way
+//! to its text as well.
 
 #[cfg(test)]
 mod tests;
 
+use std::iter;
+
 use iced::{
-    Center, Element, Fill,
-    widget::{container, responsive, rich_text, row, span, text, text::Wrapping},
+    Center, Element, Fill, Padding,
+    widget::{container, responsive, rich_text, row, span, text, text::Wrapping, text_input},
 };
 use itertools::Itertools;
 use unicode_width::UnicodeWidthStr;
 
 use super::{
-    LINE, SPACING, answered, char_width, format, giving_way, line_height, theme, warnings,
+    LINE, SEARCH, SPACING, answered, char_width, format, giving_way, keep_keys, line_height, theme,
+    warnings,
 };
 use crate::{
     back::Turn,
     front::{
-        App, Message,
+        App, Message, Search,
         keymap::{Action, written},
     },
 };
 
-const YIELDING: [Action; 6] = [
+const YIELDING: [Action; 8] = [
     Action::Forward,
     Action::Back,
     Action::Go,
     Action::Panic,
     Action::Save,
     Action::Help,
+    Action::CloseMenu,
+    Action::Pick,
 ];
+
+/// Mark that opens the search line, or the one that opens it for a search that
+/// goes up the list, as in Vim
+fn mark(backward: bool) -> &'static str {
+    if backward { "?" } else { "/" }
+}
+
+/// What the search line tells when no cue matches the text
+const NO_MATCH: &str = "No cue matches";
+
+/// Fewest columns that the search line keeps for itself, which the hints
+/// give way to
+const SEARCH_ROOM: usize = 24;
 
 pub(super) fn view(app: &App) -> Element<'_, Message> {
     // Bar is one line of text high with the gap around it, since a
@@ -55,21 +75,60 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
 }
 
 /// Hints grow to the left, so that the keys typed so far come and go
-/// without moving the rest.
+/// without moving the rest.  An open search line takes the place of the
+/// status, as Vim's command line does, and the hints give way to its text.
 fn bar(app: &App, width: f32) -> Element<'_, Message> {
-    let status = status(app);
     let room = ((width - 3.0 * SPACING) / char_width()).floor() as usize;
-    let status_columns: usize = status.iter().map(|part| part.text.width()).sum();
-    let shown = fitted(&hints(app), room.saturating_sub(status_columns));
-    let status = rich_text(status).wrapping(Wrapping::None);
-    row![
-        container(status).width(Fill).clip(true),
-        text(shown).wrapping(Wrapping::None)
-    ]
-    .spacing(SPACING)
-    .padding(SPACING)
-    .align_y(Center)
-    .into()
+    let (left, taken) = match &app.search {
+        Some(search) => (
+            search_line(app, search),
+            search_columns(&search.text, search.warned),
+        ),
+        None => {
+            let status = status(app);
+            let columns = status.iter().map(|part| part.text.width()).sum();
+            let shown = container(rich_text(status).wrapping(Wrapping::None))
+                .width(Fill)
+                .clip(true);
+            (shown.into(), columns)
+        }
+    };
+    let shown = fitted(&hints(app), room.saturating_sub(taken));
+    row![left, text(shown).wrapping(Wrapping::None)]
+        .spacing(SPACING)
+        .padding(SPACING)
+        .align_y(Center)
+        .into()
+}
+
+/// Columns that the search line keeps for its text, and for what it tells,
+/// so that the hints never cover them
+fn search_columns(text: &str, warned: bool) -> usize {
+    let told = if warned { NO_MATCH.width() + 1 } else { 0 };
+    (mark(false).width() + text.width() + told).max(SEARCH_ROOM)
+}
+
+/// Search line: its mark, the text typed, and a note that no cue matches
+/// for a while after a search finds none.  It keeps the keys typed into
+/// it, as the fields of the inspector do.
+fn search_line<'a>(app: &'a App, search: &'a Search) -> Element<'a, Message> {
+    let field = text_input("", &search.text)
+        .id(SEARCH)
+        .on_input(Message::Searching)
+        .on_submit(Message::SearchAccepted)
+        .padding(0)
+        .style(theme::line);
+    let line = row![text(mark(search.backward)), field]
+        .push(search.warned.then(|| {
+            container(
+                text(NO_MATCH)
+                    .color(theme::PALETTE.warning)
+                    .wrapping(Wrapping::None),
+            )
+            .padding(Padding::ZERO.right(SPACING))
+        }))
+        .align_y(Center);
+    keep_keys(line, &app.config.keymap)
 }
 
 /// Returns the hints joined, each one whole, without as many of those
@@ -113,17 +172,24 @@ fn hints(app: &App) -> Vec<(Option<Action>, String)> {
     let key =
         |action: Action, label: &str| keymap.hint(action, label).map(|hint| (Some(action), hint));
     let typed = (!app.keys.is_empty()).then(|| (None, written(&app.keys)));
-    let told = app
-        .told
-        .clone()
+    let told = clipped(app)
+        .or_else(|| app.told.clone())
         .or_else(|| notice(app))
         .map(|told| (None, told));
     let back = key(Action::Back, Action::Back.name()).filter(|_| app.can_go_back());
     let forward = key(Action::Forward, Action::Forward.name()).filter(|_| app.can_go_forward());
     let save = key(Action::Save, Action::Save.name()).filter(|_| app.show.unsaved());
+    // The page covers an open menu, and takes its keys.  Enter picks
+    // whichever key is bound to pick, so that it stands in where none is.
+    let in_menu = app.menu && !app.help;
+    let pick =
+        key(Action::Pick, "pick").or_else(|| Some((Some(Action::Pick), "Enter: pick".to_owned())));
+    let close = key(Action::CloseMenu, "close");
     typed
         .into_iter()
         .chain(told)
+        .chain(pick.filter(|_| in_menu))
+        .chain(close.filter(|_| in_menu))
         .chain(back)
         .chain(forward)
         .chain(save)
@@ -131,6 +197,23 @@ fn hints(app: &App) -> Vec<(Option<Action>, String)> {
         .chain(key(Action::Panic, "Panic"))
         .chain(key(Action::Help, Action::Help.name()))
         .collect()
+}
+
+/// Tells what the latest copy or cut took, with the key that pastes it and,
+/// for a cut, the key that takes it back
+fn clipped(app: &App) -> Option<String> {
+    let keymap = &app.config.keymap;
+    let clipped = app.clipped.as_ref()?;
+    let paste = keymap.hint(Action::PasteBelow, "paste");
+    let undo = keymap
+        .hint(Action::Undo, Action::Undo.name())
+        .filter(|_| clipped.cut && app.workspace.undoable().is_some());
+    Some(
+        iter::once(clipped.told.clone())
+            .chain(paste)
+            .chain(undo)
+            .join(LINE),
+    )
 }
 
 /// Tells the latest change to the show, with the key that takes it back,

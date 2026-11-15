@@ -24,6 +24,7 @@ fn saving_leaves_unsaved_only_the_changes_made_since() {
             list: 0,
             kind: Kind::Memo,
             at: Place::End,
+            count: 1,
         });
     let file = "/shows/new.cinq.toml";
     let save = saving(&new, file);

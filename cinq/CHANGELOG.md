@@ -10,26 +10,106 @@ Major changes and improvements in each release of cinq, newest first.
 
 ## Unreleased
 
+- While a drop-down list is open, the status bar hints the keys that pick and
+  close it, such as `Control+y: pick | Control+e: close` in the vi keymap and
+  `Enter: pick | F4: close` in the cua keymap, and gives way when the bar is
+  short.  In the open list, PageDown and PageUp, or the keys of `page_down` and
+  `page_up`, move the highlight by the options in view, Home and End or the
+  keys of `first` and `last` move it to the first and last option, as in
+  Vim's popup menu.
+- `z z`, `z t`, and `z b` scroll the cue list to put the selected row in the
+  middle, at the top, or at the bottom of the view in the vi keymap, as in
+  Vim, through the new `row_to_middle`, `row_to_top`, and `row_to_bottom`
+  actions.  The selection stays on its cue, and the view stops at the ends of
+  the list.
+- `H`, `M`, and `L` select the first, middle, and last cue row in view in the
+  vi keymap, as in Vim, through the new `top_row`, `middle_row`, and
+  `bottom_row` actions.  A count before `H` counts rows from the top and
+  before `L` from the bottom.  They are jumps for `Control+o` and, unlike the
+  motions `j`, `k`, `g g`, and `G`, take no operator.
+- `Control+e` and `Control+y` scroll the cue list a row down and up in the vi
+  keymap, as in Vim, or as many rows as a count, through the new
+  `scroll_down` and `scroll_up` actions.  The selection stays on its cue
+  unless it would leave the view, when it moves to the nearest row in view.
+  In an open drop-down list the keys keep picking and closing: `pick` and
+  `close_menu` act only in a menu, so a key may be bound to one of them and
+  to an action of the cue list without a clash.
+- The help page leaves out the actions that the keymap in use binds to no
+  key, such as `delete` in the vi keymap, so that its table is shorter.
+- The help page and the table of cinq(5) list the actions in groups, GO,
+  Panic, and standby first, then the moves, then the edits, then the files
+  and the window, in place of the order in which actions were added.
+- A key that completes or continues no sequence of keys cancels what was
+  typed so far and does nothing itself, as Vim beeps and drops the keys, so
+  that a mistyped `d x` no longer cuts a cue, and `g j` and `g k` move the
+  selection down and up in the vi keymap, as they do in Vim.  The keys of GO
+  and Panic still act at once.
+- The vi keymap enters the name of the selected cue as Vim enters text:
+  `i`, `a`, and `A` put the caret at its end, `I` puts it at its start, and
+  `c c` and `S` select all of it, so that typing replaces it.  The new
+  `edit_start` and `change_name` actions have no key in the cua keymap, and
+  `c` is no operator, so only `c c` begins a change.
+- In an open drop-down list, `Control+y` picks the highlighted option and
+  `Control+e` closes the list without picking one in the vi keymap, as in
+  Vim's popup menu, and `F4` closes it in the cua keymap.  Closing it
+  with these keys, unlike with Escape, does not also panic, through the new
+  `pick` and `close_menu` actions.
+- A count before the keys of `add_below` and `add_above`, such as `3 o`,
+  adds that many cues in a row, at most a thousand, as one change for undo,
+  and selects the last of them, as the cursor of Vim goes to the last line
+  that `3o` inserts.
+- `Y` copies the selected cue in the vi keymap, as `y y` does, and takes a
+  count.
+- In the vi keymap, `d` and `y` take a motion, as in Vim: `d j` cuts the
+  selected cue and the next, `y k` copies it and the previous, and `d G`,
+  `d g g`, and `d 3 G` reach the last cue, the first, and row 3.  Counts
+  before the operator and the motion multiply, so that `2 d 3 j` cuts seven
+  cues, and the box above the status bar lists the motions after the
+  operator.  The operator key is the doubled key of the binding, so that
+  `cut = ["D D"]` makes `D D` and `D j` cut.  A cut of several cues is one
+  change for undo.
+- Undoing the addition of a cue or a paste below a cue selects the cue that
+  was selected when it was made, as the cursor of Vim goes back to where a
+  change was made, in place of the cue that follows.
+- `/` in the vi keymap and `Control+f` in the cua keymap open a search line
+  at the left of the status bar, which selects the first cue after the
+  selection whose name or number holds the text typed, in any case, as
+  Vim's `incsearch` does, and `?` in the vi keymap searches up the list.
+  The search wraps around and ends on the selection.  `Enter` accepts it,
+  and on an empty line repeats the last search, and `Escape`, `Backspace` on
+  an empty line, or a click closes it, as do going back or forward, moving
+  to another field, and opening a show.  `n` and `N`, or `F3` and
+  `Shift+F3`, find the next match in the direction of the last search and in
+  the other, wrapping around, and a count goes round the matches at most
+  once.  Searches are jumps, so that `back` returns to where a search began
+  or to the cue before a step to the next match.  `?` no longer shows the
+  help page in the vi keymap, as it searches, so that `F1` is its key there.
 - Cues can be copied, cut, and pasted with a clipboard of cinq's own that
   outlasts the show it was filled from: `y y`, `p`, and `P` in the vi
   keymap copy and paste, `d d`, `x`, and `Delete` cut, and `Control+c`,
   `Control+x`, `Control+v`, and `Control+V` do the same in the cua keymap.
-  A count copies, cuts, or pastes that many times, a paste is one change
-  that undo takes back, and the cua `Delete` key still deletes without
-  copying, through the new `copy`, `cut`, `paste_below`, and `paste_above`
-  actions, while `delete` has no key in the vi keymap.
-- The keys of Vim that move by a page work in the vi keymap: Control+d and
-  Control+u move the selection half a page, and Control+f, Control+b,
-  PageDown, and PageUp a whole page, with the cue list scrolling to keep it
-  in view.  A count before Control+d or Control+u sets how many rows they
-  move.  The same keys scroll the help page.  The cua keymap binds PageDown
-  and PageUp to the whole pages.
+  A count copies or cuts that many cues and pastes that many times, a paste
+  is one change that undo takes back, and a fade pasted together with its
+  target targets the new copy, as in QLab.  The status bar tells what was
+  cut or copied and names the key that pastes.  The `copy` action works in
+  show mode, as Vim yanks in a read-only buffer.  The cua `Delete` key still
+  deletes without copying, through the new `copy`, `cut`, `paste_below`, and
+  `paste_above` actions, while `delete` has no key in the vi keymap.
+- The keys of Vim that move by a page work in the vi keymap: `Control+d` and
+  `Control+u` scroll the cue list half a page and move the selection the
+  same number of rows, so that it keeps its row on the screen, and
+  `Control+f`, `Control+b`, `PageDown`, and `PageUp` scroll a whole page less
+  two rows and select the first row in view going down, or the last going
+  up.  A count before `Control+d` or `Control+u` sets how many rows they
+  move, until the window changes size or another show opens, and a count
+  before the whole pages counts them.  The same keys scroll the help page.
+  The cua keymap binds `PageDown` and `PageUp` to the whole pages.
 - A count typed before the keys of undo and redo turns that many changes, as
   `3 u` does in Vim, and stops at the oldest or newest.  A count before
   `next_tab` shows the inspector tab of that number, as `2 g t` does, and
   before `previous_tab` goes back that many tabs.
-- The vi keymap takes more keys of Vim: `x` and `Delete` delete the selected
-  cue, as `d d` does, `F1` shows the help page beside `?`, and `Control+Home`
+- The vi keymap takes more keys of Vim: `x` and `Delete` join `d d` in
+  cutting the selected cue, `F1` shows the help page, and `Control+Home`
   and `Control+End` select the first and last cue as `g g` and `G` do, each
   with a count as before.
 - `back` and `forward` go back and forward between the places that jumps
@@ -37,8 +117,10 @@ Major changes and improvements in each release of cinq, newest first.
   and selecting a cue in another cue list are jumps.  The keys are
   `Control+o` and `Control+i` in the vi keymap and `Alt+ArrowLeft` and
   `Alt+ArrowRight` in the cua keymap, and the status bar names them while
-  there is a place to go to.  The back and forward buttons of the mouse do
-  the same from the main window.
+  there is a place to go to.  A jump after going back keeps the places
+  ahead, as in Vim, and going back or forward in a text field moves the
+  keyboard to the cue list.  The back and forward buttons of the mouse do
+  the same from the main window, unless the help page is open.
 - In the vi keymap, the key of *open* is now `Control+l`, since `Control+o`
   is Vim's way back through the places jumped to, and Vim's `Control+l`
   only redraws the screen, which cinq never needs.  The cua keymap keeps

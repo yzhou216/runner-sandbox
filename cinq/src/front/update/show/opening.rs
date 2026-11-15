@@ -101,12 +101,14 @@ impl App {
         };
         // Selection and message once the kept changes are back, since
         // bringing them back replaces the cues and clears what was told
-        // History goes since cue identities restart from one in each show
         Self {
             told,
+            // Cue identities restart from one in each show
             history: History::default(),
+            scroll: None,
             ..opened
         }
         .switched_to(0)
+        .without_search()
     }
 }

@@ -15,18 +15,29 @@ use crate::{
     back::{
         Change, Command, CueId, Kind, PICTURE_FILES, Place, SOUND_FILES, VIDEO_FILES, Workspace,
     },
-    front::{App, Message},
+    front::{App, Message, update::clipboard::PASTE_LIMIT},
 };
 
 impl App {
-    pub(super) fn with_new_cue(self, place: fn(CueId) -> Place) -> Self {
-        let id = self.workspace.next_cue_id();
+    /// Adds `count` cues in a row next to the selection, at most as many as
+    /// one paste adds, and selects the last of them, as Vim leaves its
+    /// cursor on the last line that `3o` inserts
+    pub(super) fn with_new_cue(self, place: fn(CueId) -> Place, count: usize) -> Self {
+        let first = self.workspace.next_cue_id();
         let add = Command::Add {
             list: self.list,
             kind: self.new_kind,
             at: self.selected_here().map_or(Place::End, place),
+            count: count.min(PASTE_LIMIT),
         };
-        self.send(add).showing(id, None)
+        let app = self.send(add);
+        let last = app
+            .workspace
+            .next_cue_id()
+            .and_then(|next| next.0.checked_sub(1))
+            .map(CueId)
+            .filter(|last| first.is_some_and(|first| last.0 >= first.0));
+        app.showing(last, None)
     }
 
     pub(super) fn choose_cue_file(&self, id: CueId) -> Task<Message> {
@@ -73,28 +84,32 @@ impl App {
         self.send(Command::Delete(ids)).showing(None, Some(first))
     }
 
-    /// Undoes up to `count` changes, and stops quietly at the oldest
+    /// Undoes up to `count` changes, and stops quietly at the oldest.  An
+    /// addition or a paste below a cue gives the selection back to that cue,
+    /// as the cursor of Vim goes back to where the change was made.
     pub(super) fn undone(self, count: usize) -> Self {
-        self.turned(count, Command::Undo, Workspace::undoable)
+        let lands = |change: &Change| change.anchor().or_else(|| change.cue());
+        self.turned(count, Command::Undo, Workspace::undoable, lands)
     }
 
     /// Redoes up to `count` changes, and stops quietly at the newest
     pub(super) fn redone(self, count: usize) -> Self {
-        self.turned(count, Command::Redo, Workspace::redoable)
+        self.turned(count, Command::Redo, Workspace::redoable, Change::cue)
     }
 
     /// Sends `command` once for each of `count` changes that `next` finds,
     /// one at a time so that the selection and the notice follow the last
-    /// of them
+    /// of them, which `lands` tells the cue to select for
     fn turned(
         self,
         count: usize,
         command: Command,
         next: fn(&Workspace) -> Option<&Change>,
+        lands: fn(&Change) -> Option<CueId>,
     ) -> Self {
         let flow = (0..count).try_fold(self, |app, _| match next(&app.workspace) {
             Some(change) => {
-                let cue = change.cue();
+                let cue = lands(change);
                 let row = app.selected_row();
                 ControlFlow::Continue(app.send(command.clone()).showing(cue, row))
             }

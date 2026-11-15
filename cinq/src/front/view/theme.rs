@@ -14,7 +14,9 @@
 //! The exceptions are [`button`], since iced draws disabled buttons half
 //! transparent, so buttons get a style of their own, which [`go`] and
 //! [`panic`](fn@panic) paint green and red, [`field`], since iced has no
-//! style for a field that holds a mistake, and [`LINK`] and [`SELECTION`],
+//! style for a field that holds a mistake, [`line`], which drops the border
+//! of the search line so that it fits the status bar, and [`LINK`] and
+//! [`SELECTION`],
 //! since iced has no role for links or for the selected row of a table.
 
 use iced::{
@@ -138,6 +140,18 @@ pub(super) fn panic(theme: &Theme, status: Status) -> Style {
 
 pub(super) fn field(valid: bool) -> fn(&Theme, text_input::Status) -> text_input::Style {
     if valid { text_input::default } else { invalid }
+}
+
+/// Draws a field with neither border nor padding of its own, so that the
+/// search line fits in the single line of the status bar, as Vim's command
+/// line does
+pub(super) fn line(theme: &Theme, status: text_input::Status) -> text_input::Style {
+    let style = text_input::default(theme, status);
+    text_input::Style {
+        border: style.border.width(0.0),
+        background: Color::TRANSPARENT.into(),
+        ..style
+    }
 }
 
 /// Draws the border in red, so that a mistake shows as it is typed

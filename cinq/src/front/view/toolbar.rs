@@ -28,7 +28,7 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         button("Standby selected").on_press_maybe(movable.then_some(Message::StandbySelected)),
         space::horizontal(),
         dropdown(Kind::VARIANTS, Some(app.new_kind), Message::NewKind, keymap),
-        button("Add cue").on_press_maybe(app.editable().then_some(Message::Add(Place::After))),
+        button("Add cue").on_press_maybe(app.editable().then_some(Message::Add(Place::After, 1))),
         button("Delete cue")
             .on_press_maybe((app.editable() && selected_here).then_some(Message::Delete(1))),
     ]

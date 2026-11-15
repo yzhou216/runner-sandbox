@@ -136,7 +136,10 @@ pub fn chain(workspace: &Workspace, list: &CueList, standby: &Cue) -> String {
 pub fn change(workspace: &Workspace, change: &Change) -> String {
     let named = |id| workspace.cue(id).map_or_else(String::new, number);
     match change {
-        Change::Added { placed, .. } => format!("added cue {}", number(&placed.cue)),
+        Change::Added { cues, .. } => match cues.as_slice() {
+            [placed] => format!("added cue {}", number(&placed.cue)),
+            cues => format!("added {} cues", cues.len()),
+        },
         Change::Pasted { cues, .. } => match cues.as_slice() {
             [placed] => format!("pasted cue {}", number(&placed.cue)),
             cues => format!("pasted {} cues", cues.len()),
@@ -171,6 +174,15 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
             None => "moved standby past the end".to_owned(),
         },
         Change::Restored { .. } => "brought back the unsaved changes".to_owned(),
+    }
+}
+
+/// Tells what a copy or cut took with `verb`, by the number of the cue, or
+/// else by how many cues
+pub fn clipped(verb: &str, cues: &[Cue]) -> String {
+    match cues {
+        [cue] => format!("{verb} cue {}", number(cue)),
+        cues => format!("{verb} {} cues", cues.len()),
     }
 }
 

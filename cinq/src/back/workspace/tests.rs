@@ -6,6 +6,7 @@
 //! build the shows they run on, which the tests of the sound and video
 //! outputs borrow
 
+mod adding;
 mod editing;
 mod files;
 mod history;
@@ -64,7 +65,12 @@ pub(crate) fn loaded(id: u32, file: &str, media: Media) -> Command {
 }
 
 fn add(list: usize, kind: Kind, at: Place) -> Command {
-    Command::Add { list, kind, at }
+    Command::Add {
+        list,
+        kind,
+        at,
+        count: 1,
+    }
 }
 
 fn moving(id: u32, by: isize) -> Command {

@@ -6,16 +6,19 @@
 //! and the keys send, and the reports of the clock, of the configuration
 //! file's watch, and of the work done on threads of its own
 
+mod scrolling;
+
 use std::{ffi::OsString, path::PathBuf, time::Instant};
 
 use iced::{Size, mouse, window};
 use strum::{Display, VariantArray};
 
 use super::{
-    keymap::{Press, config::Config},
+    keymap::{Action, Press, config::Config},
     update::{Read, Saved},
 };
 use crate::back::{Command, CueId, Edit, Kind, Place};
+pub use scrolling::{Height, Page};
 
 /// Page of the inspector, which goes by its name
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, VariantArray)]
@@ -44,40 +47,27 @@ impl Tab {
     }
 }
 
+/// Where the caret lands in a field that a key focuses, and what it selects
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Caret {
+    End,
+    Start,
+    /// Every character selected, so that typing replaces them
+    All,
+}
+
 /// Text field that keys move the keyboard focus to, since iced itself
 /// moves it only on clicks
 #[derive(Debug, Clone)]
 pub enum Focus {
-    /// Name field of the inspector, for editing the selected cue
-    Name,
+    /// Name field of the inspector, for editing the selected cue, with the
+    /// caret where the operator asked for it
+    Name(Caret),
     /// Next field, or the first one when no field has focus
     Next,
     Previous,
     /// No field, which hands the keys back to the cue list
     Cues,
-}
-
-/// Distance and direction of a move by a page, as Vim names them
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Page {
-    HalfDown,
-    HalfUp,
-    WholeDown,
-    WholeUp,
-}
-
-impl Page {
-    pub fn is_half(self) -> bool {
-        matches!(self, Self::HalfDown | Self::HalfUp)
-    }
-
-    /// Returns 1 for a move downwards and -1 for one upwards
-    pub fn sign(self) -> isize {
-        match self {
-            Self::HalfDown | Self::WholeDown => 1,
-            Self::HalfUp | Self::WholeUp => -1,
-        }
-    }
 }
 
 /// Operator intent or a report of work done, which becomes a back-end
@@ -98,9 +88,37 @@ pub enum Message {
     /// Selects the cue on a row counted from one, or the last cue for a row
     /// past the end
     Row(usize),
-    /// Moves the selection by a page of rows, with the count typed before the
-    /// keys, which sets the rows of a half page and counts the whole pages
+    /// Scrolls the cue list by a page and moves the selection with it, with
+    /// the count typed before the keys, which sets the rows of a half page and
+    /// counts the whole pages
     Page(Page, Option<usize>),
+    /// Selects the row, counted from zero, where a page scrolled the cue list
+    /// to, which has scrolled already, unless the list or the selection that
+    /// the key found has changed since, as a key pressed in between would
+    /// have changed them
+    Landed {
+        list: usize,
+        from: Option<CueId>,
+        row: usize,
+    },
+    /// Scrolls the cue list a number of rows, down when positive, and keeps
+    /// the selection in view
+    Scroll(isize),
+    /// Selects the row at a height in view, counted from the top or the bottom
+    /// with the count typed before the keys, as a jump
+    InView(Height, Option<usize>),
+    /// Selects the row, counted from zero, that a measure of the cue list
+    /// found, as a jump, unless the list or the selection that the key found
+    /// has changed since
+    Reached {
+        list: usize,
+        from: Option<CueId>,
+        row: usize,
+    },
+    /// Scrolls the cue list to put the selected row at a height in view
+    Place(Height),
+    /// A drop-down list opened its menu, or its menu closed
+    MenuOpen(bool),
     StandbySelected,
     SwitchList(usize),
     /// Shows the cue list a number of lists further down the sidebar
@@ -109,6 +127,20 @@ pub enum Message {
     Back(usize),
     /// Goes a number of places forward again after going back
     Forward(usize),
+    /// Opens the search line, which selects the cues that its text matches,
+    /// searching up the list when `backward`
+    Search {
+        backward: bool,
+    },
+    /// Text of the search line, as typed so far
+    Searching(String),
+    /// Accepts the text of the search line
+    SearchAccepted,
+    /// Selects the cue a number of matches of the last search further on in
+    /// the direction that it went, or the other way when negative
+    SearchStep(isize),
+    /// Time that the search line has told that no cue matches has passed
+    SearchSettled,
     ShowMode(bool),
     Tab(Tab),
     /// Shows the inspector tab a number of tabs to the right, wrapping
@@ -118,9 +150,9 @@ pub enum Message {
     /// tab when there are fewer
     ShowTab(usize),
     NewKind(Kind),
-    /// Adds a cue next to the selection, on the side that the function
-    /// picks
-    Add(fn(CueId) -> Place),
+    /// Adds a number of cues in a row next to the selection, on the side that
+    /// the function picks, as one change
+    Add(fn(CueId) -> Place, usize),
     /// Moves the selected cue by a number of places, downwards when
     /// positive
     Move(isize),
@@ -134,6 +166,10 @@ pub enum Message {
     Paste(fn(CueId) -> Place, usize),
     /// Deletes a number of cues from the selection down
     Delete(usize),
+    /// Applies the operator `Cut`, `Copy`, or `Delete` to the cues from the
+    /// selection to where the motion `Next`, `Previous`, `First`, or `Last`
+    /// would move it, counted as the motion is
+    Across(Action, Action, Option<usize>),
     Edit(CueId, Edit),
     LevelTyped(CueId, String),
     /// Asks which file an audio, video, or picture cue plays or shows
@@ -144,6 +180,8 @@ pub enum Message {
     /// Redoes a number of changes, stopping at the newest
     Redo(usize),
     Focus(Focus),
+    /// Nothing, which the keys of a menu amount to outside one
+    Nothing,
     ToggleHelp,
     CloseHelp,
     /// Key that no widget kept, whether typed outside any text field or one

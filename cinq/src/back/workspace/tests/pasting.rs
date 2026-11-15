@@ -141,3 +141,45 @@ fn pasted_cue_keeps_a_target_that_is_a_cue_of_the_show_and_loses_any_other() {
     let dropped = gone.apply(paste(cue, Place::End));
     assert_eq!(target(&dropped), None);
 }
+
+#[test]
+fn a_target_among_the_cues_pasted_goes_to_their_copy_in_each_round() {
+    let fade = |id, target| {
+        Cue::new(CueId(id), id.to_string(), Kind::Fade, "Fade")
+            .target(CueId(target))
+            .build()
+    };
+    // The first fade targets the cue after it, and the second the cue before
+    let shown = workspace(vec![fade(1, 2), audio(2), fade(3, 4), audio(4)]);
+    let cues = copies(&shown, &[1, 2]);
+    let twice = [cues.clone(), cues].concat();
+    let pasted = shown.apply(paste(twice, Place::End));
+    let targets: Vec<_> = pasted.lists()[0]
+        .cues
+        .iter()
+        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
+        .collect();
+    assert_eq!(
+        targets[4..],
+        [(5, Some(6)), (6, None), (7, Some(8)), (8, None)]
+    );
+}
+
+#[test]
+fn a_thousand_cues_paste_into_a_list_of_two_thousand_with_the_next_free_numbers() {
+    let shown = workspace((1..=2000).map(audio).collect());
+    let cues = copies(&shown, &(1..=1000).collect::<Vec<_>>());
+    // A size at which pasting that is quadratic in the list stalls the
+    // interface thread, where GO must not wait; no time limit is asserted,
+    // since one fails under emulation, so the set of taken numbers in
+    // `Numbers` keeps this linear by its structure
+    let pasted = shown.apply(paste(cues, Place::End));
+    let numbers: Vec<String> = pasted
+        .cues()
+        .skip(2000)
+        .map(|cue| cue.number.clone())
+        .collect();
+    assert_eq!(numbers.first().map(String::as_str), Some("2001"));
+    assert_eq!(numbers.last().map(String::as_str), Some("3000"));
+    assert_eq!(pasted.cues().count(), 3000);
+}

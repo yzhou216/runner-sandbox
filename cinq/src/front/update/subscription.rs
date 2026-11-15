@@ -25,6 +25,9 @@ use crate::{
 /// Interval at which the files that could not be played are tried again
 const RECHECK: Duration = Duration::from_secs(2);
 
+/// How long the search line tells that no cue matches
+const NO_MATCH: Duration = Duration::from_secs(2);
+
 /// Shortest wait for the next picture of a video cue, since a timer cannot
 /// wait for no time at all
 const SOONEST: Duration = Duration::from_millis(1);
@@ -42,6 +45,11 @@ impl App {
             .map(|wait| pace::after(self.last_tick, wait, self.paced_windows()).map(Message::Tick));
         let rechecks = (!self.rechecking && self.workspace.failed().next().is_some())
             .then(|| time::every(RECHECK).map(|_| Message::Recheck));
+        let settling = self
+            .search
+            .as_ref()
+            .is_some_and(|search| search.warned)
+            .then(|| time::every(NO_MATCH).map(|_| Message::SearchSettled));
         let always = [
             keyboard::listen().filter_map(keys::key_press),
             event::listen_with(clicked),
@@ -56,7 +64,7 @@ impl App {
             })
             .map(Message::Reconfigured)
         });
-        Subscription::batch(chain!(always, ticks, rechecks, reconfigured))
+        Subscription::batch(chain!(always, ticks, rechecks, settling, reconfigured))
     }
 
     /// Returns the windows whose drawing the ticks of the clock wait for:
@@ -83,7 +91,12 @@ impl App {
     /// it as minimized while it has no size, as minimized windows have on
     /// Windows
     pub(super) fn resized(self, window: window::Id, size: Size) -> Self {
-        self.with_minimized(window, size.width == 0.0 || size.height == 0.0)
+        let app = self.with_minimized(window, size.width == 0.0 || size.height == 0.0);
+        // Rows of a half page that a count set, which Vim resets as the window changes size
+        Self {
+            scroll: app.scroll.filter(|_| app.main != Some(window)),
+            ..app
+        }
     }
 
     pub(super) fn with_minimized(self, window: window::Id, minimized: bool) -> Self {
@@ -100,9 +113,6 @@ impl App {
 /// Reports a press of any mouse button, captured by a widget or not, so
 /// that a click drops a command typed halfway
 fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<Message> {
-    if let Event::Mouse(mouse::Event::ButtonPressed(button)) = &event {
-        sandbox!("mouse button pressed {button:?}");
-    }
     matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_))).then_some(Message::Clicked)
 }
 

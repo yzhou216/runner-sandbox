@@ -27,8 +27,8 @@ use iced::{Size, window};
 
 use crate::back::{Audio, CueId, CueList, Kind, Video, Workspace};
 use keymap::{Press, config::Config};
-use message::{Focus, Message, Tab};
-use update::{Clipboard, History, Keeper, Reader, Show, Stage};
+use message::{Caret, Focus, Message, Tab};
+use update::{Clipboard, Clipped, History, Keeper, Reader, Search, Searched, Show, Stage};
 
 /// Opens the main window with the show in `show`, or a new show without
 /// one, and runs the interface until the main window closes.  The key
@@ -152,6 +152,9 @@ struct App {
     tab: Tab,
     /// Cues copied or cut, which pasting adds
     clipboard: Clipboard,
+    /// What the latest copy or cut told, until the operator does anything
+    /// else
+    clipped: Option<Clipped>,
     /// Kind of cue that Add cue creates
     new_kind: Kind,
     /// Time of the last clock tick, or `None` while the clock is stopped
@@ -159,7 +162,15 @@ struct App {
     config: Config,
     /// Keys of a command typed so far, such as a count or the `g` of `g g`
     keys: Vec<Press>,
+    /// Search line, while it is open
+    search: Option<Search>,
+    /// Text of the search accepted last, which the keys of the next and
+    /// previous match look for
+    searched: Searched,
     help: bool,
+    /// Whether the menu of a drop-down list is open, which the status bar
+    /// hints the keys of
+    menu: bool,
     /// Why the link that the help page opened last failed to open, which
     /// the page shows while it stays open
     link_problem: Option<String>,

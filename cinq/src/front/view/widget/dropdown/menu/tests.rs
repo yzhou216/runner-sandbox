@@ -5,6 +5,10 @@
 //! Tests of the keys that move through an open menu, of how far they move
 //! its highlight, and of what keys and clicks leave to the widgets under it
 
+mod announcing;
+mod pages;
+mod picking;
+
 use iced::{
     Event, Point, Size,
     advanced::{
@@ -79,9 +83,16 @@ fn keys_move_pick_close_or_wait_as_the_keymap_binds_them() {
         (Preset::Cua, named(Named::ArrowUp), none, Reply::Step(-1)),
         (Preset::Cua, letter("n"), ctrl, Reply::Keep),
         (Preset::Vi, named(Named::Enter), none, Reply::Pick),
+        (Preset::Vi, letter("y"), ctrl, Reply::Pick),
+        (Preset::Vi, letter("e"), ctrl, Reply::Dismiss),
+        (Preset::Cua, named(Named::F4), none, Reply::Dismiss),
+        (Preset::Cua, letter("y"), ctrl, Reply::Keep),
+        (Preset::Cua, letter("e"), ctrl, Reply::Keep),
+        (Preset::Vi, letter("y"), none, Reply::Keep),
         (Preset::Vi, named(Named::Escape), none, Reply::Close),
         (Preset::Vi, named(Named::Space), none, Reply::Close),
-        (Preset::Vi, letter("?"), none, Reply::Pass),
+        (Preset::Vi, named(Named::F1), none, Reply::Pass),
+        (Preset::Vi, letter("?"), none, Reply::Keep),
         (Preset::Cua, named(Named::F1), none, Reply::Pass),
         (Preset::Vi, letter("q"), none, Reply::Keep),
         (Preset::Vi, letter("n"), none, Reply::Keep),
@@ -95,8 +106,18 @@ fn keys_move_pick_close_or_wait_as_the_keymap_binds_them() {
             Reply::Keep,
         ),
         (Preset::Vi, letter("d"), ctrl, Reply::Keep),
-        (Preset::Vi, named(Named::PageDown), none, Reply::Keep),
-        (Preset::Cua, named(Named::PageUp), none, Reply::Keep),
+        (Preset::Vi, named(Named::PageDown), none, Reply::Page(1)),
+        (Preset::Vi, letter("f"), ctrl, Reply::Page(1)),
+        (Preset::Vi, letter("b"), ctrl, Reply::Page(-1)),
+        (Preset::Cua, named(Named::PageUp), none, Reply::Page(-1)),
+        (Preset::Vi, named(Named::Home), none, Reply::First),
+        (Preset::Vi, named(Named::End), none, Reply::Last),
+        (Preset::Vi, letter("G"), none, Reply::Last),
+        (Preset::Cua, named(Named::Home), none, Reply::First),
+        (Preset::Cua, named(Named::End), none, Reply::Last),
+        (Preset::Cua, named(Named::PageDown), ctrl, Reply::Keep),
+        (Preset::Vi, named(Named::Home), ctrl, Reply::First),
+        (Preset::Vi, named(Named::F5), none, Reply::Keep),
     ];
     let wrong: Vec<_> = cases
         .into_iter()
@@ -149,8 +170,9 @@ fn enter_picks_the_highlight_and_go_closes_the_menu_without_keeping_its_key() {
 #[test]
 fn help_acts_through_the_menu_and_leaves_it_open_on_its_row() {
     let letter = |text: &str| Key::Character(text.into());
+    let help = Key::Named(Named::F1);
     assert_eq!(
-        pressed(&[letter("?")]),
+        pressed(std::slice::from_ref(&help)),
         Outcome {
             open: true,
             captured: false,
@@ -158,7 +180,7 @@ fn help_acts_through_the_menu_and_leaves_it_open_on_its_row() {
         }
     );
     let highlight = outcome(|choice, shell| {
-        [letter("j"), letter("?")]
+        [letter("j"), help.clone()]
             .iter()
             .for_each(|key| choice.press(key, Press::from_key(key, Modifiers::empty()), shell));
         assert_eq!(choice.shared.highlight.get(), Some(1));
@@ -225,7 +247,10 @@ fn highlight_follows_the_selected_option_until_a_key_moves_it() {
     let list =
         dropdown(OPTIONS, Some(OPTIONS[0]), Message::Step, &keymap).on_open(Message::Clicked);
     Choice::new(&list, &shared).open(&mut Shell::new(&mut messages));
-    assert!(matches!(messages[..], [Message::Clicked]));
+    assert!(matches!(
+        messages[..],
+        [Message::MenuOpen(true), Message::Clicked]
+    ));
     // Options listed afresh under the open menu put the selected one last
     let relisted = dropdown([3, 2, 1], Some(OPTIONS[0]), Message::Step, &keymap);
     let choice = Choice::new(&relisted, &shared);

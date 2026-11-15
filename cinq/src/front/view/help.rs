@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Help page, which lists every key binding and fills the window
+//! Help page, which lists every action that has a key and fills the window
 //!
 //! The keys of the next and previous cue scroll it, and those of the first
 //! and last cue go to its top and its bottom.
+
+#[cfg(test)]
+mod tests;
 
 use std::ffi::OsString;
 
@@ -21,7 +24,7 @@ use strum::VariantArray;
 use super::{HELP, SPACING, button, theme};
 use crate::front::{
     App, Message,
-    keymap::{Action, config::Source},
+    keymap::{Action, Keymap, config::Source},
 };
 
 /// Widest that the text of the page grows, so that its lines stay easy to
@@ -54,12 +57,15 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
                 text(action.name())
             }),
         ],
-        Action::VARIANTS.iter().copied(),
+        bound(keymap),
     )
     .padding_y(ROW_GAP);
     let example = keymap
         .key(Action::Next)
         .map_or_else(String::new, |keys| format!(", as in 3 {keys}"));
+    let operators = Some(keymap.operator_keys())
+        .filter(|keys| !keys.is_empty())
+        .map(|keys| text(format!("After {}, a key that selects the next, previous, first, or last cue applies the action to the cues from the selection to where that key would move it.  A count before the operator, before the key, or both counts the move, and the two multiply.", keys.join(" or "))));
     let key_values = paragraph(
         "The manual page cinq(5) describes config.toml, where keys go by their W3C UI Events key values, listed at ",
         link(KEY_VALUES, OsString::from(KEY_VALUES)),
@@ -69,11 +75,13 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     let page = column![
         text(format!("Keys of the {} keymap", keymap.name())).size(24),
         bindings,
-        text(format!("A count typed before a key repeats a move{example}, copies, cuts, or deletes as many cues, pastes as many times, and picks the row for the first and last cue.")),
-        text("The keys of GO and Panic act at once, even halfway through another command."),
-        source(&app.config.source),
-        key_values,
+        text(format!("A count typed before a key repeats a move{example}.  It goes that many places back or forward, undoes or redoes that many changes, copies, cuts, deletes, or adds that many cues, pastes that many times, goes that many matches along, scrolls that many rows, and goes that many pages down or up.  It picks the row for the first and last cue, the row in view for the top and bottom rows, and the tab for the next tab, and sets the rows of a half page.")),
     ]
+    .extend(operators.map(Element::from))
+    .push(text("Actions that this keymap binds to no key are left out of the table, and cinq(5) lists them all."))
+    .push(text("The keys of GO and Panic act at once, even halfway through another command."))
+    .push(source(&app.config.source))
+    .push(key_values)
     .extend(app.link_problem.as_deref().map(|why| text(why).into()))
     .extend(notice())
     .push(button("Close").on_press(Message::CloseHelp))
@@ -86,6 +94,16 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill);
     container(scrolling).padding(SPACING).into()
+}
+
+/// Returns the actions that the keymap binds to a key, in the order of the
+/// page, since a row with no key would only crowd the page
+fn bound(keymap: &Keymap) -> Vec<Action> {
+    Action::VARIANTS
+        .iter()
+        .copied()
+        .filter(|&action| keymap.key(action).is_some())
+        .collect()
 }
 
 fn source(source: &Source) -> Element<'_, Message> {

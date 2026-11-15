@@ -19,6 +19,7 @@ mod command;
 mod editing;
 mod files;
 mod history;
+mod numbering;
 mod pasting;
 mod playback;
 mod problems;
@@ -181,7 +182,12 @@ impl Workspace {
             Command::Loaded { cue, file, media } => self.loaded(cue, &file, media),
             Command::Undo => self.undone(),
             Command::Redo => self.redone(),
-            Command::Add { list, kind, at } => self.added(list, kind, at),
+            Command::Add {
+                list,
+                kind,
+                at,
+                count,
+            } => self.added(list, kind, at, count),
             Command::Paste { list, cues, at } => self.pasted(list, cues, at),
             Command::Delete(ids) => self.deleted(&ids),
             Command::Move { cue, by } => self.moved(cue, by),

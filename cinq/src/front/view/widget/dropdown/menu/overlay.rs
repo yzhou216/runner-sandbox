@@ -84,6 +84,11 @@ impl Overlay<Message, Theme, Renderer> for Menu<'_> {
             .content
             .as_widget_mut()
             .layout(self.tree, renderer, &limits);
+        let row = line_height() + PADDING.y();
+        self.choice
+            .shared
+            .fit
+            .set((node.size().height / row).floor() as usize);
         let top = if below > above {
             self.target.y + self.target.height
         } else {

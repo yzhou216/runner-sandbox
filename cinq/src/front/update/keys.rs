@@ -18,9 +18,8 @@ use iced::{
     widget::operation::{self, AbsoluteOffset, RelativeOffset},
 };
 
-use super::paging;
 use crate::front::{
-    App, Focus, Message, Tab,
+    App, Caret, Focus, Message, Tab,
     keymap::{Action, KeyPress, Press},
     view,
 };
@@ -28,21 +27,34 @@ use crate::front::{
 impl App {
     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
         let outcome = self.config.keymap.parse(&self.keys, press);
-        sandbox!(
-            "press {press:?} repeat={repeat} -> action={:?} pending={:?}",
-            outcome.action, outcome.pending
-        );
+        let across = outcome.across();
         let app = Self {
             keys: outcome.pending,
+            clipped: self.clipped.filter(|_| outcome.action.is_none()),
             ..self
         };
+        if let Some((operator, motion, count)) = across {
+            // Help page has no cues to operate on
+            return if app.help {
+                (app, Task::none())
+            } else {
+                app.handled(Message::Across(operator, motion, count))
+            };
+        }
         match outcome.action {
             Some((action, _)) if repeat && action.acts_once_a_press() => (app, Task::none()),
             // The page opens in the main window, which the fullscreen stage
             // window may cover, so that the page would open out of sight
             Some((Action::Help, _)) if app.stage.has_keyboard() => (app, Task::none()),
-            Some((action @ (Action::Next | Action::Previous), count)) if app.help => {
-                let down = if action == Action::Next { 1.0 } else { -1.0 };
+            Some((
+                action @ (Action::Next | Action::Previous | Action::ScrollDown | Action::ScrollUp),
+                count,
+            )) if app.help => {
+                let down = if matches!(action, Action::Next | Action::ScrollDown) {
+                    1.0
+                } else {
+                    -1.0
+                };
                 let lines = count.map_or(1.0, |count| count as f32);
                 let offset = AbsoluteOffset {
                     x: 0.0,
@@ -56,12 +68,10 @@ impl App {
             Some((Action::Last, _)) if app.help => {
                 (app, operation::snap_to(view::HELP, RelativeOffset::END))
             }
-            Some((action, count)) if app.help && !action.acts_over_help() => {
-                let task = action
-                    .page()
-                    .map_or_else(Task::none, |page| paging::help_paged(page, count));
-                (app, task)
-            }
+            Some((action, count)) if app.help && !action.acts_over_help() => match action.page() {
+                Some(page) => app.help_paged(page, count),
+                None => (app, Task::none()),
+            },
             Some((action, count)) if !app.help || action.acts_over_help() => {
                 app.handled(action.message(count))
             }
@@ -74,19 +84,27 @@ impl App {
     /// keys typed there would never reach the field.
     pub(super) fn focused(self, focus: Focus) -> (Self, Task<Message>) {
         match focus {
-            Focus::Name | Focus::Next | Focus::Previous if self.stage.has_keyboard() => {
+            Focus::Name(_) | Focus::Next | Focus::Previous if self.stage.has_keyboard() => {
                 (self, Task::none())
             }
-            Focus::Name if self.editable() && self.selected.is_some() => (
+            Focus::Name(caret) if self.editable() && self.selected.is_some() => (
                 Self {
                     tab: Tab::Basics,
                     ..self
                 },
-                operation::focus(view::NAME),
+                match caret {
+                    // Focusing puts the caret at the end, as Vim's `A` does
+                    Caret::End => operation::focus(view::NAME),
+                    Caret::Start => operation::focus(view::NAME)
+                        .chain(operation::move_cursor_to_front(view::NAME)),
+                    Caret::All => {
+                        operation::focus(view::NAME).chain(operation::select_all(view::NAME))
+                    }
+                },
             ),
-            Focus::Name => (self, Task::none()),
-            Focus::Next => (self, operation::focus_next()),
-            Focus::Previous => (self, operation::focus_previous()),
+            Focus::Name(_) => (self, Task::none()),
+            Focus::Next => (self.without_search(), operation::focus_next()),
+            Focus::Previous => (self.without_search(), operation::focus_previous()),
             Focus::Cues => (self, operate(focusable::unfocus())),
         }
     }
@@ -95,15 +113,6 @@ impl App {
 /// Reads a key that no widget captured, with Shift applied, so that Shift
 /// and `g` make `G`
 pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
-    if let keyboard::Event::KeyPressed {
-        key,
-        modified_key,
-        modifiers,
-        ..
-    } = &event
-    {
-        sandbox!("raw key={key:?} modified={modified_key:?} modifiers={modifiers:?}");
-    }
     let KeyPress { press, repeat, .. } = KeyPress::of(&event)?;
     press.map(|press| Message::Typed { press, repeat })
 }

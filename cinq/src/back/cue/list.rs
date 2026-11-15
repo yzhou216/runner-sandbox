@@ -89,8 +89,8 @@ impl CueList {
         .with_cue_at(index, Cue { target, ..cue })
     }
 
-    /// Inserts cues at an index, which standby waiting past the end of the
-    /// list moves to the first of, as it does for a cue added there
+    /// Inserts cues at an index.  Standby waiting past the end moves to the
+    /// first cue pasted there, as for a cue added there.
     pub(in crate::back) fn with_pasted(self, index: usize, pasted: Vec<Cue>) -> Self {
         let index = index.min(self.cues.len());
         let standby = self.standby.or(pasted

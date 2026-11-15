@@ -12,14 +12,27 @@
 //! they target are kept only in the show they came from, whose identities
 //! those are.
 
+use std::collections::HashSet;
+
 use crate::{
     back::{Command, Cue, CueId, Place},
-    front::App,
+    front::{App, view::format},
 };
 
-/// Most cues that one paste adds, which keeps a count typed by mistake from
-/// filling the memory
-const PASTE_LIMIT: usize = 1000;
+/// Most cues that one paste or one add adds, even of a clipboard that holds
+/// more, which keeps a count typed by mistake from filling the memory
+pub(super) const PASTE_LIMIT: usize = 1000;
+
+const CUT: &str = "Cut";
+
+/// What the latest copy or cut told, which the status bar shows until the
+/// operator does anything else
+#[derive(Debug, Clone, PartialEq)]
+pub struct Clipped {
+    pub told: String,
+    /// Whether the cues left the show, so that undo brings them back
+    pub cut: bool,
+}
 
 #[derive(Default)]
 pub struct Clipboard {
@@ -31,42 +44,65 @@ pub struct Clipboard {
 
 impl App {
     /// Copies the selected cue and the cues below it, as many as `count`
-    /// holds, in place of what the clipboard held.  Show mode locks it as it
-    /// does editing.
+    /// holds, in place of what the clipboard held.  Copying changes no show,
+    /// so that show mode leaves it, as Vim yanks in a read-only buffer.
     pub(super) fn with_copied(self, count: usize) -> Self {
-        let Some(first) = self.selected_row().filter(|_| self.editable()) else {
+        self.clipped(count, "Copied")
+    }
+
+    /// Fills the clipboard as [`App::with_copied`] does, and tells what went
+    /// there, by the `verb` that the status bar starts with
+    fn clipped(self, count: usize, verb: &str) -> Self {
+        let Some(first) = self.selected_row() else {
             return self;
         };
-        let cues = self.current().cues[first..]
+        let cues: Vec<Cue> = self.current().cues[first..]
             .iter()
             .take(count)
             .map(|cue| self.workspace.copied(cue))
             .collect();
+        let clipped = Clipped {
+            told: format::clipped(verb, &cues),
+            cut: verb == CUT,
+        };
         Self {
             clipboard: Clipboard {
                 show: self.show.id(),
                 cues,
             },
+            clipped: Some(clipped),
             ..self
         }
     }
 
+    /// Cuts as [`App::with_copied`] copies, and deletes the cues copied.
+    /// Show mode locks it as it does editing, so that it copies nothing
+    /// either.
     pub(super) fn cut(self, count: usize) -> Self {
-        self.with_copied(count).without_selected(count)
+        if self.editable() {
+            self.clipped(count, CUT).without_selected(count)
+        } else {
+            self
+        }
     }
 
     /// Pastes the clipboard `count` times in a row next to the selection,
     /// on the side that `place` picks, or at the end of the list without a
-    /// selection, and selects the first cue pasted.  An empty clipboard
-    /// pastes nothing.
+    /// selection, and selects the first cue pasted, as far as
+    /// [`PASTE_LIMIT`] allows.  An empty clipboard pastes nothing.  Another
+    /// show keeps no target of the cues but those that are copied with it,
+    /// which the paste points at their new copies.
     pub(super) fn with_pasted(self, place: fn(CueId) -> Place, count: usize) -> Self {
         let copies = &self.clipboard.cues;
-        let times = count.min((PASTE_LIMIT / copies.len().max(1)).max(1));
         let elsewhere = self.clipboard.show != self.show.id();
-        let cues: Vec<Cue> = (0..times)
+        let copied: HashSet<CueId> = copies.iter().map(|cue| cue.id).collect();
+        let cues: Vec<Cue> = (0..count.min(PASTE_LIMIT))
             .flat_map(|_| copies.iter().cloned())
+            .take(PASTE_LIMIT)
             .map(|cue| Cue {
-                target: cue.target.filter(|_| !elsewhere),
+                target: cue
+                    .target
+                    .filter(|target| !elsewhere || copied.contains(target)),
                 ..cue
             })
             .collect();

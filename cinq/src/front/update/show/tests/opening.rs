@@ -119,6 +119,16 @@ fn opening_another_show_clears_the_places_to_go_back_to() {
     assert!(!app.can_go_back() && !app.can_go_forward());
 }
 
+#[test]
+fn opening_another_show_resets_the_rows_of_a_half_page_that_a_count_set() {
+    let app = App {
+        scroll: Some(5),
+        ..App::default()
+    };
+    let app = app.opened(found(Some(CALM), Some(SHOW), None));
+    assert_eq!(app.scroll, None);
+}
+
 /// Show file of an audio cue and a fade cue that targets it
 const FADING: &str = "[[list]]\nname = \"Main\"\n\n[[list.cue]]\nid = 1\nnumber = \"1\"\nkind = \"audio\"\nname = \"Rain\"\nfile = \"rain.ogg\"\n\n[[list.cue]]\nid = 2\nnumber = \"2\"\nkind = \"fade\"\nname = \"Fade\"\ntarget = 1\n";
 
@@ -144,4 +154,29 @@ fn clipboard_outlasts_the_show_but_its_cues_lose_the_targets_of_that_show() {
         .with_pasted(|_| Place::End, 1);
     assert_eq!(elsewhere.workspace.lists()[0].cues.len(), 3);
     assert_eq!(target(&elsewhere), None);
+}
+
+#[test]
+fn a_fade_pasted_into_another_show_with_its_target_targets_the_copy() {
+    let copied = App::default()
+        .opened(found(Some(STORM), Some(FADING), None))
+        .with_selection(CueId(1))
+        .with_copied(2);
+    let elsewhere = copied
+        .opened(found(Some(CALM), Some(FADING), None))
+        .with_pasted(|_| Place::End, 1);
+    let targets: Vec<_> = elsewhere.workspace.lists()[0]
+        .cues
+        .iter()
+        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
+        .collect();
+    assert_eq!(targets, [(1, None), (2, Some(1)), (3, None), (4, Some(3))]);
+}
+
+#[test]
+fn opening_a_show_closes_the_search_line() {
+    let (searching, _) = storm().searching(true);
+    assert!(searching.search.is_some());
+    let app = searching.opened(found(Some(CALM), Some(SHOW), None));
+    assert!(app.search.is_none());
 }

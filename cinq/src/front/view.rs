@@ -6,7 +6,7 @@
 //! exceptions that [`theme`] lists, and only space the controls apart
 
 mod cue_table;
-mod format;
+pub(super) mod format;
 mod help;
 mod inspector;
 mod next_keys;
@@ -51,6 +51,10 @@ pub const HELP: &str = "help";
 /// Identity of the Name field, through which the key of the edit action
 /// gives it the keyboard focus
 pub const NAME: &str = "name";
+
+/// Identity of the search line in the status bar, through which the key of
+/// the search action gives it the keyboard focus
+pub const SEARCH: &str = "search";
 
 /// Monospace, so that columns of text line up
 pub const FONT: Font = Font::MONOSPACE;

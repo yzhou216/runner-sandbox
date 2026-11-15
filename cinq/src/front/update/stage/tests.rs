@@ -8,6 +8,8 @@
 //! from it, going fullscreen as GO fires a picture or video cue, and the
 //! key that toggles it between fullscreen and a window
 
+mod search;
+
 use iced::{
     Size,
     keyboard::{Key, key::Named},
@@ -18,7 +20,7 @@ use super::Stage;
 use crate::{
     back::{Cue, CueId, CueList, Kind, Picture, Workspace, loaded, silent},
     front::{
-        App, Focus, MAIN_SIZE, Message, STAGE_SIZE,
+        App, Caret, Focus, MAIN_SIZE, Message, STAGE_SIZE,
         update::tests::{field_keys, press},
         view,
     },
@@ -26,7 +28,7 @@ use crate::{
 
 /// Returns the state of the interface with a show of `kind` cues, whose
 /// files have loaded as ten seconds of picture without sound
-fn show(kind: Kind) -> App {
+pub(super) fn show(kind: Kind) -> App {
     let cue = Cue::new(CueId(1), "1", kind, "Cue")
         .file("movie.mp4")
         .build();
@@ -176,12 +178,12 @@ fn no_field_takes_the_keyboard_while_the_stage_window_has_it() {
         ..open
     };
     let (staged, _) = selected.handled(Message::WindowFocused(stage));
-    let (staged, naming) = staged.focused(Focus::Name);
+    let (staged, naming) = staged.focused(Focus::Name(Caret::End));
     let (staged, next) = staged.focused(Focus::Next);
     let (staged, previous) = staged.focused(Focus::Previous);
     assert_eq!((naming.units(), next.units(), previous.units()), (0, 0, 0));
     let (back, _) = staged.handled(Message::WindowFocused(main));
-    let (_, naming) = back.focused(Focus::Name);
+    let (_, naming) = back.focused(Focus::Name(Caret::End));
     assert_eq!(naming.units(), 1);
 }
 
@@ -208,7 +210,7 @@ fn help_key_opens_the_page_from_the_main_window_only() {
             open.main.expect("the main window opens")
         };
         let (keyboard, _) = open.handled(Message::WindowFocused(window));
-        let (next, task) = keyboard.typed(press(Key::Character("?".into())), false);
+        let (next, task) = keyboard.typed(press(Key::Named(Named::F1)), false);
         (next.help, task.units())
     };
     assert_eq!(typed(false), (true, 0));
@@ -223,7 +225,7 @@ fn other_help_page_keys_act_from_the_stage_window_so_that_it_closes() {
     let stage = open.stage.window().expect("the stage window opens");
     let (keyboard, _) = App { help: true, ..open }.handled(Message::WindowFocused(stage));
     let keys = [
-        press(Key::Character("?".into())),
+        press(Key::Named(Named::F1)),
         press(Key::Character("j".into())),
     ]
     .into_iter()

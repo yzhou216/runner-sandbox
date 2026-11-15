@@ -4,10 +4,7 @@
 
 //! Tests of going back and forward between the places that jumps left
 
-use iced::{
-    keyboard::{Key, Modifiers},
-    mouse, window,
-};
+use iced::keyboard::{Key, Modifiers};
 
 use super::{chord, show};
 use crate::{
@@ -16,18 +13,18 @@ use crate::{
 };
 
 /// Returns the state after the messages, which a test sends one at a time
-fn after(app: App, messages: impl IntoIterator<Item = Message>) -> App {
+pub(super) fn after(app: App, messages: impl IntoIterator<Item = Message>) -> App {
     messages
         .into_iter()
         .fold(app, |app, message| app.next(message).0)
 }
 
-fn cue(id: u32) -> Option<CueId> {
+pub(super) fn cue(id: u32) -> Option<CueId> {
     Some(CueId(id))
 }
 
 /// Returns the list and the selection, the place that the operator sees
-fn place(app: &App) -> (usize, Option<CueId>) {
+pub(super) fn place(app: &App) -> (usize, Option<CueId>) {
     (app.list, app.selected)
 }
 
@@ -71,14 +68,55 @@ fn back_and_forward_retrace_the_places() {
 }
 
 #[test]
-fn a_jump_after_going_back_drops_the_places_ahead() {
-    let app = after(
-        show(cue(5)),
-        [Message::SwitchList(1), Message::Back(1), Message::Row(1)],
-    );
+fn a_jump_after_going_back_keeps_the_places_ahead_behind() {
+    let jumped = || {
+        after(
+            show(cue(5)),
+            [Message::SwitchList(1), Message::Back(1), Message::Row(1)],
+        )
+    };
+    let app = jumped();
     assert_eq!(place(&app), (0, cue(1)));
     assert!(!app.can_go_forward());
-    assert_eq!(place(&after(app, [Message::Forward(1)])), (0, cue(1)));
+    assert_eq!(place(&after(jumped(), [Message::Forward(1)])), (0, cue(1)));
+    let app = after(app, [Message::Back(1)]);
+    assert_eq!(place(&app), (0, cue(5)));
+    assert_eq!(place(&after(app, [Message::Back(1)])), (1, cue(20)));
+}
+
+#[test]
+fn back_after_a_jump_visits_what_vim_visits() {
+    // 10G 20G Control+o 30G Control+o Control+o, with rows for lines
+    let app = after(
+        show(cue(1)),
+        [
+            Message::Row(10),
+            Message::Row(11),
+            Message::Back(1),
+            Message::Row(12),
+            Message::Back(1),
+        ],
+    );
+    assert_eq!(place(&app), (0, cue(10)));
+    assert_eq!(place(&after(app, [Message::Back(1)])), (0, cue(11)));
+}
+
+#[test]
+fn going_back_or_forward_takes_the_keyboard_out_of_a_field() {
+    let jumped = || after(show(cue(5)), [Message::SwitchList(1)]);
+    let backed = || after(jumped(), [Message::Back(1)]);
+    let leaves = |app: App, message| {
+        let before = place(&app);
+        let (moved, task) = app.next(message);
+        (place(&moved) != before, task.units())
+    };
+    // The reveal and the unfocus
+    assert_eq!(leaves(jumped(), Message::Back(1)), (true, 2));
+    assert_eq!(leaves(backed(), Message::Forward(1)), (true, 2));
+    // Nothing to walk to, so the keyboard stays where it is
+    assert_eq!(leaves(show(cue(5)), Message::Back(1)), (false, 1));
+    let forward = after(backed(), [Message::Forward(1)]);
+    assert_eq!(leaves(forward, Message::Forward(1)), (false, 1));
 }
 
 #[test]
@@ -107,7 +145,7 @@ fn moving_by_rows_editing_and_looking_elsewhere_record_nothing() {
         show(cue(5)),
         [
             Message::Step(2),
-            Message::Add(Place::After),
+            Message::Add(Place::After, 1),
             Message::Move(1),
             Message::Delete(1),
             Message::Undo(1),
@@ -185,22 +223,4 @@ fn a_list_without_a_selected_cue_is_a_place_by_its_index() {
         [Message::SwitchList(1), Message::Row(2), Message::Back(2)],
     );
     assert_eq!(place(&app), (0, None));
-}
-
-#[test]
-fn the_side_buttons_of_the_mouse_go_back_and_forward_from_the_main_window_only() {
-    let main = window::Id::unique();
-    let jumped = App {
-        main: Some(main),
-        ..after(show(cue(5)), [Message::SwitchList(1)])
-    };
-    let side = |app: App, window, button| after(app, [Message::SidePressed(window, button)]);
-    let elsewhere = side(jumped, window::Id::unique(), mouse::Button::Back);
-    assert_eq!(place(&elsewhere), (1, cue(20)));
-    let back = side(elsewhere, main, mouse::Button::Back);
-    assert_eq!(place(&back), (0, cue(5)));
-    let other = side(back, main, mouse::Button::Middle);
-    assert_eq!(place(&other), (0, cue(5)));
-    let forward = side(other, main, mouse::Button::Forward);
-    assert_eq!(place(&forward), (1, cue(20)));
 }
