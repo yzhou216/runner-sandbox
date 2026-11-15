@@ -109,6 +109,12 @@ impl<'b> Choice<'b> {
             (Reply::Keep, Some(moved)) => moved,
             (reply, _) => reply,
         };
+        eprintln!(
+            "SANDBOX {:.3} menu key={key:?} press={press:?} reply={reply:?}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0.0, |time| time.as_secs_f64())
+        );
         match reply {
             Reply::Step(offset) => self.highlight(self.stepped(offset), shell),
             Reply::Page(sign) => self.highlight(self.stepped(sign * self.page()), shell),
