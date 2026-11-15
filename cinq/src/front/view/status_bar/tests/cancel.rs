@@ -7,11 +7,16 @@
 use iced::keyboard::{Key, Modifiers};
 use unicode_width::UnicodeWidthStr;
 
-use super::{super::status, columns, fitted, hinted, opened};
+use super::{super::status, fitted, hinted, opened};
 use crate::front::{
     App,
     keymap::{Action, Preset, Press},
 };
+
+/// Columns of a bar 1024 pixels wide in DejaVu Sans Mono at 16 pixels.
+/// The test counts them rather than measuring the font, since the
+/// monospace font that a build finds differs from one system to another.
+const COLUMNS: usize = 103;
 
 /// Returns the hint of the key of cancel, if the bar shows one
 fn cancel_hint(app: &App) -> Option<String> {
@@ -47,7 +52,7 @@ fn the_key_of_cancel_stays_in_a_bar_of_1024_pixels_while_go_and_panic_give_way()
             ..opened(Preset::Vi, false, false)
         };
         let taken: usize = status(&app).iter().map(|part| part.text.width()).sum();
-        fitted(&hinted(&app), columns(1024.0) - taken)
+        fitted(&hinted(&app), COLUMNS - taken)
     };
     // GO gives way first, then Panic, while cancel stays
     let short = shown("Copied cue 1");

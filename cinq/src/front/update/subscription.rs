@@ -130,10 +130,7 @@ impl App {
 /// turn of the wheel, after which the cue list may have scrolled
 fn clicked(event: Event, _status: event::Status, _window: window::Id) -> Option<Message> {
     match event {
-        Event::Mouse(mouse::Event::ButtonPressed(button)) => {
-            sandbox!("mouse button pressed {button:?}");
-            Some(Message::Clicked)
-        }
+        Event::Mouse(mouse::Event::ButtonPressed(_)) => Some(Message::Clicked),
         Event::Mouse(mouse::Event::ButtonReleased(_) | mouse::Event::WheelScrolled { .. }) => {
             Some(Message::Remeasure)
         }

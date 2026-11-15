@@ -44,21 +44,7 @@ impl App {
         let (list, from) = (self.list, self.selected);
         Self { scroll, ..self }.landing(
             move |row| Message::Landed { list, from, row },
-            move |shape| {
-                sandbox!(
-                    "page {page:?} count={count:?} view={} content={} cues={cues} fit={} moves={}",
-                    shape.view,
-                    shape.content,
-                    rows_fitting(shape.view, shape.content, cues),
-                    rows(
-                        page,
-                        count,
-                        scroll,
-                        rows_fitting(shape.view, shape.content, cues)
-                    )
-                );
-                landing(page, count, scroll, shape, cues, current)
-            },
+            move |shape| landing(page, count, scroll, shape, cues, current),
         )
     }
 

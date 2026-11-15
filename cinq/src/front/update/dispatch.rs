@@ -78,32 +78,11 @@ impl App {
             typed_level: self.typed_level.filter(|_| passive || clicked),
             ..self
         };
-        let shown = format!("{message:?}");
-        let moved = matches!(message, Message::Landed { .. } | Message::Reached { .. });
         let (app, task) = app.handled(message);
         let app = Self {
             link_problem: app.link_problem.filter(|_| app.help),
             ..app
         };
-        if !passive || moved {
-            sandbox!(
-                "update {} | list={} rows={} selected_row={:?} selected_id={:?} keys={:?} help={} menu={} new_kind={:?} search={:?} clipped={:?} remark={:?}",
-                shown.chars().take(100).collect::<String>(),
-                app.list + 1,
-                app.current().cues.len(),
-                app.selected_row().map(|row| row + 1),
-                app.selected,
-                app.keys,
-                app.help,
-                app.menu,
-                app.new_kind,
-                app.search
-                    .as_ref()
-                    .map(|search| (search.text.clone(), search.backward)),
-                app.clipped.as_ref().map(|clipped| clipped.told.clone()),
-                app.remark,
-            );
-        }
         (app, task)
     }
 }

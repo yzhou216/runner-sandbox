@@ -7,9 +7,7 @@
 
 mod cancel;
 
-use super::{
-    NO_MATCH, SEARCH_ROOM, clipped, columns, fitted, hints as hinted, mark, search_columns,
-};
+use super::{NO_MATCH, SEARCH_ROOM, clipped, fitted, hints as hinted, mark, search_columns};
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Workspace},
     front::{
