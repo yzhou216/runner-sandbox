@@ -13,9 +13,17 @@
 # Usage: linux.sh FONTS OUT, with cinq, sway, wtype, vptr (from vptr.sh), and grim on PATH
 set -uo pipefail
 
-# The file dialog comes from a portal, which reaches cinq over the session bus
+# The file dialog comes from a portal, which reaches cinq over the session bus.
+# The dbus of Nix looks for its configuration under /etc, where Ubuntu has
+# none for it, so the share directory of the package supplies the file.
 if [ -z "${KEYS_BUS:-}" ]; then
-  KEYS_BUS=1 exec dbus-run-session -- bash "$0" "$@"
+  conf=
+  for share in $(printf '%s' "${PORTAL_SHARE:-}" | tr ':' ' '); do
+    [ -f "$share/dbus-1/session.conf" ] && conf=$share/dbus-1/session.conf
+  done
+  # Services that the bus activates come from the data directories it starts with
+  export XDG_DATA_DIRS="${PORTAL_SHARE:-}:${XDG_DATA_DIRS:-/usr/share}"
+  KEYS_BUS=1 exec dbus-run-session ${conf:+--config-file="$conf"} -- bash "$0" "$@"
 fi
 
 here=$(dirname "$(readlink -f "$0")")

@@ -68,6 +68,7 @@ button() {
 }
 
 swiftc -O -o "$work/inject" "$here/inject.swift" 2>&1 | tail -n 20
+swiftc -O -o "$work/ui" "$here/screen.swift" 2>&1 | tail -n 20
 { sw_vers; uname -m; osascript -e 'tell application "Finder" to get bounds of window of desktop'; } > "$OUT/system.txt" 2>&1 || true
 
 start() {
@@ -121,12 +122,16 @@ shot vi-5-after-ctrl-o
 key 5-ctrl-l ctrl+l
 sleep 3
 shot vi-5-dialog
-osascript "$here/windows.applescript" > "$OUT/vi-5-windows.txt" 2>&1 || true
+# The file dialog is a window of a service of its own, which ui lists with the
+# text on the screen, and whose Cancel button ui clicks where Vision reads it
+"$work/ui" windows > "$OUT/vi-5-windows.txt" 2>&1 || true
+"$work/ui" list >> "$OUT/vi-5-windows.txt" 2>&1 || true
 mark 5-cancel
-osascript "$here/cancel.applescript" > "$OUT/vi-5-cancel.txt" 2>&1 || true
+"$work/ui" click --contains Cancel 10 > "$OUT/vi-5-cancel.txt" 2>&1 || true
 sleep 2
 shot vi-5-after-cancel
-osascript "$here/windows.applescript" > "$OUT/vi-5-windows-after.txt" 2>&1 || true
+"$work/ui" windows > "$OUT/vi-5-windows-after.txt" 2>&1 || true
+"$work/ui" list >> "$OUT/vi-5-windows-after.txt" 2>&1 || true
 # 6. Other buttons 3 and 4 of the mouse
 key 6-gg g g
 key 6-l l
