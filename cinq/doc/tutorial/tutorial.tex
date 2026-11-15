@@ -1,0 +1,41 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+% nix build .#doc typesets the tutorial, with the screenshots that shots.sh
+% takes of the storm show that nix build .#demo builds.  Each window of cinq
+% shows on a 4:3 output of its own and without a border, so that no platform
+% looks better supported than another.
+
+\documentclass{report}
+
+% Figures take H from float, so that each screenshot stays beside the text
+% that shows it, where LaTeX would put one that takes half a page on a page
+% of its own.  Their files go by their whole paths, which converters other
+% than LaTeX, such as pandoc, need.
+\usepackage{float}
+\usepackage{graphicx}
+
+% Keys, as the help page writes them
+\newcommand{\key}[1]{\texttt{#1}}
+% Buttons, fields, and tabs, as the window labels them
+\newcommand{\ui}[1]{\emph{#1}}
+
+\title{The cinq tutorial}
+\author{Yiyu Zhou}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\include{running}
+\include{cues}
+\include{fades}
+\include{sequences}
+\include{stage}
+\include{saving}
+\include{keys}
+\include{next}
+
+\end{document}

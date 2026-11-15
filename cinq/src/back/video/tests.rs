@@ -1,0 +1,233 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Tests of reading how long video files play and of decoding their
+//! pictures in time, from the sync sample before a clip and on later passes
+//! through a clip that loops, along with those of [`damaged`] files,
+//! [`layouts`] of boxes, [`player`], [`runs`], and parts that [`skipped`]
+//! files leave out, on videos that [`movie`] makes and [`boxes`] changes,
+//! and those of [`still`], on pictures of its own
+
+mod boxes;
+mod damaged;
+mod layouts;
+pub(in crate::back) mod movie;
+mod player;
+mod runs;
+mod skipped;
+mod still;
+
+use std::{
+    iter,
+    ops::ControlFlow,
+    path::Path,
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
+
+use super::{
+    decoder::{self, Sent, UNDECODABLE},
+    probe,
+};
+use crate::back::{
+    Clip, Cue, CueId, CueList, Kind, Load, Picture, Video, Workspace, load_files,
+    workspace::tests::GO,
+};
+use boxes::reworked;
+use movie::{RATE, broken_movie, movie, movie_bytes, picture_number, saved};
+
+/// Longest that a test waits for a thread to decode a picture
+const PATIENCE: Duration = Duration::from_secs(10);
+
+/// Returns a workspace of one cue of `kind` that plays the file at `path`
+/// and has loaded it
+fn showing(path: &Path, kind: Kind) -> Workspace {
+    let file = path.file_name().and_then(|name| name.to_str());
+    let cue = Cue::new(CueId(1), "1", kind, "Cue").file(file.expect("the file has a name"));
+    showing_cue(path, cue.build())
+}
+
+fn showing_cue(path: &Path, cue: Cue) -> Workspace {
+    let directory = path.parent().expect("the file is in a directory");
+    let workspace = Workspace::new(vec![CueList::new("Main", vec![cue])]).directory(directory);
+    let loads = load_files(Load::all(&workspace, workspace.unloaded()));
+    loads.into_iter().fold(workspace, Workspace::apply)
+}
+
+/// Calls `step` on `state` again and again until it breaks with a result.
+/// The steps of these tests wait for a thread to decode, which takes
+/// seconds on a busy machine, so recursing would leave a stack frame for
+/// every poll and overflow the stack of the test thread, which aborts the
+/// whole run instead of failing the one test.
+fn repeated<S, T>(state: S, mut step: impl FnMut(S) -> ControlFlow<T, S>) -> T {
+    iter::repeat(())
+        .try_fold(state, |state, ()| step(state))
+        .break_value()
+        .expect("an endless iterator ends only by breaking")
+}
+
+/// Syncs `video` with `workspace` until a picture comes due or the
+/// workspace no longer runs the cue, and returns the workspace, along with
+/// the picture
+fn synced(video: &mut Video, workspace: Workspace) -> (Workspace, Option<(CueId, Picture)>) {
+    let started = Instant::now();
+    repeated(workspace, |workspace| {
+        let (workspace, pictures) = video.sync(workspace);
+        match pictures.into_iter().next() {
+            None if started.elapsed() < PATIENCE && !workspace.active().is_empty() => {
+                thread::sleep(Duration::from_millis(5));
+                ControlFlow::Continue(workspace)
+            }
+            picture => ControlFlow::Break((workspace, picture)),
+        }
+    })
+}
+
+fn clip(start: f64, end: f64, looping: bool) -> Clip {
+    Clip {
+        start,
+        end,
+        looping,
+    }
+}
+
+/// Returns what decoding pass `pass` through `clip` of the video at `path`
+/// sends, for a player that stays as long as the pass does
+fn sent(path: &Path, clip: Clip, pass: u32) -> Vec<Sent> {
+    let player = Arc::new(());
+    decoder::start(path.to_owned(), clip, pass, Arc::downgrade(&player))
+        .iter()
+        .collect()
+}
+
+/// Returns the numbers of the pictures that decoding pass `pass` through
+/// `clip` of the video at `path` sends, each with the time it is due at in
+/// pictures of the video since the start of the clip, once the pass has
+/// ended
+fn decoded(path: &Path, clip: Clip, pass: u32) -> Vec<(usize, f64)> {
+    let sent = sent(path, clip, pass);
+    assert!(matches!(sent.last(), Some(Sent::Ended)), "the pass ends");
+    sent.iter()
+        .filter_map(|sent| match sent {
+            Sent::Picture(frame) => Some((
+                picture_number(&frame.picture.pixels),
+                frame.at * f64::from(RATE),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+fn same((number, at): (usize, f64), (expected, due): (usize, f64)) -> bool {
+    number == expected && (at - due).abs() < 1e-6
+}
+
+fn assert_pictures(decoded: &[(usize, f64)], expected: &[(usize, f64)]) {
+    let matching =
+        decoded.len() == expected.len() && decoded.iter().zip(expected).all(|(&a, &b)| same(a, b));
+    assert!(matching, "{decoded:?} is not {expected:?}");
+}
+
+#[test]
+fn probe_reads_how_long_the_picture_lasts_and_whether_the_file_has_sound() {
+    let (_directory, path) = movie(15, 5);
+    assert_eq!(probe(&path), Ok((0.5, false)));
+}
+
+#[test]
+fn file_that_is_missing_or_holds_no_h264_video_cannot_play() {
+    let failed = |path: &Path| probe(path).expect_err("the file cannot play");
+    assert_eq!(failed(Path::new("/nowhere/movie.mp4")), "file not found");
+    let (_directory, notes) = saved(b"not a video");
+    assert_eq!(failed(&notes), "holds no H.264 video");
+}
+
+/// Returns `bytes` with the body of the box `kind` among the tables of the
+/// track replaced by `words`, after the version and flags of a box that
+/// holds none of either
+fn tabled(bytes: &[u8], kind: &[u8; 4], words: &[u32]) -> Vec<u8> {
+    let path = [b"moov", b"trak", b"mdia", b"minf", b"stbl", kind];
+    reworked(bytes, &path, &|_| {
+        iter::once(0)
+            .chain(words.iter().copied())
+            .flat_map(u32::to_be_bytes)
+            .collect()
+    })
+}
+
+#[test]
+fn track_that_counts_more_samples_than_its_file_holds_bytes_cannot_play() {
+    let bytes = movie_bytes(5, 5, &[]);
+    // Samples of one byte each, more of them than the file holds bytes,
+    // and as many for the times to decode them
+    let sizes = tabled(&bytes, b"stsz", &[1, u32::MAX]);
+    let times = tabled(&sizes, b"stts", &[1, u32::MAX, 20]);
+    let (_directory, damaged) = saved(&times);
+    assert_eq!(
+        probe(&damaged),
+        Err("holds a damaged H.264 track".to_owned())
+    );
+}
+
+#[test]
+fn pictures_come_in_the_order_they_show_each_due_at_its_time() {
+    let (_directory, path) = movie(15, 5);
+    let expected: Vec<(usize, f64)> = (0..15).map(|number| (number, number as f64)).collect();
+    assert_pictures(&decoded(&path, clip(0.0, 0.5, false), 0), &expected);
+}
+
+#[test]
+fn clip_between_sync_samples_starts_with_the_picture_showing_at_its_start() {
+    let (_directory, path) = movie(20, 8);
+    // Picture 10 shows from a third of a second on, a little before the
+    // start, and decodes only after pictures 8 and 9, which it refers to
+    let start = 0.35 * f64::from(RATE);
+    let expected: Vec<(usize, f64)> = (10..15)
+        .map(|number| (number, (number as f64 - start).max(0.0)))
+        .collect();
+    assert_pictures(&decoded(&path, clip(0.35, 0.5, false), 0), &expected);
+}
+
+#[test]
+fn later_pass_through_a_clip_that_loops_is_due_a_pass_later() {
+    let (_directory, path) = movie(12, 4);
+    // Pictures 3 to 5 make a tenth of a second, three pictures long
+    let pass = |passed: f64| [3, 4, 5].map(|number| (number, passed + (number - 3) as f64));
+    assert_pictures(&decoded(&path, clip(0.1, 0.2, true), 2), &pass(6.0));
+}
+
+#[test]
+fn picture_that_fails_to_decode_leaves_the_next_group_its_own_times() {
+    let (_directory, path) = broken_movie(10, 5, &[2]);
+    let pictures = decoded(&path, clip(0.0, 10.0 / f64::from(RATE), false), 0);
+    let later: Vec<(usize, f64)> = pictures
+        .into_iter()
+        .filter(|&(number, _)| number >= 5)
+        .collect();
+    let expected: Vec<(usize, f64)> = (5..10).map(|number| (number, number as f64)).collect();
+    assert_pictures(&later, &expected);
+}
+
+#[test]
+fn pass_that_decodes_no_picture_says_that_its_picture_cannot_be_decoded() {
+    let (_directory, path) = broken_movie(6, 3, &[0, 1, 2, 3, 4, 5]);
+    let sent = sent(&path, clip(0.0, 0.2, true), 0);
+    assert!(
+        matches!(sent.as_slice(), [Sent::Failed(reason)] if reason == UNDECODABLE),
+        "{} sent",
+        sent.len()
+    );
+}
+
+#[test]
+fn pass_stops_decoding_once_its_player_has_gone() {
+    let (_directory, path) = movie(25, 25);
+    let player = Arc::new(());
+    let pictures = decoder::start(path, clip(0.0, 0.8, false), 0, Arc::downgrade(&player));
+    drop(player);
+    let sent: Vec<Sent> = pictures.iter().collect();
+    assert!(sent.len() < 25, "{} sent", sent.len());
+    assert!(sent.iter().all(|sent| matches!(sent, Sent::Picture(_))));
+}

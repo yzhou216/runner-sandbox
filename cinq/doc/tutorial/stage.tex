@@ -1,0 +1,60 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Pictures and video}
+\label{ch:stage}
+
+Picture and video cues appear in a separate stage window, which opens beside
+the main window whenever the show contains such a cue, as the storm show
+does.  Move the stage window to the audience's display, such as a projector.
+It stays black until a picture appears.
+
+\section{The second act}
+
+\begin{enumerate}
+\item In the storm show, click \ui{Act 2} under \ui{Cue lists} in the
+  sidebar.  The cue list shows the second act, with cue~9, Title card, on
+  standby.
+\item Press \ui{GO}\@.  The stage window becomes fullscreen on its display,
+  comes to the front, and shows the title card, as in
+  Figure~\ref{fig:stage}.  Figure~\ref{fig:showing} shows the main window at
+  the same time.
+\item Press \ui{GO} again.  The opening film starts over the title card and
+  immediately continues to cue~11, which fades out the title card beneath
+  the film so that it does not reappear when the film ends.
+\item Press \ui{Panic}.  The film fades to black.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/stage.png}
+  \caption{Stage window, fullscreen, showing the title card of act 2}
+  \label{fig:stage}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/showing.png}
+  \caption{Main window while the title card shows}
+  \label{fig:showing}
+\end{figure}
+
+A picture cue shows its picture until something stops it, so the next cue
+always waits for GO, even if the picture cue is set to auto-follow.  A video
+cue plays its picture along with its sound, and its start, end, loop, and
+level work as they do for an audio cue.  A picture is shown whole, as large
+as the window allows.  A new picture covers those of earlier cues, which
+reappear once it is gone, and a fade cue that stops a picture or video fades
+it out, as Panic does.
+
+\key{F11} switches the stage window between fullscreen and windowed until the
+next picture or video cue fires.  Closing the stage window hides it until a
+picture or video cue fires again; closing the main window quits cinq.  GO and
+Panic work even while the stage window has the keyboard focus.
+
+\section*{Exercise}
+
+You can now put pictures and films on stage.  In your own show, add a picture
+cue for \texttt{pictures/title.png}, followed by a fade cue that takes it
+out.
