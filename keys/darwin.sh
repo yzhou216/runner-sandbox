@@ -166,6 +166,8 @@ stop
 
 searching=' message Searching('
 accepted=' message SearchAccepted'
+line_key=' message SearchKey('
+cancelled=' message Cancel'
 menu_key=' menu key='
 opened=' message MenuOpen(true'
 
@@ -179,6 +181,10 @@ shot ops-7-pasted
 # 11. A stray key after d is dropped: d u does not undo
 key 11-du d u
 shot ops-11-du
+# 11. Control+c after 2 d drops the typed keys and cuts nothing
+key 11-2d 2 d
+key 11-ctrl-c ctrl+c
+shot ops-11-ctrl-c
 stop
 
 # 8. Search, forward and backward, with n, N, and Control+o
@@ -198,14 +204,45 @@ key 8-ctrl-o ctrl+o
 key 8-9 9
 key 8-9-ctrl-o ctrl+o
 shot search-8-back
-# 12. F1 shows the help page, which q closes
-key 12-f1 f1
-shot search-12-help
-key 12-q q
+# 8. A search that wraps tells so: n goes up after ?, which wraps at the top
+# of the list, and N goes down, which wraps at the bottom
+key 8-gg-wrap g g
+key 8-n-wrap n
+key 8-N-wrap shift+n
+# F1 shows the help page, which q closes
+key h-f1 f1
+shot search-h-help
+key h-q q
 stop
 
-# 9. View keys
-start view vi long
+# 12. The search line: ArrowUp recalls an earlier search, Control+u clears the
+# line, and Control+c closes it and gives the selection back
+start line vi names
+key 12-gg g g
+key 12-slash-1 slash
+pattern=$searching key 12-bl shift+b l
+pattern=$accepted key 12-enter-bl return
+key 12-slash-2 slash
+pattern=$searching key 12-br shift+b r
+pattern=$accepted key 12-enter-br return
+key 12-gg-2 g g
+key 12-slash-3 slash
+pattern=$searching key 12-b shift+b
+pattern=$line_key key 12-up up
+pattern=$searching key 12-i i
+pattern=$line_key key 12-ctrl-u ctrl+u
+pattern=$searching key 12-bo shift+b o
+shot line-12-typed
+pattern=$cancelled key 12-ctrl-c ctrl+c
+shot line-12-closed
+stop
+
+# 3. Whole pages: three Control+f in a row move three pages
+# 9. View keys, on a list of sixty cues
+start view vi sixty
+key 3-gg g g
+key 3-ctrl-f ctrl+f ctrl+f ctrl+f
+shot view-3-ctrl-f
 key 9-gg g g
 key 9-ctrl-e-1 ctrl+e
 key 9-ctrl-e-2 ctrl+e
@@ -219,6 +256,9 @@ shot view-9-zz
 key 9-zt z t
 shot view-9-zt
 key 9-H-after-zt shift+h
+# A far move brings the cue into view at the middle
+key 9-55G 5 5 shift+g
+shot view-9-55G
 stop
 
 # 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes

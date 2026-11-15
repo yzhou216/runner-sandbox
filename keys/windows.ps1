@@ -69,7 +69,7 @@ public static class Native {
 }
 '@
 
-$vk = @{ ctrl = 0x11; alt = 0x12; shift = 0x10; left = 0x25; right = 0x27; end = 0x23; pgdn = 0x22
+$vk = @{ ctrl = 0x11; alt = 0x12; shift = 0x10; left = 0x25; right = 0x27; up = 0x26; end = 0x23; pgdn = 0x22
     tab = 0x09; 'return' = 0x0D; f1 = 0x70; slash = 0xBF }
 foreach ($c in [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') { $vk[[string]$c] = [int]$c }
 
@@ -252,6 +252,8 @@ Stop-Cinq
 
 $searching = ' message Searching\('
 $accepted = ' message SearchAccepted'
+$lineKey = ' message SearchKey\('
+$cancelled = ' message Cancel'
 $menuKey = ' menu key='
 $opened = ' message MenuOpen\(true'
 
@@ -265,6 +267,10 @@ Shot 'ops-7-pasted'
 # 11. A stray key after d is dropped: d u does not undo
 Key '11-du' 'd','u'
 Shot 'ops-11-du'
+# 11. Control+c after 2 d drops the typed keys and cuts nothing
+Key '11-2d' '2','d'
+Key '11-ctrl-c' 'ctrl+c'
+Shot 'ops-11-ctrl-c'
 Stop-Cinq
 
 # 8. Search, forward and backward, with n, N, and Control+o
@@ -284,14 +290,45 @@ Key '8-ctrl-o' 'ctrl+o'
 Key '8-9' '9'
 Key '8-9-ctrl-o' 'ctrl+o'
 Shot 'search-8-back'
-# 12. F1 shows the help page, which q closes
-Key '12-f1' 'f1'
-Shot 'search-12-help'
-Key '12-q' 'q'
+# 8. A search that wraps tells so: n goes up after ?, which wraps at the top
+# of the list, and N goes down, which wraps at the bottom
+Key '8-gg-wrap' 'g','g'
+Key '8-n-wrap' 'n'
+Key '8-N-wrap' 'shift+n'
+# F1 shows the help page, which q closes
+Key 'h-f1' 'f1'
+Shot 'search-h-help'
+Key 'h-q' 'q'
 Stop-Cinq
 
-# 9. View keys
-Start-Cinq 'view' 'vi' 'long'
+# 12. The search line: ArrowUp recalls an earlier search, Control+u clears the
+# line, and Control+c closes it and gives the selection back
+Start-Cinq 'line' 'vi' 'names'
+Key '12-gg' 'g','g'
+Key '12-slash-1' 'slash'
+Key '12-bl' 'shift+b','l' $searching
+Key '12-enter-bl' 'return' $accepted
+Key '12-slash-2' 'slash'
+Key '12-br' 'shift+b','r' $searching
+Key '12-enter-br' 'return' $accepted
+Key '12-gg-2' 'g','g'
+Key '12-slash-3' 'slash'
+Key '12-b' 'shift+b' $searching
+Key '12-up' 'up' $lineKey
+Key '12-i' 'i' $searching
+Key '12-ctrl-u' 'ctrl+u' $lineKey
+Key '12-bo' 'shift+b','o' $searching
+Shot 'line-12-typed'
+Key '12-ctrl-c' 'ctrl+c' $cancelled
+Shot 'line-12-closed'
+Stop-Cinq
+
+# 3. Whole pages: three Control+f in a row move three pages
+# 9. View keys, on a list of sixty cues
+Start-Cinq 'view' 'vi' 'sixty'
+Key '3-gg' 'g','g'
+Key '3-ctrl-f' 'ctrl+f','ctrl+f','ctrl+f'
+Shot 'view-3-ctrl-f'
 Key '9-gg' 'g','g'
 Key '9-ctrl-e-1' 'ctrl+e'
 Key '9-ctrl-e-2' 'ctrl+e'
@@ -305,6 +342,9 @@ Shot 'view-9-zz'
 Key '9-zt' 'z','t'
 Shot 'view-9-zt'
 Key '9-H-after-zt' 'shift+h'
+# A far move brings the cue into view at the middle
+Key '9-55G' '5','5','shift+g'
+Shot 'view-9-55G'
 Stop-Cinq
 
 # 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes

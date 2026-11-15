@@ -12,7 +12,7 @@ set -uo pipefail
 
 out=$1
 
-for phase in vi cua ops search view menu; do
+for phase in vi cua ops search line view menu; do
   [ -f "$out/$phase.err" ] || continue
   {
     awk '/^SANDBOX / { t = $2; $1 = ""; $2 = ""; sub(/^ +/, ""); print t, "L", $0 }' "$out/$phase.err" | tr -d '\r'
@@ -161,12 +161,17 @@ if [ -f "$out/ops.timeline" ]; then
   st=$?; check "7 d 2 j cuts three cues: rows $start to $cut" "$st" "$(segment ops 7-d2j | grep '^press\|^update' | tail -n 4)"
   told=$(fieldof ops 7-d2j clipped)
   printf '%s\n' "$(segment ops 7-d2j | grep '^update' | tail -n 1)" | grep -q 'clipped=Some("Cut 3 cues")'
-  st=$?; check "7 the clipboard notice reads Cut 3 cues: $(segment ops 7-d2j | grep '^update' | tail -n 1 | sed -n 's/.*clipped=\(.*\)$/\1/p')" "$st" "$told"
+  st=$?; check "7 the clipboard notice reads Cut 3 cues: $(segment ops 7-d2j | grep '^update' | tail -n 1 | sed -n 's/.*clipped=\(.*\) remark=.*$/\1/p')" "$st" "$told"
   segment ops 7-p | grep -q 'message Paste(' && [ "$pasted" = 30 ]
   st=$?; check "7 p pastes the three cues below: rows $cut to $pasted" "$st" "$(segment ops 7-p | grep '^press\|^message\|^update' | tail -n 4)"
   pending=$(fieldof ops 11-du keys)
   ! segment ops 11-du | grep -q 'message Undo' && [ "$stray" = "$pasted" ] && [ "$pending" = "[]" ]
   st=$?; check "11 d u does not undo: rows $pasted to $stray, keys left $pending" "$st" "$(segment ops 11-du | grep '^press\|^message\|^update' | tail -n 4)"
+  typed=$(segment ops 11-2d | grep '^update' | tail -n 1)
+  after=$(segment ops 11-ctrl-c | grep '^update' | tail -n 1)
+  ! printf '%s\n' "$typed" | grep -q 'keys=\[\]' && segment ops 11-ctrl-c | grep -q 'action=Some((Cancel' && printf '%s\n' "$after" | grep -q 'keys=\[\]' &&
+    ! segment ops 11-ctrl-c | grep -q 'message Cut\|message Delete\|message Copy\|across=Some' && [ "$(rows_of 11-ctrl-c)" = "$stray" ]
+  st=$?; check "11 Control+c after 2 d drops the typed keys ($(printf '%s\n' "$typed" | sed -n 's/.* keys=\(\[[^]]*\]\).*/\1/p') to $(printf '%s\n' "$after" | sed -n 's/.* keys=\(\[[^]]*\]\).*/\1/p')) and cuts nothing: rows $stray to $(rows_of 11-ctrl-c)" "$st" "$(segment ops 11-2d | grep '^press\|^message\|^update' | tail -n 3; segment ops 11-ctrl-c | grep '^press\|^message\|^update' | tail -n 4)"
 fi
 
 # 8 and 12. Search, forward and backward, with n and N, and Control+o back to
@@ -181,10 +186,43 @@ if [ -f "$out/search.timeline" ]; then
   st=$?; check "8 / opens the search line forward and ? opens it backward" "$st" "$(segment search 8-slash | grep '^update' | tail -n 1; segment search 8-qmark | grep '^update' | tail -n 1)"
   segment search 8-n3 | grep -q 'message SearchStep(1)' && segment search 8-N | grep -q 'message SearchStep(-1)' || segment search 8-N | grep -q 'message SearchStep'
   st=$?; check "8 n and N step the matches (n goes up after a ? search, N goes down)" "$st" "$(segment search 8-n3 | grep '^message'; segment search 8-N | grep '^message')"
-  help=$(fieldof search 12-f1 help)
-  closed=$(fieldof search 12-q help)
+  # A wrap tells so in the status bar: n after ? goes up past the top and
+  # N goes down past the bottom
+  last_update() { segment search "$1" | grep '^update' | tail -n 1; }
+  gg_row=$(row_of 8-gg-wrap); n_row=$(row_of 8-n-wrap); big_n_row=$(row_of 8-N-wrap)
+  last_update 8-n-wrap | grep -q 'remark=Some("Search continued at the bottom")' && [ "$gg_row" = 1 ] && [ "$n_row" = 21 ]
+  st=$?; check "8 n after ? wraps from row $gg_row to row $n_row with the notice: $(last_update 8-n-wrap | sed -n 's/.* remark=//p')" "$st" "$(segment search 8-n-wrap | grep '^press\|^message\|^update')"
+  last_update 8-N-wrap | grep -q 'remark=Some("Search continued at the top")' && [ "$big_n_row" = 1 ]
+  st=$?; check "8 N after ? wraps from row $n_row to row $big_n_row with the notice: $(last_update 8-N-wrap | sed -n 's/.* remark=//p')" "$st" "$(segment search 8-N-wrap | grep '^press\|^message\|^update')"
+  last_update 8-n3 | grep -q 'remark=None' && last_update 8-N | grep -q 'remark=None'
+  st=$?; check "8 n and N that do not wrap show no notice" "$st" "$(last_update 8-n3; last_update 8-N)"
+  help=$(fieldof search h-f1 help)
+  closed=$(fieldof search h-q help)
   [ "$help" = true ] && [ "$closed" = false ]
-  st=$?; check "12 F1 shows the help page (help=$help), q closes it (help=$closed)" "$st" "$(segment search 12-f1 | grep '^press\|^update'; segment search 12-q | grep '^press\|^update')"
+  st=$?; check "F1 shows the help page (help=$help), q closes it (help=$closed)" "$st" "$(segment search h-f1 | grep '^press\|^update'; segment search h-q | grep '^press\|^update')"
+fi
+
+# 12. The search line: ArrowUp recalls the newest earlier search that starts
+# with the text typed, with the caret at the end, so that the next letter
+# follows it, Control+u clears the line, and Control+c closes it and puts the
+# selection back where the search began
+if [ -f "$out/line.timeline" ]; then
+  upd() { segment line "$1" | grep '^update' | tail -n 1; }
+  row_of() { number selected_row "$(state line "$1")"; }
+  text_of() { upd "$1" | sed -n 's/.* search=\(None\|Some(("[^"]*", [a-z]*))\).*/\1/p'; }
+  both() { [ "$(row_of "$1")" = "$2" ] && [ "$(text_of "$1")" = "$3" ]; }
+  [ "$(row_of 12-gg)" = 1 ] && [ "$(row_of 12-enter-bl)" = 2 ] && [ "$(row_of 12-enter-br)" = 4 ] && [ "$(row_of 12-gg-2)" = 1 ] && both 12-b 2 'Some(("B", false))'
+  st=$?; check "12 /Bl Enter, /Br Enter, gg, / B: rows $(for l in 12-gg 12-enter-bl 12-enter-br 12-gg-2 12-b; do printf '%s ' "$(row_of "$l")"; done)(1 2 4 1 2), text $(text_of 12-b)" "$st" "$(for l in 12-enter-bl 12-enter-br 12-b; do upd "$l"; done)"
+  segment line 12-up | grep -q 'message SearchKey(Older)' && both 12-up 4 'Some(("Br", false))'
+  st=$?; check "12 ArrowUp recalls the earlier search: text $(text_of 12-up), row $(row_of 12-up)" "$st" "$(segment line 12-up | grep '^press\|^message\|^update')"
+  both 12-i 4 'Some(("Bri", false))'
+  st=$?; check "12 the next letter follows the recalled text, so the caret is at its end: text $(text_of 12-i)" "$st" "$(segment line 12-i | grep '^press\|^message\|^update')"
+  segment line 12-ctrl-u | grep -q 'message SearchKey(DeleteAll)' && both 12-ctrl-u 1 'Some(("", false))'
+  st=$?; check "12 Control+u clears the line and the selection goes back: text $(text_of 12-ctrl-u), row $(row_of 12-ctrl-u)" "$st" "$(segment line 12-ctrl-u | grep '^press\|^message\|^update')"
+  both 12-bo 6 'Some(("Bo", false))'
+  st=$?; check "12 typing again selects the match: text $(text_of 12-bo), row $(row_of 12-bo)" "$st" "$(segment line 12-bo | grep '^press\|^message\|^update')"
+  segment line 12-ctrl-c | grep -q 'action=Some((Cancel' && both 12-ctrl-c 1 None
+  st=$?; check "12 Control+c closes the line (search $(text_of 12-ctrl-c)) and returns the selection to row $(row_of 12-ctrl-c)" "$st" "$(segment line 12-ctrl-c | grep '^press\|^message\|^update')"
 fi
 
 # 9. View keys, judged from the measured view, content, and offset
@@ -214,6 +252,18 @@ if [ -f "$out/view.timeline" ]; then
       }"
   }
   show() { measured view "$1" | awk '{ printf "view %s content %s scrolled %s -> offset %s row %s", $1, $2, $3, $4, $5 }'; }
+  # 3. Three Control+f in a row move three pages: each page scrolls the rows
+  # that its line tells, from where the one before left the list
+  pages=$(segment view 3-ctrl-f | grep -c '^page WholeDown')
+  moves=$(segment view 3-ctrl-f | grep '^page WholeDown' | tail -n 1 | sed -n 's/.* moves=\([0-9]*\).*/\1/p')
+  chain=$(segment view 3-ctrl-f | grep '^measured' | sed -n 's/^measured view=[0-9.]* content=\([0-9.]*\) scrolled=\([0-9.-]*\) -> offset=\([0-9.-]*\) row=\([0-9]*\).*/\1 \2 \3 \4/p' |
+    awk -v cues="$cues" -v moves="${moves:-0}" 'function abs(x) { return x < 0 ? -x : x }
+      { rh = $1 / cues; n++; ok = ok && 1; if (n == 1 && abs($2) > 1) bad = 1; if (n > 1 && abs($2 - prev) > 1) bad = 1
+        if (abs(($3 - $2) - moves * rh) > 1) bad = 1; prev = $3; last = $0 }
+      END { printf "%d %s %s", n, bad ? "bad" : "good", last }')
+  set -- $chain
+  [ "$pages" = 3 ] && [ "$1" = 3 ] && [ "$2" = good ]
+  st=$?; check "3 three Control+f in a row move three pages: $pages page lines of $moves rows, $1 landings, the last from $4 to $5 (row $6)" "$st" "$(segment view 3-ctrl-f | grep '^press\|^page\|^measured\|^update Landed')"
   sh_e1=$(show 9-ctrl-e-1); sh_e3=$(show 9-ctrl-e-3)
   shape 9-ctrl-e-1 'abs(offset - (scrolled + rh)) < 0.6 && row == 2' 0 0
   st=$?; check "9 Control+e scrolls a row, and selection moves onto the first row in view: $sh_e1" "$st" "$(segment view 9-ctrl-e-1 | grep '^press\|^measured\|^update Landed\|^update Reached')"
@@ -240,6 +290,18 @@ if [ -f "$out/view.timeline" ]; then
   ot=$(measured view 9-zt | cut -d' ' -f4)
   shape 9-H-after-zt 'abs(scrolled - before) < 1 && row == last_row' "$ot" "$row_l"
   st=$?; check "9 H after z t is the selected row itself: $(show 9-H-after-zt)" "$st" "$(segment view 9-H-after-zt | grep '^press\|^measured\|^update Landed\|^update Reached')"
+  # A far move to a row lands it in the middle of the view
+  far=$(segment view 9-55G | grep '^revealed' | tail -n 1)
+  far_view=$(printf '%s\n' "$far" | sed -n 's/^revealed view=\([0-9.]*\) .*/\1/p')
+  far_top=$(printf '%s\n' "$far" | sed -n 's/.* row_top=\([0-9.]*\) .*/\1/p')
+  far_height=$(printf '%s\n' "$far" | sed -n 's/.* row_height=\([0-9.]*\) .*/\1/p')
+  far_offset=$(printf '%s\n' "$far" | sed -n 's/.*-> offset=Some(\([0-9.-]*\)).*/\1/p')
+  far_seen=$(segment view 9-55G | grep '^measure ' | tail -n 1 | sed -n 's/.* scrolled=\([0-9.-]*\).*/\1/p')
+  far_row=$(number selected_row "$(state view 9-55G)")
+  awk -v v="${far_view:-0}" -v t="${far_top:-0}" -v h="${far_height:-0}" -v o="${far_offset:-x}" -v seen="${far_seen:-x}" 'function abs(x) { return x < 0 ? -x : x }
+    BEGIN { middle = t + h / 2 - v / 2; exit !(o != "x" && seen != "x" && abs(o - middle) < 1 && abs(seen - o) < 2) }'
+  st=$?; [ "$far_row" = 55 ] || st=1
+  check "9 55 G selects row $far_row and centers it: scrolls to $far_offset (middle $(awk -v v="${far_view:-0}" -v t="${far_top:-0}" -v h="${far_height:-0}" 'BEGIN { print t + h / 2 - v / 2 }')), measured $far_seen" "$st" "$(segment view 9-55G | grep '^press\|^revealed\|^measure \|^update')"
 fi
 
 # 10. A drop-down list: Tab focuses it, Enter opens it, Control+y picks,
@@ -260,7 +322,7 @@ if [ -f "$out/menu.timeline" ]; then
   st=$?; check "10 Enter opens it again (menu=$(m 10-enter-again)), Control+e closes it (menu=$(m 10-ctrl-e)) and picks nothing ($kind1, $kind2)" "$st" "$(segment menu 10-enter-again; segment menu 10-ctrl-e)"
 fi
 # No Space or Escape, which would be GO or Panic, in any phase
-timelines=$(for phase in vi cua ops search view menu; do [ -f "$out/$phase.timeline" ] && printf '%s ' "$out/$phase.timeline"; done)
+timelines=$(for phase in vi cua ops search line view menu; do [ -f "$out/$phase.timeline" ] && printf '%s ' "$out/$phase.timeline"; done)
 # shellcheck disable=SC2086
 stray=$(stray_keys $timelines)
 if [ -n "$timelines" ] && [ -n "$stray" ]; then

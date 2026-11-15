@@ -1,0 +1,369 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# One cue list of sixty memo cues, numbered 1 to 60, so that a long jump such
+# as 55 G has to scroll far
+
+[[list]]
+name = "Sixty list"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "memo"
+name = "Cue 1"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "memo"
+name = "Cue 2"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "memo"
+name = "Cue 3"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "memo"
+name = "Cue 4"
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "memo"
+name = "Cue 5"
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "memo"
+name = "Cue 6"
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "memo"
+name = "Cue 7"
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "memo"
+name = "Cue 8"
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "memo"
+name = "Cue 9"
+
+[[list.cue]]
+id = 10
+number = "10"
+kind = "memo"
+name = "Cue 10"
+
+[[list.cue]]
+id = 11
+number = "11"
+kind = "memo"
+name = "Cue 11"
+
+[[list.cue]]
+id = 12
+number = "12"
+kind = "memo"
+name = "Cue 12"
+
+[[list.cue]]
+id = 13
+number = "13"
+kind = "memo"
+name = "Cue 13"
+
+[[list.cue]]
+id = 14
+number = "14"
+kind = "memo"
+name = "Cue 14"
+
+[[list.cue]]
+id = 15
+number = "15"
+kind = "memo"
+name = "Cue 15"
+
+[[list.cue]]
+id = 16
+number = "16"
+kind = "memo"
+name = "Cue 16"
+
+[[list.cue]]
+id = 17
+number = "17"
+kind = "memo"
+name = "Cue 17"
+
+[[list.cue]]
+id = 18
+number = "18"
+kind = "memo"
+name = "Cue 18"
+
+[[list.cue]]
+id = 19
+number = "19"
+kind = "memo"
+name = "Cue 19"
+
+[[list.cue]]
+id = 20
+number = "20"
+kind = "memo"
+name = "Cue 20"
+
+[[list.cue]]
+id = 21
+number = "21"
+kind = "memo"
+name = "Cue 21"
+
+[[list.cue]]
+id = 22
+number = "22"
+kind = "memo"
+name = "Cue 22"
+
+[[list.cue]]
+id = 23
+number = "23"
+kind = "memo"
+name = "Cue 23"
+
+[[list.cue]]
+id = 24
+number = "24"
+kind = "memo"
+name = "Cue 24"
+
+[[list.cue]]
+id = 25
+number = "25"
+kind = "memo"
+name = "Cue 25"
+
+[[list.cue]]
+id = 26
+number = "26"
+kind = "memo"
+name = "Cue 26"
+
+[[list.cue]]
+id = 27
+number = "27"
+kind = "memo"
+name = "Cue 27"
+
+[[list.cue]]
+id = 28
+number = "28"
+kind = "memo"
+name = "Cue 28"
+
+[[list.cue]]
+id = 29
+number = "29"
+kind = "memo"
+name = "Cue 29"
+
+[[list.cue]]
+id = 30
+number = "30"
+kind = "memo"
+name = "Cue 30"
+
+[[list.cue]]
+id = 31
+number = "31"
+kind = "memo"
+name = "Cue 31"
+
+[[list.cue]]
+id = 32
+number = "32"
+kind = "memo"
+name = "Cue 32"
+
+[[list.cue]]
+id = 33
+number = "33"
+kind = "memo"
+name = "Cue 33"
+
+[[list.cue]]
+id = 34
+number = "34"
+kind = "memo"
+name = "Cue 34"
+
+[[list.cue]]
+id = 35
+number = "35"
+kind = "memo"
+name = "Cue 35"
+
+[[list.cue]]
+id = 36
+number = "36"
+kind = "memo"
+name = "Cue 36"
+
+[[list.cue]]
+id = 37
+number = "37"
+kind = "memo"
+name = "Cue 37"
+
+[[list.cue]]
+id = 38
+number = "38"
+kind = "memo"
+name = "Cue 38"
+
+[[list.cue]]
+id = 39
+number = "39"
+kind = "memo"
+name = "Cue 39"
+
+[[list.cue]]
+id = 40
+number = "40"
+kind = "memo"
+name = "Cue 40"
+
+[[list.cue]]
+id = 41
+number = "41"
+kind = "memo"
+name = "Cue 41"
+
+[[list.cue]]
+id = 42
+number = "42"
+kind = "memo"
+name = "Cue 42"
+
+[[list.cue]]
+id = 43
+number = "43"
+kind = "memo"
+name = "Cue 43"
+
+[[list.cue]]
+id = 44
+number = "44"
+kind = "memo"
+name = "Cue 44"
+
+[[list.cue]]
+id = 45
+number = "45"
+kind = "memo"
+name = "Cue 45"
+
+[[list.cue]]
+id = 46
+number = "46"
+kind = "memo"
+name = "Cue 46"
+
+[[list.cue]]
+id = 47
+number = "47"
+kind = "memo"
+name = "Cue 47"
+
+[[list.cue]]
+id = 48
+number = "48"
+kind = "memo"
+name = "Cue 48"
+
+[[list.cue]]
+id = 49
+number = "49"
+kind = "memo"
+name = "Cue 49"
+
+[[list.cue]]
+id = 50
+number = "50"
+kind = "memo"
+name = "Cue 50"
+
+[[list.cue]]
+id = 51
+number = "51"
+kind = "memo"
+name = "Cue 51"
+
+[[list.cue]]
+id = 52
+number = "52"
+kind = "memo"
+name = "Cue 52"
+
+[[list.cue]]
+id = 53
+number = "53"
+kind = "memo"
+name = "Cue 53"
+
+[[list.cue]]
+id = 54
+number = "54"
+kind = "memo"
+name = "Cue 54"
+
+[[list.cue]]
+id = 55
+number = "55"
+kind = "memo"
+name = "Cue 55"
+
+[[list.cue]]
+id = 56
+number = "56"
+kind = "memo"
+name = "Cue 56"
+
+[[list.cue]]
+id = 57
+number = "57"
+kind = "memo"
+name = "Cue 57"
+
+[[list.cue]]
+id = 58
+number = "58"
+kind = "memo"
+name = "Cue 58"
+
+[[list.cue]]
+id = 59
+number = "59"
+kind = "memo"
+name = "Cue 59"
+
+[[list.cue]]
+id = 60
+number = "60"
+kind = "memo"
+name = "Cue 60"
