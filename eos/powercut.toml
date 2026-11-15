@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Three network cues to fakeeos.py: before its power goes, the first after it
+# comes back, and one more
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "network"
+name = "Before"
+destination = "127.0.0.1:3037"
+message = "/cut 1"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "First after"
+destination = "127.0.0.1:3037"
+message = "/cut 2"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "network"
+name = "Second after"
+destination = "127.0.0.1:3037"
+message = "/cut 3"

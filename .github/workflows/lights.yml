@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# cinq's light and network cues (97af215, branch wip/light-cues) on
+# GNU/Linux, natively built with Nix on x86_64 and aarch64: sACN and Art-Net
+# heard on the runner, network cues to a stand-in console, a cable that
+# comes out under cinq, a console that loses its power, and OLA, the Open
+# Lighting Architecture, as a network-to-DMX gateway.  Each phase uploads
+# what it found, since a runner that dies uploads nothing more.
+name: Lights
+on: push
+permissions:
+  actions: read
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  SHA: 97af215a58520fe2a30ae5d2bffb98f90800a9e6
+jobs:
+  linux:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {arch: x86_64, os: ubuntu-latest}
+          - {arch: aarch64, os: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq at the commit and the session's tools
+        run: |
+          nix build --out-link cinq "github:yzhou216/cinq/$SHA#cinq"
+          nix build --inputs-from "github:yzhou216/cinq/$SHA" --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from "github:yzhou216/cinq/$SHA" --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#python3 nixpkgs#ola
+          for link in tools*; do echo "$(readlink -f "$link")/bin" >> "$GITHUB_PATH"; done
+          echo "$(readlink -f cinq)/bin" >> "$GITHUB_PATH"
+          echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
+          mkdir -p out
+          {
+            uname -a
+            nproc
+            free -m
+            ip -4 addr
+            ip -4 route
+            ldd "$(readlink -f cinq)/bin/cinq" | head -3
+          } > out/runner.txt 2>&1
+          cat out/runner.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-runner
+          path: out
+      - name: Light and network cues on the runner's own networks
+        run: |
+          bash eos/linux.sh "$FONTS" out/network
+          LISTEN_UNIVERSES=1,2,999 LISTEN_SUMMARY=1 bash eos/linux.sh "$FONTS" out/light ola/gateway.toml 5
+          python3 ola/check-light.py out/light | tee out/light/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-light
+          path: |
+            out/network
+            out/light
+      - name: Hundreds of cues, a soak, and a console that restarts
+        if: always()
+        run: bash eos/stress.sh "$FONTS" out/stress
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-stress
+          path: out/stress
+      - name: ion-test.toml beside a stand-in Ion Xe, with its cable out and back
+        if: always()
+        run: bash eos/lan.sh "$FONTS" out/lan
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-lan
+          path: out/lan
+      - name: A console that loses its power under cinq
+        if: always()
+        run: bash eos/powercut.sh "$(readlink -f cinq)/bin/cinq" "$FONTS" out/powercut
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-powercut
+          path: out/powercut
+      - name: OLA as a gateway to DMX
+        if: always()
+        run: bash ola/gateway.sh "$FONTS" out/gateway
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-gateway
+          path: out/gateway

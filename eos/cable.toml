@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Six network cues to the stand-in console of lan.sh: before the cable
+# comes out, while it is out, and two once it is back; then one a second
+# after it comes out again, for eight seconds, and one after
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "network"
+name = "Before"
+destination = "10.101.100.20:3037"
+message = "/cable before"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "While out"
+destination = "10.101.100.20:3037"
+message = '/cable "while out"'
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "network"
+name = "After"
+destination = "10.101.100.20:3037"
+message = "/cable after"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "network"
+name = "After again"
+destination = "10.101.100.20:3037"
+message = '/cable "after again"'
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "network"
+name = "Just after the cable comes out"
+destination = "10.101.100.20:3037"
+message = "/cable blip"
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "network"
+name = "After the blip"
+destination = "10.101.100.20:3037"
+message = '/cable "after blip"'

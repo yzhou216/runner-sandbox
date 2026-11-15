@@ -1,0 +1,108 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Light cues for the OLA gateway test, each fired by gateway.py with GO:
+# 1 sets a look on universes 1, 2, and 999 (30, 20, and 100 percent are DMX
+# 77, 51, and 255 on universe 1; 20 and 70 percent are 51 and 179 on
+# universe 2; 50 percent is 128 on universe 999), 2 fades address 1 of
+# universe 1 up to 70 percent over 3 seconds, 3 sets it back to 30 percent
+# at once, 4 fades it up again over 3 seconds, and 5 takes everything out
+[[instrument]]
+id = 1
+name = "U1 address 1"
+universe = 1
+address = 1
+
+[[instrument]]
+id = 2
+name = "U1 address 3"
+universe = 1
+address = 3
+
+[[instrument]]
+id = 3
+name = "U1 address 5"
+universe = 1
+address = 5
+
+[[instrument]]
+id = 4
+name = "U2 address 1"
+universe = 2
+address = 1
+
+[[instrument]]
+id = 5
+name = "U2 address 2"
+universe = 2
+address = 2
+
+[[instrument]]
+id = 6
+name = "U999 address 1"
+universe = 999
+address = 1
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Look"
+duration = 0.5
+
+[list.cue.lights]
+1 = 30.0
+2 = 20.0
+3 = 100.0
+4 = 20.0
+5 = 70.0
+6 = 50.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "light"
+name = "Fade up"
+duration = 3.0
+
+[list.cue.lights]
+1 = 70.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "light"
+name = "Back down"
+duration = 0.1
+
+[list.cue.lights]
+1 = 30.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "light"
+name = "Fade up again"
+duration = 3.0
+
+[list.cue.lights]
+1 = 70.0
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "light"
+name = "Out"
+duration = 0.5
+
+[list.cue.lights]
+1 = 0.0
+2 = 0.0
+3 = 0.0
+4 = 0.0
+5 = 0.0
+6 = 0.0
