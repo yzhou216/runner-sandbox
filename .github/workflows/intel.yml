@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# cinq's flake does not offer x86_64-darwin, so this builds cinq with cargo
+# on the Intel runner instead, laid out and signed as the flake does, and
+# runs the same tests as darwin.yml.
+name: Darwin on Intel with cargo
+on:
+  push:
+    paths:
+      - .github/workflows/intel.yml
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build cinq
+        run: |
+          mkdir out
+          { sw_vers; uname -m; rustc --version; } | tee out/runner.txt
+          brew install scdoc
+          git clone --quiet https://github.com/yzhou216/cinq cinq-src
+          git -C cinq-src checkout --quiet 97af215a58520fe2a30ae5d2bffb98f90800a9e6
+          (cd cinq-src && cargo build --release --locked 2>&1 | tail -n 40) | tee out/build.txt
+          cp -R cinq-src/target/Applications/cinq.app cinq.app
+          cp cinq-src/target/release/cinq cinq.app/Contents/MacOS/cinq
+          codesign --force --deep --sign - cinq.app
+          file cinq.app/Contents/MacOS/* | tee -a out/runner.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-intel-cargo
+          path: out
+      - name: Helpers
+        run: swiftc -O -o ui darwin/screen.swift
+      - name: Lights
+        run: bash darwin/lights.sh "$PWD/cinq.app" out/lights
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lights-intel-cargo
+          path: out/lights
+      - name: Network cues
+        run: bash darwin/net.sh "$PWD/cinq.app" out/net
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-intel-cargo
+          path: out/net
+      - name: Cable pulled
+        run: bash darwin/cable.sh "$PWD/cinq.app" out/cable
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cable-intel-cargo
+          path: out/cable
