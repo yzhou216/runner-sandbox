@@ -69,9 +69,9 @@ public static class Native {
 }
 '@
 
-$vk = @{ ctrl = 0x11; alt = 0x12; shift = 0x10; left = 0x25; right = 0x27; end = 0x23; pgdn = 0x22 }
-foreach ($c in [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ') { $vk[[string]$c] = [int]$c }
-$vk['3'] = 0x33
+$vk = @{ ctrl = 0x11; alt = 0x12; shift = 0x10; left = 0x25; right = 0x27; end = 0x23; pgdn = 0x22
+    tab = 0x09; 'return' = 0x0D; f1 = 0x70; slash = 0xBF }
+foreach ($c in [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') { $vk[[string]$c] = [int]$c }
 
 $script:phase = ''
 $script:window = $null
@@ -98,7 +98,6 @@ function Wait-Log([string]$pattern, [int]$count, [int]$seconds = 40) {
     if ((Count-Log $pattern) -lt $count) { Log "timeout: fewer than $count lines of $pattern" }
 }
 
-$script:presses = 0
 $script:buttons = 0
 
 function Step([string]$label) {
@@ -111,13 +110,17 @@ function Main-Window {
 }
 
 # Sends one key, as keys like 'ctrl+o', 'shift+g', 'alt+left', or 'l', in
-# the foreground window after the update window of the subsystem is closed
-function Key([string]$label, [string[]]$specs) {
+# the foreground window after the update window of the subsystem is closed,
+# then waits until cinq has logged one more line that matches PATTERN for each
+# key.  The keys that the keymap reads log a press, while those typed into the
+# search line or the menu of a drop-down list log what the call's pattern names.
+function Key([string]$label, [string[]]$specs, [string]$pattern = ' press Press ') {
     CloseWsl
     $w = Main-Window
     if (-not $w) { Log 'no cinq window'; return }
     $null = [Native]::SetForegroundWindow($w.MainWindowHandle)
     Start-Sleep -Milliseconds 400
+    $before = Count-Log $pattern
     Step $label
     foreach ($spec in $specs) {
         $names = $spec.ToLower() -split '\+'
@@ -126,8 +129,7 @@ function Key([string]$label, [string[]]$specs) {
         [Native]::Combo([uint16]$vk[$names[-1]], [uint16[]]$mods)
         Start-Sleep -Milliseconds 250
     }
-    $script:presses += $specs.Count
-    Wait-Log ' press Press ' $script:presses
+    Wait-Log $pattern ($before + $specs.Count)
     Start-Sleep -Seconds 1
 }
 
@@ -148,16 +150,16 @@ function Button([string]$label, [uint32]$which) {
     Start-Sleep -Seconds 1
 }
 
-function Start-Cinq([string]$name) {
+function Start-Cinq([string]$name, [string]$keymap, [string]$show) {
     $script:phase = $name
-    $script:presses = 0
     $script:buttons = 0
     $config = Join-Path $env:TEMP "cinq-$name"
     New-Item -ItemType Directory -Force -Path $config | Out-Null
-    Copy-Item "$PSScriptRoot\$name.toml" "$config\config.toml"
+    Copy-Item "$PSScriptRoot\$keymap.toml" "$config\config.toml"
+    Copy-Item "$PSScriptRoot\$show.cinq.toml" "$config\show.cinq.toml"
     CloseWsl
     Log "starting $name"
-    $script:cinq = Start-Process $exe -ArgumentList '--config-dir', "`"$config`"", "`"$PSScriptRoot\show.cinq.toml`"" -PassThru `
+    $script:cinq = Start-Process $exe -ArgumentList '--config-dir', "`"$config`"", "`"$config\show.cinq.toml`"" -PassThru `
         -RedirectStandardOutput "$out\$name.out" -RedirectStandardError "$out\$name.err"
     $window = $null
     for ($i = 0; $i -lt 60 -and -not $window; $i++) {
@@ -178,7 +180,7 @@ Mark "computer $env:COMPUTERNAME arch $env:PROCESSOR_ARCHITECTURE"
 (Get-CimInstance Win32_OperatingSystem | ForEach-Object { "$($_.Caption) $($_.Version) $($_.OSArchitecture)" }) | Set-Content "$out\os.txt"
 Add-Content "$out\os.txt" "mouse buttons: $([System.Windows.Forms.SystemInformation]::MouseButtons) present $([System.Windows.Forms.SystemInformation]::MousePresent)"
 
-Start-Cinq 'vi'
+Start-Cinq 'vi' 'vi' 'show'
 # 1. Control+i after Control+o
 Key '1-l' 'l'
 Key '1-G' 'shift+g'
@@ -225,12 +227,84 @@ Button '6-xbutton2-forward' 2
 Shot 'vi-6-buttons'
 Stop-Cinq
 
-Start-Cinq 'cua'
+Start-Cinq 'cua' 'cua' 'show'
 # 2. Alt with the arrows
 Key '2-ctrl-pagedown' 'ctrl+pgdn'
 Key '2-end' 'end'
 Key '2-alt-left' 'alt+left'
 Key '2-alt-right' 'alt+right'
 Shot 'cua-2-alt-arrows'
+Stop-Cinq
+
+$searching = ' message Searching\('
+$accepted = ' message SearchAccepted'
+$menuKey = ' menu key='
+$opened = ' message MenuOpen\(true'
+
+# 7. Operators: d 2 j cuts three cues, p pastes them below
+Start-Cinq 'ops' 'vi' 'long'
+Key '7-gg' 'g','g'
+Key '7-d2j' 'd','2','j'
+Shot 'ops-7-cut'
+Key '7-p' 'p'
+Shot 'ops-7-pasted'
+# 11. A stray key after d is dropped: d u does not undo
+Key '11-du' 'd','u'
+Shot 'ops-11-du'
+Stop-Cinq
+
+# 8. Search, forward and backward, with n, N, and Control+o
+Start-Cinq 'search' 'vi' 'long'
+Key '8-gg' 'g','g'
+Key '8-slash' 'slash'
+Key '8-text' '1' $searching
+Key '8-enter' 'return' $accepted
+Key '8-n1' 'n'
+Key '8-n2' 'n'
+Key '8-qmark' 'shift+slash'
+Key '8-text-back' '1' $searching
+Key '8-enter-back' 'return' $accepted
+Key '8-n3' 'n'
+Key '8-N' 'shift+n'
+Key '8-ctrl-o' 'ctrl+o'
+Key '8-9' '9'
+Key '8-9-ctrl-o' 'ctrl+o'
+Shot 'search-8-back'
+# 12. F1 shows the help page, which q closes
+Key '12-f1' 'f1'
+Shot 'search-12-help'
+Key '12-q' 'q'
+Stop-Cinq
+
+# 9. View keys
+Start-Cinq 'view' 'vi' 'long'
+Key '9-gg' 'g','g'
+Key '9-ctrl-e-1' 'ctrl+e'
+Key '9-ctrl-e-2' 'ctrl+e'
+Key '9-ctrl-e-3' 'ctrl+e'
+Shot 'view-9-scrolled'
+Key '9-ctrl-y' 'ctrl+y'
+Key '9-H' 'shift+h'
+Key '9-L' 'shift+l'
+Key '9-zz' 'z','z'
+Shot 'view-9-zz'
+Key '9-zt' 'z','t'
+Shot 'view-9-zt'
+Key '9-H-after-zt' 'shift+h'
+Stop-Cinq
+
+# 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
+Start-Cinq 'menu' 'vi' 'show'
+Key '10-tab' 'tab'
+Shot 'menu-10-focused'
+Key '10-enter' 'return' $opened
+Shot 'menu-10-open'
+Key '10-j' 'j' $menuKey
+Key '10-ctrl-y' 'ctrl+y' $menuKey
+Shot 'menu-10-picked'
+Key '10-tab-again' 'tab'
+Key '10-enter-again' 'return' $opened
+Key '10-ctrl-e' 'ctrl+e' $menuKey
+Shot 'menu-10-closed'
 Stop-Cinq
 Mark 'done'

@@ -2,10 +2,11 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# cinq's keys of Vim (the snapshot of 852f6bd in cinq/, with its keys,
-# messages, and selection logged to standard error) on GNU/Linux, Windows
-# (x86_64 and aarch64), and Darwin, each with a show of two cue lists of five
-# memo cues.  Each job uploads the logs and screenshots that it took.
+# cinq's keys of Vim (the snapshot of 06bd3a0 in cinq/, with its keys, messages,
+# view measures, menu keys, and selection logged to standard error) on GNU/Linux,
+# Windows (x86_64 and aarch64), and Darwin, each with a show of two cue lists of
+# five memo cues and one of thirty.  Each job uploads the logs and screenshots
+# that it took.
 name: cinq keys
 on: push
 permissions:

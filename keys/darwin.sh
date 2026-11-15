@@ -39,19 +39,22 @@ wait_log() {
   done
   mark "timeout: fewer than $2 lines of $1"
 }
-# key LABEL SPEC: marks the step, then posts the key with CGEvent
+# key LABEL SPEC...: marks the step, posts the keys with CGEvent, then waits
+# until cinq has logged one more line that matches $pattern for each key.  The
+# keys that the keymap reads log a press, while those typed into the search
+# line or the menu of a drop-down list log what the caller's pattern names.
 key() {
-  local label=$1 spec
+  local label=$1 spec pat=${pattern:-' press Press '} before
   shift
   focus
   sleep 0.4
+  before=$(grep -c -- "$pat" "$OUT/$phase.err")
   mark "$label"
   for spec in "$@"; do
     "$work/inject" key "$spec" >> "$OUT/inject.txt" 2>&1
     sleep 0.3
   done
-  presses=$((presses + $#))
-  wait_log ' press Press ' "$presses"
+  wait_log "$pat" $((before + $#))
   sleep 1
 }
 # button LABEL NUMBER: moves the pointer to the middle of the window of cinq, which
@@ -71,15 +74,18 @@ swiftc -O -o "$work/inject" "$here/inject.swift" 2>&1 | tail -n 20
 swiftc -O -o "$work/ui" "$here/screen.swift" 2>&1 | tail -n 20
 { sw_vers; uname -m; osascript -e 'tell application "Finder" to get bounds of window of desktop'; } > "$OUT/system.txt" 2>&1 || true
 
+# start PHASE KEYMAP SHOW: opens cinq with the keymap of KEYMAP.toml and a copy
+# of SHOW.cinq.toml of its own, so that no phase finds the unsaved changes of
+# another, logging to PHASE.err and PHASE.marks
 start() {
   phase=$1
-  presses=0
   buttons=0
   marks=$OUT/$1.marks
   : > "$marks"
   mkdir -p "$work/$1"
-  cp "$here/$1.toml" "$work/$1/config.toml"
-  open -n --stdout "$OUT/$1.out" --stderr "$OUT/$1.err" "$app" --args --config-dir "$work/$1" "$here/show.cinq.toml"
+  cp "$here/$2.toml" "$work/$1/config.toml"
+  cp "$here/$3.cinq.toml" "$work/$1/show.cinq.toml"
+  open -n --stdout "$OUT/$1.out" --stderr "$OUT/$1.err" "$app" --args --config-dir "$work/$1" "$work/$1/show.cinq.toml"
   sleep 8
   pid=$(pgrep -n -x cinq)
   # Window of 900 by 640, so that the list shows fewer rows than the window
@@ -95,7 +101,7 @@ stop() {
   sleep 2
 }
 
-start vi
+start vi vi show
 # 1. Control+i after Control+o
 key 1-l l
 key 1-G shift+g
@@ -141,7 +147,7 @@ button 6-button4-forward 4
 shot vi-6-buttons
 stop
 
-start cua
+start cua cua show
 # 2. Option with the arrows, posted with CGEvent and then through System Events
 key 2-ctrl-pagedown ctrl+pagedown
 key 2-end end
@@ -156,4 +162,76 @@ mark 2-system-events-alt-right
 osascript -e 'tell application "System Events" to key code 124 using {option down}' >> "$OUT/inject.txt" 2>&1
 sleep 1
 shot cua-2-system-events
+stop
+
+searching=' message Searching('
+accepted=' message SearchAccepted'
+menu_key=' menu key='
+opened=' message MenuOpen(true'
+
+# 7. Operators: d 2 j cuts three cues, p pastes them below
+start ops vi long
+key 7-gg g g
+key 7-d2j d 2 j
+shot ops-7-cut
+key 7-p p
+shot ops-7-pasted
+# 11. A stray key after d is dropped: d u does not undo
+key 11-du d u
+shot ops-11-du
+stop
+
+# 8. Search, forward and backward, with n, N, and Control+o
+start search vi long
+key 8-gg g g
+key 8-slash slash
+pattern=$searching key 8-text 1
+pattern=$accepted key 8-enter return
+key 8-n1 n
+key 8-n2 n
+key 8-qmark shift+slash
+pattern=$searching key 8-text-back 1
+pattern=$accepted key 8-enter-back return
+key 8-n3 n
+key 8-N shift+n
+key 8-ctrl-o ctrl+o
+key 8-9 9
+key 8-9-ctrl-o ctrl+o
+shot search-8-back
+# 12. F1 shows the help page, which q closes
+key 12-f1 f1
+shot search-12-help
+key 12-q q
+stop
+
+# 9. View keys
+start view vi long
+key 9-gg g g
+key 9-ctrl-e-1 ctrl+e
+key 9-ctrl-e-2 ctrl+e
+key 9-ctrl-e-3 ctrl+e
+shot view-9-scrolled
+key 9-ctrl-y ctrl+y
+key 9-H shift+h
+key 9-L shift+l
+key 9-zz z z
+shot view-9-zz
+key 9-zt z t
+shot view-9-zt
+key 9-H-after-zt shift+h
+stop
+
+# 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
+start menu vi show
+key 10-tab tab
+shot menu-10-focused
+pattern=$opened key 10-enter return
+shot menu-10-open
+pattern=$menu_key key 10-j j
+pattern=$menu_key key 10-ctrl-y ctrl+y
+shot menu-10-picked
+key 10-tab-again tab
+pattern=$opened key 10-enter-again return
+pattern=$menu_key key 10-ctrl-e ctrl+e
+shot menu-10-closed
 stop

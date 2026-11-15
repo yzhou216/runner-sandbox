@@ -1,0 +1,189 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# One cue list of thirty memo cues, numbered 1 to 30, so that the list scrolls
+# in a window that shows a few rows
+
+[[list]]
+name = "Long list"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "memo"
+name = "Cue 1"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "memo"
+name = "Cue 2"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "memo"
+name = "Cue 3"
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "memo"
+name = "Cue 4"
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "memo"
+name = "Cue 5"
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "memo"
+name = "Cue 6"
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "memo"
+name = "Cue 7"
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "memo"
+name = "Cue 8"
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "memo"
+name = "Cue 9"
+
+[[list.cue]]
+id = 10
+number = "10"
+kind = "memo"
+name = "Cue 10"
+
+[[list.cue]]
+id = 11
+number = "11"
+kind = "memo"
+name = "Cue 11"
+
+[[list.cue]]
+id = 12
+number = "12"
+kind = "memo"
+name = "Cue 12"
+
+[[list.cue]]
+id = 13
+number = "13"
+kind = "memo"
+name = "Cue 13"
+
+[[list.cue]]
+id = 14
+number = "14"
+kind = "memo"
+name = "Cue 14"
+
+[[list.cue]]
+id = 15
+number = "15"
+kind = "memo"
+name = "Cue 15"
+
+[[list.cue]]
+id = 16
+number = "16"
+kind = "memo"
+name = "Cue 16"
+
+[[list.cue]]
+id = 17
+number = "17"
+kind = "memo"
+name = "Cue 17"
+
+[[list.cue]]
+id = 18
+number = "18"
+kind = "memo"
+name = "Cue 18"
+
+[[list.cue]]
+id = 19
+number = "19"
+kind = "memo"
+name = "Cue 19"
+
+[[list.cue]]
+id = 20
+number = "20"
+kind = "memo"
+name = "Cue 20"
+
+[[list.cue]]
+id = 21
+number = "21"
+kind = "memo"
+name = "Cue 21"
+
+[[list.cue]]
+id = 22
+number = "22"
+kind = "memo"
+name = "Cue 22"
+
+[[list.cue]]
+id = 23
+number = "23"
+kind = "memo"
+name = "Cue 23"
+
+[[list.cue]]
+id = 24
+number = "24"
+kind = "memo"
+name = "Cue 24"
+
+[[list.cue]]
+id = 25
+number = "25"
+kind = "memo"
+name = "Cue 25"
+
+[[list.cue]]
+id = 26
+number = "26"
+kind = "memo"
+name = "Cue 26"
+
+[[list.cue]]
+id = 27
+number = "27"
+kind = "memo"
+name = "Cue 27"
+
+[[list.cue]]
+id = 28
+number = "28"
+kind = "memo"
+name = "Cue 28"
+
+[[list.cue]]
+id = 29
+number = "29"
+kind = "memo"
+name = "Cue 29"
+
+[[list.cue]]
+id = 30
+number = "30"
+kind = "memo"
+name = "Cue 30"

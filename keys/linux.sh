@@ -86,13 +86,17 @@ button() {
   sleep 1
 }
 
+# start PHASE KEYMAP SHOW: starts cinq with the keymap of KEYMAP.toml and a copy
+# of SHOW.cinq.toml of its own, so that no phase finds the unsaved changes of
+# another, logging to PHASE.err and PHASE.marks
 start() {
   err=$out/$1.err
   marks=$out/$1.marks
   : > "$err"
   mkdir -p "$work/$1"
-  cp "$here/$1.toml" "$work/$1/config.toml"
-  cinq --config-dir "$work/$1" "$here/show.cinq.toml" 2>> "$err" &
+  cp "$here/$2.toml" "$work/$1/config.toml"
+  cp "$here/$3.cinq.toml" "$work/$1/show.cinq.toml"
+  cinq --config-dir "$work/$1" "$work/$1/show.cinq.toml" 2>> "$err" &
   cinq=$!
   sleep 8
   shot "$1-0-start"
@@ -102,7 +106,7 @@ stop() {
   wait "$cinq" || true
 }
 
-start vi
+start vi vi show
 # 1. Control+i after Control+o
 key 1-l l
 key 1-G G
@@ -149,13 +153,80 @@ button 6-extra extra
 shot vi-6-buttons
 stop
 
-start cua
+start cua cua show
 # 2. Alt with the arrows
 key 2-ctrl-pagedown -M ctrl -k Next -m ctrl
 key 2-end -k End
 alt 2-alt-left Left
 alt 2-alt-right Right
 shot cua-2-alt-arrows
+stop
+
+# 7. Operators: d 2 j cuts three cues, p pastes them below
+start ops vi long
+key 7-gg gg
+key 7-d2j d2j
+shot ops-7-cut
+key 7-p p
+shot ops-7-pasted
+# 11. A stray key after d is dropped: d u does not undo
+key 11-du du
+shot ops-11-du
+stop
+
+# 8. Search, forward and backward, with n, N, and Control+o
+start search vi long
+key 8-gg gg
+key 8-slash /
+key 8-text 1
+key 8-enter -k Return
+key 8-n1 n
+key 8-n2 n
+key 8-qmark '?'
+key 8-text-back 1
+key 8-enter-back -k Return
+key 8-n3 n
+key 8-N N
+ctrl 8-ctrl-o o
+key 8-9 9
+ctrl 8-9-ctrl-o o
+shot search-8-back
+# 12. F1 shows the help page, which q closes
+key 12-f1 -k F1
+shot search-12-help
+key 12-q q
+stop
+
+# 9. View keys
+start view vi long
+key 9-gg gg
+ctrl 9-ctrl-e-1 e
+ctrl 9-ctrl-e-2 e
+ctrl 9-ctrl-e-3 e
+shot view-9-scrolled
+ctrl 9-ctrl-y y
+key 9-H H
+key 9-L L
+key 9-zz zz
+shot view-9-zz
+key 9-zt zt
+shot view-9-zt
+key 9-H-after-zt H
+stop
+
+# 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
+start menu vi show
+key 10-tab -k Tab
+shot menu-10-focused
+key 10-enter -k Return
+shot menu-10-open
+key 10-j j
+ctrl 10-ctrl-y y
+shot menu-10-picked
+key 10-tab-again -k Tab
+key 10-enter-again -k Return
+ctrl 10-ctrl-e e
+shot menu-10-closed
 stop
 
 swaymsg exit > /dev/null 2>&1 || true
