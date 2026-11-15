@@ -4,148 +4,92 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# cinq beside ETC Eos, offline
+# cinq's light and network cues on Darwin
 
-The theater of cinq's author runs its lights from an ETC Ion Xe.  This
-branch runs Eos, the Ion Xe's software, offline on `windows-latest`, to see
-whether cinq's light cues speak the protocols that Eos and the devices
-around it speak, and whether cinq can fire the cues of Eos with network
-cues, as QLab does.  cinq comes from snapshots of commits not yet pushed,
-in `cinq/`, which last held a164d31 with a patch, for this branch alone,
-that writes each send that fails on standard error.
+cinq at `97af215a58520fe2a30ae5d2bffb98f90800a9e6` (`wip/light-cues`), run
+as `cinq.app` opened with `open -n`, with GO pressed by System Events
+keystrokes.  `darwin/lights.sh`, `net.sh`, and `cable.sh` hold the tests,
+`darwin/*-verdict.py` the checks, `listen.py` and `fakeeos.py` come from
+branch `cinq/2026-11-13-eos-offline`.
 
-## What runs
+## Runners
 
-`.github/workflows/eos.yml`, with the scripts in `eos/`:
+| Label | Darwin | CPU | Build | Result |
+| --- | --- | --- | --- | --- |
+| `macos-latest` | 26.7.2 | aarch64 | `nix build $CINQ#cinq`, 639 s with the tests | all pass |
+| `macos-26` | 26.7.2 | aarch64 | same, 692 s | all pass |
+| `macos-15` | 15.8.2 | aarch64 | same, 663 s | all pass |
+| `macos-15-intel` | 15.7.9 | x86_64 | Nix: fails; cargo: 562 s | all pass (cargo) |
+| `macos-14` | - | - | - | never ran: `The configuration 'macos-14-arm64-us-default' is not supported` |
 
-- **cinq-windows** and **cinq-darwin** cross-build cinq from `cinq/` with
-  Nix on `ubuntu-latest`.
-- **windows** installs Eos 3.3.10 from ETC's CDN: only the MSI of Eos from
-  the NSIS installer, since the whole installer, run with `/S`, brings
-  console patches and USB, dongle, and SLP drivers, and the runner that ran
-  it lost its connection (run 43416352917).  `start.ps1` chooses the Eos
-  console mode, whose two buttons have only logos, and **Offline w/viz**,
-  which sends sACN for visualizers without a license key, by UI
-  Automation.  `listen.py` records every sACN and Art-Net packet that
-  reaches the runner, as JSON lines and as a pcap for Wireshark.
-  `osc.py` programs Eos over OSC, and `beside.ps1` runs cinq beside it.
-- **darwin** runs the light cues of `show.toml` in cinq.app on
-  `macos-latest`, as Finder opens it, and presses Allow on Darwin's Local
-  Network prompt with `ui`, built from `screen.swift`, which reads the
-  screen with Vision.  Earlier runs also started its program from a shell,
-  opened it twice, and signed a copy again.
-- **darwin-native** builds cinq with Nix on `macos-latest` and checks the
-  signature of cinq.app.
-- **linux** runs `linux.toml` in cinq in headless sway on `ubuntu-latest`,
-  with `fakeeos.py` standing in for a console, decoding the network cues
-  over TCP with SLIP and over UDP; `stress.sh` sends hundreds of cues; and
-  `lan.sh` runs `ion-xe/ion-test.toml` against a stand-in console at the
-  Ion Xe's address, 10.101.100.20, in a network namespace at the end of a
-  veth cable that comes out and goes back in.
-- **powercut** cuts a stand-in console off under cinq with iptables, as a
-  lost power supply does, and checks the cues after it comes back.
+`macos-latest` is Darwin 26.7.2, the same image as `macos-26`.  Runs:
+43697228332 (the three aarch64 builds, final), 43697229131 (Intel with
+cargo, final), 43692513759 (first try: Intel Nix failure, `macos-14`),
+43692968930, 43693942775, 43694236568, 43695704400 (fixes to my scripts:
+an AppleScript syntax error, a verdict crash, `go` labels, `nc` timeout,
+stand-in lifetime).
 
-## Results
+## Findings
 
-| Run | What | Outcome |
-| --- | --- | --- |
-| 43416352917 | Whole installer with `/S` | Runner lost its connection after 45 minutes, no logs |
-| 43462159979 | MSI alone | Installed in 12 s; the registry dump overflowed PowerShell's stack |
-| 43464357513 | Start | Stuck on the console mode prompt, whose buttons have no names |
-| 43466962112 | Start, OSC on TCP 3032 | Eos up in Offline w/viz; 3032 took the connection but never answered |
-| 43510031736 | OSC on 3032, 3037, 3038; cinq beside Eos | 3037 with SLIP answered; Eos patched, recorded, and fired cues over OSC; tshark read Eos's and cinq's sACN on universe 1 |
-| 43512936545 | cinq's network cues fire Eos | Eos fired cue 1 and then cue 2 from cinq's two GOs, and faded its lights in their times |
-| 43544918926 | cinq's sACN on Darwin | Darwin's Local Network prompt held the packets back |
-| 43547670732 | Allow pressed; cinq.app opened | The program from a shell sent once allowed; cinq.app showed its own prompt, with its reason |
-| 43548703970 | The exact Allow | `ui click --contains Allow` had pressed Don't Allow; cinq.app's multicast still held back |
-| 43549278854 | Sends that fail, logged | `No route to host` (os error 65) for sACN multicast |
-| 43550373520 | cinq.app opened again once allowed | Still `No route to host` on every send, before and after Allow |
-| 43551360995 | Darwin's privacy log | `found bundle id cinq-94c18a24ea67fdd9 by PID`, `io.yiyuzhou.cinq by UUID`; codesign of a read-only copy failed |
-| 43551745057 | Copy signed under `io.yiyuzhou.cinq` | No send failed; its sACN reached the network |
-| 43552387371 | cinq.app signed by rcodesign at build | Failed only until Allow, then sent |
-| 43553147379 | cinq.app as Nix builds it on Darwin | Signed as `io.yiyuzhou.cinq`, valid on disk, satisfies its Designated Requirement |
-| 43553927187 | Every job, with GNU/Linux | All passed (darwin-native on a second attempt, after cache.nixos.org broke off a download); on GNU/Linux sACN left eth0 and the network cues reached `fakeeos.py` as written, over TCP and UDP |
-| 43584888758 | b137aa7 as pushed: six kinds of network cue | Eos fired a cue by number, GO, a cue by list and number, and a command line with spaces; a destination that refused took 1 s on Windows and held nothing else up |
-| 43594509473 | 5501a62: Eos down and back; load; a Mac's LAN | cinq reconnected to Eos on its own once Eos came back; 100 cues from two GOs and 10 after a restart arrived in order; cinq.app reached a console at the Mac's own address |
-| 43597187624 | Power cut, first try | The two consoles of the script fought over port 3037 |
-| 43598804720 | Power cut, with keepalive (5f71ab1) and without (5501a62) | Without keepalive the first cue after the cut was lost without a word; with it, every cue arrived |
-| 43600907511 | Every job on d14ade8 | All passed but powercut, whose build failed on a test that raced, fixed in 51d0edc |
-| 43621864513 | Every job on 51d0edc | Cancelled for 7f5632a, which also warns on standard error of a lost connection |
-| 43622465685 | 7f5632a: the Ion Xe's show over a cable that comes out | ion-test.toml reached a stand-in console at 10.101.100.20 as written; a cue sent a second after the cable came out arrived 13 s after its GO, without a warning, once the cable was back; no Art-Net on a network without a broadcast address |
-| 43624566796 | 238fcfe: a new connection after each quiet second | The cue a second after the cable came out never arrived, and warned; every other cue arrived within 10 ms; Eos took a connection for each GO and ran ion-test.toml's cues; still no Art-Net on the cable, since GNU/Linux neither sends nor takes broadcasts on an address without `brd` |
-| 43625278634 | c9a6db4: sACN universe discovery | Eos and cinq sent discovery every 10 s, which `listen.py` logged as unknown, since it took packets under 126 bytes for broken; `stress.sh` could not bind its console while `linux.sh`'s still held port 8000 |
-| 43626553187, 43626694911, 43626762105 | d6b9350 | Cancelled for fixes to the scripts and to cinq |
-| 43627453872 | 27b7559: every job, after a review of the network output | All passed: Eos ran ion-test.toml's cues; on the cable, a GO while it was out and one a second after it came out never arrived, and warned, while every other cue arrived within 10 ms; Art-Net, sACN, and discovery of universe 999 reached the stand-in console; 360 cues under stress, memory flat at 55 MB |
-
-What Eos does, offline:
-
-- It answers OSC only on TCP port 3037, framed with SLIP (OSC 1.1), which
-  its manual calls the port of third-party integration, always enabled.
-  Port 3032, which needs OSC RX in Setup, takes connections and ignores
-  them offline.  `/eos/newcmd` with `#` for Enter types into its command
-  line, and `/eos/cue/1/fire` and `/eos/key/go_0` fire cues.
-- It sends sACN on every network of the computer, universe 1 for its
-  universe 1, at priority 1 rather than its usual 100, so that a
-  visualizer's feed never takes over from a real console, with
-  per-address-priority (start code 0xDD) packets for the addresses it
-  patches.  70% goes out as 179 and 80% as 204, as from cinq.
-- `Go To Cue Out#` is a syntax error over OSC.
-
-What cinq does:
-
-- Its light cues go out as sACN, priority 100, universe 1 for its universe
-  1, and as Art-Net, Port-Address 0 for universe 1, as Eos numbers them, on
-  every network of the computer and to the computer itself.  tshark
-  decodes both with no expert warnings.
-- Its network cues, OSC over TCP with SLIP to `127.0.0.1:3037`, made Eos
-  fire `cue/1/1` and then `cue/1/2`; Eos faded channel 1 to 179 over 2.98 s
-  and channels 2 and 3 to 204 and 255 over 4.98 s, the times of its cues.
-- A TCP connection kept open while its cable is out takes a message
-  without a word, and TCP delivers it once the cable goes back in: 13 s
-  after its GO in run 43622465685.  So cinq now keeps a connection only
-  while messages to its destination follow each other within a second, and
-  drops any message that cannot go out within a second of its cue.
-- It lists the universes that it sends every ten seconds, as sACN's
-  universe discovery asks; Eos does too, for its universe 1.
-- GNU/Linux neither sends nor takes Art-Net's directed broadcasts on an
-  address set without `brd`.
-
-What Darwin does:
-
-- It asks the operator whether a program may reach devices on the local
-  network the first time it tries, and until then sACN multicast fails
-  with `No route to host`, while Art-Net broadcast and loopback go out.
-- It keeps the answer for cinq.app under the identifier of its bundle,
-  `io.yiyuzhou.cinq`, and looks a running program up by the identifier of
-  its signature, which the linker had made the name of the file that rustc
-  wrote, `cinq-94c18a24ea67fdd9`.  So multicast stayed off after Allow,
-  and after a relaunch, until the bundle was signed ad hoc under its own
-  identifier, which cinq's build now does with rcodesign.
-
-For the console itself, `ion-xe/CHECKLIST.md` lists what to note and test
-at an Ion Xe, with `ion-xe/ion-test.toml`, a show that pings the console
-first and sends light only to universe 999.
+- **x86_64-darwin is not in cinq's flake at this commit.**
+  `nix build github:yzhou216/cinq/97af215...#cinq` on `macos-15-intel` fails at
+  once: `error: flake '...' does not provide attribute
+  'packages.x86_64-darwin.cinq', 'legacyPackages.x86_64-darwin.cinq' or
+  'cinq'`.  `nix eval ...#packages --apply builtins.attrNames` lists
+  aarch64-darwin, aarch64-linux, armv6l-linux, armv7l-linux, i686-linux,
+  powerpc64le-linux, riscv64-linux, x86_64-freebsd, x86_64-linux, so the
+  `flakeExposed` of the locked Nixpkgs no longer has x86_64-darwin.  Plain
+  `cargo build --release --locked` (with `brew install scdoc`) builds it in
+  562 s on rustc 1.98.0; `intel.yml` lays the bundle out and signs it with
+  `codesign --force --deep --sign -`, identifier `io.yiyuzhou.cinq`.
+- **Signature**: `Identifier=io.yiyuzhou.cinq`, `Signature=adhoc`, valid on
+  disk and satisfies its Designated Requirement, on all four runners (the
+  Nix builds as built, the Intel bundle as signed by me).
+- **Local Network prompt**: appears on every runner within 10 s of opening,
+  `Allow "cinq" to find devices on local networks?` with cinq's reason.  On
+  the three aarch64 runs (Darwin 26 and 15) a second prompt, `Allow
+  "hosted-compute-" to find devices on local networks?`, follows and has to
+  be answered too (earlier single presses left sACN multicast off, run
+  43692513759).  Intel needed one press.  Prompts came at +8.1 to +9.5 s
+  after GO 1 and the second at +12.3 to +15.1 s.
+- **Before Allow** (GO 1 to the first press, about 8-10 s): Art-Net on
+  loopback and the en0 broadcast address carried every refresh; sACN went
+  to loopback only (28 to 31 packets on 127.0.0.1) and none to the en0
+  address.  cinq's standard error stayed empty: the failed multicast sends
+  are silent.  **After the last Allow**: sACN on en0 started at once (15-16
+  packets in the 5 s that followed on all but `macos-26`, 12 there).
+- **Light output** (all five runs): sACN universes 1, 2, 999 carry 51, 179 and
+  128 at the right addresses, 128 on universe 2, 255 on 999, then out;
+  Art-Net Port-Address 0, 1, 998 carry the same; priority 100 and source
+  `cinq` on all sACN level packets; discovery lists `[1, 2, 999]` (9-12
+  packets in the 150 s); idle refresh is exactly 12 packets in 12 s per
+  universe, protocol, and sender (1 per second); discovery 1 per 12 s window;
+  fade of 4 s: 120-127 packets in 4.5 s per universe, protocol, and sender,
+  27 to 28 per second.  Senders heard: 127.0.0.1 and the en0 address for
+  both protocols (Darwin's `lo0` takes loopback copies; the runner has one
+  network, 192.168.64.x).
+- **Network cues** (five runs): TCP and UDP with `7 1.5 "hello world"
+  "42"` arrive decoded as int, float, string, string, 16-43 ms after GO;
+  a burst of three GOs 0.3 s apart is one connection, 4-6 ms between
+  messages; three GOs 4 s apart are three connections; a refusing
+  destination warns after 10-23 ms with `cinq: network cue to
+  127.0.0.1:3999: Connection refused (os error 61)`; a stand-in that
+  stopped refuses the same way and the cue after its restart arrives in
+  9-28 ms.
+- **Cable pulled with pf** (`block drop quick on lo0 proto tcp` both ways,
+  console alias 10.101.100.20 on lo0; `nc -z -G 2` reached it before and
+  after and not during): the cue before arrived in 17-30 ms; the cue sent
+  during 15 s out never arrived, nor did the one sent 1 s into a 7 s
+  block, after unblocking either; the cues after arrived in 9-24 ms.
+  The first warning came 1.012-1.023 s after the GO: `cinq: network cue to
+  10.101.100.20:3037: connection timed out`.  The second dropped cue
+  warned only in the sidebar, as standard error says each reason once.
 
 ## Traps
 
-- Eos's launcher shows a Windows paging-file dialog behind it at logon,
-  and its main window, `Eos : 1`, has almost no names for UI Automation;
-  drive it by OSC on 3037, or by its PC keys (`keys.ps1`, `keys-1.txt`).
-- A runner that loses its connection leaves no job log, so upload an
-  artifact after each step.
-- `Get-ItemProperty | Select-Object *` over `HKLM\SOFTWARE\ETC` overflowed
-  PowerShell's stack; `reg query /s` does not.
-- Darwin asks whether a program may reach devices on the local network the
-  first time it tries, for programs started from the job's shell on behalf
-  of `hosted-compute-agent`, and holds the packets back until someone
-  answers; a Python listener left unanswered stalled 17 minutes past its
-  own deadline.
-- `ui click --contains Allow` finds Don't Allow first, at the same height;
-  click the exact `Allow`.
-- Files from the Nix store are read-only, so `codesign` of a copy needs
-  `chmod -R u+w` first.
-- GNU/Linux lets a socket join only 20 multicast groups by default; past
-  that, joins fail with ENOBUFS, so `listen.py` joins only the universes
-  that the tests use.
-- On Windows, a TCP connection to a closed port on the same computer times
-  out rather than being refused.
+- `nc -z -w 2` on a dropped SYN took 75 s; add `-G 2`.
+- `do shell script` inside a `tell application "System Events"` expression
+  is a syntax error; call it at top level.
+- `listen.py` on Darwin: 19 `EADDRINUSE` on the join of each group through
+  the computer's address, since the join through `0.0.0.0` already covers
+  it; harmless.
