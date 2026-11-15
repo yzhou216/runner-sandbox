@@ -1,0 +1,98 @@
+first lit packet 1794734448.648; GO mark 1794734447.610 (lit packet +1.04 s after the mark)
+packets 1260; senders ['127.0.0.1', '192.168.122.10']
+kinds: [('artnet', 0, None, None), ('artnet', 1, None, None), ('artnet', 998, None, None), ('sacn', 1, 100, 'cinq'), ('sacn', 2, 100, 'cinq'), ('sacn', 999, 100, 'cinq')]
+
+== DMX values by universe (time since first light)
+('artnet', 0): 58 distinct states; first lit 0.01 s, final {2: 77}
+   held   3.8 s from t+   0.72: {1: 51}
+   held   2.9 s from t+   5.60: {1: 179, 2: 255}
+   held  34.3 s from t+  12.57: {2: 77}
+('artnet', 1): 47 distinct states; first lit 0.02 s, final {10: 204}
+   held   7.8 s from t+   0.73: {10: 128}
+   held  34.3 s from t+  12.58: {10: 204}
+('artnet', 998): 4 distinct states; first lit 0.04 s, final {512: 255}
+   held  46.1 s from t+   0.74: {512: 255}
+('sacn', 1): 58 distinct states; first lit 0.00 s, final {2: 77}
+   held   3.8 s from t+   0.71: {1: 51}
+   held   2.9 s from t+   5.59: {1: 179, 2: 255}
+   held  34.3 s from t+  12.56: {2: 77}
+('sacn', 2): 47 distinct states; first lit 0.01 s, final {10: 204}
+   held   7.8 s from t+   0.72: {10: 128}
+   held  34.3 s from t+  12.57: {10: 204}
+('sacn', 999): 4 distinct states; first lit 0.03 s, final {512: 255}
+   held  46.1 s from t+   0.73: {512: 255}
+
+== Which sender addresses carried each protocol
+('artnet', '127.0.0.1'): 312 packets
+('artnet', '192.168.122.10'): 312 packets
+('sacn', '127.0.0.1'): 318 packets
+('sacn', '192.168.122.10'): 318 packets
+
+== Packet rate per second (sACN universe 1, one sender)
+sender 127.0.0.1
+  idle after cue 1         t+2.0..4.5: sACN u1    1.2/s, Art-Net port 0    0.8/s
+  level cue 2 to cue 3     t+6.5..8.5: sACN u1    1.0/s, Art-Net port 0    1.0/s
+  fade of cue 3 (4 s)      t+9.2..12.8: sACN u1   10.6/s, Art-Net port 0   10.6/s
+  idle after the fade      t+14.0..15.5: sACN u1    0.7/s, Art-Net port 0    0.7/s
+sender 192.168.122.10
+  idle after cue 1         t+2.0..4.5: sACN u1    1.2/s, Art-Net port 0    0.8/s
+  level cue 2 to cue 3     t+6.5..8.5: sACN u1    1.0/s, Art-Net port 0    1.0/s
+  fade of cue 3 (4 s)      t+9.2..12.8: sACN u1   10.6/s, Art-Net port 0   10.6/s
+  idle after the fade      t+14.0..15.5: sACN u1    0.7/s, Art-Net port 0    0.7/s
+
+== Universe discovery
+t+  -7.43 from 192.168.122.10 cinq lists [1, 2, 999]
+t+  -7.43 from 127.0.0.1 cinq lists [1, 2, 999]
+t+   2.75 from 192.168.122.10 cinq lists [1, 2, 999]
+t+   2.75 from 127.0.0.1 cinq lists [1, 2, 999]
+t+  13.59 from 192.168.122.10 cinq lists [1, 2, 999]
+t+  13.59 from 127.0.0.1 cinq lists [1, 2, 999]
+t+  23.68 from 192.168.122.10 cinq lists [1, 2, 999]
+t+  23.68 from 127.0.0.1 cinq lists [1, 2, 999]
+t+  33.76 from 192.168.122.10 cinq lists [1, 2, 999]
+t+  33.76 from 127.0.0.1 cinq lists [1, 2, 999]
+t+  43.85 from 192.168.122.10 cinq lists [1, 2, 999]
+t+  43.85 from 127.0.0.1 cinq lists [1, 2, 999]
+
+== Console (stand-in) log, time since first light
+-- console-a.txt
+t+  15.54 tcp connected from ('127.0.0.1', 43817)
+t+  15.55 tcp /test [7, 2.5, '12', 'hello']
+t+  15.71 udp /test [7, 2.5, '12', 'hello']
+t+  16.89 tcp closed
+t+  18.88 tcp connected from ('127.0.0.1', 62683)
+t+  18.88 tcp /burst/1 []
+t+  19.07 tcp /burst/2 []
+t+  19.15 tcp /burst/3 []
+t+  19.22 tcp /burst/4 []
+t+  19.31 tcp /burst/5 []
+t+  20.31 tcp closed
+t+  22.22 tcp connected from ('127.0.0.1', 57825)
+t+  22.22 tcp /spaced/1 []
+t+  23.22 tcp closed
+t+  25.26 tcp connected from ('127.0.0.1', 26989)
+t+  25.26 tcp /spaced/2 []
+t+  26.26 tcp closed
+t+  28.28 tcp connected from ('127.0.0.1', 64976)
+t+  28.28 tcp /spaced/3 []
+t+  29.28 tcp closed
+-- console-b.txt
+t+  34.28 tcp connected from ('127.0.0.1', 27934)
+t+  34.28 tcp /back []
+t+  35.28 tcp closed
+t+  37.24 tcp connected from ('127.0.0.1', 34680)
+t+  37.25 tcp /after []
+t+  38.24 tcp closed
+t+  41.28 tcp connected from ('127.0.0.1', 43569)
+t+  41.28 tcp /behind []
+t+  42.28 tcp closed
+
+== cinq's standard error
+t+  15.89 cinq: network cue to 127.0.0.1:3999: Connection refused (os error 61)
+t+  31.25 cinq: network cue to 127.0.0.1:3037: Connection refused (os error 61)
+t+  41.28 cinq: network cue to 10.255.255.1:3037: connection timed out
+t+  47.66 Io error: Broken pipe (os error 32)
+t+  47.66 Io error: Broken pipe (os error 32)
+t+  47.66 Io error: Broken pipe (os error 32)
+
+marks since first light: {'start': -9.7, 'sway up': -8.42, 'window up': -6.42, 'GO': -1.04, 'console down': 30.02, 'console back': 33.1, 'end': 47.47}

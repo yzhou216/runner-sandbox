@@ -1,0 +1,2 @@
+ test executable: /var/tmp/target/debug/deps/cinq-19aaec3377996013
+ tests alone:       34 run, 0 failed

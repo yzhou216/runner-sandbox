@@ -1,0 +1,9 @@
+Linux riscv-runner-47 5.10.113-scw1 #1 SMP PREEMPT Fri Jul 12 15:31:22 UTC 2024 riscv64 riscv64 riscv64 GNU/Linux
+cargo 1.99.0 (5f94df478 2026-08-27)
+rustc 1.99.0 (b940084d7 2026-09-28)
+cargo test --no-run: status 0, 4836.65 s
+cargo test network: status 0, 3.73 s, test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 389 filtered out; finished in 1.57s
+cargo test light: status 0, 2.01 s, test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 382 filtered out; finished in 0.02s
+cargo test osc: status 0, 2.00 s, test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 395 filtered out; finished in 0.01s
+test executable: target/debug/deps/cinq-d1fc8665a12012a0
+tests alone: 34 run, 0 failed
