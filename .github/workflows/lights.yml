@@ -1,0 +1,178 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# cinq's light and network cues (97af215) on riscv64 GNU/Linux, on RISE's
+# runner, and on x86_64 and aarch64 FreeBSD.  Each platform runs cinq's
+# network, light, and osc unit tests natively, then plays eos/lights.toml in
+# the cross-built cinq under headless sway beside listen.py and fakeeos.py.
+name: Lights
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  CINQ: 97af215a58520fe2a30ae5d2bffb98f90800a9e6
+jobs:
+  src:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir src
+          curl -sSfL "https://github.com/yzhou216/cinq/archive/$CINQ.tar.gz" | tar -xz --strip-components=1 -C src
+          tar -czf src.tar.gz src
+      - uses: actions/upload-artifact@v7
+        with:
+          name: src
+          path: src.tar.gz
+          retention-days: 3
+  cross:
+    name: cinq for ${{ matrix.host }}, cross built
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [riscv64-linux, x86_64-freebsd, aarch64-freebsd]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: cachix/cachix-action@master
+        with:
+          name: yzhou216
+          skipPush: true
+      - run: |
+          start=$SECONDS
+          nix build "github:yzhou216/cinq/$CINQ#${{ matrix.host }}"
+          echo "built in $((SECONDS - start)) s"
+          mkdir run
+          readlink -f result > run/path.txt
+          nix-store -qR result | tar -cf run/closure.tar -T -
+          ls -l run
+      - uses: actions/upload-artifact@v7
+        with:
+          name: run-${{ matrix.host }}
+          path: run
+          retention-days: 3
+  riscv-unit:
+    name: unit tests on riscv64-linux (RISE)
+    needs: src
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: src
+      - run: tar -xzf src.tar.gz
+      - run: |
+          uname -srm
+          grep PRETTY_NAME /etc/os-release
+          echo "cpus $(nproc)"
+          free -h
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev libjack-jackd2-dev liboss4-salsa-asound2-
+      - id: restore
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            src/target/
+          key: cargo-riscv64-unit-${{ hashFiles('src/Cargo.lock') }}
+      - run: bash eos/unit.sh src out
+      - if: always() && steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            src/target/
+          key: ${{ steps.restore.outputs.cache-primary-key }}
+      - if: always()
+        run: tar -czf unit-riscv64.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-riscv64
+          path: unit-riscv64.tar.gz
+  riscv-gui:
+    name: cinq beside listen.py on riscv64-linux (RISE)
+    needs: cross
+    if: ${{ !cancelled() && needs.cross.result == 'success' }}
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: run-riscv64-linux
+          path: run
+      - run: |
+          sudo tar -xf run/closure.tar -C /
+          "$(cat run/path.txt)/bin/cinq" --version
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sway wtype grim fonts-dejavu-core python3 iproute2
+      - run: bash eos/play.sh "$(cat run/path.txt)/bin/cinq" eos/lights.toml out
+      - if: always()
+        run: tar -czf gui-riscv64.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gui-riscv64
+          path: gui-riscv64.tar.gz
+  freebsd-unit:
+    name: unit tests on ${{ matrix.arch }}-freebsd
+    needs: src
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64] # aarch64 is emulated, as no runner has KVM for it
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: src
+      - run: tar -xzf src.tar.gz
+      - uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          mem: 12288
+          cpu: 4
+          prepare: pkg install -y bash rust pkgconf alsa-lib jackit
+          run: |
+            uname -a
+            export CARGO_TARGET_DIR=/var/tmp/target
+            bash eos/unit.sh src out
+  freebsd-gui:
+    name: cinq beside listen.py on ${{ matrix.arch }}-freebsd
+    needs: cross
+    if: ${{ !cancelled() && needs.cross.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: run-${{ matrix.arch }}-freebsd
+          path: run
+      - uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          mem: 6144
+          cpu: 4
+          prepare: pkg install -y bash python3 sway wtype grim dejavu
+          run: |
+            tar -xf run/closure.tar -C /
+            rm run/closure.tar
+            "$(cat run/path.txt)/bin/cinq" --version
+            bash eos/play.sh "$(cat run/path.txt)/bin/cinq" eos/lights.toml out || true

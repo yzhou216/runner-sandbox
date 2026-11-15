@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# A light cue, then network cues to fakeeos.py over TCP and over UDP
+[[instrument]]
+id = 1
+name = "Front"
+address = 1
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Front up"
+duration = 2.0
+
+[list.cue.lights]
+1 = 70.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "network"
+name = "Eos cue 1"
+destination = "127.0.0.1:3037"
+message = "/eos/cue/1/fire"
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "network"
+name = "UDP"
+destination = "udp://127.0.0.1:8000"
+message = '/test "hello world" 7 2.5 "12"'

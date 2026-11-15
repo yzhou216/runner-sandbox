@@ -1,0 +1,235 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# One GO runs everything, each cue continuing to the next after its
+# post-wait: light cues on universes 1, 2, and 999 (fire times from the GO:
+# 0, 5, 9 s), then network cues to fakeeos.py (16 s on): TCP and UDP with
+# int, float, and string arguments, a refused port, a burst of five within
+# half a second, three apart by 3 s, one while the stand-in is down (it is
+# down from 30.3 s to 33 s) and two once it is back, and a destination that
+# never answers with a cue behind it
+[[instrument]]
+id = 1
+name = "Front"
+address = 1
+
+[[instrument]]
+id = 2
+name = "Back"
+address = 2
+
+[[instrument]]
+id = 3
+name = "Second universe"
+universe = 2
+address = 10
+
+[[instrument]]
+id = 4
+name = "Console universe"
+universe = 999
+address = 512
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Up"
+duration = 1.0
+advance = "continue"
+post_wait = 5.0
+
+[list.cue.lights]
+1 = 20.0
+3 = 50.0
+4 = 100.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "light"
+name = "Level"
+duration = 1.0
+advance = "continue"
+post_wait = 4.0
+
+[list.cue.lights]
+1 = 70.0
+2 = 100.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "light"
+name = "Fade"
+duration = 4.0
+advance = "continue"
+post_wait = 7.0
+
+[list.cue.lights]
+1 = 0.0
+2 = 30.0
+3 = 80.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "network"
+name = "TCP arguments"
+destination = "127.0.0.1:3037"
+message = '/test 7 2.5 "12" hello'
+advance = "continue"
+post_wait = 0.2
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "network"
+name = "UDP arguments"
+destination = "udp://127.0.0.1:8000"
+message = '/test 7 2.5 "12" hello'
+advance = "continue"
+post_wait = 0.2
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "network"
+name = "Refused"
+destination = "127.0.0.1:3999"
+message = '/refused 1'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "network"
+name = "Burst 1"
+destination = "127.0.0.1:3037"
+message = '/burst/1'
+advance = "continue"
+post_wait = 0.1
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "network"
+name = "Burst 2"
+destination = "127.0.0.1:3037"
+message = '/burst/2'
+advance = "continue"
+post_wait = 0.1
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "network"
+name = "Burst 3"
+destination = "127.0.0.1:3037"
+message = '/burst/3'
+advance = "continue"
+post_wait = 0.1
+
+[[list.cue]]
+id = 10
+number = "10"
+kind = "network"
+name = "Burst 4"
+destination = "127.0.0.1:3037"
+message = '/burst/4'
+advance = "continue"
+post_wait = 0.1
+
+[[list.cue]]
+id = 11
+number = "11"
+kind = "network"
+name = "Burst 5"
+destination = "127.0.0.1:3037"
+message = '/burst/5'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 12
+number = "12"
+kind = "network"
+name = "Spaced 1"
+destination = "127.0.0.1:3037"
+message = '/spaced/1'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 13
+number = "13"
+kind = "network"
+name = "Spaced 2"
+destination = "127.0.0.1:3037"
+message = '/spaced/2'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 14
+number = "14"
+kind = "network"
+name = "Spaced 3"
+destination = "127.0.0.1:3037"
+message = '/spaced/3'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 15
+number = "15"
+kind = "network"
+name = "Down"
+destination = "127.0.0.1:3037"
+message = '/down'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 16
+number = "16"
+kind = "network"
+name = "Back"
+destination = "127.0.0.1:3037"
+message = '/back'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 17
+number = "17"
+kind = "network"
+name = "After restart"
+destination = "127.0.0.1:3037"
+message = '/after'
+advance = "continue"
+post_wait = 3.0
+
+[[list.cue]]
+id = 18
+number = "18"
+kind = "network"
+name = "Never answers"
+destination = "10.255.255.1:3037"
+message = '/never'
+advance = "continue"
+post_wait = 0.2
+
+[[list.cue]]
+id = 19
+number = "19"
+kind = "network"
+name = "Behind it"
+destination = "127.0.0.1:3037"
+message = '/behind'
+advance = "manual"
