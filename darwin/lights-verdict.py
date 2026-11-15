@@ -43,17 +43,17 @@ def count(window, how):
     return dict(collections.Counter(how(p) for p in window))
 
 
-print("listener:", [h for h in heard if "listening" in h or "join" in h])
+print("listener joined:", [h["listening"] for h in heard if "listening" in h], "join errors:", sum("join" in h for h in heard), "(EADDRINUSE: the default network joined the group already)")
 # sACN counts universes from 1 and Art-Net's Port-Address from 0
 patch = {1: [{"1": 51}, {"1": 179, "2": 128}, {}], 2: [{"1": 128}, {}], 999: [{"5": 255}, {}]}
 for proto, shift in (("sacn", 0), ("artnet", 1)):
     for universe, wanted in patch.items():
         seq = []
         for h in levels:
-            if h["proto"] == proto and h["universe"] == universe - shift and (not seq or seq[-1] != h["levels"]):
+            if h["proto"] == proto and h.get("universe") == universe - shift and (not seq or seq[-1] != h["levels"]):
                 seq.append(h["levels"])
         check(all(w in seq for w in wanted) and seq[-1:] == [{}], f"{proto} universe {universe - shift} (patch universe {universe}): {len(seq)} changes, wanted {wanted}, last {seq[-2:]}")
-sacn = {(h["priority"], h["name"]) for h in levels if h["proto"] == "sacn"}
+sacn = {(h["priority"], h["name"]) for h in levels if h["proto"] == "sacn" and "priority" in h}
 check(sacn == {(100, "cinq")}, f"sACN priority and source name: {sorted(sacn)}")
 senders = {proto: sorted({p["from"] for p in packets if p["proto"] == proto}) for proto in ("sacn", "artnet")}
 print("senders heard (interfaces that carried packets):", senders)

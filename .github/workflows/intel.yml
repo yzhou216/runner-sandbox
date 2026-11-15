@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# cinq's flake does not offer x86_64-darwin, so this builds cinq with cargo
+
 # on the Intel runner instead, laid out and signed as the flake does, and
 # runs the same tests as darwin.yml.
 name: Darwin on Intel with cargo
@@ -61,3 +61,4 @@ jobs:
         with:
           name: cable-intel-cargo
           path: out/cable
+# Run 2: go.applescript fixed

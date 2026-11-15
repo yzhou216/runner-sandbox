@@ -9,8 +9,9 @@ on run argv
 	set gap to (item 2 of argv) as real
 	set stamps to {}
 	repeat n times
-		set end of stamps to (tell current application to do shell script "perl -MTime::HiRes=time -e 'printf q(%.3f), time'")
+		set stamp to do shell script "perl -MTime::HiRes=time -e 'printf q(%.3f), time'"
 		tell application "System Events" to keystroke " "
+		set end of stamps to stamp
 		delay gap
 	end repeat
 	set AppleScript's text item delimiters to " "
