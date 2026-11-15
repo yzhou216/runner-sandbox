@@ -54,14 +54,16 @@ jobs:
         with:
           name: lights-${{ matrix.runner }}
           path: out/lights
-      - name: Network cues
+      - if: ${{ !cancelled() }}
+        name: Network cues
         run: bash darwin/net.sh "$PWD/cinq.app" out/net
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: net-${{ matrix.runner }}
           path: out/net
-      - name: Cable pulled
+      - if: ${{ !cancelled() }}
+        name: Cable pulled
         run: bash darwin/cable.sh "$PWD/cinq.app" out/cable
       - if: always()
         uses: actions/upload-artifact@v4

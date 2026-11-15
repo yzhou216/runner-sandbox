@@ -47,18 +47,20 @@ jobs:
         with:
           name: lights-intel-cargo
           path: out/lights
-      - name: Network cues
+      - if: ${{ !cancelled() }}
+        name: Network cues
         run: bash darwin/net.sh "$PWD/cinq.app" out/net
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: net-intel-cargo
           path: out/net
-      - name: Cable pulled
+      - if: ${{ !cancelled() }}
+        name: Cable pulled
         run: bash darwin/cable.sh "$PWD/cinq.app" out/cable
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cable-intel-cargo
           path: out/cable
-# Run 3: Allow pressed until no prompt is left
+# Run 4: verdict sort fixed

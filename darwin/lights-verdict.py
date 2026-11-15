@@ -75,7 +75,7 @@ if first is not None:
     print("packets by protocol, sender, and universe in the 13 s idle stretch:")
     start, end = at("idle start"), at("idle end")
     window = between(start + 1, end)
-    for key, n in sorted(count(window, lambda p: (p["proto"], p["from"], p["universe"], str(p.get("discovery")))).items()):
+    for key, n in sorted(count(window, lambda p: (p["proto"], p["from"], p["universe"], str(p.get("discovery")))).items(), key=str):
         print(f"  {key}: {n} in {end - start - 1:.0f} s")
     fade = at("GO 2")
     inside = between(fade, fade + 4.5)
