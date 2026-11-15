@@ -60,6 +60,7 @@ jobs:
   riscv-unit:
     name: unit tests on riscv64-linux (RISE)
     needs: src
+    if: ${{ !contains(github.event.head_commit.message, '[skip riscv]') }}
     runs-on: ubuntu-24.04-riscv
     timeout-minutes: 350
     steps:
@@ -102,7 +103,7 @@ jobs:
   riscv-gui:
     name: cinq beside listen.py on riscv64-linux (RISE)
     needs: cross
-    if: ${{ !cancelled() && needs.cross.result == 'success' }}
+    if: ${{ !cancelled() && needs.cross.result == 'success' && !contains(github.event.head_commit.message, '[skip riscv]') }}
     runs-on: ubuntu-24.04-riscv
     timeout-minutes: 60
     steps:
@@ -130,7 +131,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64] # aarch64 is emulated, as no runner has KVM for it
+        # aarch64 is emulated, as no runner has KVM for it, and takes hours
+        arch: ${{ fromJSON(contains(github.event.head_commit.message, '[skip aarch64 unit]') && '["x86_64"]' || '["x86_64", "aarch64"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
@@ -149,6 +151,14 @@ jobs:
             uname -a
             export CARGO_TARGET_DIR=/var/tmp/target
             bash eos/unit.sh src out
+            cat out/tests.tsv
+      - if: always()
+        run: tar -czf unit-${{ matrix.arch }}-freebsd.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-${{ matrix.arch }}-freebsd
+          path: unit-${{ matrix.arch }}-freebsd.tar.gz
   freebsd-gui:
     name: cinq beside listen.py on ${{ matrix.arch }}-freebsd
     needs: cross
@@ -176,3 +186,10 @@ jobs:
             rm run/closure.tar
             "$(cat run/path.txt)/bin/cinq" --version
             bash eos/play.sh "$(cat run/path.txt)/bin/cinq" eos/lights.toml out || true
+      - if: always()
+        run: tar -czf gui-${{ matrix.arch }}-freebsd.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gui-${{ matrix.arch }}-freebsd
+          path: gui-${{ matrix.arch }}-freebsd.tar.gz
