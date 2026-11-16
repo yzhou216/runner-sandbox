@@ -1,0 +1,251 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Tests cinq of the tree in cinq/, commit 6bddf30 of the audio-fix branch
+# with a patch that logs keys, updates, and device opens, on the audio
+# routing and the Vim keys of its outputs view: JACK port order past nine
+# (jack), two outputs on two devices and Panic, and keys typed while devices
+# open (pulse), clamping on devices of integer samples (alsa, in a virtual
+# machine with the loopback card, and windows, through FlexASIO), and
+# one output on the default device with the outputs view and the Levels
+# tab on Windows and Darwin.  No Space and no Escape reaches cinq, except
+# Escape where a check needs Panic and nothing else plays.
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  jack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#ffmpeg nixpkgs#jack2 nixpkgs#jack-example-tools nixpkgs#jack_capture
+          nix build --out-link libjack --inputs-from ./cinq nixpkgs#libjack2
+      - name: Connect the ports of cinq past the ninth
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir sound
+          ./media.sh sound
+          # Where cinq finds libjack, as it would in the system's libraries
+          export LD_LIBRARY_PATH
+          LD_LIBRARY_PATH=$(readlink -f libjack)/lib
+          timeout -k 10 300 ./jack.sh result-cinq/bin/cinq sound out
+      - name: Judge the ports
+        if: always()
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          for name in pair singles; do
+            ./levels.sh "out/$name.wav" 0.5 3.5 | tee "out/levels-$name.tsv"
+          done
+          python3 -I verdict.py jack out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: jack
+          path: out
+          if-no-files-found: ignore
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq ./cinq
+          nix build --out-link tools --inputs-from ./cinq nixpkgs#sway nixpkgs#wtype \
+            nixpkgs#ffmpeg nixpkgs#pulseaudio
+          nix build --out-link alsa-plugins --inputs-from ./cinq nixpkgs#alsa-plugins
+      - name: Play on two devices, stop with Panic, and type while devices open
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          mkdir sound
+          ./media.sh sound
+          export ALSA_PLUGIN_DIR
+          ALSA_PLUGIN_DIR=$(readlink -f alsa-plugins)/lib/alsa-lib
+          timeout -k 10 400 ./pulse.sh result-cinq/bin/cinq sound out
+      - name: Judge the recordings and the log
+        if: always()
+        run: |
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          for take in keys-before keys-after; do
+            ./levels.sh "out/$take.wav" 1 4 > "out/$take.levels.tsv" || true
+          done
+          python3 -I verdict.py pulse out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: pulse
+          path: out
+          if-no-files-found: ignore
+  alsa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - name: Let the build of Nix use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            system-features = nixos-test benchmark big-parallel kvm
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Play loud sounds on hw devices of ALSA in the virtual machine
+        run: |
+          nix build -L --impure --out-link result-clamp --expr "import ./vm.nix { workspace = \"$PWD\"; }" 2>&1 |
+            tail -n 200
+          mkdir -p out
+          cp -r result-clamp/clamp out/
+      - name: Judge the peaks
+        if: always()
+        run: |
+          PATH=$(nix build --no-link --print-out-paths --inputs-from ./cinq nixpkgs#ffmpeg.bin)/bin:$PATH
+          python3 -I verdict.py clamp out/clamp | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: alsa
+          path: out
+          if-no-files-found: ignore
+  build-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Cross-build cinq for Windows
+        run: |
+          nix build --out-link result ./cinq#x86_64-windows
+          mkdir exe
+          cp "$(find -L result -name cinq.exe -print -quit)" exe/
+      - uses: actions/upload-artifact@main
+        with:
+          name: exe
+          path: exe
+  windows:
+    needs: build-windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/download-artifact@main
+        with:
+          name: exe
+          path: exe
+      - uses: LABSN/sound-ci-helpers@v1
+      - name: Start Windows Audio, install FlexASIO and the recorders
+        shell: pwsh
+        run: |
+          Set-Service Audiosrv -StartupType Automatic
+          Start-Service Audiosrv
+          choco install ffmpeg -y --no-progress | Select-Object -Last 2
+          python -m pip install --quiet soundcard numpy
+          Invoke-WebRequest -OutFile FlexASIO.exe `
+            https://github.com/dechamps/FlexASIO/releases/download/flexasio-1.10b/FlexASIO-1.10b.exe
+          Start-Process -Wait FlexASIO.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+      - name: Play, press the keys, and play loud on FlexASIO
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
+          New-Item -ItemType Directory sound | Out-Null
+          bash media.sh sound
+          ./windows.ps1 -Cinq exe/cinq.exe -Sound sound -Out out
+      - name: Judge the recordings and the log
+        if: always()
+        run: |
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          for take in out/*.wav; do
+            bash levels.sh "$take" 1 4 > "${take%.wav}.levels.tsv" || true
+          done
+          python -I verdict.py windows out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: windows
+          path: out
+          if-no-files-found: ignore
+  darwin:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-python@main
+        with:
+          python-version: "3.13"
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Install BlackHole, ffmpeg, and sounddevice
+        run: |
+          brew install --cask blackhole-16ch blackhole-2ch
+          brew install ffmpeg switchaudio-osx
+          python -m pip install --quiet sounddevice numpy
+          sudo killall coreaudiod || true
+          sleep 5
+          SwitchAudioSource -a -t output
+          SwitchAudioSource -s "BlackHole 16ch" -t output || true
+      - name: Build cinq
+        run: nix build --out-link result-cinq ./cinq
+      - name: Play and press the keys
+        run: |
+          mkdir sound
+          ./media.sh sound
+          ./darwin.sh result-cinq/bin/cinq sound out
+      - name: Judge the recordings and the log
+        if: always()
+        run: |
+          for take in out/*.wav; do
+            bash levels.sh "$take" 1 4 > "${take%.wav}.levels.tsv" || true
+          done
+          python -I verdict.py darwin out | tee out/verdict.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: darwin
+          path: out
+          if-no-files-found: ignore
