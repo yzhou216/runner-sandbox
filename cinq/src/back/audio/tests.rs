@@ -7,6 +7,11 @@
 //! need no audio device
 
 mod device;
+mod fakes;
+mod opener;
+mod opening;
+mod patch;
+mod retry;
 mod voice;
 
 use std::{
@@ -14,13 +19,13 @@ use std::{
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use tempfile::TempDir;
 
 use super::{
-    READY_AHEAD,
+    Audio, READY_AHEAD,
     preload::{Ask, Preloaded, Preloader, Wanted, serve},
     upcoming,
 };
@@ -224,4 +229,17 @@ fn sounds_are_made_ready_only_when_they_start_within_the_window() {
         .for_each(|(name, workspace, ahead, cues)| {
             assert_eq!(cues_within(workspace, ahead), cues, "{name}");
         });
+}
+
+/// Waits until the threads of the devices have answered every job, taking in
+/// its answers as a sync does, for at most five seconds
+fn settle(audio: &mut Audio) {
+    let until = Instant::now() + Duration::from_secs(5);
+    loop {
+        audio.arrived();
+        if !audio.opener.busy() || Instant::now() > until {
+            break;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
 }

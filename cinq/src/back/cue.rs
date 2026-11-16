@@ -17,6 +17,8 @@ use std::{ffi::OsStr, fmt, ops::RangeInclusive, path::Path};
 
 use bon::Builder;
 
+use super::output::Sends;
+
 pub(in crate::back) use clip::{Clip, Shown};
 pub use edit::Edit;
 pub use kind::{Advance, Kind};
@@ -104,6 +106,10 @@ pub struct Cue {
     /// Whether a fade cue stops its target once the fade is over
     #[builder(default = kind == Kind::Fade)]
     pub stop_target: bool,
+    /// Levels at which an audio or video cue sends to outputs, or none to
+    /// send to the first output at 0 dB, as a cue of a show file that names
+    /// no outputs does
+    pub sends: Option<Sends>,
 }
 
 impl fmt::Display for Cue {

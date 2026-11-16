@@ -232,3 +232,25 @@ fn help_page_ignores_an_operator_with_its_motion() {
     assert_eq!(rows(&app).len(), 12);
     assert_eq!(app.selected, Some(CueId(2)));
 }
+
+#[test]
+fn cutting_or_deleting_the_standby_cue_moves_standby_to_the_cue_that_takes_its_place() {
+    let standby = |app: &App| app.workspace.lists()[0].standby;
+    let first = || show(Some(CueId(1)));
+    assert_eq!(standby(&first()), Some(CueId(1)));
+    let cut = across(first(), Cut, Next, None);
+    assert_eq!(standby(&cut), Some(CueId(3)));
+    let deleted = across(first(), Delete, Next, None);
+    assert_eq!(standby(&deleted), Some(CueId(3)));
+    let one = first().handled(Message::Cut(1)).0;
+    assert_eq!(standby(&one), Some(CueId(2)));
+    let several = first().handled(Message::Delete(3)).0;
+    assert_eq!(standby(&several), Some(CueId(4)));
+    // Standby on the last cue has nothing below it to move to
+    let last = show(Some(CueId(12)))
+        .handled(Message::StandbySelected)
+        .0
+        .handled(Message::Cut(1))
+        .0;
+    assert_eq!(standby(&last), None);
+}

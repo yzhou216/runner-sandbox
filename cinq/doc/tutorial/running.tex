@@ -9,6 +9,10 @@ cinq is a cue-based show controller in the spirit of QLab.  A show is a list
 of cues, each of which does one thing, such as playing a sound or fading it
 out.  The operator runs the show by pressing GO, which fires the next cue.
 
+The tutorial gives the keys of the vi keymap, the default.
+Chapter~\ref{ch:keys} lists those of the cua keymap, where the key to open a
+show is \key{Control+o}.
+
 \section{Getting the show}
 
 This tutorial comes with a storm show, in the \texttt{demo} directory beside
@@ -31,7 +35,8 @@ that the computer's sound is on.
 The main window opens as shown in Figure~\ref{fig:window}.  The transport at
 the top names the cue on standby, which the next GO fires: cue~1, House open,
 with its notes for the operator.  Below it is the cue list, and to its right
-the sidebar shows the show's cue lists, its active cues, and any warnings.
+the sidebar shows the show's cue lists, its outputs, its active cues, any
+warnings, and the default device.
 
 \begin{figure}[H]
   \centering
@@ -62,11 +67,16 @@ standby.
 
 Panic fades out every playing cue over one second and stops every other
 active cue.  A second panic during the fade stops everything at once.  The
-keys for GO and Panic work anywhere in cinq, even while you type in a field.
+key of Panic works anywhere in cinq, even while you type in a field, and the
+key of GO works everywhere but in a text field, where \key{Space} types a
+space.
 
 \section{Standby}
 
-GO fires the cue on standby, which is not necessarily the selected cue.
+GO fires the cue on standby, which is not necessarily the selected cue.  While
+no cue that GO would fire can play, the button looks disabled and the line
+under the name of the cue says why, as in \texttt{GO fires nothing: cue 1 (no
+file set)}.
 
 \begin{enumerate}
 \item Click cue~7, Thunder crack, or select it with \key{ArrowDown}.  The

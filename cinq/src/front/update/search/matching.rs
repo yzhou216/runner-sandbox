@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Which cues a search finds, and in what order
-
-use crate::back::Cue;
+//! Which rows a search finds, and in what order
+//!
+//! A row is the texts that a search matches: those that its columns show, but
+//! for the state.
 
 /// Returns the `count` rows that follow `row` down the list, wrapping around
 /// and ending on `row`, or up the list when `backward`.  Without a row they
@@ -31,26 +32,31 @@ pub(super) fn wrapped(from: usize, to: usize, backward: bool) -> bool {
     if backward { to >= from } else { to <= from }
 }
 
-/// Returns whether the name or the number of the cue holds `needle`, which
-/// is lowercase, in any case
-pub(super) fn matches(cue: &Cue, needle: &str) -> bool {
+/// Returns whether one of the texts of a row holds `needle`, which is
+/// lowercase, in any case
+pub(super) fn matches(texts: &[String], needle: &str) -> bool {
     !needle.is_empty()
-        && [&cue.name, &cue.number]
-            .into_iter()
-            .any(|field| field.to_lowercase().contains(needle))
+        && texts
+            .iter()
+            .any(|text| text.to_lowercase().contains(needle))
 }
 
 /// Returns the first row after `row` that matches `text`, wrapping around,
 /// so that `row` is the last to match
-pub(super) fn found(cues: &[Cue], text: &str, row: Option<usize>, backward: bool) -> Option<usize> {
+pub(super) fn found(
+    rows: &[Vec<String>],
+    text: &str,
+    row: Option<usize>,
+    backward: bool,
+) -> Option<usize> {
     let needle = text.to_lowercase();
-    rows_after(row, cues.len(), backward).find(|&row| matches(&cues[row], &needle))
+    rows_after(row, rows.len(), backward).find(|&row| matches(&rows[row], &needle))
 }
 
-/// Returns how many cues hold `text`
-pub(super) fn matching(cues: &[Cue], text: &str) -> usize {
+/// Returns how many rows hold `text`
+pub(super) fn matching(rows: &[Vec<String>], text: &str) -> usize {
     let needle = text.to_lowercase();
-    cues.iter().filter(|cue| matches(cue, &needle)).count()
+    rows.iter().filter(|texts| matches(texts, &needle)).count()
 }
 
 /// Returns how many steps over `matches` matches end on the match that

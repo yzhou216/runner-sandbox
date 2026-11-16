@@ -11,36 +11,35 @@ use super::{
     Searched, continued,
     matching::{found, matching, within_a_lap, wrapped},
 };
-use crate::front::{App, Message, view::NO_MATCH};
+use crate::front::{App, Message, view::no_match};
 
 impl App {
-    /// Selects the cue `offset` matches of the last search further on in the
+    /// Selects the row `offset` matches of the last search further on in the
     /// direction that it went, or the other way when negative, wrapping
-    /// around.  It does nothing before a search, or when no cue matches.  Vim
+    /// around.  It does nothing before a search, or when no row matches.  Vim
     /// counts the keys of the next and previous match among its jumps, so
     /// this one is a jump.
     pub(in crate::front::update) fn search_stepped(self, offset: isize) -> (Self, Task<Message>) {
         let Searched { text, backward, .. } = &self.searched;
         let backward = *backward != (offset < 0);
-        let cues = &self.current().cues;
-        let found_cues = matching(cues, text);
-        let steps = within_a_lap(offset.unsigned_abs(), found_cues);
-        let (row, went_round) = (0..steps).fold((self.selected_row(), false), |(row, round), _| {
-            let next = found(cues, text, row, backward);
+        let texts = self.row_texts();
+        let found_rows = matching(&texts, text);
+        let steps = within_a_lap(offset.unsigned_abs(), found_rows);
+        let (row, went_round) = (0..steps).fold((self.row(), false), |(row, round), _| {
+            let next = found(&texts, text, row, backward);
             let round = round
                 || row
                     .zip(next)
                     .is_some_and(|(from, to)| wrapped(from, to, backward));
             (next.or(row), round)
         });
-        let cue = row.map(|row| cues[row].id).or(self.selected);
-        let remark = if found_cues == 0 {
-            Some(NO_MATCH)
+        let remark = if found_rows == 0 {
+            Some(no_match(self.outputs_shown))
         } else {
             went_round.then(|| continued(backward))
         };
         Self { remark, ..self }
-            .jumping(|app| app.searched_to(cue))
+            .jumping(|app| app.searched_to(row))
             .revealed()
     }
 }

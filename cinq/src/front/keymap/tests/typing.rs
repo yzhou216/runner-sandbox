@@ -238,3 +238,18 @@ fn counts_reach_the_actions_that_add_cues() {
     ));
     assert!(matches!(Action::AddAbove.message(None), Message::Add(_, 1)));
 }
+
+#[test]
+fn undo_and_redo_act_in_a_closed_list_and_not_in_a_text_field() {
+    let cua = Keymap::from(Preset::Cua);
+    let vi = Keymap::from(Preset::Vi);
+    let press = |text: &str| keys(text)[0];
+    assert!(cua.acts_in_lists(press("Control+z")) && !cua.acts_in_fields(press("Control+z")));
+    assert!(cua.acts_in_lists(press("Control+y")) && cua.acts_in_lists(press("Control+Z")));
+    assert!(vi.acts_in_lists(press("u")) && vi.acts_in_lists(press("Control+r")));
+    // The keys of scrolling and of the other edits stay out of the list
+    assert!(!vi.acts_in_lists(press("Control+e")) && !vi.acts_in_lists(press("j")));
+    assert!(!cua.acts_in_lists(press("Control+x")));
+    // Keys that act in every field act in a list too
+    assert!(vi.acts_in_lists(press("Tab")) && vi.acts_in_lists(press("Control+c")));
+}

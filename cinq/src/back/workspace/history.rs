@@ -22,7 +22,7 @@
 mod change;
 mod undo;
 
-pub use change::{Change, Placed, Standby, Turn};
+pub use change::{Change, Kept, Placed, Standby, Turn};
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct History {
@@ -30,6 +30,9 @@ pub(super) struct History {
     redo: Vec<Change>,
     /// Way that the latest change went, while undo or redo still holds it
     turn: Option<Turn>,
+    /// Whether the run of edits in a row has ended, so that the next edit
+    /// makes a change of its own
+    ended: bool,
 }
 
 impl History {
@@ -37,7 +40,8 @@ impl History {
     /// to make again
     fn recorded(self, change: Change) -> Self {
         let mut undo = self.undo;
-        let latest = undo.pop_if(|last| self.turn == Some(Turn::Done) && last.takes(&change));
+        let latest =
+            undo.pop_if(|last| !self.ended && self.turn == Some(Turn::Done) && last.takes(&change));
         let change = match latest {
             Some(latest) => latest.then(change),
             None => change,
@@ -48,6 +52,14 @@ impl History {
             turn: kept.as_ref().map(|_| Turn::Done),
             undo: undo.into_iter().chain(kept).collect(),
             redo: Vec::new(),
+            ended: false,
+        }
+    }
+
+    fn closed(self) -> Self {
+        Self {
+            ended: true,
+            ..self
         }
     }
 
@@ -61,13 +73,29 @@ impl History {
     fn undoing(self) -> (Self, Option<Change>) {
         let (undo, redo, change) = moved(self.undo, self.redo);
         let turn = change.as_ref().map_or(self.turn, |_| Some(Turn::Undone));
-        (Self { undo, redo, turn }, change)
+        (
+            Self {
+                undo,
+                redo,
+                turn,
+                ended: false,
+            },
+            change,
+        )
     }
 
     fn redoing(self) -> (Self, Option<Change>) {
         let (redo, undo, change) = moved(self.redo, self.undo);
         let turn = change.as_ref().map_or(self.turn, |_| Some(Turn::Redone));
-        (Self { undo, redo, turn }, change)
+        (
+            Self {
+                undo,
+                redo,
+                turn,
+                ended: false,
+            },
+            change,
+        )
     }
 
     fn without_moves_of(self, list: usize) -> Self {
@@ -86,6 +114,7 @@ impl History {
             undo: kept(self.undo),
             redo: kept(self.redo),
             turn,
+            ended: self.ended,
         }
     }
 }

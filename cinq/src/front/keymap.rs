@@ -17,9 +17,9 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use strum::VariantArray;
 
-pub use action::Action;
+pub use action::{Action, Rows};
 pub use preset::Preset;
-pub use press::{KeyPress, Press, written};
+pub use press::{KeyPress, Press, shown, written};
 
 #[derive(Debug, Clone)]
 pub struct Keymap {
@@ -78,7 +78,7 @@ impl Keymap {
     /// Writes the first key sequence bound to an action, which stands for
     /// the rest where there is room for one
     pub fn key(&self, action: Action) -> Option<String> {
-        self.keys(action).first().map(|keys| written(keys))
+        self.keys(action).first().map(|keys| shown(keys))
     }
 
     pub fn hint(&self, action: Action, label: &str) -> Option<String> {
@@ -88,7 +88,7 @@ impl Keymap {
     pub fn listed(&self, action: Action) -> String {
         match self.keys(action) {
             [] => "none".to_owned(),
-            keys => keys.iter().map(|keys| written(keys)).join(", "),
+            keys => keys.iter().map(|keys| shown(keys)).join(", "),
         }
     }
 

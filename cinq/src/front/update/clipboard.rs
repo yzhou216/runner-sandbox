@@ -15,7 +15,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    back::{Command, Cue, CueId, Place},
+    back::{Command, Cue, CueId, Output, Place},
     front::{App, view::format},
 };
 
@@ -25,7 +25,7 @@ pub(super) const PASTE_LIMIT: usize = 1000;
 
 /// What the status bar tells when a paste finds nothing to paste, as Vim
 /// does with its E353
-const EMPTY: &str = "The clipboard is empty";
+pub(super) const EMPTY: &str = "The clipboard is empty";
 
 /// What the latest copy or cut told, which the status bar shows until the
 /// operator does anything else
@@ -42,6 +42,27 @@ pub struct Clipboard {
     /// from
     show: u64,
     cues: Vec<Cue>,
+    /// Outputs copied or cut, in a register of their own, so that copying
+    /// an output keeps the cues that were copied
+    pub(super) outputs: Register,
+}
+
+impl Clipboard {
+    /// Returns the clipboard with `outputs` in the register of outputs, and
+    /// the cues as they were
+    pub(super) fn with_outputs(self, outputs: Register) -> Self {
+        Self { outputs, ..self }
+    }
+}
+
+/// Outputs that were copied or cut last
+#[derive(Default)]
+pub struct Register {
+    /// Serial number of the opening that brought the show they came from
+    pub(super) show: u64,
+    /// Whether they left the show, so that pasting them back restores them
+    pub(super) cut: bool,
+    pub(super) outputs: Vec<Output>,
 }
 
 impl App {
@@ -72,6 +93,7 @@ impl App {
             clipboard: Clipboard {
                 show: self.show.id(),
                 cues,
+                ..self.clipboard
             },
             clipped: Some(clipped),
             ..self

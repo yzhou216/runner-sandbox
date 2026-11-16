@@ -5,15 +5,25 @@
 //! Tests of the hints that fit in the status bar, and of the room that the
 //! search line keeps from them
 
+mod adding;
 mod cancel;
+mod name;
+mod outputs;
+mod places;
 
-use super::{NO_MATCH, SEARCH_ROOM, clipped, fitted, hints as hinted, mark, search_columns};
+use super::{
+    SEARCH_ROOM, YIELDING,
+    fit::{fitted, shown},
+    hints::{clipped, hints as hinted},
+    mark, search_columns,
+};
 use crate::{
     back::{Command, Cue, CueId, CueList, Kind, Workspace},
     front::{
         App,
         keymap::{Action, Keymap, Preset, config::Config},
         update::Clipped,
+        view::NO_MATCH,
     },
 };
 
@@ -34,7 +44,7 @@ fn hints() -> Vec<(Option<Action>, String)> {
 #[test]
 fn hints_that_fit_show_in_full() {
     assert_eq!(
-        fitted(&hints(), 77),
+        fitted(&hints(), 77, &YIELDING),
         "Added cue 1 | u: undo | Control+s: save | Space: GO | Escape: Panic | ?: help"
     );
 }
@@ -42,11 +52,14 @@ fn hints_that_fit_show_in_full() {
 #[test]
 fn keys_give_way_in_turn_while_what_the_change_told_stays() {
     assert_eq!(
-        fitted(&hints(), 76),
+        fitted(&hints(), 76, &YIELDING),
         "Added cue 1 | u: undo | Control+s: save | Escape: Panic | ?: help"
     );
-    assert_eq!(fitted(&hints(), 31), "Added cue 1 | u: undo | ?: help");
-    assert_eq!(fitted(&hints(), 5), "Added cue 1 | u: undo");
+    assert_eq!(
+        fitted(&hints(), 31, &YIELDING),
+        "Added cue 1 | u: undo | ?: help"
+    );
+    assert_eq!(fitted(&hints(), 5, &YIELDING), "Added cue 1 | u: undo");
 }
 
 #[test]
@@ -64,13 +77,13 @@ fn keys_of_going_forward_and_back_give_way_before_the_rest() {
         .chain(hints().into_iter().skip(2))
         .collect();
     let all = "Added cue 1 | u: undo | Control+o: back | Control+i: forward | Space: GO | Escape: Panic | ?: help";
-    assert_eq!(fitted(&hints, 100), all);
+    assert_eq!(fitted(&hints, 100, &YIELDING), all);
     assert_eq!(
-        fitted(&hints, 80),
+        fitted(&hints, 80, &YIELDING),
         "Added cue 1 | u: undo | Control+o: back | Space: GO | Escape: Panic | ?: help"
     );
     assert_eq!(
-        fitted(&hints, 62),
+        fitted(&hints, 62, &YIELDING),
         "Added cue 1 | u: undo | Space: GO | Escape: Panic | ?: help"
     );
 }
@@ -119,11 +132,11 @@ fn what_a_key_remarked_shows_in_the_bar_before_anything_else() {
 
 #[test]
 fn hints_give_way_to_the_text_of_the_search_line_and_its_note() {
-    assert_eq!(search_columns("", false), SEARCH_ROOM);
-    assert_eq!(search_columns("storm", true), SEARCH_ROOM);
-    assert_eq!(search_columns(&"x".repeat(40), false), 41);
+    assert_eq!(search_columns("", false, false), SEARCH_ROOM);
+    assert_eq!(search_columns("storm", true, false), SEARCH_ROOM);
+    assert_eq!(search_columns(&"x".repeat(40), false, false), 41);
     assert_eq!(
-        search_columns(&"x".repeat(40), true),
+        search_columns(&"x".repeat(40), true, false),
         41 + NO_MATCH.len() + 1
     );
 }
@@ -144,6 +157,18 @@ fn in_menu(app: App) -> Vec<String> {
                 .map(|_| hint)
         })
         .collect()
+}
+
+#[test]
+fn why_a_field_was_not_applied_shows_in_the_bar_like_what_a_key_remarked() {
+    let app = App {
+        unapplied: Some("Not applied: the name is empty".to_owned()),
+        ..App::default()
+    };
+    let told = hinted(&app)
+        .into_iter()
+        .find_map(|(action, hint)| action.is_none().then_some(hint));
+    assert_eq!(told.as_deref(), Some("Not applied: the name is empty"));
 }
 
 fn opened(preset: Preset, menu: bool, help: bool) -> App {
@@ -187,11 +212,14 @@ fn hints_of_a_menu_give_way_after_the_rest_when_the_bar_is_short() {
     .map(|(action, hint)| (action, hint.to_owned()))
     .collect();
     assert_eq!(
-        fitted(&hints, 45),
+        fitted(&hints, 45, &YIELDING),
         "Control+y: pick | Control+e: close | F1: help"
     );
-    assert_eq!(fitted(&hints, 34), "Control+y: pick | Control+e: close");
-    assert_eq!(fitted(&hints, 20), "Control+y: pick");
+    assert_eq!(
+        fitted(&hints, 34, &YIELDING),
+        "Control+y: pick | Control+e: close"
+    );
+    assert_eq!(fitted(&hints, 20, &YIELDING), "Control+y: pick");
 }
 
 #[test]
@@ -203,4 +231,46 @@ fn the_help_hint_beside_an_open_menu_reads_f1_in_the_vi_keymap() {
     };
     assert_eq!(help(Preset::Vi).as_deref(), Some("F1: help"));
     assert_eq!(help(Preset::Cua).as_deref(), Some("F1: help"));
+}
+
+#[test]
+fn a_notice_that_does_not_fit_drops_the_key_that_teaches_then_gives_way_at_a_word() {
+    let told = "Cut the output House L, so that cues play on House R | p: paste | u: undo";
+    let with_go = |told: Option<String>| -> Vec<(Option<Action>, String)> {
+        told.into_iter()
+            .map(|told| (None, told))
+            .chain([(Some(Action::Go), "Space: GO".to_owned())])
+            .collect()
+    };
+    let shown = |room| shown(with_go, Some(told.to_owned()), room, &YIELDING);
+    assert_eq!(shown(85), format!("{told} | Space: GO"));
+    assert_eq!(shown(73), told, "the key gives way first");
+    // The key that pastes gives way before the notice does, and the key that
+    // takes the change back stays
+    let lighter = "Cut the output House L, so that cues play on House R | u: undo";
+    assert_eq!(shown(62), lighter);
+    assert_eq!(
+        shown(50),
+        "Cut the output House L, so that cues… | u: undo",
+        "the comma is not left before the ellipsis, nor half a word"
+    );
+    assert_eq!(
+        shown(33),
+        "Cut the output House L | u: undo",
+        "a cut at a comma ends a clause that is whole"
+    );
+    assert_eq!(shown(29), "Cut the output… | u: undo");
+    assert_eq!(shown(5), told, "with no word to cut at, it shows whole");
+}
+
+#[test]
+fn a_notice_cut_where_a_name_ended_in_an_ellipsis_gets_no_second_one() {
+    let told = "Cues play on Dante Virtual S…, deleted the output Sub | u: undo";
+    let bare = |told: Option<String>| -> Vec<(Option<Action>, String)> {
+        told.into_iter().map(|told| (None, told)).collect()
+    };
+    assert_eq!(
+        shown(bare, Some(told.to_owned()), 45, &YIELDING),
+        "Cues play on Dante Virtual S… | u: undo"
+    );
 }

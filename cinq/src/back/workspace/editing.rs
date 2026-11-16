@@ -9,10 +9,10 @@ use itertools::Itertools;
 
 use super::{
     Workspace,
-    history::{Change, Placed, Standby},
+    history::{Change, Kept, Placed, Standby},
     numbering::Numbers,
 };
-use crate::back::{Active, CueId, CueList, Edit, Kind, Media, Place};
+use crate::back::{Active, CueId, CueList, Edit, Kind, Media, Output, Place};
 
 impl Workspace {
     /// Puts `standby` on standby in a list without recording the move, as
@@ -50,6 +50,7 @@ impl Workspace {
             .map_while(|id| u32::try_from(id).ok().map(CueId))
             .collect();
         let before = self.lists.get(list).and_then(|cues| cues.standby);
+        let sends = self.new_sends().filter(|_| kind.plays_file());
         let numbers = Numbers::of(self.cues().map(|cue| cue.number.as_str()));
         let (workspace, ..) =
             ids.iter()
@@ -59,7 +60,8 @@ impl Workspace {
                     let added = Self {
                         next_id: workspace.next_id + 1,
                         ..workspace.with_list(list, |cues| cues.with_new_cue(id, number, kind, at))
-                    };
+                    }
+                    .changed(id, Edit::Sends(sends.clone()));
                     (added, Place::After(id), numbers)
                 });
         let cues: Vec<Placed> = ids
@@ -151,12 +153,26 @@ impl Workspace {
         }
     }
 
-    pub(super) fn restored(self, lists: Vec<CueList>) -> Self {
-        let before = self.lists.clone();
-        self.with_lists(lists.clone()).recorded(Change::Restored {
-            before,
-            after: lists,
-        })
+    pub(super) fn restored(self, lists: Vec<CueList>, outputs: Vec<Output>) -> Self {
+        let before = Kept {
+            lists: self.lists.clone(),
+            outputs: self.outputs.clone(),
+        };
+        let after = Kept { lists, outputs };
+        self.with_kept(after.clone())
+            .recorded(Change::Restored { before, after })
+    }
+
+    /// Puts kept lists and outputs in place of those of the show without
+    /// recording a change, as undo and redo do.  Kept lists without
+    /// outputs leave the outputs as they are, since a show keeps one.
+    pub(super) fn with_kept(self, kept: Kept) -> Self {
+        let workspace = self.with_lists(kept.lists);
+        if kept.outputs.is_empty() {
+            workspace
+        } else {
+            workspace.with_outputs(kept.outputs)
+        }
     }
 
     /// Puts `lists` in place of the cue lists without recording a change,

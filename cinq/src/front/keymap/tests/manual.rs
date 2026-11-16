@@ -45,6 +45,15 @@ fn table() -> Vec<Vec<String>> {
         })
 }
 
+/// Returns the keys of an action as the file writes them, apart by spaces
+/// where the screen joins them, as the table of the manual does
+fn notated(keymap: &Keymap, action: Action) -> String {
+    match keymap.keys(action) {
+        [] => "none".to_owned(),
+        keys => keys.iter().map(|keys| written(keys)).join(", "),
+    }
+}
+
 fn row(name: &str, cells: impl IntoIterator<Item = String>) -> Vec<String> {
     iter::chain([name.to_owned()], cells).collect()
 }
@@ -59,7 +68,7 @@ fn manual_lists_the_keys_of_every_keymap_in_order() {
     let actions = Action::VARIANTS.iter().map(|&action| {
         row(
             action.name(),
-            keymaps.iter().map(|keymap| keymap.listed(action)),
+            keymaps.iter().map(|keymap| notated(keymap, action)),
         )
     });
     // Fails on the first row of man/cinq.5.scd that differs

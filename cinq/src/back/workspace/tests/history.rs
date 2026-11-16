@@ -6,7 +6,7 @@
 //! the show and leave playback alone
 
 use super::*;
-use crate::back::{Change, Turn};
+use crate::back::{Change, OutputEdit, OutputId, Turn};
 
 fn name(workspace: &Workspace, id: u32) -> Option<&str> {
     workspace.cue(CueId(id)).map(|cue| cue.name.as_str())
@@ -188,4 +188,37 @@ fn change_names_the_cue_it_concerns_unless_it_concerns_none() {
     let new = base().next_cue_id().map(|id| id.0);
     assert_eq!(cue(base().apply(add(0, Kind::Memo, Place::End))), new);
     assert_eq!(cue(base().apply(move_standby(3))), None);
+}
+
+#[test]
+fn an_ended_run_of_edits_leaves_the_next_edit_of_the_setting_a_change_of_its_own() {
+    let typed = workspace(vec![audio(1)])
+        .apply(rename(1, "S"))
+        .apply(rename(1, "St"))
+        .apply(Command::EndRun)
+        .apply(rename(1, "Sto"))
+        .apply(rename(1, "Storm"));
+    let first = typed.apply(Command::Undo);
+    assert_eq!(name(&first, 1), Some("St"));
+    assert_eq!(name(&first.apply(Command::Undo), 1), Some("Sound"));
+    // Ending a run that is not there changes nothing, and later edits join
+    let calm = workspace(vec![audio(1)])
+        .apply(Command::EndRun)
+        .apply(rename(1, "S"))
+        .apply(rename(1, "St"));
+    assert_eq!(name(&calm.apply(Command::Undo), 1), Some("Sound"));
+}
+
+#[test]
+fn edits_of_one_setting_of_an_output_end_their_run_as_well() {
+    let typed = |name: &str| Command::EditOutput(OutputId(1), OutputEdit::Name(name.to_owned()));
+    let two = workspace(vec![audio(1)])
+        .apply(typed("S"))
+        .apply(typed("St"))
+        .apply(Command::EndRun)
+        .apply(typed("Sta"))
+        .apply(typed("Stage"));
+    let first = two.apply(Command::Undo);
+    assert_eq!(first.outputs()[0].name, "St");
+    assert_eq!(first.apply(Command::Undo).outputs()[0].name, "Main");
 }

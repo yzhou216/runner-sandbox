@@ -12,18 +12,26 @@
 //! their targets.  What playback and loading find, such as the cue on
 //! standby, the cues that run, and how long each sound or video file plays,
 //! belongs to the session rather than to the show, and the file leaves it
-//! out.
+//! out.  The outputs come first, as [`outputs`] tells.
 
-use std::path::{Path, PathBuf};
+mod outputs;
+
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use super::Workspace;
-use crate::back::{Advance, Cue, CueId, CueList, Kind, LEVELS, LOUDEST, SILENCE};
+use crate::back::{Advance, Cue, CueId, CueList, Kind, LEVELS, LOUDEST, Output, SILENCE};
+use outputs::OutputFile;
 
 #[derive(Serialize, Deserialize)]
 struct ShowFile {
+    #[serde(default, rename = "output", skip_serializing_if = "Vec::is_empty")]
+    outputs: Vec<OutputFile>,
     #[serde(default, rename = "list")]
     lists: Vec<ListFile>,
 }
@@ -61,6 +69,8 @@ struct CueFile {
     stop_target: Option<bool>,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     notes: String,
+    /// Levels at which the cue sends to outputs, by their names
+    sends: Option<BTreeMap<String, f32>>,
 }
 
 impl Workspace {
@@ -73,8 +83,13 @@ impl Workspace {
     /// thousand times the amplitude of its file.
     pub fn from_show(text: &str, directory: impl Into<PathBuf>) -> Result<Self, String> {
         let show: ShowFile = toml::from_str(text).map_err(|error| error.to_string())?;
-        let workspace =
-            Self::new(show.lists.into_iter().map(ListFile::list).collect()).directory(directory);
+        let outputs = outputs::read(show.outputs)?;
+        let lists = show
+            .lists
+            .into_iter()
+            .map(|list| list.list(&outputs))
+            .collect::<Result<_, _>>()?;
+        let workspace = Self::new(lists).directory(directory).with_outputs(outputs);
         let duplicate = workspace.cues().map(|cue| cue.id.0).duplicates().next();
         let unplayable = workspace
             .cues()
@@ -95,6 +110,7 @@ impl Workspace {
     /// or as absolute paths without one
     pub fn show(&self, directory: Option<&Path>) -> String {
         let show = ShowFile {
+            outputs: outputs::written(&self.outputs),
             lists: self
                 .lists
                 .iter()
@@ -103,7 +119,9 @@ impl Workspace {
                     cues: list
                         .cues
                         .iter()
-                        .map(|cue| CueFile::of(cue, self.written_file(cue, directory)))
+                        .map(|cue| {
+                            CueFile::of(cue, self.written_file(cue, directory), &self.outputs)
+                        })
                         .collect(),
                 })
                 .collect(),
@@ -132,13 +150,18 @@ impl Workspace {
 }
 
 impl ListFile {
-    fn list(self) -> CueList {
-        CueList::new(self.name, self.cues.into_iter().map(CueFile::cue).collect())
+    fn list(self, outputs: &[Output]) -> Result<CueList, String> {
+        let cues = self
+            .cues
+            .into_iter()
+            .map(|cue| cue.cue(outputs))
+            .collect::<Result<_, _>>()?;
+        Ok(CueList::new(self.name, cues))
     }
 }
 
 impl CueFile {
-    fn of(cue: &Cue, file: String) -> Self {
+    fn of(cue: &Cue, file: String, outputs: &[Output]) -> Self {
         let set = |seconds: f32| Some(seconds).filter(|&seconds| seconds > 0.0);
         let plays = cue.kind.plays_file();
         Self {
@@ -161,11 +184,20 @@ impl CueFile {
             level: cue.kind.has_level().then_some(cue.level),
             stop_target: (cue.kind == Kind::Fade).then_some(cue.stop_target),
             notes: cue.notes.clone(),
+            sends: cue
+                .sends
+                .as_ref()
+                .filter(|_| plays)
+                .map(|sends| outputs::sends_by_name(sends, outputs)),
         }
     }
 
-    fn cue(self) -> Cue {
-        Cue::new(CueId(self.id), self.number, self.kind, self.name)
+    fn cue(self, outputs: &[Output]) -> Result<Cue, String> {
+        let sends = self
+            .sends
+            .map(|sends| outputs::sends_by_id(sends, outputs, self.id))
+            .transpose()?;
+        Ok(Cue::new(CueId(self.id), self.number, self.kind, self.name)
             .file(self.file)
             .maybe_start(self.start)
             .maybe_end(self.end)
@@ -178,7 +210,8 @@ impl CueFile {
             .maybe_level(self.level)
             .maybe_stop_target(self.stop_target)
             .notes(self.notes)
-            .build()
+            .maybe_sends(sends)
+            .build())
     }
 }
 

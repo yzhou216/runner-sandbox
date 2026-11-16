@@ -11,7 +11,7 @@ use unicode_width::UnicodeWidthStr;
 use super::{RADIO, STATE_ROOM, TARGET_ROOM};
 use crate::{
     back::{Cue, CueList, Problem, Workspace},
-    front::view::{char_width, format},
+    front::view::{char_width, format, theme},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, VariantArray, IntoStaticStr)]
@@ -53,7 +53,7 @@ impl Column {
             Column::Action => format::action(cue),
             Column::Post => format::post_wait(cue),
             Column::Then => format::advance(cue.advance).to_owned(),
-            Column::State => state(workspace, list, cue).0,
+            Column::State => state(workspace, list, cue, false).0,
         }
     }
 
@@ -85,21 +85,25 @@ impl Column {
 /// Describes a cue in the State column, in the color of what it needs.  A
 /// file that is still loading stops the cue from playing, but it needs
 /// nothing but time.  The list of running cues tells more of each, such as
-/// where a paused cue stopped.
+/// where a paused cue stopped.  A cue that sends only to outputs that are gone
+/// reads in yellow that it has none, which GO does not skip.  Red turns
+/// lighter where the cue is `selected`, so that it stays legible on the
+/// selected row.
 pub(super) fn state(
     workspace: &Workspace,
     list: &CueList,
     cue: &Cue,
+    selected: bool,
 ) -> (String, fn(&Theme) -> text::Style) {
+    let danger = theme::danger(selected);
     match (workspace.problem(cue), workspace.active_of(cue.id)) {
         (Some(Problem::NotLoaded), _) => ("loading".to_owned(), text::default),
-        (Some(Problem::NoFile), _) => ("NO FILE".to_owned(), text::danger),
-        (Some(Problem::NoTarget), _) => ("NO TARGET".to_owned(), text::danger),
-        (Some(Problem::LoadFailed(_) | Problem::EmptyClip), _) => {
-            ("BROKEN".to_owned(), text::danger)
-        }
+        (Some(Problem::NoFile), _) => ("NO FILE".to_owned(), danger),
+        (Some(Problem::NoTarget), _) => ("NO TARGET".to_owned(), danger),
+        (Some(Problem::LoadFailed(_) | Problem::EmptyClip), _) => ("BROKEN".to_owned(), danger),
         (None, Some(active)) if active.paused => ("paused".to_owned(), text::warning),
         (None, Some(active)) => (format::phase(active), text::success),
+        (None, None) if workspace.sends_nowhere(cue) => ("NO OUTPUT".to_owned(), text::warning),
         (None, None) if list.standby == Some(cue.id) => ("NEXT".to_owned(), text::primary),
         (None, None) => (String::new(), text::default),
     }

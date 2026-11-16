@@ -24,7 +24,10 @@ use iced::{
     advanced::{
         Shell,
         layout::Layout,
-        widget::{Id, Operation, Tree, operation::Focusable},
+        widget::{
+            Id, Operation, Tree,
+            operation::{Focusable, TextInput},
+        },
     },
     keyboard::{Key, key::Named},
 };
@@ -68,14 +71,18 @@ impl Intercept for Keep<'_> {
             }
             return;
         }
-        let mut focus = HasFocus(false);
+        let mut focus = HasFocus::default();
         content
             .as_widget_mut()
             .operate(tree, layout, renderer, &mut focus);
-        if !focus.0 {
+        if !(focus.text || focus.list) {
             return;
         }
-        let acts = press.is_some_and(|press| self.0.acts_in_fields(press));
+        // A closed list has no text to undo and no key of its own but Enter,
+        // so that the keys of undo and redo act there
+        let acts = press.is_some_and(|press| {
+            self.0.acts_in_fields(press) || (focus.list && self.0.acts_in_lists(press))
+        });
         match key {
             _ if acts => {}
             Key::Named(Named::Enter) => {
@@ -88,15 +95,32 @@ impl Intercept for Keep<'_> {
 }
 
 /// Operation that finds out whether a text field or a drop-down list has
-/// the keyboard focus, read-only fields included
-struct HasFocus(bool);
+/// the keyboard focus, read-only fields included, and which of the two
+#[derive(Default)]
+struct HasFocus {
+    text: bool,
+    list: bool,
+    /// Whether the widget being visited reported itself as a text input
+    /// just before it reports as focusable, which only a text field does
+    reading: bool,
+}
 
 impl Operation for HasFocus {
     fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation)) {
         operate(self);
     }
 
+    fn text_input(&mut self, _id: Option<&Id>, _bounds: Rectangle, _state: &mut dyn TextInput) {
+        self.reading = true;
+    }
+
     fn focusable(&mut self, _id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Focusable) {
-        self.0 |= state.is_focused();
+        let focused = state.is_focused();
+        self.text |= focused && self.reading;
+        self.list |= focused && !self.reading;
+        self.reading = false;
     }
 }
+
+#[cfg(test)]
+mod tests;

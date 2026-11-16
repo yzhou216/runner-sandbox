@@ -9,7 +9,7 @@ use iced::keyboard::{Key, Modifiers};
 use super::{chord, show};
 use crate::{
     back::{CueId, Place},
-    front::{App, Message, Tab},
+    front::{App, Message, Tab, update::Spot},
 };
 
 /// Returns the state after the messages, which a test sends one at a time
@@ -223,4 +223,25 @@ fn a_list_without_a_selected_cue_is_a_place_by_its_index() {
         [Message::SwitchList(1), Message::Row(2), Message::Back(2)],
     );
     assert_eq!(place(&app), (0, None));
+}
+
+#[test]
+fn the_places_that_back_and_forward_go_to_are_known_before_they_are_taken() {
+    let app = after(show(cue(5)), [Message::SwitchList(1)]);
+    assert_eq!(app.back_to(), Some(Spot::Cue(CueId(5))));
+    assert_eq!(app.forward_to(), None);
+    let back = after(app, [Message::Back(1)]);
+    assert_eq!(back.back_to(), None);
+    assert_eq!(back.forward_to(), Some(Spot::Cue(CueId(20))));
+}
+
+#[test]
+fn the_way_out_of_the_outputs_goes_to_the_list_that_showed_where_no_jump_left_one() {
+    let opened = show(cue(5));
+    assert_eq!(opened.back_to(), None);
+    let outputs = App {
+        outputs_shown: true,
+        ..opened
+    };
+    assert_eq!(outputs.back_to(), Some(Spot::List(0)));
 }

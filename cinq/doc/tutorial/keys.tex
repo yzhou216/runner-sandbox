@@ -9,7 +9,7 @@
 
 cinq ships two keymaps.  The vi keymap, the default, moves with letters such
 as \key{j} and \key{k}, and uses two-key sequences for some actions, such as
-\key{d d}.  The cua keymap follows IBM's Common User Access, like most
+\key{dd}.  The cua keymap follows IBM's Common User Access, like most
 desktop programs: \key{Control} with a letter edits, and \key{F1} opens the
 help page.  Both put GO on \key{Space} and Panic on \key{Escape}, as QLab
 does, and share the other keys used in this tutorial: \key{ArrowUp},
@@ -25,25 +25,25 @@ keys, which differ between the keymaps:
 Action & vi & cua \\
 \hline
 Add a cue below the selection & \key{o} & \key{Control+n} \\
-Cut the selected cue & \key{d d}, \key{x}, \key{Delete} & \key{Control+x} \\
-Copy the selected cue & \key{y y}, \key{Y} & \key{Control+c} \\
+Cut the selected cue & \key{dd}, \key{x}, \key{Delete} & \key{Control+x} \\
+Copy the selected cue & \key{yy}, \key{Y} & \key{Control+c} \\
 Paste below the selection & \key{p} & \key{Control+v} \\
 Paste above the selection & \key{P} & \key{Control+V} \\
 Delete the selected cue, no copy & none & \key{Delete} \\
 Cancel what is typed halfway & \key{Control+c} & none \\
-Edit the name of the selected cue & \key{i}, \key{a}, \key{A} & \key{F2} \\
+Edit the name of the selected cue & \key{i}, \key{a}, \key{A} & none \\
 Edit the name from its start & \key{I} & none \\
-Change the name, selecting all of it & \key{c c}, \key{S} & none \\
+Change the name, selecting all of it & \key{cc}, \key{S} & \key{F2} \\
 Undo the latest change & \key{u} & \key{Control+z} \\
 Redo the change undone last & \key{Control+r} & \key{Control+y} \\
 Open a show & \key{Control+l} & \key{Control+o} \\
-Show the next cue list & \key{l} & \key{Control+PageDown} \\
+Show the next cue list, then the outputs & \key{l} & \key{Control+PageDown} \\
 Move down half a page & \key{Control+d} & none \\
 Move down a page & \key{Control+f} & \key{PageDown} \\
-Show the next inspector tab & \key{g t} & \key{Control+Tab} \\
-Go back to the place before the last jump & \key{Control+o} & \key{Alt+ArrowLeft} \\
+Show the next inspector tab & \key{gt} & \key{Control+Tab} \\
+Go back to the place before the last jump, or leave the outputs & \key{Control+o} & \key{Alt+ArrowLeft} \\
 Go forward again & \key{Control+i} & \key{Alt+ArrowRight} \\
-Search the cues by name & \key{/} & \key{Control+f} \\
+Search the cues, or the outputs, by their text & \key{/} & \key{Control+f} \\
 Select the next match & \key{n} & \key{F3} \\
 Show or hide the help & \key{F1} & \key{F1} \\
 Pick the highlighted option of an open menu & \key{Control+y} & \key{Enter} \\
@@ -60,8 +60,9 @@ bar names the keys that pick and close it, and \key{PageDown}, \key{PageUp},
 
 \begin{enumerate}
 \item Press the help key that the status bar names, \key{F1} in both
-  keymaps.  The help page lists every action that has a key, with its keys
-  and its name in the configuration file, as Figure~\ref{fig:help} shows.
+  keymaps.  The help page opens with a paragraph of first steps, then lists
+  every action that has a key, with its keys and its name in the
+  configuration file, as Figure~\ref{fig:help} shows.
 \item Press the same key again to close the page.  GO and Panic also close
   it, so that the show stays in view while it runs.
 \end{enumerate}
@@ -75,12 +76,14 @@ bar names the keys that pick and close it, and \key{PageDown}, \key{PageUp},
 
 \section{Key sequences}
 
-Some actions in the vi keymap take more than one key, such as \key{g g},
-which selects the first cue.
+Some actions in the vi keymap take more than one key, such as \key{gg},
+which selects the first cue.  The keys of a sequence are typed one after
+another with no \key{Space} between them, since \key{Space} is GO.
 
 \begin{enumerate}
 \item Press \key{g}.  The status bar shows the keys typed so far, and a box
-  lists the keys that can follow, as in Figure~\ref{fig:keys}.
+  lists the keys that can follow, as in Figure~\ref{fig:keys}.  While the
+  outputs show, it names outputs where it names cues here.
 \item Press \key{g} again.  The first cue is selected.
 \end{enumerate}
 
@@ -91,19 +94,19 @@ which selects the first cue.
   \label{fig:keys}
 \end{figure}
 
-A number typed first repeats the action: \key{3 j} moves the selection three
-rows down, \key{3 d d} cuts three cues, \key{3 o} adds three cues, \key{3 p}
-pastes the copied cues three times, and \key{3 u} undoes three changes.
-\key{d} and \key{y} also take a motion: \key{d j} cuts the selected cue and
-the next, \key{y k} copies it and the previous, and \key{d G} cuts down to the
+A number typed first repeats the action: \key{3j} moves the selection three
+rows down, \key{3dd} cuts three cues, \key{3o} adds three cues, \key{3p}
+pastes the copied cues three times, and \key{3u} undoes three changes.
+\key{d} and \key{y} also take a motion: \key{dj} cuts the selected cue and
+the next, \key{yk} copies it and the previous, and \key{dG} cuts down to the
 last cue.  A number before the operator, before the motion, or both
-multiplies, so that \key{2 d 3 j} cuts seven cues.  A key that does not
+multiplies, so that \key{2d3j} cuts seven cues.  A key that does not
 continue the sequence cancels it and does nothing, as Vim beeps and drops the
-keys typed so far, so that a mistyped \key{d x} cuts nothing.  The keys for GO
+keys typed so far, so that a mistyped \key{dx} cuts nothing.  The keys for GO
 and Panic act immediately, even in the middle of a sequence.  \key{Control+c}
 cancels a sequence in the vi keymap, as it does in Vim, and the status bar
-hints it while a sequence waits, so that no one reaches for \key{Escape},
-which is Panic.
+hints it while a sequence waits or a text field has the keyboard, so that no one
+reaches for \key{Escape}, which is Panic.
 
 \section{Searching the cues}
 
@@ -113,7 +116,8 @@ A long cue list is easier to search than to scroll.
 \item Press the search key, \key{/} in the vi keymap, or \key{?} to search
   up the list.  The cua keymap uses \key{Control+f}.  A search line opens at
   the left of the status bar.
-\item Type part of a cue's name or number.  The selection moves to the first
+\item Type part of what the list shows of a cue, such as its name, its number,
+  or the file that it plays.  The selection moves to the first
   cue after the selection that holds the text, in any case, and the list
   scrolls to it.  The search wraps around the list and ends on the selection,
   so that the selection is the match only when no other cue holds the text.

@@ -152,7 +152,7 @@ fn restoring_kept_lists_is_one_change_that_undo_takes_back() {
         CueList::new("Main", vec![audio(1), audio(9)]),
         CueList::new("Preshow", Vec::new()),
     ];
-    let restored = saved.clone().apply(Command::Restore(kept));
+    let restored = saved.clone().apply(Command::Restore(kept, Vec::new()));
     assert_eq!(restored.lists().len(), 2);
     assert_eq!(restored.next_cue_id(), Some(CueId(10)));
     let undone = restored.apply(Command::Undo);
@@ -165,7 +165,7 @@ fn restoring_kept_lists_is_one_change_that_undo_takes_back() {
 fn show_mode_keeps_the_lists_from_being_restored() {
     let locked = storm()
         .apply(Command::ShowMode(true))
-        .apply(Command::Restore(Vec::new()));
+        .apply(Command::Restore(Vec::new(), Vec::new()));
     assert_eq!(ids(&locked), [1, 2]);
 }
 
@@ -173,7 +173,7 @@ fn show_mode_keeps_the_lists_from_being_restored() {
 fn show_always_holds_a_list() {
     assert_eq!(Workspace::default().lists().len(), 1);
     assert_eq!(Workspace::new(Vec::new()).lists().len(), 1);
-    let emptied = storm().apply(Command::Restore(Vec::new()));
+    let emptied = storm().apply(Command::Restore(Vec::new(), Vec::new()));
     assert_eq!(emptied.lists().len(), 1);
     let read = Workspace::from_show("", "/show").expect("a file without lists reads");
     assert_eq!(read.lists().len(), 1);
@@ -214,4 +214,15 @@ fn show_whose_identities_have_run_out_adds_no_cue() {
     assert_eq!(full.next_cue_id(), None);
     let added = full.apply(add(0, Kind::Memo, Place::End));
     assert_eq!(ids(&added), [u32::MAX]);
+}
+
+#[test]
+fn examples_of_the_manual_page_open_as_shows() {
+    let page = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/man/cinq-show.5.scd"));
+    let examples: Vec<&str> = page.split("```").skip(1).step_by(2).collect();
+    assert_eq!(examples.len(), 4);
+    examples.into_iter().for_each(|example| {
+        let read = Workspace::from_show(example, "/show");
+        assert!(read.is_ok(), "{example}: {:?}", read.err());
+    });
 }

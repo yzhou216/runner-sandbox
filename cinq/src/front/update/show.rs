@@ -53,6 +53,16 @@ pub struct Show {
 }
 
 impl Show {
+    /// Returns a show that lives in `file`, as the tests of the interface
+    /// name one
+    #[cfg(test)]
+    pub(in crate::front) fn in_file(file: impl Into<PathBuf>) -> Self {
+        Self {
+            file: Some(file.into()),
+            ..Self::default()
+        }
+    }
+
     pub fn unsaved(&self) -> bool {
         self.text != self.saved
     }

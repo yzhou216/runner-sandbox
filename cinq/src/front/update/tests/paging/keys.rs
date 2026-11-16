@@ -17,7 +17,7 @@ use super::{
 };
 use crate::{
     back::CueId,
-    front::{App, Message},
+    front::{App, Message, update::Spot},
 };
 
 #[test]
@@ -50,7 +50,8 @@ fn landing_selects_the_row_without_a_jump_or_going_past_the_end() {
 }
 
 fn landing_at(app: App, list: usize, from: Option<CueId>, row: usize) -> App {
-    app.next(Message::Landed { list, from, row }).0
+    let from = from.map_or(Spot::List(list), Spot::Cue);
+    app.next(Message::Landed { from, row }).0
 }
 
 #[test]

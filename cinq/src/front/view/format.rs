@@ -4,6 +4,7 @@
 
 //! Text for back-end values, kept apart from the widgets that show it
 
+mod consequences;
 #[cfg(test)]
 mod tests;
 
@@ -11,7 +12,11 @@ use std::path::Path;
 
 use itertools::Itertools;
 
-use crate::back::{Active, Advance, Change, Cue, CueList, Edit, Kind, Media, Phase, Workspace};
+use crate::back::{
+    Active, Advance, Change, Cue, CueList, Edit, Kind, Media, Output, OutputId, Phase, Workspace,
+    moved_output,
+};
+pub use consequences::{consequences, consequences_of, leading, short};
 
 /// Formats seconds as `m:ss.s`
 fn clock(seconds: f64) -> String {
@@ -110,25 +115,35 @@ pub fn activity(active: &Active, cue: &Cue) -> String {
 /// with how long after GO each cue after the first fires, so that
 /// auto-continue and auto-follow chains are visible before they run.  The
 /// count leaves out the cues that cannot play, which GO skips, and each of
-/// them says why.
+/// them says why.  A chain with no cue that can play says so in words
+/// before it names the cues and why each cannot play.
 pub fn chain(workspace: &Workspace, list: &CueList, standby: &Cue) -> String {
-    let fired = count(workspace.next_go(list).count(), "cue");
-    let described = list
-        .chain(standby.id)
-        .enumerate()
-        .map(|(index, (cue, delay))| {
-            let delay = (index > 0).then(|| format!("+{delay:.1}s"));
-            let skipped = workspace
-                .problem(cue)
-                .map(|problem| format!("skipped: {problem}"));
-            let notes = delay.into_iter().chain(skipped).join(", ");
-            if notes.is_empty() {
-                number(cue)
-            } else {
-                format!("{} ({notes})", number(cue))
-            }
+    let fired = workspace.next_go(list).count();
+    let cues = list.chain(standby.id);
+    if fired == 0 {
+        let reasons = cues.filter_map(|(cue, _)| {
+            let problem = workspace.problem(cue)?;
+            Some(format!("cue {} ({problem})", number(cue)))
         });
-    format!("GO fires {fired}: {}", described.format(", "))
+        return format!("GO fires nothing: {}", reasons.format(", "));
+    }
+    let described = cues.enumerate().map(|(index, (cue, delay))| {
+        let delay = (index > 0).then(|| format!("+{delay:.1}s"));
+        let skipped = workspace
+            .problem(cue)
+            .map(|problem| format!("skipped: {problem}"));
+        let notes = delay.into_iter().chain(skipped).join(", ");
+        if notes.is_empty() {
+            number(cue)
+        } else {
+            format!("{} ({notes})", number(cue))
+        }
+    });
+    format!(
+        "GO fires {}: {}",
+        count(fired, "cue"),
+        described.format(", ")
+    )
 }
 
 /// Describes a change to the show in few words, starting in lower case, as
@@ -170,6 +185,7 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
                 Edit::Advance(_) => format!("changed what follows cue {cue}"),
                 Edit::Level(_) => format!("changed the level of cue {cue}"),
                 Edit::StopTarget(_) => format!("changed whether cue {cue} stops its target"),
+                Edit::Sends(_) => format!("changed where cue {cue} plays"),
             }
         }
         Change::Standby(standby) => match standby.after.and_then(|id| workspace.cue(id)) {
@@ -177,6 +193,14 @@ pub fn change(workspace: &Workspace, change: &Change) -> String {
             None => "moved standby past the end".to_owned(),
         },
         Change::Restored { .. } => "brought back the unsaved changes".to_owned(),
+        Change::Outputs {
+            before,
+            after,
+            cut,
+            pasted,
+            anchor,
+            ..
+        } => outputs(workspace, before, after, (*cut, *pasted), *anchor),
     }
 }
 
@@ -189,10 +213,90 @@ pub fn clipped(verb: &str, cues: &[Cue]) -> String {
     }
 }
 
-fn number(cue: &Cue) -> String {
+/// Tells what a copy or cut of outputs took with `verb`, in lower case, by the
+/// name of the output, or else by how many outputs, after `facts` of what it
+/// did to the cues, which leave out the words that name the output as one
+pub fn clipped_outputs(verb: &str, outputs: &[Output], facts: Option<String>) -> String {
+    let told = match outputs {
+        [output] => format!("{verb} {}", the_output(&output.name, facts.is_some())),
+        outputs => format!("{verb} {} outputs", outputs.len()),
+    };
+    leading(facts, &told)
+}
+
+/// Names an output as "the output Sub", or as "Sub" where `terse`, which
+/// leaves room for what a change did to the cues
+fn the_output(name: &str, terse: bool) -> String {
+    if terse {
+        short(name)
+    } else {
+        format!("the output {}", short(name))
+    }
+}
+
+/// Describes a change to the outputs by what differs between them before
+/// and after it, leaving the words that name an output as one where the
+/// change did something to the cues, which [`consequences`] tells first
+fn outputs(
+    workspace: &Workspace,
+    before: &[Output],
+    after: &[Output],
+    (cut, pasted): (bool, bool),
+    selected: Option<OutputId>,
+) -> String {
+    let terse = consequences(workspace, before, after).is_some();
+    let the = |name: &str| the_output(name, terse);
+    let removed = if cut { "cut" } else { "deleted" };
+    let added = if pasted { "pasted" } else { "added" };
+    let pairs = || {
+        before.iter().filter_map(|was| {
+            let now = after.iter().find(|now| now.id == was.id)?;
+            Some((was, now))
+        })
+    };
+    let edited = pairs().find_map(|(was, now)| {
+        let name = &short(&now.name);
+        if was.name != now.name {
+            Some(format!("renamed the output {} to {name}", short(&was.name)))
+        } else if was.device != now.device {
+            Some(format!("changed the device of the output {name}"))
+        } else if was.channels != now.channels {
+            Some(format!("changed the channels of the output {name}"))
+        } else if was.new_cues != now.new_cues {
+            Some(format!("changed what new cues send to the output {name}"))
+        } else {
+            None
+        }
+    });
+    let moved =
+        || moved_output(before, after, selected).map(|now| format!("moved {}", the(&now.name)));
+    match (
+        missing(after, before).as_slice(),
+        missing(before, after).as_slice(),
+    ) {
+        ([output], []) => Some(format!("{added} {}", the(&output.name))),
+        ([], [output]) => Some(format!("{removed} {}", the(&output.name))),
+        (put, []) if !put.is_empty() => Some(format!("{added} {} outputs", put.len())),
+        ([], gone) if !gone.is_empty() => Some(format!("{removed} {} outputs", gone.len())),
+        (put, deleted) if !put.is_empty() || !deleted.is_empty() => {
+            Some("changed the outputs".to_owned())
+        }
+        _ => edited.or_else(moved),
+    }
+    .unwrap_or_else(|| "changed the outputs".to_owned())
+}
+
+pub fn number(cue: &Cue) -> String {
     if cue.number.trim().is_empty() {
         format!("\"{}\"", cue.name)
     } else {
         cue.number.clone()
     }
+}
+
+/// Returns the outputs of `from` that `of` lacks
+fn missing<'a>(from: &'a [Output], of: &[Output]) -> Vec<&'a Output> {
+    from.iter()
+        .filter(|output| of.iter().all(|other| other.id != output.id))
+        .collect()
 }

@@ -18,8 +18,8 @@ _show_.cinq.toml
 
 A show of *cinq* lives in a file in TOML, which *cinq* opens from its command
 line or from the file chooser of the desktop, and which saving writes.
-The file lists the cue lists of the show in order, each with its cues, and
-each cue with the settings that its kind uses.
+The file lists the outputs of the show, the cue lists of the show in order,
+each with its cues, and each cue with the settings that its kind uses.
 What belongs to a session rather than to the show stays out of the file: the
 cue on standby, which is the first of each list once the show opens, the cues
 that run, and how long each sound or video file plays.
@@ -30,6 +30,85 @@ which it writes for every cue whose kind uses them.
 A file can leave out any setting but the *name* of a list and the *id* and the
 *kind* of a cue.
 *cinq* passes over settings that it does not know.
+
+# OUTPUTS
+
+An output is a named place that cues send their sound to, such as the house
+speakers, a subwoofer, or the monitors on stage.
+It plays on one channel of an audio device, or on two, left first.
+Cues name outputs and never devices or channels, so that moving an output to
+other channels, or to another device at another venue, moves every cue that
+sends to it.
+Each output is a table in the array *output*, in order:
+
+*name*
+	Name of the output, which no other output of the show has.
+
+*device*
+	ID of the audio device that the output plays on, as
+	*cinq --audio-devices* lists it.
+	An output without one plays on the default device, which *cinq*(5) can
+	choose for each machine.
+
+*device_name*
+	Name of the device, which finds the device on a machine that gives it
+	another ID, as long as no other device there has the name.
+
+*channels*
+	Channels of the device that the output plays on, counted from 1 to 256: _3_
+	for one channel, and _1-2_ or _1,3_ for two, the left first.
+	A stereo file plays its left and right on the two channels of a stereo
+	output, and the average of them on the channel of a mono one, so that a
+	sound on one side alone is 6 dB quieter.
+	A mono file plays on every channel of the output at its own level.
+
+*new_cues*
+	Level in dB at which new audio and video cues send to the output, which
+	they do not without one.
+
+A file without outputs has one, Main, on the first two channels of the default
+device, at which new cues send at 0 dB, and a show that has Main alone, as it
+was made, writes no outputs.
+An output that cannot play, as one whose device is not there, shows among the
+warnings, and the cues play on the others.
+So does an output on channels past those of its device, while the other outputs
+of the device play.
+*cinq* tries such a device again every two seconds, so that a device plugged in,
+or a Dante Virtual Soundcard started, plays with nothing for the operator to do.
+A device that has fewer channels than an output names is looked at again as well,
+so that a Dante Virtual Soundcard whose channels are raised plays them, ever
+more seldom while it offers no more, up to every thirty seconds.
+A device that does not answer when it is opened, as an ASIO driver that waits
+for a dialog does not, is shown as not answering after five seconds, and it
+holds up no other device.
+Changing an output opens again only the devices that the change touches, so
+that the sound on the others plays on.
+A device that stops while cues play on it, as one unplugged or a Dante Virtual
+Soundcard that restarts, holds their clocks until it tells that it stopped, or
+until it has asked for no sound for three seconds, after which they go on by
+the clock of the show, and once the device opens again they play on there from
+where they are.
+A device that has just opened may take up to ten seconds for its first call for
+sound, as a Bluetooth sink that sleeps does, and until then the clocks of the
+cues on it wait at the start.
+A file in which an output has no name, two outputs share a name, or the channels
+of an output are neither one nor two, cannot be opened.
+
+## Dante
+
+On a Dante network, outputs play on the channels of the Dante Virtual
+Soundcard, which Dante Controller routes on to the channels of a board or of
+any other Dante device: channel 3 of an output is transmit channel 3 of the
+soundcard.
+On Darwin, the soundcard is one Core Audio device with as many channels as its
+control panel sets.
+On Windows, *cinq* built with ASIO, as Nix builds it, reaches every channel of
+the soundcard as one ASIO driver, while the WDM mode of the soundcard offers
+each pair of its first 16 channels as a device of its own, so that an output
+on channel 3 there plays on channel 1 of _DVS Transmit 3-4_.
+*cinq* plays at the sample rate of the soundcard, which Dante Controller sets,
+whatever the rate of the files, and opens the soundcard again at once at a new
+rate set while cues play, as it opens a device that restarts.
 
 # LISTS
 
@@ -123,11 +202,19 @@ Each cue is a table in the array *cue* of its list:
 	Whether a fade cue stops its target once the fade is over, which it does
 	by default.
 
+*sends*
+	Table of the levels in dB at which an audio or video cue sends to
+	outputs, each entry named after an output, between -60 and 12.
+	The cue plays on those outputs alone, after its *level*, which fade cues
+	move.
+	A cue without one sends to the first output at 0 dB, and one with an empty
+	table sends nowhere.
+
 *notes*
 	Notes of the cue, for the operator.
 
-A file in which two cues share an identity, or a level lies outside its range,
-cannot be opened.
+A file in which two cues share an identity, a level lies outside its range, or
+a cue sends to an output that the show does not have, cannot be opened.
 
 # STAGE
 
@@ -220,6 +307,12 @@ hundredths of a second after its picture.
 
 A picture wider or taller than the largest texture of the GPU, as a video in
 4K or a large photograph is on some older GPUs, does not show.
+
+A sound whose sample rate differs from that of its device, as one of 44.1 kHz
+on a Dante network of 48 kHz, plays through cubic interpolation, which dulls
+its highest frequencies and adds faint tones to them: a tone of 10 kHz loses
+0.4 dB and gains others 26 dB below it.
+A sound at the rate of its device plays unchanged.
 
 ; if windows
 Each tick of the show clock waits for both windows to draw, since Windows would
@@ -320,6 +413,47 @@ target = 1
 duration = 1.0
 level = -60.0
 stop_target = true
+```
+
+A show whose house speakers play on the first two channels of a desk, its
+subwoofer on the third, and its monitors on the fifth and sixth, and a storm
+that plays in the house and the subwoofer, but not in the monitors:
+
+```
+[[output]]
+name = "House"
+device = "alsa:plughw:CARD=X32,DEV=0"
+device_name = "X32, USB Audio"
+channels = "1-2"
+new_cues = 0.0
+
+[[output]]
+name = "Sub"
+device = "alsa:plughw:CARD=X32,DEV=0"
+device_name = "X32, USB Audio"
+channels = "3"
+new_cues = -6.0
+
+[[output]]
+name = "Monitors"
+device = "alsa:plughw:CARD=X32,DEV=0"
+device_name = "X32, USB Audio"
+channels = "5-6"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Storm"
+file = "sounds/storm.ogg"
+level = -4.0
+
+[list.cue.sends]
+House = 0.0
+Sub = -6.0
 ```
 
 # SEE ALSO

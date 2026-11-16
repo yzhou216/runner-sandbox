@@ -26,8 +26,8 @@ _%APPDATA%\\cinq\\config.toml_
 runs most of it.
 It ships two keymaps, each of which binds keys to every action, and a
 configuration file in TOML chooses one of them, or builds keymaps of its own,
-and binds actions to other keys, and it sets the audio device that sound plays
-on and how far ahead *cinq* makes sounds ready.
+and binds actions to other keys, and it sets the audio device that outputs play
+on by default and how far ahead *cinq* makes sounds ready.
 *cinq* reads the file when it starts and again whenever it changes, so that the
 keys, the help page that lists them, and the other settings follow each change
 as soon as it is saved.
@@ -39,10 +39,11 @@ inline tables.
 A file that is not TOML, or that *cinq* cannot write, stays as it is, and an
 editor that has the file open may offer to load it again.
 
-The help page, which the key of *help* opens, names the keymap in use, lists
-every action with its keys and its name in the file, links to the file that
-the keys come from, or would come from, and ends with the notice of the
-license of cinq.
+The help page, which the key of *help* opens, names the keymap in use, opens
+with a short paragraph of first steps that names the keys of GO and Panic, of
+moving and standby, and of adding, naming, and undoing, lists every action with
+its keys and its name in the file, links to the file that the keys come from,
+or would come from, and ends with the notice of the license of cinq.
 Following the link opens the file in
 ; if xdg windows
 the program that the desktop opens it with,
@@ -78,26 +79,66 @@ in its place, and follows it as it changes in the same way.
 # SETTINGS
 
 *audio_device*
-	ID of the audio device that the sound of audio and video cues plays on, in
-	place of the default device of the system.
+	ID of the audio device that the outputs of a show play on where they name
+	no device, as *cinq-show*(5) describes, in place of the default device of
+	the system.
 	*cinq --audio-devices* lists the ID and the name of each device, apart by a
 	tab, one device to a line.
-	The *Audio device* list in the sidebar of the main window chooses a device
-	as well, and *cinq* writes the choice here.
+	The *Default device* list in the sidebar of the main window chooses a
+	device as well, and *cinq* writes the choice here.
+	The Device list of an output names that choice in its default option, as
+	*Default device (System default)*, and while the highlight of its open menu
+	rests on that option, the *Default device* list in the sidebar takes the
+	color of the highlight, so that the output and the setting that decides its
+	device show as one.
 	It changes only the line of this setting, or adds the line before the
 	first setting of the file, and leaves the rest as it is.
-	A change moves the sound as soon as the file is saved, and the sounds that
-	play go on from where they are on the new device.
+	A change moves those outputs as soon as the file is saved, and the sounds
+	that play go on from where they are on the new device.
 	A device can take a moment to start, during which nothing is heard and
-	the cues that play wait for it.
-	While the device is not there, or cannot be opened, nothing is heard and
-	the warnings in the sidebar tell why, and saving the file tries again.
+	the cues that play wait for it, while the rest of the window goes on.
+	While the device is not there, or cannot be opened, those outputs are
+	silent, the warnings in the sidebar tell why, and *cinq* tries the device
+	again every two seconds, as *cinq-show*(5) describes.
 ; if xdg
-	On ALSA, *cinq* plays on most sound cards only through a plug that
-	converts its samples, as the devices whose IDs begin with _alsa:plughw:_
-	or _alsa:sysdefault:_ do, and _alsa:default_ and _alsa:pipewire_.
-	The _alsa:hw:_, _alsa:front:_, and _alsa:hdmi:_ devices of most cards take
-	samples only in a format of their own, and cannot be opened.
+	On ALSA, *cinq* plays samples in 32-bit floating point, or in integers of
+	32, 24, or 16 bits, as the _alsa:hw:_, _alsa:front:_, and _alsa:hdmi:_
+	devices of most sound cards take them while no sound server holds the
+	card, and the devices whose IDs begin with _alsa:plughw:_ or
+	_alsa:sysdefault:_, _alsa:default_, and _alsa:pipewire_ convert them for
+	the card.
+	The _alsa:hw:_ device of a card that takes packed 24-bit samples alone,
+	as some USB interfaces do, cannot play, and its warning says to choose the
+	_alsa:plughw:_ device of the card instead, which converts them.
+
+	PulseAudio spreads a stream that has fewer channels than its device over
+	all of the channels of the device.
+	So through PulseAudio, as through _alsa:default_, a device of many
+	channels sounds on channels that no output names, unless an output names
+	the last channel of the device.
+	The ALSA plugin of PipeWire, as _alsa:pipewire_ and, where PipeWire
+	serves it, _alsa:default_, takes the channels of a stream past the
+	second for those of surround sound: on a device whose channels are not
+	surround channels, as a desk's are not, only the first two sound, and on
+	a surround device the third and fourth of four channels sound on its
+	fifth and sixth.
+	While a JACK server runs, as PipeWire's can, *cinq* also lists
+	_jack:output_, whose channels each connect to the playback port of the
+	server with their number, which keeps every channel where its output
+	puts it, and so suits a device of more than two channels under
+	PipeWire.
+	Channels past the last playback port of the server connect to none, so
+	that a patchbay of JACK can connect them elsewhere, and *cinq* shows no
+	warning for them.
+; if windows
+	The Windows build that Nix makes also lists the ASIO drivers, by IDs that
+	begin with _asio:_, beside the devices of WASAPI.
+	The Dante Virtual Soundcard offers all of its channels as one ASIO
+	driver, while in WDM mode it offers each pair of its first 16 channels as
+	a device of its own.
+	An ASIO driver that another program holds, as one in exclusive mode can,
+	fails to open with a warning that its hardware is malfunctioning, which
+	clears once that program lets it go.
 ; end
 	It is the default device unless the file names another.
 
@@ -254,13 +295,13 @@ of the help page.
 :  Shift+F3
 |  edit
 :  i, a, A
-:  F2
+:  none
 |  edit_start
 :  I
 :  none
 |  change_name
 :  c c, S
-:  none
+:  F2
 |  next_field
 :  Tab
 :  Tab
@@ -354,12 +395,17 @@ alone, so a key cannot hold Meta or Super.
 
 A key sequence is one or more keys separated by spaces, which are typed one
 after another, as in *g g*.
+The spaces belong to the notation of the file and of this page: the keys
+are typed with no Space between them, since Space is GO, and the status bar,
+the box of the keys that can come next, and the help page write a sequence of
+keys that type characters joined, as Vim does, such as *gg*.
 
 # TYPING
 
 The keys of a sequence wait until the sequence is complete, and the status bar
 shows the keys typed so far, while a box above it lists the keys that can come
-next and what each of them does.
+next and what each of them does, naming outputs instead of cues while the
+outputs show.  The help page, which lists each action once, names both.
 A key that completes or continues no sequence is dropped together with the
 keys typed so far, as Vim beeps and drops them, so that a key mistyped halfway,
 such as the *x* of *d x*, never starts a sequence of its own.
@@ -434,12 +480,22 @@ The key of *search* opens a search line at the left of the status bar, where
 the status stood, which reads a slash and then the text typed, and the key of
 *search_backward* opens it with a question mark for a search up the list.
 As the text changes, the selection moves to the first cue of the list on
-screen, from the cue after the selected one down, whose name or number holds
-the text, in any case, and the list scrolls to it.
+screen, from the cue after the selected one down, one of whose columns holds the
+text, in any case, and the list scrolls to it.
+The columns are the number, type, name, target, action, and then, as the list
+shows them, so that a search for *rumble* finds the cue of *rumble.ogg*, as a
+search of Vim finds the text of a whole line.
+The waits and the state are left out, since they are timings and what the
+show has made of a cue.
 A search up the list begins at the cue before the selected one.
 The search wraps around the list and ends on the selected cue, as a search of
 Vim does from the start of a line, so that the selected cue is the match only
 when no other cue holds the text.
+While the outputs show in place of the cue list, the search goes through the
+name, the device, the channels, and the new cues of the outputs, as the table
+shows them, in the same way, by the same rules, and never looks at the cues out
+of sight.
+The number of a row and the state are left out.
 Enter accepts the search and closes the line, and remembers the text and the
 direction for *next_match* and *previous_match*.
 *next_match* finds the next cue that holds the text in the direction of the
@@ -505,12 +561,26 @@ the keyboard, apart from the keys typed while one of these has the keyboard:
 A text field of the inspector, or a drop-down list
 	A click gives a text field the keyboard, and the keys of *next_field* and
 	*previous_field* move it from one text field or drop-down list to the
-	next, which shows a border in the color of focus.
+	next, which shows a border in the color of focus, twice as thick as at rest.
+	A text field that these keys reach has its text selected, so that typing
+	replaces it, whereas a click puts the caret where it fell.
+	From the cue list, or the outputs, *next_field* goes first to the first field
+	of the inspector, so that the settings of what is selected are one key away,
+	and then on through the rest of the inspector, the toolbar, and the sidebar,
+	and round again, which *previous_field* does the other way.
 	It keeps the keys typed, apart from the keys bound by themselves to *go*,
 	*panic*, *cancel*, *next_field*, *previous_field*, *back*, *forward*, *open*,
 	*save*, and *save_as*, which act unless a text field takes them for typing.
-	Enter leaves a text field, and opens the menu of a drop-down list, which
-	takes the keyboard from there.
+	A drop-down list that is closed lets the keys of *undo* and *redo* act as
+	well, since it has no text to undo, so that a change made from the list
+	can be taken back with the keyboard still there.
+	One of the sends of a cue, which scroll on the Levels tab, and a list of the
+	sidebar, which scrolls in a low window, scroll into view as these keys reach
+	it, with the name of the send or the title of the list above it.
+	Enter in the empty File field of a cue opens the dialog that chooses the
+	file, as the Choose button does, and the status bar hints it.
+	Anywhere else Enter leaves a text field, and opens the menu of a drop-down
+	list, which takes the keyboard from there.
 
 The help page
 	The page fills the main window, while the stage window keeps showing the
@@ -541,7 +611,8 @@ The menu of a drop-down list
 	PageDown, PageUp, Home, and End do so as well, as they do in the popup menu
 	of Vim, whether or not the keymap binds them.
 	Enter and the key of *pick* pick the highlighted option, and the key of
-	*close_menu* closes the menu without picking one.
+	*close_menu* closes the menu without picking one, and either leaves the
+	keyboard on the list, so that *next_field* goes on to the field after it.
 	The keys of *go* and *panic* act as they do everywhere and close the menu
 	as well.
 	The key of *help* opens the help page and leaves the menu open, hidden
@@ -572,6 +643,81 @@ and forth.
 Copying changes no show, so that *copy* acts in show mode, as Vim yanks in a
 read-only buffer.
 
+The outputs of the show, which *Outputs* below the cue lists in the sidebar
+shows in place of the cue list, take the actions that move through rows as
+the cue list takes them, by the same code: *next*, *previous*, *first*, and
+*last* select an output, which the inspector then edits, and so do the
+actions of half and whole pages, of scrolling by a row, of the rows in view,
+and of placing the selected row in view, which only matter once there are more
+outputs than rows in the view.
+*search*, *search_backward*, *next_match*, and *previous_match* search the
+columns of the outputs, in any case, with the rules of *SEARCHING*, and the
+line tells that no output matches.
+*first* and *last* with a count, and the searches, are jumps there, as they
+are for cues.
+The inspector of an output has a line of help beside each field, which says
+what the field takes and what it does, and which turns red and says why where
+the value typed is not applied, as for a name that another output has,
+channels that are neither one nor two, or a level out of range.
+Where the keyboard leaves a field that holds such a value, the status bar
+tells the reason, since the field shows the value that holds again.
+The actions that edit cues edit the outputs in the same way while they show.
+*edit*, *edit_start*, and *change_name* enter the Name field of the output
+with the caret at its end, at its start, or with all of it selected, as *F2*
+does in the cua keymap.
+*next_field* and *previous_field* move among the fields and lists of the
+output and select the text of a field that they reach, as they do for a cue.
+*add_below* and *add_above* add an output on the default device and its first
+two channels, as many as the count says, at most 64, and select the last of
+them.
+*move_down* and *move_up* move the output.
+*cut*, *copy*, *paste_below*, and *paste_above*, and the keys of an operator
+with a motion, such as *d j* and *y G*, take the selected output and those
+below it, as many as the count says or the motion reaches, into a register of
+outputs, which is apart from the cues that were copied, or put the register
+back, as many times as the count says, at most 64 outputs, and select the
+first output pasted.
+*delete* deletes them without copying.
+A show keeps at least one output, so that a cut or a delete that reaches all
+of them does nothing and the status bar tells so.
+A cut output pasted back into the show that it came from takes back its
+identity, with the level of its new cues, so that the cues that sent to it send
+to it again, as a line that was cut and pasted back in Vim is the line that
+was.
+A copy, and anything pasted into another show, has an identity of its own, the
+name of the original, numbered from 2 on where another output has that name,
+no cue that sends to it, and new cues that do not send to it.
+A number that ends the name after a space gives way to the new one, so that a
+copy of *House R 2* is *House R 3*, not *House R 2 2*.
+Cues that name no sends play on the first output, so that cutting, adding,
+moving, or pasting at the first place changes where they play, which the
+status bar tells first, as in *Cues without sends play on Sub*, with the
+names of outputs cut to 10 columns so that it fits in the bar of a small
+window, where the key of *paste* gives way to it.
+A cue that sends only to outputs that a cut or a delete took away plays on no
+output, so that the status bar counts such cues with the change, its State
+reads *NO OUTPUT* in yellow, and the sidebar lists it among the warnings, until
+*undo* brings the outputs back or the cue sends elsewhere.
+A cue whose sends were all cleared plays nowhere by choice, and gets no
+warning.
+*undo* and *redo* select the output that the change touched, or the neighbor
+of one that it took away, except that undoing an addition or a paste selects
+the output that was selected when it was made, as the cursor of Vim returns to
+where a change was made.
+A change to a cue or to the cue lists leaves the outputs for the cue list in
+the same way as a jump, so that *back* returns to the outputs, and the change
+is undone or made again there, as are the changes that follow in the count.
+Show mode locks all of these but *copy*, and *undo* and *redo* do nothing
+there.
+Every other action that acts on cues, such as *standby*, does nothing, since
+the cue list is out of sight.
+While the outputs show, the status bar names the keys of *add_below*, *edit*,
+and *back*, and gives way, from the first to the last, to the key of *forward*,
+*add_below*, *edit*, GO, Panic, *save*, *back*, and the help page, so that
+the key that leaves the outputs outlasts all but the help page.
+In every view, the name of the show in the status bar gives way before any of
+these keys do, cut short at its end with an ellipsis, down to 16 columns.
+
 # ACTIONS
 
 The actions go by their names in the *keys* table, in the order of the help
@@ -580,6 +726,10 @@ page.
 *go*
 	GO: fire the standby cue, together with every cue that auto-continue or
 	auto-follow chains to it.
+	While no cue of the chain can play, the GO button looks disabled and the
+	line under the name of the standby cue says why, as in *GO fires nothing: cue
+	1 (no file set)*.  The key still moves standby past the cues that cannot
+	play.
 
 *panic*
 	Panic: fade every playing cue out over one second, and stop the rest.
@@ -599,6 +749,9 @@ page.
 	it first.
 	The cua keymap binds no key to it, since Control+c copies there.
 	While keys wait or the search line is open, the status bar hints its key.
+	While a text field or a drop-down list has the keyboard, it hints the key
+	of *next_field* and this key as the one that leaves, so that the way out is
+	told where Escape would panic.
 
 *next*
 	Select the next cue, move the highlight of an open menu down, or scroll
@@ -714,10 +867,13 @@ page.
 	A count selects its row first, as for *row_to_middle*.
 
 *next_list*
-	Show the next cue list.
+	Show the next cue list, or the outputs of the show after the last one.
 
 *previous_list*
-	Show the previous cue list.
+	Show the previous cue list, or the last one from the outputs of the show.
+	Where that is the cue list that the outputs took the place of, it comes back
+	with the cue that was selected, as does choosing it in the sidebar, and any
+	other cue list shows with its standby cue selected.
 
 *next_tab*
 	Show the next tab of the inspector, or the tab whose number the count gives,
@@ -730,10 +886,18 @@ page.
 *back*
 	Go back to the place before the last jump, as the jump list of Vim does
 	with its *Control+o*.
-	A place is a cue list with its selected cue.
+	A place is a cue list with its selected cue, or the outputs with their
+	selected output.
 	Switching cue lists, *first* and *last* with or without a count, and
 	selecting a cue in another cue list are jumps, and so are the searches
 	described under *SEARCHING*.
+	So is showing the outputs, with the sidebar, the Edit outputs button, a
+	warning that names an output, or *next_list* past the last cue list, and
+	so is leaving them for a cue list, so that *back* from the outputs returns
+	to the cue list that showed, with the cue and the inspector tab that it had.
+	Where no jump recorded a place, as after opening a show with the outputs
+	shown, *back* from the outputs shows the cue list that was showing, with
+	its selected cue, and *forward* returns to the outputs.
 	Moving the selection one row at a time, clicking a cue of the cue list
 	shown, GO moving the standby cue, adding, deleting, and moving cues,
 	undo, redo, changing the tab, and the help page are not.
@@ -748,7 +912,10 @@ page.
 	A cue that was deleted leaves no place to go to.
 	The history holds at most 100 places, each once, and ends when cinq opens
 	another show or quits.
-	The status bar names the key while there is a place to go back to.
+	The status bar names the key and where it goes, as in *Control+o: back to
+	Main*, *back to cue 3*, or *back to the outputs*, with the name of a cue
+	list cut short where it is long, while there is a place to go back to, and
+	always while the outputs show.
 	The back button of the mouse does the same from the main window, unless the
 	help page is open.
 
@@ -794,6 +961,8 @@ page.
 *change_name*
 	Edit the name of the selected cue with all of it selected, so that typing
 	replaces it, as Vim's *c c* and *S* change a whole line.
+	In the cua keymap it is *F2*, which selects the name as a rename does in
+	desktop file managers.
 	Enter leaves the field with the name unchanged unless a key was typed.
 	Unlike in Vim, *c* is no operator, so only *c c* begins a change, and a *c*
 	before any other key is dropped with that key, as *TYPING* describes.
@@ -824,6 +993,8 @@ page.
 	A count adds that many cues in a row, at most a thousand, as one change
 	that undo takes back, and selects the last of them, as the cursor of Vim
 	goes to the last line that *3o* inserts.
+	The status bar then hints the key of *change_name*, which renames the cue,
+	before the key of *undo*, which gives way first when the bar is short.
 
 *add_above*
 	Add a cue of the kind chosen in the toolbar above the selection, or at the
@@ -896,6 +1067,10 @@ page.
 	Undoing an addition or a paste, of all the cues that a count made, selects
 	the cue that it went below or above, as the cursor of Vim goes back to
 	where the change was made.
+	The keys typed into a field during one visit to it are one change, and a
+	visit that the keyboard ends by leaving the field, or that a click or a move
+	to a field begins again, is a change of its own, as each stay in insert mode
+	is in Vim.
 
 *redo*
 	Redo the change undone last, or as many changes as the count, stopping at
@@ -939,6 +1114,9 @@ page.
 Problems with the file show among the warnings in the sidebar, each after
 *config.toml:*, or after *config.toml:3:* for a problem that lies on line 3 of
 the file, and the status bar counts them.
+The sidebar lists at most three warnings, of every kind, and a line below them
+says how many more there are, as in *and 5 more*, while the status bar keeps
+the whole count.
 Each time *cinq* reads the file, as it starts and after each change, it writes
 the problems to standard error as well, quoting the lines of the file around
 each problem that lies in a part of it, with that part marked.

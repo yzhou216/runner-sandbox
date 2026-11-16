@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Cutting, copying, and deleting the cues that a motion reaches, as `d`
+//! Cutting, copying, and deleting the rows that a motion reaches, as `d`
 //! and `y` do in Vim
 //!
-//! The motions are the actions that move the selection, and the cues are
-//! whole rows, from the selection to where the motion lands, inclusive.
+//! The motions are the actions that move the selection, and the rows are
+//! whole rows of the cue list, or of the outputs while they show, from the
+//! selection to where the motion lands, inclusive.
 
 use std::ops::RangeInclusive;
 
@@ -14,25 +15,28 @@ use crate::front::{App, keymap::Action};
 
 impl App {
     /// Applies `operator` to the rows that `motion` reaches and leaves the
-    /// selection on the first of them, or on the cue that takes its place
+    /// selection on the first of them, or on the row that takes its place
     /// when the operator takes the rows away.  Nothing happens without a
     /// selection, where the motion cannot move, or, for the operators that
     /// change the show, in show mode, which leaves copying alone as it does
     /// elsewhere.
     pub(super) fn across(self, operator: Action, motion: Action, count: Option<usize>) -> Self {
         let span = self
-            .selected_row()
+            .row()
             .filter(|_| self.editable() || operator == Action::Copy)
-            .and_then(|row| rows(motion, count, row, self.current().cues.len()));
+            .and_then(|row| rows(motion, count, row, self.row_count()));
         let Some(span) = span else {
             return self;
         };
         let rows = span.end() - span.start() + 1;
         let app = self.at_row(span.start() + 1);
-        match operator {
-            Action::Copy => app.with_copied(rows),
-            Action::Delete => app.without_selected(rows),
-            _ => app.cut(rows),
+        match (app.outputs_shown, operator) {
+            (false, Action::Copy) => app.with_copied(rows),
+            (false, Action::Delete) => app.without_selected(rows),
+            (false, _) => app.cut(rows),
+            (true, Action::Copy) => app.copied_outputs(rows),
+            (true, Action::Delete) => app.without_outputs(rows),
+            (true, _) => app.cut_outputs(rows),
         }
     }
 }

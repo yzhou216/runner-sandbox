@@ -18,11 +18,14 @@ with an empty cue list, named \texttt{untitled} until you save it.
 \section{Adding a cue}
 
 \begin{enumerate}
-\item Press \ui{Add cue} in the toolbar.  The list beside it sets the kind
-  of cue to add, \ui{Audio} by default.  The new cue has no file yet, so its
-  state reads \texttt{NO FILE}, and the sidebar shows a warning, as in
-  Figure~\ref{fig:added}.
-\item Press \ui{Choose} next to the \ui{File} field of the inspector, and
+\item Press \ui{Add cue} in the toolbar.  The list labeled \ui{New cue} sets
+  the kind of cue to add, \ui{Audio} by default.  The new cue has no file
+  yet, so its state reads \texttt{NO FILE}, and the sidebar shows a warning, as in
+  Figure~\ref{fig:added}.  The status bar names the key that renames the cue.
+\item Press \ui{Choose} next to the \ui{File} field of the inspector.  With
+  the keys, press \key{Tab} from the cue list, which goes first to the
+  fields of the inspector, until the \ui{File} field has the keyboard, and
+  press \key{Enter} in the empty field.  Then
   choose \texttt{rain.flac} in the \texttt{sounds} directory of your copy of
   the demo.  The cue takes the file's name, \texttt{rain}, and the warning
   disappears.
@@ -37,6 +40,7 @@ with an empty cue list, named \texttt{untitled} until you save it.
 \end{figure}
 
 GO skips a cue that cannot play, and clicking its warning selects it.  The
+sidebar lists three warnings at most and counts the rest.  The
 \ui{File} field also accepts a typed path, either absolute or relative to the
 show file's directory.
 

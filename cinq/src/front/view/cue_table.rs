@@ -11,6 +11,8 @@
 //! scroll, lines up with them.
 
 mod columns;
+#[cfg(test)]
+mod tests;
 
 use iced::{
     Element, Fill, Length, padding,
@@ -24,7 +26,7 @@ use strum::VariantArray;
 
 use super::{CUES, SELECTED, char_width, giving_way, marked_row};
 use crate::{
-    back::Cue,
+    back::{Cue, CueList, Workspace},
     front::{App, Message, keymap::Action},
 };
 use columns::{Column, state};
@@ -32,10 +34,31 @@ use columns::{Column, state};
 /// Width of the scroll bar, which the list leaves free at its right, so
 /// that the bar covers no text and the rows keep the width of the header
 /// with or without the bar
-const SCROLL_BAR: f32 = 10.0;
+/// Returns the texts of a cue that a search matches, which are those of the
+/// columns of the list apart from the waits, which are timings, and the
+/// state, which changes as the show runs, so that a search finds what the list
+/// shows of the cue, as Vim finds the text of a line
+pub(in crate::front) fn searchable(
+    workspace: &Workspace,
+    list: &CueList,
+    cue: &Cue,
+) -> Vec<String> {
+    [
+        Column::Number,
+        Column::Type,
+        Column::Name,
+        Column::Target,
+        Column::Action,
+        Column::Then,
+    ]
+    .map(|column| column.text(workspace, list, cue))
+    .to_vec()
+}
+
+pub(super) const SCROLL_BAR: f32 = 10.0;
 
 /// iced's own vertical padding of table cells
-const ROW_PADDING: f32 = 5.0;
+pub(super) const ROW_PADDING: f32 = 5.0;
 
 /// iced's own horizontal padding of table cells, which both tables set,
 /// since the widths of the columns count it
@@ -44,9 +67,9 @@ const CELL_PADDING: f32 = 10.0;
 /// Width of the line between columns, which both tables set as well
 const SEPARATOR: f32 = 1.0;
 
-const CELL_SPACE: f32 = 2.0 * CELL_PADDING + SEPARATOR;
+pub(super) const CELL_SPACE: f32 = 2.0 * CELL_PADDING + SEPARATOR;
 
-const RADIO: f32 = Radio::<Message>::DEFAULT_SIZE + Radio::<Message>::DEFAULT_SPACING;
+pub(super) const RADIO: f32 = Radio::<Message>::DEFAULT_SIZE + Radio::<Message>::DEFAULT_SPACING;
 
 /// Fewest columns of the font that the list keeps for a name before any
 /// column gives way
@@ -167,7 +190,7 @@ fn cell<'a>(app: &'a App, column: Column, cue: &'a Cue) -> Element<'a, Message> 
             .wrapping(Wrapping::WordOrGlyph)
             .into(),
         Column::State => {
-            let (state, style) = state(&app.workspace, list, cue);
+            let (state, style) = state(&app.workspace, list, cue, app.selected == Some(cue.id));
             text(state).style(style).into()
         }
         _ => text(column.text(&app.workspace, list, cue)).into(),

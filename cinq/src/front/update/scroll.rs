@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Scrolling the cue list so that the selected cue stays in view, along
+//! Scrolling the rows so that the selected row stays in view, along
 //! with a few rows around it
 //!
 //! The list measures the selected row as it is laid out, so a row that a
@@ -32,22 +32,34 @@ impl App {
     pub(super) fn revealed(self) -> (Self, Task<Message>) {
         // Scrolling moves the list away from the shape kept
         let app = self.remeasured();
-        let task = match app.selected_row() {
-            Some(0) => operation::snap_to(view::CUES, RelativeOffset::START),
-            Some(_) => operate(Measure::default()).discard(),
+        let (id, row) = (app.scrollable(), app.row());
+        let task = match row {
+            Some(0) => operation::snap_to(id, RelativeOffset::START),
+            Some(_) => operate(Measure::of(id)).discard(),
             None => Task::none(),
         };
-        let measure = app.measure_cues();
+        let measure = app.measure_rows();
         (app, task.chain(measure))
     }
 }
 
-#[derive(Default)]
 struct Measure {
+    /// Identity of the scrollable that holds the rows
+    scrollable: &'static str,
     /// Top of the list content, how far the list has scrolled, and the
     /// height of the part in view
     list: Option<(f32, f32, f32)>,
     row: Option<Rectangle>,
+}
+
+impl Measure {
+    fn of(scrollable: &'static str) -> Self {
+        Self {
+            scrollable,
+            list: None,
+            row: None,
+        }
+    }
 }
 
 impl Operation for Measure {
@@ -63,7 +75,7 @@ impl Operation for Measure {
         translation: Vector,
         _state: &mut dyn Scrollable,
     ) {
-        if id == Some(&Id::new(view::CUES)) {
+        if id == Some(&Id::new(self.scrollable)) {
             self.list = Some((content_bounds.y, translation.y, bounds.height));
         }
     }
@@ -84,20 +96,15 @@ impl Operation for Measure {
             height: row.height,
             margin,
         };
-        let offset = scrolling_to(span, scrolled, height);
-        sandbox!(
-            "revealed view={height} scrolled={scrolled} row_top={} row_height={} margin={margin} -> offset={offset:?}",
-            span.top,
-            span.height
-        );
-        let Some(offset) = offset else {
+        let Some(offset) = scrolling_to(span, scrolled, height) else {
             return Outcome::None;
         };
         let offset = AbsoluteOffset {
             x: None,
             y: Some(offset.max(0.0)),
         };
-        Outcome::Chain(Box::new(scrollable::scroll_to(Id::new(view::CUES), offset)))
+        let scrollable = Id::new(self.scrollable);
+        Outcome::Chain(Box::new(scrollable::scroll_to(scrollable, offset)))
     }
 }
 

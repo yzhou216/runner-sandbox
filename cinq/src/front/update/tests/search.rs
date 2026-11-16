@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Tests of searching the cues by name: matching, the row that a search
+//! Tests of searching the cues: matching, the row that a search
 //! starts from, wrapping, searching up the list, cancelling by Backspace and
 //! by Escape, no match, and the keys of GO and Panic, which still act over
 //! the search line
@@ -19,7 +19,7 @@ use crate::{
 /// five cues
 pub(super) fn show(selected: Option<CueId>) -> App {
     let cue =
-        |id: u32, number: &str, name: &str| Cue::new(CueId(id), number, Kind::Memo, name).build();
+        |id: u32, number: &str, name: &str| Cue::new(CueId(id), number, Kind::Fade, name).build();
     let cues = vec![
         cue(1, "1", "Storm opening"),
         cue(2, "2", "Rain loop"),

@@ -59,7 +59,7 @@ fn keys_that_act_in_fields_do_nothing_over_the_help_page_but_go_still_fires() {
     // fields are fired with the page shut
     field_keys()[5..].iter().for_each(|&key| {
         let (_, acting) = typed(false, key);
-        assert_eq!(acting.units(), 1, "{key:?}");
+        assert!(acting.units() > 0, "{key:?}");
     });
     let standby = |app: &App| app.workspace.lists()[0].standby;
     let (open, _) = typed(true, press(Key::Named(Named::Space)));

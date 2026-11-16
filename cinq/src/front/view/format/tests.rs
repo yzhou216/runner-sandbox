@@ -4,8 +4,8 @@
 
 //! Tests of the text that describes cues
 
-use super::{change, clipped, target};
-use crate::back::{Command, Cue, CueId, CueList, Kind, Place, Workspace};
+use super::{chain, change, clipped, target};
+use crate::back::{Advance, Command, Cue, CueId, CueList, Kind, Place, Workspace};
 
 #[test]
 fn target_goes_by_its_number_or_else_by_its_quoted_name() {
@@ -78,4 +78,31 @@ fn cut_cues_stay_cut_in_the_words_of_the_change_and_deleted_ones_stay_deleted() 
     assert_eq!(told(Command::Cut, &[1, 2]), "cut 2 cues");
     assert_eq!(told(Command::Delete, &[2]), "deleted cue 2");
     assert_eq!(told(Command::Delete, &[1, 2]), "deleted 2 cues");
+}
+
+#[test]
+fn a_chain_with_nothing_to_fire_says_so_and_names_each_cue_with_its_reason() {
+    let audio = |id: u32| {
+        Cue::new(CueId(id), id.to_string(), Kind::Audio, "Rain")
+            .advance(Advance::Continue)
+            .build()
+    };
+    let memo = Cue::new(CueId(3), "3", Kind::Memo, "Note").build();
+    let words = |cues: Vec<Cue>| {
+        let workspace = Workspace::new(vec![CueList::new("Main", cues)]);
+        let list = &workspace.lists()[0];
+        let standby = workspace
+            .cue(list.standby.expect("a standby cue"))
+            .expect("it exists");
+        chain(&workspace, list, standby)
+    };
+    assert_eq!(
+        words(vec![audio(1)]),
+        "GO fires nothing: cue 1 (no file set)"
+    );
+    assert_eq!(
+        words(vec![audio(1), audio(2)]),
+        "GO fires nothing: cue 1 (no file set), cue 2 (no file set)"
+    );
+    assert_eq!(words(vec![memo]), "GO fires 1 cue: 3");
 }

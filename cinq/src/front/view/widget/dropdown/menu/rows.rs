@@ -67,6 +67,7 @@ impl Intercept for Rows<'_> {
                 if row.is_some() && row != self.0.highlighted() =>
             {
                 highlight.set(row);
+                self.0.report(shell);
                 shell.request_redraw();
             }
             _ if pressed(event) && row.is_some() => self.0.pick(row, shell),

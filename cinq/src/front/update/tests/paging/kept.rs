@@ -24,17 +24,17 @@ use crate::{
 /// Returns the state once the list of twelve cues has been measured, as a
 /// view of five rows of twenty pixels
 fn measured_list(app: App) -> App {
-    let (list, cues) = (app.list, app.current().cues.len());
+    let (rows, count) = (app.rows(), app.current().cues.len());
     let shape = Shape {
         view: 100.0,
-        content: cues as f32 * 20.0,
+        content: count as f32 * 20.0,
         scrolled: 0.0,
     };
     let serial = app.measures.serial();
-    app.handled(Message::Measured(Measured::Cues {
+    app.handled(Message::Measured(Measured::Rows {
         serial,
-        list,
-        cues,
+        rows,
+        count,
         shape,
     }))
     .0

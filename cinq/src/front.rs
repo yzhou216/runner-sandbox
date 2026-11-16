@@ -25,9 +25,9 @@ use std::{
 
 use iced::{Size, window};
 
-use crate::back::{Audio, CueId, CueList, Kind, Video, Workspace};
+use crate::back::{Audio, CueId, CueList, Fault, Kind, OutputId, Video, Workspace};
 use keymap::{Press, config::Config};
-use message::{Caret, Focus, Message, Tab};
+use message::{Caret, Focus, Message, Setting, Tab};
 use update::{
     Clipboard, Clipped, History, Keeper, Measures, Reader, Search, Searched, Show, Stage,
 };
@@ -135,7 +135,8 @@ struct App {
     /// Way to read the unsaved changes kept for shows, if the platform has
     /// a directory to keep them in
     reader: Option<Reader>,
-    audio_error: Option<String>,
+    /// Why each output that cannot play cannot, by its identity
+    audio_problems: Vec<(OutputId, Fault)>,
     /// ID and name of each audio device, as they were listed last
     audio_devices: Vec<(String, String)>,
     /// Why the configuration file did not keep the audio device chosen
@@ -153,6 +154,13 @@ struct App {
     /// Level of a cue as the operator types it, which its field shows in
     /// place of the level until the operator does anything else
     typed_level: Option<(CueId, String)>,
+    /// Text of a setting as the operator types it, which its field shows in
+    /// place of the setting until the operator does anything else
+    typed: Option<(Setting, String)>,
+    /// Whether the outputs of the show show in place of the cue list
+    outputs_shown: bool,
+    /// Output that the inspector shows while the outputs show
+    output: Option<OutputId>,
     tab: Tab,
     /// Cues copied or cut, which pasting adds
     clipboard: Clipboard,
@@ -162,6 +170,10 @@ struct App {
     /// What the latest key found to say that is no change, such as an empty
     /// clipboard, until the operator does anything else
     remark: Option<&'static str>,
+    /// Why the text that the operator left in a field was not applied, which
+    /// the field forgets once the keyboard has left it, until the operator
+    /// does anything else
+    unapplied: Option<String>,
     /// Kind of cue that Add cue creates
     new_kind: Kind,
     /// Time of the last clock tick, or `None` while the clock is stopped
@@ -178,6 +190,16 @@ struct App {
     /// Whether the menu of a drop-down list is open, which the status bar
     /// hints the keys of
     menu: bool,
+    /// Whether a text field or a drop-down list has the keyboard, which the
+    /// status bar hints how to leave
+    held: bool,
+    /// Whether the File field of a cue has the keyboard, which the status bar
+    /// hints Enter for while it is empty
+    file_held: bool,
+    /// Whether the highlight of the open menu of the Device list of an
+    /// output rests on its default, which the Default device list of the
+    /// sidebar tells in color
+    default_highlighted: bool,
     /// Why the link that the help page opened last failed to open, which
     /// the page shows while it stays open
     link_problem: Option<String>,

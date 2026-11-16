@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 //! The history of places as a model, which knows nothing of the interface
-//! but whether a cue or a cue list is still there
+//! but whether a cue, a cue list, or an output is still there
 
 #[cfg(test)]
 mod tests;
 
-use crate::back::{CueId, Workspace};
+use crate::back::{CueId, OutputId, Workspace};
 
 /// Longest history, as in Vim
 const LIMIT: usize = 100;
@@ -16,19 +16,15 @@ const LIMIT: usize = 100;
 /// A place in the show.  A cue names its place by its identity, so that the
 /// place follows the cue as it moves between cue lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::front) enum Spot {
+pub enum Spot {
     Cue(CueId),
     /// Cue list with no selected cue, which only its index names
     List(usize),
-}
-
-impl Spot {
-    pub(in crate::front::update) fn cue(self) -> Option<CueId> {
-        match self {
-            Spot::Cue(id) => Some(id),
-            Spot::List(_) => None,
-        }
-    }
+    /// Output that the outputs view shows selected, which follows it as the
+    /// outputs move
+    Output(OutputId),
+    /// Outputs view with no selected output
+    Outputs,
 }
 
 /// Places that jumps left, the latest last, and the places that going back
@@ -80,10 +76,22 @@ impl History {
         Some((spot, Self { behind, ahead }.capped()))
     }
 
+    /// Remembers `here` as a place to go forward to, for a way back that no
+    /// jump recorded
+    pub(super) fn left(self, here: Spot) -> Self {
+        Self {
+            ahead: remembered(self.ahead, here),
+            ..self
+        }
+        .capped()
+    }
+
+    #[cfg(test)]
     pub(super) fn can_go_back(&self, here: Spot, alive: impl Fn(Spot) -> bool) -> bool {
         self.behind.iter().any(|&spot| spot != here && alive(spot))
     }
 
+    #[cfg(test)]
     pub(super) fn can_go_forward(&self, here: Spot, alive: impl Fn(Spot) -> bool) -> bool {
         self.ahead.iter().any(|&spot| spot != here && alive(spot))
     }
@@ -142,10 +150,13 @@ pub(super) fn shifted(
     Some((spot, from, to))
 }
 
-/// Returns whether the cue or the cue list that `spot` names is there
+/// Returns whether the cue, the cue list, or the output that `spot` names
+/// is there
 pub(super) fn alive(workspace: &Workspace, spot: Spot) -> bool {
     match spot {
         Spot::Cue(id) => workspace.list_of(id).is_some(),
         Spot::List(list) => list < workspace.lists().len(),
+        Spot::Output(id) => workspace.output(id).is_some(),
+        Spot::Outputs => true,
     }
 }

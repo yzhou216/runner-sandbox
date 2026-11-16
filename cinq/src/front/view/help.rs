@@ -60,12 +60,9 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         bound(keymap),
     )
     .padding_y(ROW_GAP);
-    let example = keymap
-        .key(Action::Next)
-        .map_or_else(String::new, |keys| format!(", as in 3 {keys}"));
     let operators = Some(keymap.operator_keys())
         .filter(|keys| !keys.is_empty())
-        .map(|keys| text(format!("After {}, a key that selects the next, previous, first, or last cue applies the action to the cues from the selection to where that key would move it.  A count before the operator, before the key, or both counts the move, and the two multiply.", keys.join(" or "))));
+        .map(|keys| text(format!("After {}, a key that selects the next, previous, first, or last cue or output applies the action to the cues or outputs from the selection to where that key would move it.  A count before the operator, before the key, or both counts the move, and the two multiply.", keys.join(" or "))));
     let key_values = paragraph(
         "The manual page cinq(5) describes config.toml, where keys go by their W3C UI Events key values, listed at ",
         link(KEY_VALUES, OsString::from(KEY_VALUES)),
@@ -74,11 +71,13 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
     );
     let page = column![
         text(format!("Keys of the {} keymap", keymap.name())).size(24),
+        text(first_steps(keymap)),
         bindings,
-        text(format!("A count typed before a key repeats a move{example}.  It goes that many places back or forward, undoes or redoes that many changes, copies, cuts, deletes, or adds that many cues, pastes that many times, goes that many matches along, scrolls that many rows, and goes that many pages down or up.  It picks the row for the first and last cue and for putting a row in place, the row in view for the top and bottom rows, and the tab for the next tab, and sets the rows of a half page.")),
+        text(counts(keymap)),
     ]
     .extend(operators.map(Element::from))
     .push(text("Actions that this keymap binds to no key are left out of the table, and cinq(5) lists them all."))
+    .push(text("The keys of a sequence are typed one after another with no Space between them, since Space is GO."))
     .push(text("The keys of GO and Panic act at once, even halfway through another command."))
     .push(source(&app.config.source))
     .push(key_values)
@@ -147,4 +146,33 @@ fn paragraph<'a, Link: Clone + 'static>(
 
 fn link<'a, Link>(label: impl IntoFragment<'a>, target: Link) -> Span<'a, Link> {
     span(label).link(target).color(theme::LINK).underline(true)
+}
+
+/// Tells in a few lines what to press first, with the keys of the keymap in
+/// use, since the table below puts the keys of scrolling before those that
+/// add and name a cue
+fn first_steps(keymap: &Keymap) -> String {
+    let key = |action| keymap.key(action).unwrap_or_else(|| "(no key)".to_owned());
+    format!(
+        "First steps: {go} is GO, which fires the standby cue, and {panic} is Panic, which stops everything.  {next} and {previous} move the selection, and {standby} puts the selected cue on standby.  {add} adds a cue below the selection, {name} names it, and {undo} undoes the last change.  The table lists every key, and cinq(5) describes the rest.",
+        go = key(Action::Go),
+        panic = key(Action::Panic),
+        next = key(Action::Next),
+        previous = key(Action::Previous),
+        standby = key(Action::Standby),
+        add = key(Action::AddBelow),
+        name = key(Action::ChangeName),
+        undo = key(Action::Undo),
+    )
+}
+
+/// Tells what a count typed before a key does, which is the same for the
+/// cues and the outputs that show in their place
+fn counts(keymap: &Keymap) -> String {
+    let example = keymap
+        .key(Action::Next)
+        .map_or_else(String::new, |keys| format!(", as in 3 {keys}"));
+    format!(
+        "A count typed before a key repeats a move{example}.  It goes that many places back or forward, undoes or redoes that many changes, copies, cuts, deletes, or adds that many cues or outputs, pastes that many times, goes that many matches along, scrolls that many rows, and goes that many pages down or up.  It picks the row for the first and last cue and for putting a row in place, the row in view for the top and bottom rows, and the tab for the next tab, and sets the rows of a half page."
+    )
 }

@@ -8,90 +8,135 @@
 //! stays the only record of what should be heard, so a sound that cannot
 //! start goes back to it as a file that cannot be played.  A thread of its
 //! own makes ready the sounds that runs may start next, so that GO waits on
-//! no file.  The sound of a video file plays from the file's sound track,
+//! no file.  A thread for each audio device opens it and tries again if it
+//! fails, so that a device that is slow to answer never stops the
+//! window.  The sound of a video file plays from the file's sound track,
 //! along with the silence that AAC encoders put around the sound, since the
 //! decoder reads no edit list, which marks that silence for players to
-//! skip.  The sound plays on the default audio device, or on the one that
-//! the configuration file names.
+//! skip.  Each cue plays on the outputs that it sends to, which play on
+//! channels of audio devices, as [`patch`] tells, and a [`mixer`] of
+//! cinq's own plays each device, since kira mixes in stereo alone.
 
 mod device;
+mod fault;
+mod feed;
+mod mixer;
+mod opener;
+mod opening;
+mod patch;
+mod play;
 mod preload;
+mod probes;
 #[cfg(test)]
 mod tests;
 mod voice;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path, time::Instant};
 
 use itertools::Itertools;
-use kira::{
-    AudioManager, AudioManagerSettings, DefaultBackend,
-    backend::cpal::CpalBackendSettings,
-    sound::{FromFileError, streaming::StreamingSoundData},
-    track::MainTrackBuilder,
-};
+use kira::sound::{FromFileError, streaming::StreamingSoundData};
 
-use super::{
-    Active, Clip, Command, Cue, CueId, Problem, Workspace,
-    load::{unplayable, unreadable},
-};
+use super::{CueId, OutputId, Workspace, load::unreadable};
 pub use device::devices;
+pub use fault::Fault;
+use mixer::Mixer;
+use opener::Opener;
+use patch::Patch;
 use preload::{Ask, Preloader, Wanted};
-use voice::Voice;
+use probes::Probes;
+use voice::{Mixers, Voice};
 
 /// Endings of the names of the sound files that the sound output plays,
 /// which the features of kira in `Cargo.toml` decide
 pub const SOUND_FILES: [&str; 5] = ["flac", "m4a", "mp3", "ogg", "wav"];
-
-/// Sounds that can play at once.  kira refuses a sound past them, which
-/// cinq takes for a broken file, so there are far more than kira's 128 and
-/// than any show plays at once.
-const SOUNDS: usize = 1024;
 
 /// Seconds before a sound starts that it is made ready, unless the
 /// configuration file sets another number
 pub const READY_AHEAD: f64 = 10.0;
 
 pub struct Audio {
-    output: Result<AudioManager, String>,
-    /// ID of the audio device that the output was asked to open, or none
-    /// for the default device
-    device: Option<String>,
+    /// ID of the device that outputs on the default device play on, or none
+    /// for the default device of the system
+    default: Option<String>,
+    /// Where the outputs play, as the mixers opened for them
+    patch: Patch,
+    mixers: Mixers,
+    /// Thread that opens the devices, which answers once each is open
+    opener: Opener,
     voices: HashMap<CueId, Voice>,
     preloader: Preloader,
+    /// When a device last answered an open, from which the devices that
+    /// failed are tried again
+    tried: Instant,
+    /// When to look at the devices that have fewer channels than needed
+    probes: Probes,
 }
 
 impl Audio {
-    /// Opens the audio device whose ID is `device`, or the default audio
-    /// device without one.  Without a device to open, the workspace still
-    /// runs and files still load, but nothing is heard.
-    pub fn open(device: Option<&str>) -> Self {
+    /// Plays the outputs on the default device on the device whose ID is
+    /// `default`, or on the default device of the system without one.  The
+    /// devices open as the first sync learns the outputs.  Without a device
+    /// to open, the workspace still runs and files still load, but nothing
+    /// is heard.
+    pub fn open(default: Option<&str>) -> Self {
         Self {
-            output: output(device),
-            device: device.map(str::to_owned),
+            default: default.map(str::to_owned),
+            patch: Patch::default(),
+            mixers: HashMap::new(),
+            opener: Opener::new(),
             voices: HashMap::new(),
             preloader: Preloader::new(),
+            tried: Instant::now(),
+            probes: Probes::default(),
         }
     }
 
-    /// Opens the audio device whose ID is `device`, or the default one
-    /// without it, unless the sound plays on it already.  An output that
-    /// failed to open tries again, so that a device plugged in since can
-    /// be reached.  The sounds that play end with the old output, and the
-    /// next sync starts them on the new one from where they are.  The sounds
-    /// made ready ahead are made again, or a cue that plays and that the
-    /// next GO fires again would start over from the sound made ready for
-    /// that GO.
-    pub fn route(&mut self, device: Option<&str>) {
-        if self.output.is_err() || self.device.as_deref() != device {
-            *self = Self::open(device);
+    /// Plays the outputs on the default device on the device whose ID is
+    /// `default`, unless they play there already.  The sounds that play end
+    /// with the old devices, and the next sync starts them on the new ones
+    /// from where they are.  The sounds made ready ahead are made again, or
+    /// a cue that plays and that the next GO fires again would start over
+    /// from the sound made ready for that GO.
+    pub fn route(&mut self, default: Option<&str>) {
+        if self.default.as_deref() != default {
+            self.default = default.map(str::to_owned);
+            self.patch = Patch::default();
+            self.voices.clear();
+            self.preloader = Preloader::new();
+            // Old streams close first, which frees a device that a new one
+            // may open again
+            self.mixers.clear();
+            // The threads of the devices go on, so that none opens one
+            // device twice at once
+            self.opener.restart();
+            self.probes.clear();
+            self.tried = Instant::now();
         }
     }
 
-    pub fn error(&self) -> Option<&str> {
-        self.output.as_ref().err().map(String::as_str)
+    /// Returns why each output that cannot play cannot: its device is not
+    /// there, cannot be opened, does not answer, or has stopped, or its
+    /// channels lie past those of the device.  An output whose device is
+    /// being opened for the first time tells nothing until the device
+    /// answers, or for five seconds.
+    pub fn problems(&self) -> Vec<(OutputId, Fault)> {
+        self.patch
+            .outputs()
+            .iter()
+            .filter_map(|patched| {
+                if self.opener.unanswered(&patched.key) {
+                    return Some((patched.id, Fault::Unanswered));
+                }
+                let fault = match self.mixers.get(&patched.key)? {
+                    Err(fault) => fault.clone(),
+                    Ok(mixer) => mixer.failure().map(Fault::Stopped).or_else(|| {
+                        let channels = mixer.channels();
+                        (patched.channels.needs() > channels).then_some(Fault::Channels(channels))
+                    })?,
+                };
+                Some((patched.id, fault))
+            })
+            .collect()
     }
 
     /// Makes the sound match the workspace, and returns the workspace with
@@ -99,88 +144,19 @@ impl Audio {
     /// start soon are made ready once those that start now have taken
     /// theirs, unless there is no audio device to hear them on.
     pub fn sync(&mut self, workspace: Workspace, ahead: f64) -> Workspace {
+        self.patched(Patch::of(workspace.outputs(), &self.default));
+        self.arrived();
+        self.revived();
         self.preloader.collect();
+        self.mixers
+            .values_mut()
+            .filter_map(|mixer| mixer.as_mut().ok())
+            .for_each(Mixer::collect);
         let failures = self.play(&workspace);
-        if self.output.is_ok() {
+        if self.mixers.values().any(Result::is_ok) {
             self.preloader.want(upcoming(&workspace, ahead));
         }
         failures.into_iter().fold(workspace, Workspace::apply)
-    }
-
-    fn play(&mut self, workspace: &Workspace) -> Vec<Command> {
-        let Ok(manager) = &mut self.output else {
-            return Vec::new();
-        };
-        let preloader = &mut self.preloader;
-        let sounding: HashMap<CueId, (&Cue, &Active, Clip)> = workspace
-            .active()
-            .iter()
-            .filter_map(|active| {
-                let cue = workspace.cue(active.id)?;
-                Some((cue.id, (cue, active, active.sound()?)))
-            })
-            .collect();
-        // Voices that play on, and those whose cue has stopped or which GO
-        // has fired again
-        let (mut kept, ended): (HashMap<_, _>, HashMap<_, _>) = std::mem::take(&mut self.voices)
-            .into_iter()
-            .partition(|(id, voice)| {
-                sounding
-                    .get(id)
-                    .is_some_and(|(_, active, _)| active.run == voice.run)
-            });
-        ended.into_values().for_each(Voice::stop);
-        let (voices, failures): (_, Vec<Command>) = sounding
-            .into_iter()
-            .map(|(id, (cue, active, clip))| {
-                let voice = match kept.remove(&id) {
-                    Some(voice) => Ok(voice),
-                    None => started(manager, preloader, workspace.path(cue), active, clip),
-                };
-                voice
-                    .map(|voice| (id, voice.followed(active)))
-                    .map_err(|reason| unplayable(cue, reason))
-            })
-            .partition_result();
-        self.voices = voices;
-        let heard = self
-            .voices
-            .iter()
-            .filter_map(|(&id, voice)| voice.heard(workspace.active_of(id)?));
-        failures.into_iter().chain(heard).collect()
-    }
-}
-
-fn output(device: Option<&str>) -> Result<AudioManager, String> {
-    let found = device.map(device::find).transpose()?;
-    AudioManager::<DefaultBackend>::new(AudioManagerSettings {
-        backend_settings: CpalBackendSettings {
-            device: found,
-            ..CpalBackendSettings::default()
-        },
-        main_track_builder: MainTrackBuilder::new().sound_capacity(SOUNDS),
-        ..AudioManagerSettings::default()
-    })
-    .map_err(|error| match device {
-        Some(id) => format!("cannot play on {id}: {error}"),
-        None => error.to_string(),
-    })
-}
-
-fn started(
-    manager: &mut AudioManager,
-    preloader: &mut Preloader,
-    path: Option<PathBuf>,
-    active: &Active,
-    clip: Clip,
-) -> Result<Voice, String> {
-    let path = path.ok_or_else(|| Problem::NoFile.to_string())?;
-    let wanted = Wanted { path, clip };
-    match preloader.take(active.id, &wanted) {
-        Some(Ok(sound)) => Voice::start(manager, sound, active),
-        // Sound that could not be made ready, whose file may have come back
-        // since
-        _ => Voice::open(manager, &wanted.path, active, clip),
     }
 }
 

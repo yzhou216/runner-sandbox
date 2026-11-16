@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! The last measures of the cue list and of the help page
+//! The last measures of the rows in the main window and of the help page
 //!
 //! Measuring goes through the widget tree and so comes back a frame late.
 //! Page keys that follow one another within that frame would each read the
@@ -24,17 +24,17 @@ use super::{
     Landing, measured,
     viewport::{Shape, Viewport},
 };
-use crate::front::{App, Message, view};
+use crate::front::{App, Message, update::Rows, view};
 
 /// What a measure found, which the answer to it brings back
 #[derive(Debug, Clone)]
 pub enum Measured {
-    /// Shape of the cue list, as the measure numbered `serial` found it, for
-    /// the list and the number of cues that it held
-    Cues {
+    /// Shape of the rows, as the measure numbered `serial` found it, for
+    /// the rows and the number of them that it held
+    Rows {
         serial: u64,
-        list: usize,
-        cues: usize,
+        rows: Rows,
+        count: usize,
         shape: Shape,
     },
     /// Height of the help page in view
@@ -44,7 +44,7 @@ pub enum Measured {
 /// What the app keeps of the latest measures
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Measures {
-    cues: Option<Kept>,
+    rows: Option<Kept>,
     /// Height of the part of the help page in view
     help: Option<f32>,
     /// Height of the main window, to take the help page as tall as it
@@ -62,50 +62,33 @@ impl Measures {
     }
 }
 
-/// Shape of the cue list that was measured, for the list and the number of
-/// cues that it held, since another list or a change in the number of its
-/// rows makes the measure out of date
+/// Shape of the rows that were measured, for the rows and the number of them
+/// that they held, since other rows or a change in their number makes the
+/// measure out of date
 #[derive(Debug, Clone, Copy)]
 struct Kept {
-    list: usize,
-    cues: usize,
+    rows: Rows,
+    count: usize,
     shape: Shape,
 }
 
 impl App {
-    /// Lands as `land` tells for the cue list: at once on the shape kept,
-    /// which then scrolls to where the landing puts it, or after measuring
-    /// the list when nothing is kept.  `arrive` makes the message that
-    /// selects the row of the landing.  Either way the list is measured
+    /// Lands as `land` tells for the rows in view: at once on the shape
+    /// kept, which then scrolls to where the landing puts it, or after
+    /// measuring the rows when nothing is kept.  `arrive` makes the message
+    /// that selects the row of the landing.  Either way the rows are measured
     /// again after the scroll.
     pub(in crate::front::update) fn landing(
         self,
         arrive: impl Fn(usize) -> Message + Send + 'static,
         land: impl Fn(Shape) -> Option<Landing> + Send + 'static,
     ) -> (Self, Task<Message>) {
-        let land = move |shape: Shape| {
-            let landing = land(shape);
-            if let Some(landing) = &landing {
-                sandbox!(
-                    "measured view={} content={} scrolled={} -> offset={} row={}",
-                    shape.view,
-                    shape.content,
-                    shape.scrolled,
-                    landing.offset,
-                    landing.row + 1
-                );
-            }
-            landing
-        };
-        let (list, cues) = (self.list, self.current().cues.len());
-        let kept = self
-            .measures
-            .cues
-            .filter(|kept| (kept.list, kept.cues) == (list, cues));
+        let id = self.scrollable();
+        let kept = self.measures.rows.filter(|kept| self.fits(*kept));
         let app = self.remeasured();
-        let measure = app.measure_cues();
+        let measure = app.measure_rows();
         let Some(kept) = kept else {
-            return (app, measured(arrive, land).chain(measure));
+            return (app, measured(id, arrive, land).chain(measure));
         };
         let Some(landing) = land(kept.shape) else {
             return (app, Task::none());
@@ -116,21 +99,26 @@ impl App {
         };
         let (app, _) = Self {
             measures: Measures {
-                cues: Some(Kept { shape, ..kept }),
+                rows: Some(Kept { shape, ..kept }),
                 ..app.measures
             },
             ..app
         }
         .handled(arrive(landing.row));
-        (app, scroll(landing.offset).chain(measure))
+        (app, scroll(id, landing.offset).chain(measure))
     }
 
-    /// Returns the state with the kept measure of the cue list out of date,
-    /// and the answers to the measures asked for before it too
+    /// Returns whether a measure holds for the rows in view now
+    fn fits(&self, kept: Kept) -> bool {
+        (kept.rows, kept.count) == (self.rows(), self.row_count())
+    }
+
+    /// Returns the state with the kept measure of the rows out of date, and
+    /// the answers to the measures asked for before it too
     pub(in crate::front::update) fn remeasured(self) -> Self {
         Self {
             measures: Measures {
-                cues: None,
+                rows: None,
                 serial: self.measures.serial.wrapping_add(1),
                 ..self.measures
             },
@@ -138,22 +126,22 @@ impl App {
         }
     }
 
-    /// Returns whether the cue list is in view with no measure kept that fits
-    /// it, which the next drawing of the main window measures
+    /// Returns whether the rows are in view with no measure kept that fits
+    /// them, which the next drawing of the main window measures
     pub(in crate::front::update) fn unmeasured(&self) -> bool {
-        let fits = |kept: Kept| (kept.list, kept.cues) == (self.list, self.current().cues.len());
-        self.main.is_some() && !self.help && !self.measures.cues.is_some_and(fits)
+        let fits = |kept: Kept| self.fits(kept);
+        self.main.is_some() && !self.help && !self.measures.rows.is_some_and(fits)
     }
 
-    /// Measures the cue list, whose answer keeps the measure unless another
+    /// Measures the rows, whose answer keeps the measure unless another
     /// measure has been asked for since
-    pub(in crate::front::update) fn measure_cues(&self) -> Task<Message> {
-        let (serial, list, cues) = (self.measures.serial, self.list, self.current().cues.len());
-        operate(Viewport::of(view::CUES)).map(move |shape| {
-            Message::Measured(Measured::Cues {
+    pub(in crate::front::update) fn measure_rows(&self) -> Task<Message> {
+        let (serial, rows, count) = (self.measures.serial, self.rows(), self.row_count());
+        operate(Viewport::of(self.scrollable())).map(move |shape| {
+            Message::Measured(Measured::Rows {
                 serial,
-                list,
-                cues,
+                rows,
+                count,
                 shape,
             })
         })
@@ -162,22 +150,16 @@ impl App {
     pub(in crate::front::update) fn with_measure(
         self,
         serial: u64,
-        list: usize,
-        cues: usize,
+        rows: Rows,
+        count: usize,
         shape: Shape,
     ) -> Self {
-        sandbox!(
-            "measure view={} content={} scrolled={}",
-            shape.view,
-            shape.content,
-            shape.scrolled
-        );
         if serial != self.measures.serial {
             return self;
         }
         Self {
             measures: Measures {
-                cues: Some(Kept { list, cues, shape }),
+                rows: Some(Kept { rows, count, shape }),
                 ..self.measures
             },
             ..self
@@ -215,10 +197,10 @@ impl App {
     }
 }
 
-/// Scrolls the cue list to `offset`
-pub(super) fn scroll(offset: f32) -> Task<Message> {
+/// Scrolls the scrollable of the rows to `offset`
+pub(super) fn scroll(id: &'static str, offset: f32) -> Task<Message> {
     operation::scroll_to(
-        view::CUES,
+        id,
         AbsoluteOffset {
             x: None,
             y: Some(offset),

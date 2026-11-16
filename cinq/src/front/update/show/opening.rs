@@ -88,9 +88,11 @@ impl App {
             ..self
         };
         let opened = match kept {
-            Ok(Some(kept)) if kept.show(opened.show.directory()) != opened.show.saved => {
-                opened.send(Command::Restore(kept.lists().to_vec()))
-            }
+            Ok(Some(kept)) if kept.show(opened.show.directory()) != opened.show.saved => opened
+                .send(Command::Restore(
+                    kept.lists().to_vec(),
+                    kept.outputs().to_vec(),
+                )),
             Ok(_) => opened,
             Err(problem) => Self {
                 file_problem: Some(format!(

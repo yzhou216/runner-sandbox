@@ -87,6 +87,12 @@ impl Preloader {
         });
     }
 
+    /// Returns whether a sound is ready for `cue`, to start without waiting
+    #[cfg(test)]
+    pub(super) fn ready(&self, cue: CueId) -> bool {
+        self.ready.contains_key(&cue)
+    }
+
     /// Takes the sound made ready for `cue`, or why it could not be made,
     /// if it is the one that the cue wants now.  A sound made for another
     /// file or clip is let go.

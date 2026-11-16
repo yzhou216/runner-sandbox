@@ -15,6 +15,33 @@ use crate::{
     front::{App, Message},
 };
 
+/// Returns whether `message` reports something that happened without the
+/// operator, which changes nothing that the operator was in the middle of,
+/// and moves no keyboard
+pub(super) fn passive(message: &Message) -> bool {
+    matches!(
+        message,
+        Message::Tick(_)
+            | Message::Loaded(..)
+            | Message::Recheck
+            | Message::Rechecked(..)
+            | Message::LinkOpened(_)
+            | Message::AudioDevicesListed(_)
+            | Message::AudioDeviceKept(_)
+            | Message::Saved(_)
+            | Message::SearchSettled
+            | Message::Resized(..)
+            | Message::WindowFocused(_)
+            | Message::Held(_)
+            | Message::FileHeld(_)
+            | Message::Landed { .. }
+            | Message::Measured(_)
+            | Message::Remeasure
+            | Message::Drawn(_)
+            | Message::Reached { .. }
+    )
+}
+
 impl App {
     pub(super) fn with_task(
         self,
@@ -46,64 +73,52 @@ impl App {
     /// Anything the operator does other than typing drops a command typed
     /// halfway, so that a stray `d` cannot wait through a click and an edit
     /// to delete a cue.  A level typed so far gives way to the level of its
-    /// cue as well, apart from a click, which can land in its own field.  A
-    /// link that failed to open is forgotten once the help page that holds
+    /// cue as well, apart from a click, which can land in its own field.  The
+    /// channels typed into the field of an output apply once it is left, or at
+    /// any click, so that no key after a click, GO included, opens a device.
+    /// A link that failed to open is forgotten once the help page that holds
     /// it closes.
     pub(super) fn next(self, message: Message) -> (Self, Task<Message>) {
-        let passive = matches!(
-            message,
-            Message::Tick(_)
-                | Message::Loaded(..)
-                | Message::Recheck
-                | Message::Rechecked(..)
-                | Message::LinkOpened(_)
-                | Message::AudioDevicesListed(_)
-                | Message::AudioDeviceKept(_)
-                | Message::Saved(_)
-                | Message::SearchSettled
-                | Message::Resized(..)
-                | Message::WindowFocused(_)
-                | Message::Landed { .. }
-                | Message::Measured(_)
-                | Message::Remeasure
-                | Message::Drawn(_)
-                | Message::Reached { .. }
-        );
+        let passive = passive(&message);
         let typing = passive || matches!(message, Message::Typed { .. });
         let clicked = matches!(message, Message::Clicked);
-        let app = Self {
-            keys: if typing { self.keys } else { Vec::new() },
-            clipped: self.clipped.filter(|_| typing),
-            remark: self.remark.filter(|_| typing),
-            typed_level: self.typed_level.filter(|_| passive || clicked),
-            ..self
+        // Typing into a field keeps its text, which the operator leaves with
+        // anything else, Enter included
+        let in_field = matches!(message, Message::SettingTyped(..));
+        let kept = passive || clicked || in_field;
+        // A field that the keyboard enters or leaves ends the run of edits to its
+        // text, so that each visit makes a change of its own to undo, as each
+        // stay in insert mode does in Vim
+        let ends = matches!(message, Message::Focus(_) | Message::Clicked)
+            || (matches!(message, Message::Held(false)) && self.held);
+        let this = if ends {
+            self.send(Command::EndRun)
+        } else {
+            self
         };
-        let shown = format!("{message:?}");
-        let moved = matches!(message, Message::Landed { .. } | Message::Reached { .. });
+        // Field that the keyboard leaves takes its rejected text with it, so
+        // that the status bar tells the reason, which the field no longer does
+        let unapplied = (!kept).then(|| this.unapplied()).flatten();
+        let app = if passive || in_field {
+            this
+        } else {
+            this.settled()
+        };
+        let app = Self {
+            keys: if typing { app.keys } else { Vec::new() },
+            clipped: app.clipped.filter(|_| typing),
+            remark: app.remark.filter(|_| typing),
+            unapplied: app.unapplied.filter(|_| typing),
+            typed_level: app.typed_level.filter(|_| passive || clicked),
+            typed: app.typed.filter(|_| kept),
+            ..app
+        };
         let (app, task) = app.handled(message);
         let app = Self {
             link_problem: app.link_problem.filter(|_| app.help),
+            unapplied: unapplied.or(app.unapplied),
             ..app
         };
-        if !passive || moved {
-            sandbox!(
-                "update {} | list={} rows={} selected_row={:?} selected_id={:?} keys={:?} help={} menu={} new_kind={:?} search={:?} clipped={:?} remark={:?}",
-                shown.chars().take(100).collect::<String>(),
-                app.list + 1,
-                app.current().cues.len(),
-                app.selected_row().map(|row| row + 1),
-                app.selected,
-                app.keys,
-                app.help,
-                app.menu,
-                app.new_kind,
-                app.search
-                    .as_ref()
-                    .map(|search| (search.text.clone(), search.backward)),
-                app.clipped.as_ref().map(|clipped| clipped.told.clone()),
-                app.remark,
-            );
-        }
         (app, task)
     }
 }

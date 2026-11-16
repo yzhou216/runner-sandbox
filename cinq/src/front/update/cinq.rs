@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use iced::{Element, Subscription, Task, window};
 
-use super::{Keeper, device, show};
+use super::{Keeper, device, dispatch::passive, keyboard::held, show};
 use crate::{
     back::{Audio, Video},
     front::{App, Cinq, MAIN_SIZE, Message, keymap, view, window_settings},
@@ -30,7 +30,7 @@ impl Cinq {
         let cinq = Self {
             app: App {
                 main: Some(main),
-                audio_error: audio.error().map(str::to_owned),
+                audio_problems: audio.problems(),
                 config,
                 reader: reader.clone(),
                 ..App::default()
@@ -61,6 +61,9 @@ impl Cinq {
             message,
             Message::Reconfigured(_) | Message::ChooseAudioDevice(_)
         );
+        // Whatever the operator does can move the keyboard between fields,
+        // which only the widgets know
+        let asking = (!passive(&message)).then(held);
         let (app, task) = std::mem::take(&mut self.app).next(message);
         if routed {
             self.audio.route(app.config.sound.device.as_deref());
@@ -71,7 +74,7 @@ impl Cinq {
         let kept = self.keeper.keep(&app.show);
         let app = App {
             stage: app.stage.with_pictures(&workspace, pictures).with_due(due),
-            audio_error: self.audio.error().map(str::to_owned),
+            audio_problems: self.audio.problems(),
             workspace,
             ..app
         }
@@ -80,7 +83,7 @@ impl Cinq {
         let (app, load) = app.load();
         let (app, stage) = app.staged();
         self.app = app;
-        Task::batch([task, load, stage])
+        Task::batch([task, load, stage].into_iter().chain(asking))
     }
 
     pub(in crate::front) fn view(&self, window: window::Id) -> Element<'_, Message> {

@@ -18,6 +18,9 @@ use iced::{
     widget::operation::{self, AbsoluteOffset, RelativeOffset},
 };
 
+use super::{
+    focus_order::move_focus, reveal_focused::reveal_focused, select_focused::select_focused,
+};
 use crate::front::{
     App, Caret, Focus, Message, Tab,
     keymap::{Action, KeyPress, Press},
@@ -27,17 +30,12 @@ use crate::front::{
 impl App {
     pub(super) fn typed(self, press: Press, repeat: bool) -> (Self, Task<Message>) {
         let outcome = self.config.keymap.parse(&self.keys, press);
-        sandbox!(
-            "press {press:?} repeat={repeat} -> action={:?} pending={:?} across={:?}",
-            outcome.action,
-            outcome.pending,
-            outcome.across()
-        );
         let across = outcome.across();
         let app = Self {
             keys: outcome.pending,
             clipped: self.clipped.filter(|_| outcome.action.is_none()),
             remark: self.remark.filter(|_| outcome.action.is_none()),
+            unapplied: self.unapplied.filter(|_| outcome.action.is_none()),
             ..self
         };
         if let Some((operator, motion, count)) = across {
@@ -104,32 +102,31 @@ impl App {
         (app, Task::batch([reveal, operate(focusable::unfocus())]))
     }
 
-    /// Editing the name shows the Basics tab, which holds the Name field.  No
-    /// field takes the keyboard while the stage window has it, since the
-    /// keys typed there would never reach the field.
+    /// Editing the name shows the Basics tab, which holds the Name field, or
+    /// the Name field of the output while the outputs show.  No field takes
+    /// the keyboard while the stage window has it, since the keys typed there
+    /// would never reach the field.
     pub(super) fn focused(self, focus: Focus) -> (Self, Task<Message>) {
         match focus {
             Focus::Name(_) | Focus::Next | Focus::Previous if self.stage.has_keyboard() => {
                 (self, Task::none())
             }
+            Focus::Name(caret)
+                if self.outputs_shown && self.editable() && self.output.is_some() =>
+            {
+                (self, in_field(view::OUTPUT_NAME, caret))
+            }
+            Focus::Name(_) if self.outputs_shown => (self, Task::none()),
             Focus::Name(caret) if self.editable() && self.selected.is_some() => (
                 Self {
                     tab: Tab::Basics,
                     ..self
                 },
-                match caret {
-                    // Focusing puts the caret at the end, as Vim's `A` does
-                    Caret::End => operation::focus(view::NAME),
-                    Caret::Start => operation::focus(view::NAME)
-                        .chain(operation::move_cursor_to_front(view::NAME)),
-                    Caret::All => {
-                        operation::focus(view::NAME).chain(operation::select_all(view::NAME))
-                    }
-                },
+                in_field(view::NAME, caret),
             ),
             Focus::Name(_) => (self, Task::none()),
-            Focus::Next => (self.without_search(), operation::focus_next()),
-            Focus::Previous => (self.without_search(), operation::focus_previous()),
+            Focus::Next => (self.without_search(), reached(move_focus(false))),
+            Focus::Previous => (self.without_search(), reached(move_focus(true))),
             Focus::Cues => (self, operate(focusable::unfocus())),
         }
     }
@@ -138,15 +135,25 @@ impl App {
 /// Reads a key that no widget captured, with Shift applied, so that Shift
 /// and `g` make `G`
 pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
-    if let keyboard::Event::KeyPressed {
-        key,
-        modified_key,
-        modifiers,
-        ..
-    } = &event
-    {
-        sandbox!("raw key={key:?} modified={modified_key:?} modifiers={modifiers:?}");
-    }
     let KeyPress { press, repeat, .. } = KeyPress::of(&event)?;
     press.map(|press| Message::Typed { press, repeat })
+}
+
+/// Selects the text of the field that a move by key reached, so that typing
+/// replaces it as in desktop programs, while a click keeps the caret where
+/// it fell, and scrolls the sends or the sidebar to show the field if it is
+/// in one of them
+fn reached(moved: Task<Message>) -> Task<Message> {
+    moved.chain(select_focused()).chain(reveal_focused())
+}
+
+/// Focuses the text field `id`, with the caret where the operator asked for
+/// it
+fn in_field(id: &'static str, caret: Caret) -> Task<Message> {
+    match caret {
+        // Focusing puts the caret at the end, as Vim's `A` does
+        Caret::End => operation::focus(id),
+        Caret::Start => operation::focus(id).chain(operation::move_cursor_to_front(id)),
+        Caret::All => operation::focus(id).chain(operation::select_all(id)),
+    }
 }

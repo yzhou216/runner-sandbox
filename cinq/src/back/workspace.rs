@@ -12,7 +12,8 @@
 //! live in [`playback`] and [`stopping`], those that change the cue lists
 //! in [`editing`] and [`pasting`], undo and redo in [`history`], show files
 //! in [`show`], the places of the files of cues in [`files`], and why cues
-//! cannot play in [`problems`].
+//! cannot play in [`problems`], and the cues that send to no output in
+//! [`stranded`].
 
 mod active;
 mod command;
@@ -20,11 +21,13 @@ mod editing;
 mod files;
 mod history;
 mod numbering;
+mod outputs;
 mod pasting;
 mod playback;
 mod problems;
 mod show;
 mod stopping;
+mod stranded;
 #[cfg(test)]
 pub(super) mod tests;
 
@@ -35,17 +38,22 @@ pub use command::{Command, Place};
 pub use history::{Change, Turn};
 
 use crate::back::{
-    Cue, CueId, CueList,
+    Cue, CueId, CueList, Output, OutputId,
     items::{replaced, replaced_where},
 };
 use history::History;
 
-/// Show as a whole, with its cue lists, running cues, and editing lock
+/// Show as a whole, with its cue lists, outputs, running cues, and editing
+/// lock
 ///
-/// A show always holds at least one cue list, which the front end shows.
+/// A show always holds at least one cue list, which the front end shows,
+/// and at least one output.
 #[derive(Debug, Clone)]
 pub struct Workspace {
     lists: Vec<CueList>,
+    outputs: Vec<Output>,
+    /// Identity that the next added output receives
+    next_output: u32,
     active: Vec<Active>,
     /// Lock on editing during a performance, which leaves playback alone
     show_mode: bool,
@@ -88,6 +96,8 @@ impl Workspace {
         Self {
             next_id: next_id(&lists),
             lists,
+            outputs: vec![Output::main(OutputId(1))],
+            next_output: 2,
             active: Vec::new(),
             show_mode: false,
             next_run: 0,
@@ -180,6 +190,7 @@ impl Workspace {
             Command::ShowMode(show_mode) => Self { show_mode, ..self },
             Command::Heard { cue, run, played } => self.heard(cue, run, played),
             Command::Loaded { cue, file, media } => self.loaded(cue, &file, media),
+            Command::EndRun => self.run_ended(),
             Command::Undo => self.undone(),
             Command::Redo => self.redone(),
             Command::Add {
@@ -193,7 +204,18 @@ impl Workspace {
             Command::Cut(ids) => self.deleted(&ids, true),
             Command::Move { cue, by } => self.moved(cue, by),
             Command::Edit(id, edit) => self.edited(id, edit),
-            Command::Restore(lists) => self.restored(lists),
+            Command::Restore(lists, outputs) => self.restored(lists, outputs),
+            Command::AddOutput { at, count, anchor } => self.added_output(at, count, anchor),
+            Command::DeleteOutputs(ids) => self.deleted_outputs(&ids, false),
+            Command::CutOutputs(ids) => self.deleted_outputs(&ids, true),
+            Command::PasteOutputs {
+                at,
+                outputs,
+                restore,
+                anchor,
+            } => self.pasted_outputs(at, outputs, restore, anchor),
+            Command::MoveOutput { output, by } => self.moved_output(output, by),
+            Command::EditOutput(id, edit) => self.edited_output(id, edit),
         }
     }
 

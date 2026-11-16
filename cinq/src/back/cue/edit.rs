@@ -8,6 +8,7 @@
 mod tests;
 
 use super::{Advance, Cue, CueId, Seconds};
+use crate::back::output::Sends;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Edit {
@@ -32,6 +33,9 @@ pub enum Edit {
     /// Level in dB
     Level(f32),
     StopTarget(bool),
+    /// Levels at which the cue sends to outputs, or none for the first
+    /// output at 0 dB
+    Sends(Option<Sends>),
 }
 
 impl Cue {
@@ -54,6 +58,7 @@ impl Cue {
             Edit::PostWait(post_wait) => Self { post_wait, ..self },
             Edit::Advance(advance) => Self { advance, ..self },
             Edit::Level(level) => Self { level, ..self },
+            Edit::Sends(sends) => Self { sends, ..self },
             Edit::StopTarget(stop_target) => Self {
                 stop_target,
                 ..self
@@ -83,6 +88,7 @@ impl Cue {
             Edit::Advance(_) => Edit::Advance(self.advance),
             Edit::Level(_) => Edit::Level(self.level),
             Edit::StopTarget(_) => Edit::StopTarget(self.stop_target),
+            Edit::Sends(_) => Edit::Sends(self.sends.clone()),
         }
     }
 }

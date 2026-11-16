@@ -75,8 +75,22 @@ pub fn sequence(text: &str) -> Result<Vec<Press>, String> {
     text.split_whitespace().map(Press::read).collect()
 }
 
+/// Writes presses as the configuration file does, apart by spaces
 pub fn written(presses: &[Press]) -> String {
     presses.iter().join(" ")
+}
+
+/// Writes presses as the screen shows them: a sequence of keys that type a
+/// character is joined, as Vim writes `dd`, so that nobody reads the
+/// space of `d d` as a key to press, which would be GO.  A sequence with
+/// any other key, which could not be told apart joined, keeps its spaces.
+pub fn shown(presses: &[Press]) -> String {
+    let separator = if presses.iter().all(|press| press.types_character()) {
+        ""
+    } else {
+        " "
+    };
+    presses.iter().join(separator)
 }
 
 /// Splits the modifiers that a press holds off its key, as in `Control+d`.

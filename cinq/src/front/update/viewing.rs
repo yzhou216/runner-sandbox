@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Scrolling the cue list a row at a time, and selecting the rows in its view,
+//! Scrolling the rows a row at a time, and selecting the rows in view,
 //! with the keys of Vim
 //!
-//! Like paging, it measures the list as it is laid out, and takes the rows
+//! Like paging, it measures the rows as they are laid out, and takes the rows
 //! to be as tall as the average, since the rows that a long name wraps are
 //! taller than the rest.
 
@@ -14,60 +14,38 @@ use iced::Task;
 use super::paging::{Landing, viewport::Shape};
 use crate::front::{App, Message, message::Height};
 
-/// Slack for the rounding of a row height that is the quotient of a sum
-const SLACK: f32 = 0.001;
-
 impl App {
-    /// Scrolls the cue list by `rows`, downwards when positive, and keeps
-    /// the selection on its cue unless that leaves the view, when it moves to
+    /// Scrolls the rows by `by`, downwards when positive, and keeps
+    /// the selection on its row unless that leaves the view, when it moves to
     /// the nearest row in view, as the cursor does in Vim.
-    pub(super) fn scrolled(self, rows: isize) -> (Self, Task<Message>) {
-        let (cues, current) = (self.current().cues.len(), self.selected_row());
-        let (list, from) = (self.list, self.selected);
+    pub(super) fn scrolled(self, by: isize) -> (Self, Task<Message>) {
+        let (rows, current, from) = (self.row_count(), self.row(), self.spot());
         self.landing(
-            move |row| Message::Landed { list, from, row },
-            move |shape| scroll(rows, shape, cues, current),
+            move |row| Message::Landed { from, row },
+            move |shape| scroll(by, shape, rows, current),
         )
     }
 }
 
-/// Returns the first row, counted from zero, that is in view whole
-fn first_in_view(shape: Shape, row_height: f32) -> usize {
-    (shape.scrolled / row_height - SLACK).ceil().max(0.0) as usize
-}
-
-/// Returns the last row, counted from zero, that is in view whole, or the
-/// first when not even one row fits
-fn last_in_view(shape: Shape, row_height: f32) -> usize {
-    let bottom = ((shape.scrolled + shape.view) / row_height + SLACK).floor() as usize;
-    bottom
-        .saturating_sub(1)
-        .max(first_in_view(shape, row_height))
-}
-
-/// Returns where scrolling a list of `cues` rows by `rows` leaves the view
+/// Returns where scrolling a list of `rows` rows by `by` leaves the view
 /// and the selection on row `current`, stopping at either end of the list
 pub(super) fn scroll(
-    rows: isize,
+    by: isize,
     shape: Shape,
-    cues: usize,
+    rows: usize,
     current: Option<usize>,
 ) -> Option<Landing> {
-    let last = cues.checked_sub(1)?;
-    let row_height = shape.content / cues as f32;
-    let wanted = shape.scrolled + rows as f32 * row_height;
+    let row_height = shape.content / rows.max(1) as f32;
+    let wanted = shape.scrolled + by as f32 * row_height;
     let offset = wanted.clamp(0.0, (shape.content - shape.view).max(0.0));
-    let moved = Shape {
+    let (first, last) = Shape {
         scrolled: offset,
         ..shape
-    };
-    let row = current.unwrap_or(0).clamp(
-        first_in_view(moved, row_height),
-        last_in_view(moved, row_height),
-    );
+    }
+    .rows_in_view(rows)?;
     Some(Landing {
         offset,
-        row: row.min(last),
+        row: current.unwrap_or(0).clamp(first, last),
     })
 }
 
@@ -77,16 +55,15 @@ impl App {
     /// `L` do in Vim.  Selecting is a jump, as in Vim, and the view stays
     /// where it is.
     pub(super) fn in_view(self, height: Height, count: Option<usize>) -> (Self, Task<Message>) {
-        let cues = self.current().cues.len();
-        let (list, from) = (self.list, self.selected);
+        let (rows, from) = (self.row_count(), self.spot());
         self.landing(
-            move |row| Message::Reached { list, from, row },
-            move |shape| in_view(height, count, shape, cues),
+            move |row| Message::Reached { from, row },
+            move |shape| in_view(height, count, shape, rows),
         )
     }
 }
 
-/// Returns the row at `height` in view of a list of `cues` rows, with the
+/// Returns the row at `height` in view of a list of `rows` rows, with the
 /// view left where it is.  A count that reaches past the rows in view stops
 /// at the last of them, or the first, and the middle takes the upper of two
 /// rows, as `M` does.
@@ -94,12 +71,9 @@ pub(super) fn in_view(
     height: Height,
     count: Option<usize>,
     shape: Shape,
-    cues: usize,
+    rows: usize,
 ) -> Option<Landing> {
-    let last = cues.checked_sub(1)?;
-    let row_height = shape.content / cues as f32;
-    let first_row = first_in_view(shape, row_height).min(last);
-    let last_row = last_in_view(shape, row_height).min(last);
+    let (first_row, last_row) = shape.rows_in_view(rows)?;
     let from_edge = count.unwrap_or(1).saturating_sub(1);
     let row = match height {
         Height::Top => first_row.saturating_add(from_edge).min(last_row),
@@ -112,7 +86,7 @@ pub(super) fn in_view(
     })
 }
 impl App {
-    /// Scrolls the cue list to put the selected row at `height` in view,
+    /// Scrolls the rows to put the selected row at `height` in view,
     /// as `z t`, `z z`, and `z b` do in Vim, and leaves the selection on its
     /// cue.  A count names the row, counted from one, that they select first,
     /// as `{count}zt` does, which is no jump.
@@ -121,21 +95,21 @@ impl App {
             Some(row) => self.at_row(row),
             None => self,
         };
-        let (cues, current) = (app.current().cues.len(), app.selected_row());
-        let (list, from) = (app.list, app.selected);
+        let (rows, current, from) = (app.row_count(), app.row(), app.spot());
+
         app.landing(
-            move |row| Message::Landed { list, from, row },
-            move |shape| place(height, shape, cues, current?),
+            move |row| Message::Landed { from, row },
+            move |shape| place(height, shape, rows, current?),
         )
     }
 }
 
-/// Returns where the view of a list of `cues` rows must scroll to put row
+/// Returns where the view of a list of `rows` rows must scroll to put row
 /// `current` at `height`, stopping at either end of the list
-pub(super) fn place(height: Height, shape: Shape, cues: usize, current: usize) -> Option<Landing> {
-    let last = cues.checked_sub(1)?;
+pub(super) fn place(height: Height, shape: Shape, rows: usize, current: usize) -> Option<Landing> {
+    let last = rows.checked_sub(1)?;
     let row = current.min(last);
-    let row_height = shape.content / cues as f32;
+    let row_height = shape.content / rows as f32;
     let (top, bottom) = (row as f32 * row_height, (row + 1) as f32 * row_height);
     let wanted = match height {
         Height::Top => top,

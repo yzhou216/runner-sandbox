@@ -30,11 +30,11 @@ fn the_keys_of_one_action_share_a_line_after_an_operator() {
     };
     assert_eq!(
         line("Cut the selected cue and the next"),
-        Some("j, g j, ArrowDown, Control+n, +")
+        Some("j, gj, ArrowDown, Control+n, +")
     );
     assert_eq!(
         line("Cut the selected cue and the previous"),
-        Some("k, g k, ArrowUp, Control+p, -")
+        Some("k, gk, ArrowUp, Control+p, -")
     );
     assert_eq!(line("Cut the selected cue to the clipboard"), Some("d"));
 }
@@ -46,4 +46,22 @@ fn a_prefix_lists_each_key_that_completes_a_binding() {
         "g".to_owned(),
         "Select the first cue or menu option, or the row counted".to_owned()
     )));
+}
+
+#[test]
+fn the_box_names_outputs_while_they_show_and_cues_while_a_cue_list_does() {
+    let outputs = App {
+        outputs_shown: true,
+        ..after(&["d"])
+    };
+    let lines = listed(&outputs);
+    let has = |description: &str| lines.iter().any(|(_, shown)| shown == description);
+    assert!(has("Cut the selected output and the next"));
+    assert!(has("Cut the selected output to the clipboard"));
+    assert!(!has("Cut the selected cue to the clipboard"));
+    let cues = listed(&after(&["d"]));
+    assert!(
+        cues.iter()
+            .all(|(_, shown)| !shown.contains("output") && !shown.contains("or output"))
+    );
 }

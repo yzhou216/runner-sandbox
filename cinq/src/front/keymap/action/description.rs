@@ -15,10 +15,10 @@ impl Action {
             Action::Cancel => {
                 "Drop the keys typed so far, close the search line or a menu, and leave a field"
             }
-            Action::Next => "Select the next cue or menu option",
-            Action::Previous => "Select the previous cue or menu option",
-            Action::First => "Select the first cue or menu option, or the row counted",
-            Action::Last => "Select the last cue or menu option, or the row counted",
+            Action::Next => "Select the next cue, output, or menu option",
+            Action::Previous => "Select the previous cue, output, or menu option",
+            Action::First => "Select the first cue, output, or menu option, or the row counted",
+            Action::Last => "Select the last cue, output, or menu option, or the row counted",
             Action::HalfPageDown => {
                 "Scroll half a page down with the selection, or the rows counted"
             }
@@ -29,48 +29,56 @@ impl Action {
             Action::PageUp => {
                 "Scroll a page up with the selection, or the pages counted, or move one in a menu"
             }
-            Action::ScrollDown => "Scroll the cue list a row down, or the rows counted",
-            Action::ScrollUp => "Scroll the cue list a row up, or the rows counted",
+            Action::ScrollDown => "Scroll the list a row down, or the rows counted",
+            Action::ScrollUp => "Scroll the list a row up, or the rows counted",
             Action::TopRow => "Select the first row in view, or the row counted from it",
             Action::MiddleRow => "Select the middle row in view",
             Action::BottomRow => "Select the last row in view, or the row counted up from it",
             Action::RowToMiddle => {
-                "Scroll the cue list to put the selected row, or the row counted, in the middle"
+                "Scroll the list to put the selected row, or the row counted, in the middle"
             }
             Action::RowToTop => {
-                "Scroll the cue list to put the selected row, or the row counted, at the top"
+                "Scroll the list to put the selected row, or the row counted, at the top"
             }
             Action::RowToBottom => {
-                "Scroll the cue list to put the selected row, or the row counted, at the bottom"
+                "Scroll the list to put the selected row, or the row counted, at the bottom"
             }
-            Action::NextList => "Show the next cue list",
-            Action::PreviousList => "Show the previous cue list",
+            Action::NextList => "Show the next cue list, then the outputs",
+            Action::PreviousList => "Show the previous cue list, or the last from the outputs",
             Action::NextTab => "Show the next inspector tab, or the tab counted",
             Action::PreviousTab => "Show the previous inspector tab, or go back as many as counted",
-            Action::Back => "Go back to the place that the last jump left",
+            Action::Back => "Go back to the place that the last jump left, or leave the outputs",
             Action::Forward => "Go forward again after going back",
-            Action::Search => "Search the cues by name",
-            Action::SearchBackward => "Search the cues by name, upwards",
+            Action::Search => "Search the cues, or the outputs, by the text of their columns",
+            Action::SearchBackward => {
+                "Search the cues, or the outputs, by the text of their columns, upwards"
+            }
             Action::NextMatch => "Select the next match of the search, in its direction",
             Action::PreviousMatch => {
                 "Select the next match of the search, in the opposite direction"
             }
-            Action::Edit => "Edit the name of the selected cue, with the caret at its end",
-            Action::EditStart => "Edit the name of the selected cue, with the caret at its start",
-            Action::ChangeName => "Change the name of the selected cue, selecting all of it",
+            Action::Edit => {
+                "Edit the name of the selected cue, or output, with the caret at its end"
+            }
+            Action::EditStart => {
+                "Edit the name of the selected cue, or output, with the caret at its start"
+            }
+            Action::ChangeName => {
+                "Change the name of the selected cue, or output, selecting all of it"
+            }
             Action::NextField => "Move to the next field",
             Action::PreviousField => "Move to the previous field",
             Action::Pick => "Pick the highlighted option of an open menu",
             Action::CloseMenu => "Close an open menu without picking an option",
-            Action::AddBelow => "Add a cue below the selection",
-            Action::AddAbove => "Add a cue above the selection",
-            Action::Cut => "Cut the selected cue to the clipboard",
-            Action::Copy => "Copy the selected cue to the clipboard",
-            Action::PasteBelow => "Paste the copied cues below the selection",
-            Action::PasteAbove => "Paste the copied cues above the selection",
-            Action::Delete => "Delete the selected cue without copying it",
-            Action::MoveDown => "Move the selected cue down",
-            Action::MoveUp => "Move the selected cue up",
+            Action::AddBelow => "Add a cue, or an output, below the selection",
+            Action::AddAbove => "Add a cue, or an output, above the selection",
+            Action::Cut => "Cut the selected cue, or output, to the clipboard",
+            Action::Copy => "Copy the selected cue, or output, to the clipboard",
+            Action::PasteBelow => "Paste the copied cues, or outputs, below the selection",
+            Action::PasteAbove => "Paste the copied cues, or outputs, above the selection",
+            Action::Delete => "Delete the selected cue, or output, without copying it",
+            Action::MoveDown => "Move the selected cue, or output, down",
+            Action::MoveUp => "Move the selected cue, or output, up",
             Action::Undo => "Undo the latest change to the show, or as many as counted",
             Action::Redo => "Redo the change undone last, or as many as counted",
             Action::Open => "Open a show",
@@ -80,5 +88,64 @@ impl Action {
             Action::Help => "Show or hide this help",
             Action::CloseHelp => "Hide this help",
         }
+    }
+}
+
+/// Rows that the keys of cues act on, which are the cues of a cue list or
+/// the outputs of the show, according to which the main window shows
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Rows {
+    Cues,
+    Outputs,
+}
+
+/// Words of the help page that name both kinds of rows, with what each kind
+/// reads as alone, the longest first so that a phrase is never cut short
+const BOTH: [(&str, &str, &str); 8] = [
+    ("the cues, or the outputs,", "the cues", "the outputs"),
+    (
+        "cue, or output, selecting",
+        "cue, selecting",
+        "output, selecting",
+    ),
+    (
+        "cue, output, or menu option",
+        "cue or menu option",
+        "output or menu option",
+    ),
+    ("a cue, or an output,", "a cue", "an output"),
+    ("cues, or outputs,", "cues", "outputs"),
+    ("cue, or output,", "cue", "output"),
+    ("cue or output", "cue", "output"),
+    ("cues or outputs", "cues", "outputs"),
+];
+
+impl Rows {
+    /// Returns what the rows are called, and what many of them are
+    pub(super) fn nouns(self) -> (&'static str, &'static str) {
+        match self {
+            Rows::Cues => ("cue", "cues"),
+            Rows::Outputs => ("output", "outputs"),
+        }
+    }
+}
+
+impl Action {
+    /// Returns the sentence of the help page for the rows that show, so that
+    /// the box of the keys that can follow names outputs where the outputs
+    /// show and cues where a cue list does, instead of both
+    pub fn description_in(self, rows: Rows) -> String {
+        BOTH.iter().fold(
+            self.description().to_owned(),
+            |text, (both, cues, outputs)| {
+                text.replace(
+                    both,
+                    match rows {
+                        Rows::Cues => cues,
+                        Rows::Outputs => outputs,
+                    },
+                )
+            },
+        )
     }
 }

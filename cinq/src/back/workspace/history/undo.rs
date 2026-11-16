@@ -58,6 +58,15 @@ impl Workspace {
         }
     }
 
+    /// Returns the workspace with the run of edits in a row ended, so that the
+    /// next edit of the same setting is a change of its own
+    pub(in crate::back::workspace) fn run_ended(self) -> Self {
+        Self {
+            history: self.history.closed(),
+            ..self
+        }
+    }
+
     /// Returns the workspace after GO has moved the standby of a list on,
     /// so that undo no longer moves it back
     pub(in crate::back::workspace) fn played_from(self, list: usize) -> Self {
@@ -86,7 +95,8 @@ impl Workspace {
             Change::Moved { cue, from, .. } => self.with_cue_moved(cue, from),
             Change::Edited { cue, undo, .. } => self.changed(cue, undo),
             Change::Standby(standby) => self.with_standby_moved(standby.reversed()),
-            Change::Restored { before, .. } => self.with_lists(before),
+            Change::Restored { before, .. } => self.with_kept(before),
+            Change::Outputs { before, .. } => self.with_outputs(before),
         }
     }
 
@@ -100,7 +110,8 @@ impl Workspace {
             Change::Moved { cue, to, .. } => self.with_cue_moved(cue, to),
             Change::Edited { cue, redo, .. } => self.changed(cue, redo),
             Change::Standby(standby) => self.with_standby_moved(standby),
-            Change::Restored { after, .. } => self.with_lists(after),
+            Change::Restored { after, .. } => self.with_kept(after),
+            Change::Outputs { after, .. } => self.with_outputs(after),
         }
     }
 

@@ -19,7 +19,7 @@ use iced::keyboard::{self, Key, Modifiers};
 use itertools::Itertools;
 use keyboard_types::NamedKey;
 
-pub use notation::{sequence, written};
+pub use notation::{sequence, shown, written};
 
 /// Keys that the specification lists as modifier keys, which change the
 /// keys pressed with them rather than act alone.  Hyper and Super are
@@ -98,6 +98,11 @@ impl Press {
     /// Returns whether the key is pressed with no modifier held
     pub fn is_bare(self) -> bool {
         self == self.bare()
+    }
+
+    /// Returns whether the key types a character other than the space
+    fn types_character(self) -> bool {
+        matches!(self, Self { key: Name::Char(c), ctrl: false, alt: false, shift: false } if c != ' ')
     }
 
     pub(super) fn bare(self) -> Self {

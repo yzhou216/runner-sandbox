@@ -25,7 +25,7 @@ fn g_j_and_g_k_move_the_selection_as_j_and_k_do_for_a_vim_user_who_types_them() 
     assert_eq!(action("3 g k"), Some((Action::Previous, Some(3))));
     assert_eq!(
         Keymap::default().listed(Action::Next),
-        "j, g j, ArrowDown, Control+n, +"
+        "j, gj, ArrowDown, Control+n, +"
     );
 }
 

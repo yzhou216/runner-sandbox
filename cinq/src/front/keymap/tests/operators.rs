@@ -223,17 +223,59 @@ fn box_lists_the_motions_after_an_operator_with_what_they_do() {
 #[test]
 fn descriptions_name_the_operator_and_the_rows_it_reaches() {
     assert_eq!(
-        Action::Cut.over(Action::Next),
+        Action::Cut.over(Action::Next, Rows::Cues),
         "Cut the selected cue and the next"
     );
     assert_eq!(
-        Action::Copy.over(Action::Last),
+        Action::Copy.over(Action::Last, Rows::Cues),
         "Copy the cues from the selection down to the last"
     );
     assert_eq!(
-        Action::Delete.over(Action::First),
-        "Delete the cues from the selection up to the first"
+        Action::Delete.over(Action::First, Rows::Outputs),
+        "Delete the outputs from the selection up to the first"
     );
+    assert_eq!(
+        Action::Cut.over(Action::Previous, Rows::Outputs),
+        "Cut the selected output and the previous"
+    );
+}
+
+#[test]
+fn descriptions_name_the_rows_that_show_and_never_both() {
+    let (cues, outputs) = (Rows::Cues, Rows::Outputs);
+    assert_eq!(
+        Action::AddBelow.description_in(cues),
+        "Add a cue below the selection"
+    );
+    assert_eq!(
+        Action::AddBelow.description_in(outputs),
+        "Add an output below the selection"
+    );
+    assert_eq!(
+        Action::PasteAbove.description_in(outputs),
+        "Paste the copied outputs above the selection"
+    );
+    assert_eq!(
+        Action::ChangeName.description_in(outputs),
+        "Change the name of the selected output, selecting all of it"
+    );
+    assert_eq!(
+        Action::Next.description_in(cues),
+        "Select the next cue or menu option"
+    );
+    assert_eq!(
+        Action::Search.description_in(outputs),
+        "Search the outputs by the text of their columns"
+    );
+    Action::VARIANTS.iter().for_each(|action| {
+        [cues, outputs].into_iter().for_each(|rows| {
+            let text = action.description_in(rows);
+            assert!(
+                !text.contains("or output") && !text.contains("or the output"),
+                "{text}"
+            );
+        });
+    });
 }
 
 #[test]

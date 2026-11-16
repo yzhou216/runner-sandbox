@@ -6,32 +6,27 @@
 //!
 //! Only [`cinq`] reaches the parts with side effects.
 
-/// Prints a line to standard error with the time in seconds since the epoch,
-/// for the sandbox tests of the keys
-macro_rules! sandbox {
-    ($($arg:tt)*) => {{
-        let at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0.0, |time| time.as_secs_f64());
-        eprintln!("SANDBOX {at:.3} {}", format_args!($($arg)*));
-    }};
-}
-
 mod cinq;
 mod clipboard;
 mod clock;
 mod device;
 mod dispatch;
 mod editing;
+mod focus_order;
 mod history;
+mod keyboard;
 mod keys;
 mod link;
 mod loading;
 mod navigation;
 mod operators;
+mod outputs;
 mod paging;
+mod reveal_focused;
+mod rows;
 mod scroll;
 mod search;
+mod select_focused;
 mod show;
 mod stage;
 mod subscription;
@@ -42,79 +37,91 @@ mod viewing;
 use iced::{Task, mouse};
 
 use super::{App, Message, Tab};
-use crate::back::{Command, Edit, parse_level};
+use crate::back::{Command, Edit, OutputEdit, parse_level};
 pub(super) use clipboard::{Clipboard, Clipped};
 use dispatch::on_own_thread;
-pub(super) use history::History;
+pub(super) use history::{History, Spot};
 use link::{edit_config, open_link};
 pub(super) use paging::kept::{Measured, Measures};
+pub(super) use rows::Rows;
 pub(super) use search::{Search, Searched};
 pub(super) use show::{Keeper, Read, Reader, Saved, Show};
 pub(super) use stage::Stage;
 
 impl App {
     fn handled(self, message: Message) -> (Self, Task<Message>) {
-        if !matches!(
-            message,
-            Message::Tick(_)
-                | Message::Typed { .. }
-                | Message::Measured(_)
-                | Message::Remeasure
-                | Message::Drawn(_)
-                | Message::Resized(..)
-                | Message::WindowFocused(_)
-                | Message::Clicked
-                | Message::Nothing
-        ) {
-            sandbox!("message {}", format!("{message:?}").chars().take(200).collect::<String>());
-        }
         let app = match message {
             Message::Typed { press, repeat } => return self.typed(press, repeat),
             Message::Focus(focus) => return self.focused(focus),
+            // While the outputs show, the keys that move through rows do the
+            // same to outputs, by the code that they share with cues, while
+            // the keys that change rows act on outputs by their own code, or
+            // on nothing, so that none of them reaches the cue list out of
+            // sight
+            message
+                if self.outputs_shown
+                    && message.acts_on_rows()
+                    && !message.moves_through_rows() =>
+            {
+                return self.in_outputs(message);
+            }
             // Selection scrolls into view as it or the rows around it move,
             // and as the main window changes size
             Message::Select(id) => {
                 return self
                     .without_search()
-                    .crossing(|app| app.with_selection(id))
+                    .crossing(|app| app.showing_cues().with_selection(id))
                     .revealed();
             }
             Message::Step(offset) => return self.stepped(offset).revealed(),
             Message::Row(row) => return self.jumping(|app| app.at_row(row)).revealed(),
             Message::Page(page, count) => return self.paged(page, count),
-            Message::Landed { list, from, row } if self.list == list && self.selected == from => {
+            Message::Landed { from, row } if self.spot() == from => {
                 self.at_row(row.saturating_add(1))
             }
             Message::Landed { .. } => self,
-            Message::Measured(Measured::Cues {
+            Message::Measured(Measured::Rows {
                 serial,
-                list,
-                cues,
+                rows,
+                count,
                 shape,
-            }) => self.with_measure(serial, list, cues, shape),
+            }) => self.with_measure(serial, rows, count, shape),
             Message::Measured(Measured::Help(view)) => self.with_help_measure(view),
             Message::Drawn(window) if self.main == Some(window) && self.unmeasured() => {
-                let measure = self.measure_cues();
+                let measure = self.measure_rows();
                 return (self, measure);
             }
             Message::Drawn(_) => self,
             Message::Remeasure => {
                 let app = self.remeasured();
-                let measure = app.measure_cues();
+                let measure = app.measure_rows();
                 return (app, measure);
             }
             Message::Scroll(rows) => return self.scrolled(rows),
             Message::InView(height, count) => return self.in_view(height, count),
-            Message::Reached { list, from, row } if self.list == list && self.selected == from => {
+            Message::Reached { from, row } if self.spot() == from => {
                 self.jumping(|app| app.at_row(row.saturating_add(1)))
             }
             Message::Reached { .. } => self,
             Message::Place(height, count) => return self.placed(height, count),
-            Message::MenuOpen(open) => Self { menu: open, ..self },
+            // A menu reports where its highlight rests right after it opens, so
+            // that a flag left by another menu, or by a list that left the
+            // view while open, never lights the sidebar
+            Message::MenuOpen(open) => Self {
+                menu: open,
+                default_highlighted: false,
+                ..self
+            },
+            Message::Held(held) => Self { held, ..self },
+            Message::FileHeld(file_held) => Self { file_held, ..self },
+            Message::DefaultHighlighted(highlighted) => Self {
+                default_highlighted: highlighted,
+                ..self
+            },
             Message::SwitchList(list) => {
                 return self
                     .without_search()
-                    .jumping(|app| app.switched_to(list))
+                    .jumping(|app| app.showing_list(list))
                     .revealed();
             }
             Message::StepList(offset) => {
@@ -210,6 +217,28 @@ impl App {
                 device_problem: kept.err(),
                 ..self
             },
+            Message::ShowOutputs => return self.jumping(Self::showing_outputs).revealed(),
+            Message::InspectOutput(output) => {
+                return self
+                    .jumping(|app| {
+                        Self {
+                            output: Some(output),
+                            ..app
+                        }
+                        .showing_outputs()
+                    })
+                    .revealed();
+            }
+            Message::SelectOutput(output) => Self {
+                output: Some(output),
+                ..self
+            },
+            Message::SettingTyped(setting, text) => {
+                self.settled_but(setting).typed_setting(setting, text)
+            }
+            Message::OutputDevice(output, device) => {
+                self.send(Command::EditOutput(output, OutputEdit::Device(device)))
+            }
             // A click on blank space would leave the search line open with no
             // way to close it but Panic
             Message::Clicked => self.without_search(),

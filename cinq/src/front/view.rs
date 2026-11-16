@@ -6,10 +6,16 @@
 //! exceptions that [`theme`] lists, and only space the controls apart
 
 mod cue_table;
+mod devices;
+mod faults;
 pub(super) mod format;
 mod help;
 mod inspector;
+pub(in crate::front) use cue_table::searchable as cue_texts;
+pub(in crate::front) use inspector::rejection;
 mod next_keys;
+mod outputs;
+pub(in crate::front) use outputs::searchable as output_texts;
 mod sidebar;
 pub(super) mod stage;
 mod status_bar;
@@ -35,7 +41,7 @@ use super::{
     App, Message,
     keymap::{Action, Keymap},
 };
-use widget::{button, dropdown, hide, keep_keys, line_keys, marked_row};
+use widget::{button, dropdown, dropdown_width, hide, keep_keys, line_keys, marked_row};
 
 /// Identity of the cue list, through which the selection scrolls into view
 pub const CUES: &str = "cues";
@@ -43,6 +49,18 @@ pub const CUES: &str = "cues";
 /// Identity of the selected row, through which the list finds where to
 /// scroll
 pub const SELECTED: &str = "selected";
+
+/// Identity of the outputs list, through which the selected output scrolls
+/// into view
+pub const OUTPUTS: &str = "outputs";
+
+/// Identity of the sends of a cue, through which the field that Tab reached
+/// scrolls into view
+pub const SENDS: &str = "sends";
+
+/// Identity of the sidebar, through which the list that Tab reached scrolls
+/// into view
+pub const SIDEBAR_SCROLL: &str = "sidebar";
 
 /// Identity of the help page, which the keys that move the selection
 /// scroll while it is open
@@ -52,6 +70,14 @@ pub const HELP: &str = "help";
 /// gives it the keyboard focus
 pub const NAME: &str = "name";
 
+/// Identity of the inspector, whose first field the first Tab from the cue
+/// list reaches
+pub const INSPECTOR: &str = "inspector";
+
+/// Identity of the File field of an audio, video, or picture cue, which the
+/// status bar hints Enter for while it is empty and has the keyboard
+pub const FILE: &str = "file";
+
 /// Identity of the search line in the status bar, through which the key of
 /// the search action gives it the keyboard focus
 pub const SEARCH: &str = "search";
@@ -59,6 +85,20 @@ pub const SEARCH: &str = "search";
 /// What the search line and the status bar tell when no cue matches the text
 /// of a search
 pub const NO_MATCH: &str = "No cue matches";
+
+/// What the search line and the status bar tell when no output matches the
+/// text of a search while the outputs show
+pub const NO_OUTPUT_MATCH: &str = "No output matches";
+
+/// Returns what the search line tells when no row matches, for the rows that
+/// show
+pub fn no_match(outputs: bool) -> &'static str {
+    if outputs { NO_OUTPUT_MATCH } else { NO_MATCH }
+}
+
+/// Identity of the Name field of an output, which the key of the edit
+/// action gives the keyboard focus while the outputs show
+pub const OUTPUT_NAME: &str = "output name";
 
 /// Monospace, so that columns of text line up
 pub const FONT: Font = Font::MONOSPACE;
@@ -69,7 +109,7 @@ pub fn line_height() -> f32 {
     f32::from(LineHeight::default().to_absolute(TEXT_SIZE))
 }
 
-const SPACING: f32 = 10.0;
+pub const SPACING: f32 = 10.0;
 
 /// Widest that the sidebar grows
 const SIDEBAR: f32 = 300.0;
@@ -106,7 +146,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
             // room
             let sidebar = (size.width / 4.0).min(SIDEBAR);
             row![
-                container(cue_table::view(app)).clip(true),
+                container(if app.outputs_shown {
+                    outputs::view(app)
+                } else {
+                    cue_table::view(app)
+                })
+                .clip(true),
                 rule::vertical(1),
                 sidebar::view(app, sidebar),
             ]
@@ -160,7 +205,8 @@ fn char_width() -> f32 {
 /// Counts the warnings that the sidebar lists
 fn warnings(app: &App) -> usize {
     app.workspace.problems().count()
-        + usize::from(app.audio_error.is_some())
+        + app.workspace.stranded().count()
+        + faults::warnings(app).len()
         + usize::from(app.file_problem.is_some())
         + usize::from(app.keep_problem.is_some())
         + usize::from(app.device_problem.is_some())

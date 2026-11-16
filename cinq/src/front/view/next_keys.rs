@@ -13,7 +13,10 @@ use itertools::Itertools;
 use unicode_width::UnicodeWidthStr;
 
 use super::{SPACING, theme};
-use crate::front::{App, Message, keymap::written};
+use crate::front::{
+    App, Message,
+    keymap::{Rows, shown},
+};
 
 #[cfg(test)]
 mod tests;
@@ -50,6 +53,11 @@ pub(super) fn view(app: &App) -> Option<Element<'_, Message>> {
 /// Returns what can follow the keys typed so far, each action once with all
 /// its keys, as the help page lists them, and its description
 fn listed(app: &App) -> Vec<(String, String)> {
+    let rows = if app.outputs_shown {
+        Rows::Outputs
+    } else {
+        Rows::Cues
+    };
     app.config
         .keymap
         .continuations(&app.keys)
@@ -57,13 +65,10 @@ fn listed(app: &App) -> Vec<(String, String)> {
         .into_iter()
         .map(|((action, operator), group)| {
             let description = operator.map_or_else(
-                || action.description().to_owned(),
-                |operator| operator.over(action),
+                || action.description_in(rows),
+                |operator| operator.over(action, rows),
             );
-            (
-                group.map(|(keys, ..)| written(keys)).join(", "),
-                description,
-            )
+            (group.map(|(keys, ..)| shown(keys)).join(", "), description)
         })
         .collect()
 }

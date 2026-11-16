@@ -4,7 +4,7 @@
 
 //! Requests that change a workspace
 
-use crate::back::{Cue, CueId, CueList, Edit, Kind, Media};
+use crate::back::{Cue, CueId, CueList, Edit, Kind, Media, Output, OutputEdit, OutputId};
 
 /// Request to change the show
 ///
@@ -52,9 +52,40 @@ pub enum Command {
     Move { cue: CueId, by: isize },
     /// Changes one setting of a cue
     Edit(CueId, Edit),
-    /// Puts cue lists kept from before in place of those of the show, as
-    /// one change, as bringing back unsaved changes does
-    Restore(Vec<CueList>),
+    /// Puts cue lists and outputs kept from before in place of those of
+    /// the show, as one change, as bringing back unsaved changes does
+    Restore(Vec<CueList>, Vec<Output>),
+    /// Adds a number of outputs in a row at a place among the outputs, counted
+    /// from zero, or at the end past them, as one change, next to the output
+    /// `anchor` that was selected, which undo selects again
+    AddOutput {
+        at: usize,
+        count: usize,
+        anchor: Option<OutputId>,
+    },
+    /// Removes outputs as one change, unless that leaves none
+    DeleteOutputs(Vec<OutputId>),
+    /// Removes outputs as [`Command::DeleteOutputs`] does, and records that
+    /// they went to the register of outputs, so that the change is told as a
+    /// cut
+    CutOutputs(Vec<OutputId>),
+    /// Pastes outputs in a row at a place among the outputs as one change.
+    /// With `restore`, an output whose identity is free takes it back, so that
+    /// the cues that sent to it send to it again.  The `anchor` is the output
+    /// that was selected, as for [`Command::AddOutput`].
+    PasteOutputs {
+        at: usize,
+        outputs: Vec<Output>,
+        restore: bool,
+        anchor: Option<OutputId>,
+    },
+    /// Moves an output by a number of places, downwards when positive
+    MoveOutput { output: OutputId, by: isize },
+    /// Changes one setting of an output
+    EditOutput(OutputId, OutputEdit),
+    /// Ends the run of edits to one setting in a row, so that the next edit
+    /// of it makes a change of its own, as leaving a field does
+    EndRun,
     /// Takes back the last change to the cues
     Undo,
     /// Makes again the change that undo took back last
@@ -81,7 +112,13 @@ impl Command {
                 | Command::Cut(_)
                 | Command::Move { .. }
                 | Command::Edit(..)
-                | Command::Restore(_)
+                | Command::Restore(..)
+                | Command::AddOutput { .. }
+                | Command::DeleteOutputs(_)
+                | Command::CutOutputs(_)
+                | Command::PasteOutputs { .. }
+                | Command::MoveOutput { .. }
+                | Command::EditOutput(..)
         )
     }
 }

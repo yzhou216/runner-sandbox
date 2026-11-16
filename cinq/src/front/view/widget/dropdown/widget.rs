@@ -35,13 +35,13 @@ use crate::front::{
     Message,
     keymap::KeyPress,
     view::{
-        FONT, TEXT_SIZE, char_width, line_height,
+        FONT, TEXT_SIZE, char_width, line_height, theme,
         widget::{key_pressed, pointer_over, pressed},
     },
 };
 
 /// Room for the arrow, which is about as wide as the text is high
-const ARROW: f32 = TEXT_SIZE.0 + PADDING.left;
+pub(super) const ARROW: f32 = TEXT_SIZE.0 + PADDING.left;
 
 /// Returns a label on one line in the default font and size.  It goes by
 /// its top left corner, where iced's own pick list goes by its middle,
@@ -111,11 +111,28 @@ impl Widget<Message, Theme, Renderer> for Dropdown<'_> {
             (false, false) => Status::Active,
         };
         let look = pick_list::default(theme, status);
+        // List that an option of another menu depends on wears the colors of
+        // the highlight of a menu, as that option does
+        let look = if self.lit {
+            let menu = iced::overlay::menu::default(theme);
+            pick_list::Style {
+                background: menu.selected_background,
+                text_color: menu.selected_text_color,
+                placeholder_color: menu.selected_text_color,
+                handle_color: menu.selected_text_color,
+                ..look
+            }
+        } else {
+            look
+        };
         // Border of a focused list is that of a focused text field
         let border = if state.focused {
             let focused = text_input::Status::Focused { is_hovered };
-            look.border
-                .color(text_input::default(theme, focused).border.color)
+            theme::focused(
+                look.border
+                    .color(text_input::default(theme, focused).border.color),
+                focused,
+            )
         } else {
             look.border
         };
@@ -127,6 +144,19 @@ impl Widget<Message, Theme, Renderer> for Dropdown<'_> {
             },
             look.background,
         );
+        let (name, color) = match self.chosen {
+            Some(row) => (self.names[row].clone(), look.text_color),
+            None => (
+                self.placeholder.clone().unwrap_or_default(),
+                self.placeholder_color.unwrap_or(look.placeholder_color),
+            ),
+        };
+        let room = bounds.width - PADDING.x() - ARROW;
+        let name = label(shortened(&name, (room / char_width()) as usize), room);
+        let start = Point::new(
+            bounds.x + PADDING.left,
+            bounds.center_y() - line_height() / 2.0,
+        );
         // Arrow drawn by its right end as iced's pick list draws it, since
         // it never changes apart from the box, which redraws around it
         let arrow = Text {
@@ -137,21 +167,16 @@ impl Widget<Message, Theme, Renderer> for Dropdown<'_> {
             ..label(Renderer::ARROW_DOWN_ICON.to_string(), bounds.width)
         };
         let end = Point::new(bounds.x + bounds.width - PADDING.right, bounds.center_y());
-        renderer.fill_text(arrow, end, look.handle_color, *viewport);
-        let (name, color) = match self.chosen {
-            Some(row) => (self.names[row].clone(), look.text_color),
-            None => (
-                self.placeholder.clone().unwrap_or_default(),
-                look.placeholder_color,
-            ),
-        };
-        let room = bounds.width - PADDING.x() - ARROW;
-        let name = label(shortened(&name, (room / char_width()) as usize), room);
-        let start = Point::new(
-            bounds.x + PADDING.left,
-            bounds.center_y() - line_height() / 2.0,
-        );
-        renderer.fill_text(name, start, color, *viewport);
+        // The software renderer clips cached text to its layer alone, and a
+        // viewport as large as the layer never narrows that, so that a list
+        // across the edge of a scrollable would draw its text outside it.
+        // A layer of its own as large as the shown part of the list clips it.
+        if let Some(shown) = viewport.intersection(&bounds) {
+            renderer.with_layer(shown, |renderer| {
+                renderer.fill_text(arrow, end, look.handle_color, *viewport);
+                renderer.fill_text(name, start, color, *viewport);
+            });
+        }
     }
 
     /// Opens the menu on a click, or on Enter while the list has the
@@ -173,6 +198,12 @@ impl Widget<Message, Theme, Renderer> for Dropdown<'_> {
     ) {
         let state = tree.state.downcast_mut::<State>();
         let over = cursor.is_over(layout.bounds());
+        // A pick or a close by key leaves the keyboard on the list, so that
+        // Tab goes on to the next field from it
+        if !state.shared.is_open() && state.shared.take_returning() {
+            state.focused = true;
+            shell.request_redraw();
+        }
         if pressed(event) && state.focused {
             state.focused = false;
             shell.request_redraw();

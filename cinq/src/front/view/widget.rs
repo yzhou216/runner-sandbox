@@ -22,7 +22,7 @@ use iced::{Event, Rectangle, mouse, touch};
 
 use crate::front::keymap::KeyPress;
 pub use button::button;
-pub use dropdown::dropdown;
+pub use dropdown::{dropdown, width as dropdown_width};
 pub use hide::hide;
 pub use keep_keys::keep_keys;
 pub use line_keys::line_keys;

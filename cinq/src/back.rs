@@ -16,6 +16,7 @@ mod audio;
 mod cue;
 mod items;
 mod load;
+mod output;
 mod video;
 mod workspace;
 
@@ -23,11 +24,14 @@ use std::time::Duration;
 
 use cue::{Clip, Shown};
 
-pub use audio::{Audio, READY_AHEAD, SOUND_FILES, devices as audio_devices};
+pub use audio::{Audio, Fault, READY_AHEAD, SOUND_FILES, devices as audio_devices};
 pub use cue::{
     Advance, Cue, CueId, CueList, Edit, Kind, LEVELS, LOUDEST, Media, Problem, SILENCE, parse_level,
 };
 pub use load::{Load, load_files};
+pub use output::{
+    Channels, DEVICE_CHANNELS, Device, Output, OutputEdit, OutputId, Sends, moved_output,
+};
 pub use video::{PICTURE_FILES, Picture, VIDEO_FILES, Video};
 pub use workspace::{Active, Change, Command, Phase, Place, Turn, Workspace};
 

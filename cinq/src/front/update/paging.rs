@@ -40,25 +40,10 @@ impl App {
     /// counts the pages.
     pub(super) fn paged(self, page: Page, count: Option<usize>) -> (Self, Task<Message>) {
         let scroll = self.scrolling(page, count);
-        let (cues, current) = (self.current().cues.len(), self.selected_row());
-        let (list, from) = (self.list, self.selected);
+        let (rows, current, from) = (self.row_count(), self.row(), self.spot());
         Self { scroll, ..self }.landing(
-            move |row| Message::Landed { list, from, row },
-            move |shape| {
-                sandbox!(
-                    "page {page:?} count={count:?} view={} content={} cues={cues} fit={} moves={}",
-                    shape.view,
-                    shape.content,
-                    rows_fitting(shape.view, shape.content, cues),
-                    rows(
-                        page,
-                        count,
-                        scroll,
-                        rows_fitting(shape.view, shape.content, cues)
-                    )
-                );
-                landing(page, count, scroll, shape, cues, current)
-            },
+            move |row| Message::Landed { from, row },
+            move |shape| landing(page, count, scroll, shape, rows, current),
         )
     }
 
@@ -143,7 +128,11 @@ pub(super) fn landing(
     let moved = rows(page, count, scroll, fit);
     let wanted = shape.scrolled + page.sign() as f32 * moved as f32 * row_height;
     let offset = wanted.clamp(0.0, (shape.content - shape.view).max(0.0));
-    let in_view = |row: f32| row as usize;
+    let (first_row, last_row) = Shape {
+        scrolled: offset,
+        ..shape
+    }
+    .rows_in_view(cues)?;
     let row = match page {
         Page::HalfDown | Page::HalfUp => {
             let by = isize::try_from(moved).unwrap_or(isize::MAX);
@@ -151,11 +140,8 @@ pub(super) fn landing(
         }
         Page::WholeDown if wanted >= shape.content - shape.view => last,
         Page::WholeUp if wanted <= 0.0 => 0,
-        Page::WholeDown => in_view((offset / row_height).ceil()).max(current.unwrap_or(0)),
-        Page::WholeUp => {
-            let bottom = in_view(((offset + shape.view) / row_height).floor());
-            bottom.saturating_sub(1).min(current.unwrap_or(last))
-        }
+        Page::WholeDown => first_row.max(current.unwrap_or(0)),
+        Page::WholeUp => last_row.min(current.unwrap_or(last)),
     };
     Some(Landing {
         offset,
@@ -186,16 +172,17 @@ pub(super) fn rows_fitting(view: f32, content: f32, cues: usize) -> usize {
     (view / (content / cues as f32)) as usize
 }
 
-/// Measures the cue list as it is laid out, then scrolls it to where `land`
-/// puts it for that shape and reports the row that `land` puts the selection
-/// on with the message that `arrive` makes
+/// Measures the scrollable `id`, which holds the rows, as it is laid out,
+/// then scrolls it to where `land` puts it for that shape and reports the row
+/// that `land` puts the selection on with the message that `arrive` makes
 pub(super) fn measured(
+    id: &'static str,
     arrive: impl Fn(usize) -> Message + Send + 'static,
     land: impl Fn(Shape) -> Option<Landing> + Send + 'static,
 ) -> Task<Message> {
-    operate(Viewport::of(view::CUES)).then(move |shape| {
+    operate(Viewport::of(id)).then(move |shape| {
         land(shape).map_or_else(Task::none, |landing| {
-            kept::scroll(landing.offset).chain(Task::done(arrive(landing.row)))
+            kept::scroll(id, landing.offset).chain(Task::done(arrive(landing.row)))
         })
     })
 }

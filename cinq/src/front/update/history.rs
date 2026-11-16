@@ -5,10 +5,11 @@
 //! The places that jumps left, which going back and forward walk along, as
 //! the jump list of Vim does
 //!
-//! A place is a cue list with a selected cue, or a cue list with none.  The
-//! history lives in the interface state only, so that neither the show file
-//! nor undo ever holds it.  A jump after going back moves the places ahead
-//! behind, in the order of the list of Vim, so that none is lost.
+//! A place is a cue list with a selected cue, or a cue list with none, or the
+//! outputs with a selected output, or with none.  The history lives in the
+//! interface state only, so that neither the show file nor undo ever holds
+//! it.  A jump after going back moves the places ahead behind, in the order
+//! of the list of Vim, so that none is lost.
 
 mod places;
 
@@ -23,23 +24,35 @@ pub(in crate::front) use places::{History, Spot};
 
 impl App {
     pub(super) fn spot(&self) -> Spot {
-        self.selected_here()
-            .map_or(Spot::List(self.list), Spot::Cue)
+        if self.outputs_shown {
+            self.output.map_or(Spot::Outputs, Spot::Output)
+        } else {
+            self.selected_here()
+                .map_or(Spot::List(self.list), Spot::Cue)
+        }
     }
 
     fn at(self, spot: Spot) -> Self {
         match spot {
-            Spot::Cue(id) => self.with_selection(id),
+            Spot::Cue(id) => self.showing_cues().with_selection(id),
             Spot::List(list) => Self {
                 list,
                 selected: None,
-                ..self
+                ..self.showing_cues()
             },
+            Spot::Output(output) => Self {
+                output: Some(output),
+                ..self
+            }
+            .showing_outputs(),
+            Spot::Outputs => self.showing_outputs(),
         }
     }
 
     /// Runs `go`, a command that moves to another place by what it is, and
-    /// remembers the place that it left unless it stayed
+    /// remembers the place that it left unless it stayed.  The place is read
+    /// before `go` runs, so that a `go` which shows the cue list in place of
+    /// the outputs still remembers where it came from.
     pub(super) fn jumping(self, go: impl FnOnce(Self) -> Self) -> Self {
         let from = self.spot();
         go(self).jumped_from(from)
@@ -59,12 +72,13 @@ impl App {
     }
 
     /// Runs `go` as [`App::jumping`] does, but remembers the place only when
-    /// the cue list changed, since a click on a cue of the list on screen
-    /// points at what is in view
+    /// the view changed, to another cue list or to the cue list in place of
+    /// the outputs, since a click on a cue of the list on screen points at
+    /// what is in view
     pub(super) fn crossing(self, go: impl FnOnce(Self) -> Self) -> Self {
-        let (from, list) = (self.spot(), self.list);
+        let (from, view) = (self.spot(), (self.outputs_shown, self.list));
         let app = go(self);
-        if app.list == list {
+        if (app.outputs_shown, app.list) == view {
             app
         } else {
             Self {
@@ -89,6 +103,9 @@ impl App {
         (app, Task::batch([revealing, leaving]))
     }
 
+    /// Goes back along the places that jumps left.  The outputs view has
+    /// always a way out, even where no jump recorded one, as after opening a
+    /// show: the cue list that was showing, with the cue that was selected.
     pub(super) fn went_back(self, count: usize) -> Self {
         let here = self.spot();
         let back = self
@@ -96,6 +113,13 @@ impl App {
             .back(here, count, |spot| alive(&self.workspace, spot));
         match back {
             Some((spot, history)) => Self { history, ..self }.at(spot),
+            None if self.outputs_shown => {
+                let app = self.showing_cues();
+                Self {
+                    history: app.history.left(here),
+                    ..app
+                }
+            }
             None => self,
         }
     }
@@ -111,13 +135,30 @@ impl App {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::front) fn can_go_back(&self) -> bool {
-        self.history
-            .can_go_back(self.spot(), |spot| alive(&self.workspace, spot))
+        self.back_to().is_some()
     }
 
+    #[cfg(test)]
     pub(in crate::front) fn can_go_forward(&self) -> bool {
+        self.forward_to().is_some()
+    }
+
+    /// Returns the place that going back goes to, which the status bar names
+    pub(in crate::front) fn back_to(&self) -> Option<Spot> {
+        let here = self.spot();
         self.history
-            .can_go_forward(self.spot(), |spot| alive(&self.workspace, spot))
+            .back(here, 1, |spot| alive(&self.workspace, spot))
+            .map(|(spot, _)| spot)
+            .or_else(|| self.outputs_shown.then_some(Spot::List(self.list)))
+    }
+
+    /// Returns the place that going forward goes to
+    pub(in crate::front) fn forward_to(&self) -> Option<Spot> {
+        let here = self.spot();
+        self.history
+            .forward(here, 1, |spot| alive(&self.workspace, spot))
+            .map(|(spot, _)| spot)
     }
 }

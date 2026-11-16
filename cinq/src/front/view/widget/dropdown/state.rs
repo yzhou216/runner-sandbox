@@ -10,8 +10,8 @@ use super::menu::Shared;
 
 pub(super) struct State {
     pub(super) shared: Shared,
-    /// Whether the list has the keyboard, which it has only until its menu
-    /// opens
+    /// Whether the list has the keyboard, which it loses as its menu opens and
+    /// has again once a key closes the menu
     pub(super) focused: bool,
     /// Whether the cursor was over the list in the last frame, so that the
     /// list redraws when its look changes
@@ -32,8 +32,11 @@ impl State {
 }
 
 impl Focusable for State {
+    /// A key that closed the menu has handed the keyboard back already, though
+    /// the list takes it only with the next event, so that a question asked
+    /// right after the key finds the list holding it
     fn is_focused(&self) -> bool {
-        self.focused
+        self.focused || self.shared.is_returning()
     }
 
     fn focus(&mut self) {
@@ -42,5 +45,6 @@ impl Focusable for State {
 
     fn unfocus(&mut self) {
         self.focused = false;
+        self.shared.take_returning();
     }
 }

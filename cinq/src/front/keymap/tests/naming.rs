@@ -22,9 +22,16 @@ fn keys_of_vim_enter_the_name_at_its_end_or_start_or_change_all_of_it() {
 }
 
 #[test]
-fn keys_that_enter_the_name_at_its_start_or_over_all_of_it_have_no_cua_key() {
+fn cua_selects_the_name_with_f2_as_renaming_does_and_has_no_key_for_its_end_or_start() {
     let keymap = Keymap::from(Preset::Cua);
-    assert_eq!(keymap.listed(Action::Edit), "F2");
+    assert_eq!(keymap.listed(Action::ChangeName), "F2");
+    assert_eq!(keymap.listed(Action::Edit), "none");
     assert_eq!(keymap.listed(Action::EditStart), "none");
-    assert_eq!(keymap.listed(Action::ChangeName), "none");
+}
+
+#[test]
+fn vi_keeps_the_caret_at_the_end_for_the_keys_that_enter_the_name() {
+    let keymap = Keymap::from(Preset::Vi);
+    assert_eq!(keymap.listed(Action::Edit), "i, a, A");
+    assert_eq!(keymap.listed(Action::ChangeName), "cc, S");
 }

@@ -17,7 +17,10 @@ use tempfile::TempDir;
 use super::silence;
 use crate::back::{
     Command, Cue, CueId, CueList, Kind, Media, Workspace,
-    audio::voice::{Voice, clipped},
+    audio::{
+        mixer::Mixer,
+        voice::{Target, Voice, clipped},
+    },
     workspace::tests::{GO, loaded},
 };
 
@@ -92,7 +95,7 @@ fn played_while(
                 backend.on_start_processing();
                 backend.process();
             }
-            let heard = voice.heard(ticked.active_of(CueId(1)).expect("the cue runs"));
+            let heard = voice.heard(ticked.active_of(CueId(1)).expect("the cue runs"), |_| true);
             *workspace = heard.clone().into_iter().fold(ticked, Workspace::apply);
             let played = workspace
                 .active_of(CueId(1))
@@ -151,4 +154,46 @@ fn clock_of_run_waits_while_its_sound_stalls() {
     });
     let (last, _) = played[99];
     assert!((last - 0.49).abs() < 0.02, "{last}");
+}
+
+/// Opens the sound of the audio cue on the mixers of `devices`, by their
+/// keys, as [`Voice::open`] does, from a file of two seconds of sound
+pub(super) fn opened(devices: Vec<(&str, &mut Mixer)>) -> Result<Voice, String> {
+    let directory = TempDir::new().expect("a temporary directory can be made");
+    let file = directory.path().join("silence.wav");
+    fs::write(&file, silence(2.0)).expect("the file can be written");
+    let media = Media::Loaded {
+        duration: 10.0,
+        sound: Some(2.0),
+    };
+    let workspace = Workspace::new(vec![CueList::new("Main", vec![audio()])])
+        .directory(directory.path())
+        .apply(loaded(1, "silence.wav", media))
+        .apply(GO);
+    let active = workspace.active_of(CueId(1)).expect("the cue runs");
+    let clip = active.sound().expect("the cue has sound");
+    let targets = devices
+        .into_iter()
+        .map(|(key, mixer)| Target {
+            key: Some(key.to_owned()),
+            mixer,
+            gains: Box::new([[1.0, 0.0]; 2]),
+        })
+        .collect();
+    Voice::open(targets, &file, active, clip)
+}
+
+#[test]
+fn run_that_cannot_start_on_a_later_device_stops_its_sound_on_the_earlier_one() {
+    let (mut first, mut mix) = Mixer::bench(2, 2, 8000, 16);
+    let (mut full, _) = Mixer::bench(2, 2, 8000, 0);
+    assert!(opened(vec![("a", &mut first), ("b", &mut full)]).is_err());
+    mix.render(&mut [0.0_f32; 512]);
+    assert_eq!(mix.sounds(), 0, "nothing keeps the sound on the first");
+    let (mut second, _) = Mixer::bench(2, 2, 8000, 16);
+    let voice =
+        opened(vec![("a", &mut first), ("b", &mut second)]).expect("both devices take the sound");
+    mix.render(&mut [0.0_f32; 512]);
+    assert_eq!(mix.sounds(), 1);
+    drop(voice);
 }

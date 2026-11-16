@@ -22,6 +22,11 @@ include = [
   "/README.md",
 ]
 
+[features]
+default = ["jack"]
+jack = ["cpal/jack"] # JACK's devices, which need JACK to build on GNU/Linux
+asio = ["cpal/asio"] # ASIO drivers on Windows, which need its SDK to build
+
 [dependencies]
 anstyle-query = "1.1"
 bon = "3.10"
@@ -66,6 +71,7 @@ open = "5.4"
 pathdiff = "0.2"
 rayon = "1.12"
 rfd = "0.17"
+rtrb = "0.4" # Commands to the threads that mix sound, which kira brings
 rust_h264 = "0.6" # Decoder of H.264 that needs no C++ compiler
 serde = { version = "1.0", features = ["derive"] }
 strum = { version = "0.28", features = ["derive"] }
@@ -93,6 +99,14 @@ rustix = { version = "1.1", features = [ # Standard output and error pointed at 
   "pipe",
   "stdio",
 ] }
+
+[target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "netbsd"))'.dependencies]
+cpal = { version = "0.18", default-features = false, optional = true } # JACK beside ALSA in kira's cpal
+
+[target.'cfg(windows)'.dependencies]
+cpal = { version = "0.18", default-features = false, features = [
+  "realtime",
+], optional = true } # ASIO beside WASAPI in kira's cpal, its thread of sound scheduled for audio
 
 [build-dependencies] # Manual pages, completions, the icon with resvg's kurbo, the app bundle for Darwin, and the manifest for Windows
 clap = { version = "4.6", features = ["derive"] }
