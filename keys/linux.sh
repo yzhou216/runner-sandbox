@@ -252,19 +252,58 @@ key 9-55G 55G
 shot view-9-55G
 stop
 
+# 13. Tab from the cue list reaches the first field of the inspector first,
+# whose focus the log names; the toolbar's list of cue types comes after them, so
+# that nine Tabs reach it
 # 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
 start menu vi show
-key 10-tab -k Tab
+key 13-tab-1 -k Tab
+shot menu-13-first-tab
+key 13-tab-2 -k Tab
+for n in 3 4 5 6 7 8 9; do key "10-tab-$n" -k Tab; done
 shot menu-10-focused
 key 10-enter -k Return
 shot menu-10-open
 key 10-j j
 ctrl 10-ctrl-y y
 shot menu-10-picked
-key 10-tab-again -k Tab
 key 10-enter-again -k Return
 ctrl 10-ctrl-e e
 shot menu-10-closed
+stop
+
+# 14. Enter in the Name or Channels field of an output applies the text and
+# leaves the field, so that the key after it moves to another output
+start outs vi outputs
+key 14-l l
+key 14-cc cc
+key 14-name Front
+shot outs-14-typed
+key 14-enter -k Return
+key 14-j j
+shot outs-14-after-name
+for n in 1 2 3; do key "14-tab-$n" -k Tab; done
+key 14-channels 1-2
+key 14-enter-channels -k Return
+key 14-k k
+shot outs-14-after-channels
+stop
+
+# 16. Enter in an empty File field opens the file chooser, which the
+# platform's cancel closes
+start file vi outputs
+key 16-j j
+for n in 1 2 3; do key "16-tab-$n" -k Tab; done
+shot file-16-focused
+key 16-enter -k Return
+sleep 5
+shot file-16-after-enter
+swaymsg -t get_tree | grep -E '"(app_id|name)"' > "$out/file-16-windows.txt" || true
+mark 16-cancel
+swaymsg -q '[app_id="xdg-desktop-portal-gtk"] kill' || true
+sleep 2
+shot file-16-after-cancel
+swaymsg -t get_tree | grep -E '"(app_id|name)"' > "$out/file-16-windows-after.txt" || true
 stop
 
 swaymsg exit > /dev/null 2>&1 || true

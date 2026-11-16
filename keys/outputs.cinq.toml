@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[[output]]
+name = "Left"
+channels = "1"
+
+[[output]]
+name = "Right"
+channels = "2"
+
+[[output]]
+name = "Booth"
+channels = "1-2"
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "memo"
+name = "Memo 1"
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "audio"
+name = "Empty file"
+advance = "manual"

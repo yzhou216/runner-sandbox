@@ -261,17 +261,59 @@ key 9-55G 5 5 shift+g
 shot view-9-55G
 stop
 
+# 13. Tab from the cue list reaches the first field of the inspector first,
+# whose focus the log names; the toolbar's list of cue types comes after the
+# fields, so that nine Tabs reach it
 # 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
 start menu vi show
-key 10-tab tab
+key 13-tab-1 tab
+shot menu-13-first-tab
+key 13-tab-2 tab
+for n in 3 4 5 6 7 8 9; do key "10-tab-$n" tab; done
 shot menu-10-focused
 pattern=$opened key 10-enter return
 shot menu-10-open
 pattern=$menu_key key 10-j j
 pattern=$menu_key key 10-ctrl-y ctrl+y
 shot menu-10-picked
-key 10-tab-again tab
 pattern=$opened key 10-enter-again return
 pattern=$menu_key key 10-ctrl-e ctrl+e
 shot menu-10-closed
+stop
+
+# 14. Enter in the Name or Channels field of an output applies the text and
+# leaves the field, so that the key after it moves to another output
+typed=' message SettingTyped('
+left=' message Focus(Cues)'
+start outs vi outputs
+key 14-l l
+key 14-cc c c
+pattern=$typed key 14-name shift+f r o n t
+shot outs-14-typed
+pattern=$left key 14-enter return
+key 14-j j
+shot outs-14-after-name
+for n in 1 2 3; do key "14-tab-$n" tab; done
+pattern=$typed key 14-channels 1 minus 2
+pattern=$left key 14-enter-channels return
+key 14-k k
+shot outs-14-after-channels
+stop
+
+# 16. Enter in an empty File field opens the file chooser, which Cancel closes
+start file vi outputs
+key 16-j j
+for n in 1 2 3; do key "16-tab-$n" tab; done
+shot file-16-focused
+pattern=' message ChooseFile(' key 16-enter return
+sleep 3
+shot file-16-dialog
+"$work/ui" windows > "$OUT/file-16-windows.txt" 2>&1 || true
+"$work/ui" list >> "$OUT/file-16-windows.txt" 2>&1 || true
+mark 16-cancel
+"$work/ui" click --contains Cancel 10 > "$OUT/file-16-cancel.txt" 2>&1 || true
+sleep 2
+shot file-16-after-cancel
+"$work/ui" windows > "$OUT/file-16-windows-after.txt" 2>&1 || true
+"$work/ui" list >> "$OUT/file-16-windows-after.txt" 2>&1 || true
 stop

@@ -4,7 +4,7 @@
 
 // Posts keys and mouse buttons as the hardware does, through CoreGraphics.
 //
-//   inject key [ctrl+][alt+][shift+]NAME   (a letter, a digit, left, right, up, end, pagedown, home, tab, return, f1, slash)
+//   inject key [ctrl+][alt+][shift+]NAME   (a letter, a digit, left, right, up, end, pagedown, home, tab, return, f1, slash, minus)
 //   inject button NUMBER X Y               (other mouse button, NUMBER 3 or 4, at X Y)
 import AppKit
 
@@ -15,7 +15,7 @@ let codes: [String: CGKeyCode] = [
   "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46,
   "left": 123, "right": 124, "end": 119, "pagedown": 121, "home": 115,
   "tab": 48, "return": 36, "f1": 122, "slash": 44, "1": 18, "2": 19, "5": 23, "9": 25,
-  "up": 126,
+  "up": 126, "minus": 27,
 ]
 let modifiers: [String: (CGKeyCode, CGEventFlags)] = [
   "ctrl": (59, .maskControl), "alt": (58, .maskAlternate), "shift": (56, .maskShift),

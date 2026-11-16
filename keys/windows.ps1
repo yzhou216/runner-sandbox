@@ -70,7 +70,7 @@ public static class Native {
 '@
 
 $vk = @{ ctrl = 0x11; alt = 0x12; shift = 0x10; left = 0x25; right = 0x27; up = 0x26; end = 0x23; pgdn = 0x22
-    tab = 0x09; 'return' = 0x0D; f1 = 0x70; slash = 0xBF }
+    tab = 0x09; 'return' = 0x0D; f1 = 0x70; slash = 0xBF; minus = 0xBD }
 foreach ($c in [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') { $vk[[string]$c] = [int]$c }
 
 $script:phase = ''
@@ -347,18 +347,63 @@ Key '9-55G' '5','5','shift+g'
 Shot 'view-9-55G'
 Stop-Cinq
 
+# 13. Tab from the cue list reaches the first field of the inspector first,
+# whose focus the log names; the toolbar's list of cue types comes after the
+# fields, so that nine Tabs reach it
 # 10. A drop-down list: Tab to it, Enter opens it, Control+y picks, Control+e closes
 Start-Cinq 'menu' 'vi' 'show'
-Key '10-tab' 'tab'
+Key '13-tab-1' 'tab'
+Shot 'menu-13-first-tab'
+Key '13-tab-2' 'tab'
+foreach ($n in 3..9) { Key "10-tab-$n" 'tab' }
 Shot 'menu-10-focused'
 Key '10-enter' 'return' $opened
 Shot 'menu-10-open'
 Key '10-j' 'j' $menuKey
 Key '10-ctrl-y' 'ctrl+y' $menuKey
 Shot 'menu-10-picked'
-Key '10-tab-again' 'tab'
 Key '10-enter-again' 'return' $opened
 Key '10-ctrl-e' 'ctrl+e' $menuKey
 Shot 'menu-10-closed'
+Stop-Cinq
+
+# 14. Enter in the Name or Channels field of an output applies the text and
+# leaves the field, so that the key after it moves to another output
+$typed = ' message SettingTyped\('
+$left = ' message Focus\(Cues\)'
+Start-Cinq 'outs' 'vi' 'outputs'
+Key '14-l' 'l'
+Key '14-cc' 'c','c'
+Key '14-name' 'shift+f','r','o','n','t' $typed
+Shot 'outs-14-typed'
+Key '14-enter' 'return' $left
+Key '14-j' 'j'
+Shot 'outs-14-after-name'
+foreach ($n in 1..3) { Key "14-tab-$n" 'tab' }
+Key '14-channels' '1','minus','2' $typed
+Key '14-enter-channels' 'return' $left
+Key '14-k' 'k'
+Shot 'outs-14-after-channels'
+Stop-Cinq
+
+# 16. Enter in an empty File field opens the file chooser, which Cancel closes
+Start-Cinq 'file' 'vi' 'outputs'
+Key '16-j' 'j'
+foreach ($n in 1..3) { Key "16-tab-$n" 'tab' }
+Shot 'file-16-focused'
+Key '16-enter' 'return' ' message ChooseFile\('
+$tree = $null
+for ($i = 0; $i -lt 12; $i++) {
+    Start-Sleep 3
+    $tree = Snapshot 'file-16-dialog'
+    if ($tree | Where-Object { $_.Kind -eq 'Button' -and $_.Name -eq 'Cancel' }) { break }
+}
+($tree | ForEach-Object Text) -join "`n" | Set-Content "$out\file-16-windows.txt"
+Step '16-cancel'
+$pressed = Press $tree '^Cancel$' 'Button'
+Log "Cancel pressed: $pressed"
+Start-Sleep 2
+(Windows | ForEach-Object Text) -join "`n" | Set-Content "$out\file-16-windows-after.txt"
+Shot 'file-16-after-cancel'
 Stop-Cinq
 Mark 'done'

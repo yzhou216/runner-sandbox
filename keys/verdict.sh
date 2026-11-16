@@ -12,7 +12,7 @@ set -uo pipefail
 
 out=$1
 
-for phase in vi cua ops search line view menu; do
+for phase in vi cua ops search line view menu outs file; do
   [ -f "$out/$phase.err" ] || continue
   {
     awk '/^SANDBOX / { t = $2; $1 = ""; $2 = ""; sub(/^ +/, ""); print t, "L", $0 }' "$out/$phase.err" | tr -d '\r'
@@ -38,7 +38,7 @@ has_step() { grep -q "^=== $2\$" "$out/$1.timeline"; }
 # list the bindings of the keymap in an order of their own
 stray_keys() {
   grep -H -n 'Named(Escape)\|Named(Space)\|action=Some((Go\|action=Some((Panic' "$@" 2> /dev/null |
-    grep -v ':update \(Reconfigured\|Opened\)'
+    grep -v ':\(update\|message\) \(Reconfigured\|Opened\)'
 }
 
 pass() { printf 'PASS %s\n' "$1"; }
@@ -244,8 +244,9 @@ if [ -f "$out/view.timeline" ]; then
       function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x) }
       BEGIN {
         rh = content / cues
-        top = ceil(scrolled / rh - 0.001)
-        bottom = floor((scrolled + view) / rh + 0.001) - 1
+        # A row is in view when more than half of it shows, as cinq counts it
+        top = floor(scrolled / rh + 0.5)
+        bottom = ceil((scrolled + view) / rh - 0.5) - 1
         if (bottom < top) bottom = top
         max = content - view
         exit !($test)
@@ -309,7 +310,7 @@ fi
 if [ -f "$out/menu.timeline" ]; then
   m() { fieldof menu "$1" menu; }
   hint() { segment menu "$1" | grep '^status hints' | tail -n 1; }
-  kind0=$(fieldof menu 10-tab new_kind)
+  kind0=$(fieldof menu 10-tab-9 new_kind)
   [ "$(m 10-enter)" = true ] && hint 10-enter | grep -q 'Control+y: pick | Control+e: close'
   st=$?; check "10 Enter opens the list (menu=$(m 10-enter)) and the status bar reads: $(hint 10-enter | sed -n 's/.*hints=\("[^"]*"\).*/\1/p')" "$st" "$(segment menu 10-enter)"
   kind1=$(fieldof menu 10-ctrl-y new_kind)
@@ -321,8 +322,92 @@ if [ -f "$out/menu.timeline" ]; then
   [ "$(m 10-enter-again)" = true ] && hint 10-enter-again | grep -q 'Control+y: pick | Control+e: close' && [ "$(m 10-ctrl-e)" = false ] && [ "$kind2" = "$kind1" ] && ! segment menu 10-ctrl-e | grep -q 'message NewKind('
   st=$?; check "10 Enter opens it again (menu=$(m 10-enter-again)), Control+e closes it (menu=$(m 10-ctrl-e)) and picks nothing ($kind1, $kind2)" "$st" "$(segment menu 10-enter-again; segment menu 10-ctrl-e)"
 fi
+# focusline PHASE LABEL: the last line "focus ..." that the step LABEL caused
+focusline() { segment "$1" "$2" | grep '^focus backward' | tail -n 1; }
+# widgetline PHASE LABEL: the last line "focused widget ..." of the step
+widgetline() { segment "$1" "$2" | grep '^focused widget' | tail -n 1; }
+# order_of LINE: the place in the order of the window of the widget focused
+order_of() { printf '%s\n' "$1" | sed -n 's/^focused widget order=\([0-9]*\).*/\1/p'; }
+# first_inspector LINE: the place of the first field of the inspector among
+# the fields that a "focus" line lists
+first_inspector() {
+  printf '%s\n' "$1" | sed -n 's/^focus backward=[a-z]* slots=\[\(.*\)\] -> target.*/\1/p' |
+    grep -o '([a-z]*, [a-z]*)' | grep -n '^(true' | head -n 1 | cut -d: -f1 | awk '{ print $1 - 1 }'
+}
+
+# 13. Tab from the cue list reaches the first field of the inspector first
+if [ -f "$out/menu.timeline" ] && has_step menu 13-tab-1; then
+  f1=$(focusline menu 13-tab-1); w1=$(widgetline menu 13-tab-1)
+  want=$(first_inspector "$f1")
+  printf '%s\n' "$f1" | grep -q 'in_inspector=Some(true)' && ! printf '%s\n' "$f1" | sed -n 's/.*slots=\[\(.*\)\] ->.*/\1/p' | grep -q 'true)' &&
+    [ -n "$want" ] && [ "$(order_of "$w1")" = "$want" ]
+  st=$?; check "13 the first Tab from the cue list focuses the widget at place $(order_of "$w1"), the first field of the inspector (place ${want:-none}): $(printf '%s\n' "$w1" | sed -n 's/^focused widget //p')" "$st" "$f1 / $w1"
+  w2=$(widgetline menu 13-tab-2)
+  printf '%s\n' "$w2" | grep -q 'id=Some(Id(Custom("name")))' && [ "$(order_of "$w2")" = "$((want + 1))" ]
+  st=$?; check "13 the second Tab reaches the Name field, the next in the inspector: $(printf '%s\n' "$w2" | sed -n 's/^focused widget //p')" "$st" "$(focusline menu 13-tab-2) / $w2"
+  w10=$(widgetline menu 10-tab-9)
+  [ "$(order_of "$w10")" = 0 ]
+  st=$?; check "13 the toolbar's list comes after the fields of the inspector, at the ninth Tab: $(printf '%s\n' "$w10" | sed -n 's/^focused widget //p')" "$st" "$(focusline menu 10-tab-9) / $w10"
+fi
+
+# 14. Enter in the Name or Channels field of an output applies the text and
+# leaves the field, so that the next key acts on the outputs
+if [ -f "$out/outs.timeline" ]; then
+  o() { segment outs "$1" | grep '^update' | tail -n 1; }
+  names() { o "$1" | sed -n 's/.* outputs=\[\(.*\)\]$/\1/p'; }
+  out_of() { o "$1" | sed -n 's/.* output=\(Some(OutputId([0-9]*))\|None\) .*/\1/p'; }
+  o 14-l | grep -q ' shown=true ' && [ "$(out_of 14-l)" = 'Some(OutputId(1))' ]
+  st=$?; check "14 l shows the outputs and selects the first: $(out_of 14-l)" "$st" "$(o 14-l)"
+  segment outs 14-cc | grep -q 'message Focus(Name(' && segment outs 14-name | grep -q 'message SettingTyped(OutputName(OutputId(1)), "Front")' &&
+    names 14-name | grep -q '^OutputId(1)=Front@1,'
+  st=$?; check "14 c c puts the keyboard in the Name field and Front replaces the name: $(names 14-name)" "$st" "$(segment outs 14-cc | grep '^message\|^update' | tail -n 3; segment outs 14-name | grep '^message' | tail -n 2)"
+  segment outs 14-enter | grep -q '^message Focus(Cues)' && names 14-enter | grep -q '^OutputId(1)=Front@1,' && ! segment outs 14-enter | grep -q 'SettingTyped'
+  st=$?; check "14 Enter in the Name field applies Front and leaves the field (Focus(Cues)): $(names 14-enter)" "$st" "$(segment outs 14-enter | grep '^message\|^update')"
+  segment outs 14-j | grep -q 'action=Some((Next' && ! segment outs 14-j | grep -q 'SettingTyped' && [ "$(out_of 14-j)" = 'Some(OutputId(2))' ] &&
+    names 14-j | grep -q '^OutputId(1)=Front@1,'
+  st=$?; check "14 j after Enter moves to the next output ($(out_of 14-j)) and types nothing: $(names 14-j)" "$st" "$(segment outs 14-j | grep '^press\|^message\|^update')"
+  t1=$(widgetline outs 14-tab-1); t3=$(widgetline outs 14-tab-3)
+  printf '%s\n' "$t1" | grep -q 'id=Some(Id(Custom("output name")))' && [ "$(order_of "$t3")" = 3 ]
+  st=$?; check "14 Tab, Tab, Tab from the outputs reach the Channels field (place $(order_of "$t3"), after the Name field and the Device list)" "$st" "$t1 / $t3"
+  segment outs 14-channels | grep -q 'SettingTyped(.*"1-2")' && names 14-channels | grep -q 'OutputId(2)=Right@2,'
+  st=$?; check "14 1-2 typed into the Channels field waits for Enter: $(names 14-channels)" "$st" "$(segment outs 14-channels | grep '^message\|^update' | tail -n 3)"
+  segment outs 14-enter-channels | grep -q '^message Focus(Cues)' && names 14-enter-channels | grep -q 'OutputId(2)=Right@1-2,'
+  st=$?; check "14 Enter in the Channels field applies 1-2 and leaves the field: $(names 14-enter-channels)" "$st" "$(segment outs 14-enter-channels | grep '^message\|^update')"
+  segment outs 14-k | grep -q 'action=Some((Previous' && ! segment outs 14-k | grep -q 'SettingTyped' && [ "$(out_of 14-k)" = 'Some(OutputId(1))' ] &&
+    names 14-k | grep -q 'OutputId(2)=Right@1-2,'
+  st=$?; check "14 k after Enter moves to the previous output ($(out_of 14-k)) and types nothing" "$st" "$(segment outs 14-k | grep '^press\|^message\|^update')"
+fi
+
+# 15. The help page joins the keys of a sequence of plain letters and opens
+# with its first steps
+if [ -f "$out/search.timeline" ] && has_step search h-f1; then
+  help=$(segment search h-f1 | grep '^helptext' | tail -n 1)
+  printf '%s\n' "$help" | grep -q 'Cut = dd,' && printf '%s\n' "$help" | grep -q 'Copy = yy,' && printf '%s\n' "$help" | grep -q 'First = gg,' &&
+    ! printf '%s\n' "$help" | grep -q 'Cut = d d\|First = g g'
+  st=$?; check "15 the help page lists sequences of letters joined: $(printf '%s\n' "$help" | grep -o '\(Cut\|Copy\|First\|ChangeName\) = [^;]*' | tr '\n' ';')" "$st" "$help"
+  printf '%s\n' "$help" | grep -q 'first_steps="First steps: .* cc names it, and u undoes the last change\.'
+  st=$?; check "15 the first steps paragraph: $(printf '%s\n' "$help" | sed -n 's/.*first_steps="\([^"]*\)".*/\1/p' | cut -c1-120)..." "$st" "$help"
+fi
+
+# 16. Enter in an empty File field opens the file chooser
+if [ -f "$out/file.timeline" ]; then
+  w3=$(widgetline file 16-tab-3)
+  printf '%s\n' "$w3" | grep -q 'id=Some(Id(Custom("file")))' && [ "$(order_of "$w3")" = 4 ]
+  st=$?; check "16 the third Tab reaches the File field of the audio cue: $(printf '%s\n' "$w3" | sed -n 's/^focused widget //p')" "$st" "$(focusline file 16-tab-3) / $w3"
+  # What the status bar read from the moment the field had the keyboard until
+  # Enter, which is where the hint of Enter belongs
+  hint=$(awk '/^=== 16-enter$/ { exit } /^status hints/' "$out/file.timeline" | tail -n 1)
+  printf '%s\n' "$hint" | grep -q 'Enter: choose a file'
+  st=$?; check "16 the status bar hints Enter once the File field has the keyboard: $(printf '%s\n' "$hint" | sed -n 's/.*hints=\("[^"]*"\).*/\1/p')" "$st" "$(segment file 16-tab-3 | grep '^message\|^status')"
+  segment file 16-enter | grep -q '^message ChooseFile(CueId(2))'
+  st=$?; check "16 Enter in the empty File field sends ChooseFile: $(segment file 16-enter | grep '^message ChooseFile')" "$st" "$(segment file 16-enter | grep '^press\|^message')"
+  if [ -f "$out/file-16-windows.txt" ]; then
+    grep -q 'Choose sound file' "$out/file-16-windows.txt" && ! grep -q 'Choose sound file' "$out/file-16-windows-after.txt"
+    st=$?; check "16 the file chooser showed after Enter and is gone after the cancel" "$st" "$(cat "$out/file-16-windows.txt" "$out/file-16-windows-after.txt" 2>&1)"
+  fi
+fi
 # No Space or Escape, which would be GO or Panic, in any phase
-timelines=$(for phase in vi cua ops search line view menu; do [ -f "$out/$phase.timeline" ] && printf '%s ' "$out/$phase.timeline"; done)
+timelines=$(for phase in vi cua ops search line view menu outs file; do [ -f "$out/$phase.timeline" ] && printf '%s ' "$out/$phase.timeline"; done)
 # shellcheck disable=SC2086
 stray=$(stray_keys $timelines)
 if [ -n "$timelines" ] && [ -n "$stray" ]; then
