@@ -4,119 +4,189 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# cinq's keys of Vim on every runner
+# cinq's master at 35afa6b: the keys, the new checks, and the audio
 
-Tests the Vim key series of cinq on ubuntu-latest, windows-latest,
-windows-11-arm, and macos-latest.  The snapshot in `cinq/` is 16723cb, the
-rewritten tip of e1d5853 (the same tree, committed on 2026-11-15 at 10:33:04
--0800, except for two test files: e1d5853's status bar test
-`the_key_of_cancel_stays_in_a_bar_of_1024_pixels...` measures the system's
-monospace font and failed in the Nix build on ubuntu-latest, run 43756303288,
-where 16723cb counts 103 columns instead).  The snapshot carries a patch for
-this branch alone that prints each key that reaches cinq, each key that the
-keymap parses, the messages that the keys cause, the rows that a page measures,
-the scrolls that a selection causes, the status bar hints, the keys of a
-drop-down list, and the list, the row, the cue, the search line, and the notice
-selected or shown after every update, to standard error.  `keys/verdict.sh`
-merges those lines with the time of each step by `keys/*.sh` and
-`keys/windows.ps1` and judges the checks below, so that the results come from
-cinq's own log and the screenshots only confirm them.  The shows are
-`keys/show.cinq.toml` (two lists of five memo cues), `long.cinq.toml` (thirty
-cues), `sixty.cinq.toml` (sixty cues), and `names.cinq.toml` (ten cues with
-words, for the search line).  The vi keys run with `keymap = "vi"`, the cua
-ones with `keymap = "cua"`, each phase in a `--config-dir` of its own.  No
-Space and no Escape ever reaches cinq (checked in the log of every phase).
+Tests cinq on ubuntu-latest, windows-latest, windows-11-arm, and macos-latest
+(the audio checks on the three that had the means in the earlier audio branch,
+`cinq/2026-11-16-audio-keys`).  The snapshot in `cinq/` is 35afa6b ("tutorial:
+name the keymap that it uses and correct four statements", committed on
+2026-11-16 at 05:36:36 -0800), unpacked from `git archive` and committed at that
+date, so that the flake is a Git one.  Two edits are for this branch alone:
+
+- A logging patch.  It carries over the lines of `cinq/2026-11-15-vim-keys`
+  (`SANDBOX <time> ...`: each raw key, each parsed `Press` with its action, each
+  message, the state after each update, the measures of a page, the status bar
+  hints, the keys of a drop-down list) and the lines of the audio branch (`K`
+  for keys no widget took, `U` for the state after each update, `O` around each
+  opening of a device).  The code moved since 16723cb and 6bddf30, so four hunks
+  of the keys patch were written again (`dispatch.rs`, `paging.rs`,
+  `paging/kept.rs`, `status_bar.rs`).  The state now holds `shown`, `held`,
+  `file_held`, `tab`, `output`, `unapplied`, and the outputs with their
+  channels.  New lines: `focus ... slots=[(in the inspector, has the keyboard)]
+  -> target` and `focused widget order=N id=... x= y=` for every Tab (in
+  `focus_order.rs`), and `helptext first_steps=... rows=Action = keys ; ...`
+  whenever the help page is built.
+- `doCheck = false` in `cinq/flake/cinq.nix`: tests that measure the system's
+  fonts failed in the Nix builds of the two earlier branches on ubuntu-latest.
+
+The scripts are `keys/` (the earlier keys branch, changed and extended below)
+and `audio/` (the earlier audio branch, run from here by the same workflow,
+`.github/workflows/master.yml`).  The verdicts come from cinq's own log, and
+the screenshots only confirm them.  No Space ever reaches cinq (GO is F5 in the
+audio phases), and Escape reaches it only in the two phases of audio check 2,
+`pulse/two` and `darwin/two`, where nothing else plays (checked in every log).
 
 ## Result
 
-Run 43773983274 (commit 86854ae, snapshot 16723cb): every check passed on every
-runner except two rows of check 9, where cinq skips a row (see below).  The
-workflow's own `verdict.txt` still held one false failure on each Windows runner and
-seven on Darwin, which were bugs of `verdict.sh` (a Cancel action that cinq does
-not produce for Control+c with keys waiting, and `sed` alternation that BSD sed
-lacks); the fixed script, committed after the run, judges the same artifacts
-as in the table.
+Run 43906701488 (commit 6f9a57c, snapshot 35afa6b): all 11 jobs green.  Every
+check passed except one row of check 16, which is a failure of cinq (below).
+Two bugs of the verdict scripts made the run's own `verdict.txt` wrong in three
+places, and the scripts were fixed after the run (commit after 6f9a57c): BSD
+sed has no `\|`, so three lines of check 14 failed on Darwin (`verdict.sh`
+now uses `sed -E`), and the Windows and Darwin `default` phases of the audio
+branch stopped cinq while it wrote a log line, so the last `U` line was cut and
+the Levels check read a send table without Right (`verdict.py` now skips a line
+that does not end with `})`).  The fixed scripts judge the same artifacts, and
+the tables are their verdicts; the sound of those two phases was heard at
+-16.0 and -28.0 dBFS in the run itself, which the run's own verdict passed.
+
+### Keys (artifacts `keys-linux`, `keys-x86_64-windows`, `keys-aarch64-windows`, `keys-darwin`)
 
 | Check | ubuntu-latest | windows-latest | windows-11-arm | macos-latest |
 | --- | --- | --- | --- | --- |
 | 1 Control+i is not Tab, goes forward after Control+o | passed | passed | passed | passed |
 | 2 cua Alt+ArrowLeft and Alt+ArrowRight | passed | passed | passed | passed, also System Events |
 | 3 Control+d and Control+u move half the visible rows | passed | passed | passed | passed |
-| 3 three Control+f in a row move three pages | passed, 3 pages of 2 rows | passed | passed | passed |
+| 3 three Control+f in a row move three pages | passed | passed | passed | passed |
 | 4 `y y`, `p`, `d d`, `u`, `3 u` | passed | passed | passed | passed |
 | 5 Control+l opens the file dialog, Control+o does not | passed | passed | passed | passed |
-| 6 mouse back and forward buttons | passed | passed | passed | passed |
+| 6 mouse back and forward buttons | passed (4 buttons) | passed (XBUTTON1, 2) | passed | passed (buttons 3, 4) |
 | 7 `d 2 j` cuts 3 cues ("Cut 3 cues"), `p` pastes them | passed | passed | passed | passed |
 | 8 `/` and `?` with `n`, `N`, Control+o back | passed | passed | passed | passed |
 | 8 wrap notices at the bottom and the top | passed | passed | passed | passed |
-| 9 `z z`, `z t`, `H`, `L`, Control+y, `55 G` centers | passed | passed | passed | passed |
-| 9 Control+e scrolls one row, selection stays in view | failed twice | failed twice | failed twice | failed twice |
+| 9 `z z`, `z t`, `H`, `L`, Control+y, `55 G` | passed | passed | passed | passed |
+| 9 Control+e scrolls one row, selection stays in view | passed | passed | passed | passed |
 | 10 drop-down list: Control+y picks, Control+e closes, hints | passed | passed | passed | passed |
 | 11 `d u` does not undo, Control+c after `2 d` cuts nothing | passed | passed | passed | passed |
 | 12 search line: ArrowUp, caret at the end, Control+u, Control+c | passed | passed | passed | passed |
+| 13 first Tab reaches the inspector's first field, then Name | passed | passed | passed | passed |
+| 14 Enter in an output's Name applies "Front" and leaves, `j` moves | passed | passed | passed | passed |
+| 14 Enter in its Channels applies "1-2" and leaves, `k` moves | passed | passed | passed | passed |
+| 15 help page: `dd`, `gg`, `cc` joined, first steps paragraph | passed | passed | passed | passed |
+| 16 Enter in an empty File field sends ChooseFile, chooser opens | passed | passed | passed | passed |
+| 16 the chooser closes with the platform's cancel | passed | passed | passed | passed |
+| 16 status bar hints Enter once the File field has the keyboard | failed | failed | failed | failed |
+| no Space and no Escape reached cinq in any phase | passed | passed | passed | passed |
 
-Evidence of each result is `verdict.txt` (the run's own) in the artifact
-`keys-<runner>`, with the `*.timeline` files holding the merged log and the
-screenshots next to them: `keys-linux`, `keys-x86_64-windows`,
-`keys-aarch64-windows`, and `keys-darwin`.  Highlights, the same on all four
-runners unless a number is given:
+Changes of the scripts for master (the checks and their results above):
 
-- Check 3, Control+f: three `page WholeDown` lines of 2 rows each (the list
-  shows 4 or 5 rows), and each landing starts where the one before ended, from
-  0 to about 191.6 pixels (rows are 31.8 pixels).
-- Check 8, wraps: from row 1, `n` after `?1` goes to row 21 with "Search
-  continued at the bottom", and `N` from there to row 1 with "Search continued
-  at the top"; `n` and `N` that do not wrap show no notice.
-- Check 9, `55 G`: row 55 selected and the list scrolled to the middle (offset
-  1655.7 against a middle of 1655.7 on ubuntu-latest, 1663.2 on both Windows
-  runners, 1657.7 on macos-latest).
-- Check 12, with the names show: `/Bl`, Enter (row 2), `/Br`, Enter (row 4),
-  `gg`, `/B` (row 2), ArrowUp recalls "Br" (row 4), `i` makes "Bri" (so the caret
-  was at the end), Control+u clears the line (row 1), `Bo` selects row 6,
-  Control+c closes the line and returns to row 1.
-- Check 11: after `2 d` the pending keys are `2`, `d`, and after Control+c
-  they are empty, with no Cut and the rows unchanged (30).
-- Check 10: Enter opens the list with the hints "Control+y: pick | Control+e:
-  close | F1: help", Control+y picks the next option (Audio to Video), and
-  Control+e closes it with Video kept.
+- Check 9: cinq now counts a row as in view when more than half of it shows
+  (`rows_in_view`), so `verdict.sh` computes the top and bottom rows that way.
+  Control+e, which skipped a row on 16723cb, passed on all four.
+- Check 10: Tab from the cue list reaches the inspector first, so the
+  toolbar's list of cue types is the ninth Tab (8 fields of a memo cue), where
+  it was the first.  The keyboard stays on the list after Control+y, so the
+  second Enter needs no Tab.
+- Check 13: the log line `focus ... slots=[...] -> target=2 in_inspector=Some(true)`
+  and `focused widget order=2` (x 269, y 412 on the 900 by 640 window): the first
+  of the 8 fields of the inspector (places 2 to 9), none had the keyboard before.
+  The second Tab is `id=Some(Id(Custom("name")))` at place 3.  The ninth is place 0,
+  the toolbar's list.
+- Check 14: `l`, `c c` (Name field, `Focus(Name(..))`), `Front` typed (each letter a
+  `SettingTyped`, the name shows `Front` at once), Enter (`Focus(Cues)`, the
+  field left), `j` (action Next, output 2, no `SettingTyped`, name still
+  `Front`); then Tab three times (Name, Device list, Channels at place 3), `1-2`
+  typed (outputs unchanged while typing), Enter (`Right@1-2`, `Focus(Cues)`),
+  `k` (output 1, no `SettingTyped`).
+- Check 15: the `helptext` line holds `First = gg, Control+Home`, `Cut = dd, x,
+  Delete`, `Copy = yy, Y`, `ChangeName = cc, S`, no `d d`, and the first
+  steps paragraph ("First steps: Space is GO, ... cc names it, and u undoes the
+  last change.").  `search-h-help.png` on each runner shows the paragraph under
+  the title.
+- Check 16: a show of two memo and audio cues, the audio one with no file.
+  `j`, Tab three times (place 4, `id=Some(Id(Custom("file")))`), Enter:
+  `message ChooseFile(CueId(2))`, and a window "Choose sound file" (the portal
+  on GNU/Linux, UI Automation on Windows, Vision OCR on Darwin) that Cancel closes.
 
-### Failure of cinq: Control+e skips a row
+### Failure of cinq: the hint of Enter in the File field comes one key late
 
-On the 60-cue show, from row 1: Control+e once scrolls 31.8 pixels and selects
-row 2, as expected.  The list then reports its scroll as 32 (whole pixels), so
-the second Control+e scrolls to 63.8 and selects row 4, not row 3, and the
-third scrolls to 95.8 and selects row 5, not row 4.  A row that the scroll
-clips by 0.2 pixels counts as out of view.  It is cinq's rounding, not the
-script's (the log lines are `measured view=... scrolled=32 -> offset=63.80002
-row=4`), identical on all four runners.
+After the third Tab the File field has the keyboard, but the status bar still
+reads "Tab: next field | Control+c: leave | F1: help".  The hint "Enter: choose
+a file | Control+c: leave" appears only after the next update, which is the
+Enter itself.  The same log lines on all four runners (`file.timeline`):
+
+```
+message Focus(Next)
+focus backward=false slots=[(false, false), (false, false), (true, false), (true, true), (true, false), ...] -> target=Some(4) in_inspector=Some(true)
+focused widget order=4 id=Some(Id(Custom("file"))) x=269.02344 y=495.40002 width=156.47656 height=30.8
+message Held(true)
+message FileHeld(false)
+status hints="Tab: next field | Control+c: leave | F1: help" room=89 menu=false
+  ... (Enter)
+message ChooseFile(CueId(2))
+message Held(true)
+message FileHeld(true)
+status hints="Enter: choose a file | Control+c: leave" room=89 menu=false
+```
+
+`Held` and `FileHeld` ask the widgets in a task that runs next to the one that
+moves the keyboard, so they read the keyboard's place before the move: each
+answer is one Tab behind (`Held(false)` after the first Tab, `Held(true)` after
+the second, and `FileHeld(false)` after the third, with the field focused).  It
+is cinq's, not the script's; `file-16-focused.png` shows the old hint with the
+File field's blue border.  Enter itself works.
+
+### Audio (artifacts `audio-jack`, `audio-pulse`, `audio-alsa`, `audio-windows`, `audio-darwin`)
+
+| Check | ubuntu-latest | windows-latest | windows-11-arm | macos-latest |
+| --- | --- | --- | --- | --- |
+| 1 JACK ports past nine | passed (out_0..11 to playback_1..12, 16 ports recorded) | skipped, no JACK | skipped, no JACK | skipped, no JACK |
+| 2 two devices, Panic stops both | passed (-13.5, -19.5 dBFS) | skipped, one VB-CABLE | skipped, no VB-CABLE or FlexASIO | passed (BlackHole 16ch, 2ch) |
+| 3 clamp, 16-bit | passed | passed (FlexASIO Int16) | skipped, no FlexASIO | skipped, Core Audio takes float |
+| 3 clamp, 24-bit | passed (S24_LE); packed S24_3LE skipped, cinq says it cannot play it | passed (Int24) | skipped | skipped |
+| 3 clamp, 32-bit and float | passed | passed (Int32) | skipped | skipped |
+| 4 interface while a device opens | passed (7 keys in 4 opens of 1.99 s, updates 1 ms after) | skipped, no slow device | skipped | skipped |
+| 5 one output on 1-2 of the default device plays | passed (PulseAudio's) | passed (VB-CABLE, default and by ID) | skipped | passed (BlackHole 16ch, default and by ID) |
+| 5 outputs view keys `l j o d d p`, Control+o | passed | passed | skipped | passed |
+| 5 Levels tab: three Tabs, `-12`, Enter set Right to -12.0 | passed | passed | skipped | passed |
+| 5 send heard 12 dB down (-16.0 and -28.0 dBFS) | passed | passed | skipped | passed |
+
+On windows-11-arm the earlier audio branch had no job, and nothing here installs
+a virtual audio device for it.  The Levels tab check changed with the Tab order: on
+master three Tabs reach the send of Right (places 2, 3, and 4 of the order, with
+the sends of Left and Right at 3 and 4), where it took five.  Tab now selects the text of the field, so the
+select-all before `-12` is no longer needed but does no harm.
 
 ## Runs
 
 | Run | Commit | Result |
 | --- | --- | --- |
-| 43700775347 | 445fb61 | six checks of the 852f6bd snapshot, all passed on all four runners |
-| 43731026095 | a2979f6 | checks 7 to 12 of the 06bd3a0 snapshot, run by an earlier agent |
-| 43756303288 | b355009 | snapshot e1d5853; attempt 1 stayed queued for 47 minutes and was cancelled, attempt 2 failed the Nix build on ubuntu-latest (the status bar test above); Windows and Darwin ran, with the same results as the last run |
-| 43773983274 | 86854ae | snapshot 16723cb; all jobs green, results above |
+| 43906701488 | 6f9a57c | snapshot 35afa6b; 11 jobs green; results above |
+
+Local runs of `keys/linux.sh`, `audio/pulse.sh`, and `audio/jack.sh` on this
+machine (the same Nix tools and the same build of the snapshot) came first and
+gave the same verdicts on GNU/Linux, which is how the Tab counts and the new
+checks were found before the run.
 
 ## Traps
 
-- `wtype g g` types a space between its two arguments, which is GO in cinq;
-  type `gg` as one string.
-- On windows-11-arm cinq handled each key 20 s or more after it came, so the
-  script waits for cinq to log each key before the next step, and sends a key
-  again that left no line.
-- On Darwin the file dialog belongs to a service of its own, so `ui click
-  --contains Cancel` clicks where Vision reads it.  The window of cinq is
-  placed at 60, 60 with 900 by 640.
-- BSD sed (macOS) has no `\|` in basic expressions; `verdict.sh` uses `sed -E`
-  there.
-- Control+c with keys waiting makes the keymap drop them without an action,
-  while with the search line open it gives the Cancel action.
+- `wtype g g` types a space between its two arguments, which is GO in cinq; type
+  `gg` as one string.
+- A log that cinq writes while a script stops it (Stop-Process, kill) can end
+  in half a line; ignore a last line that is cut.
+- BSD sed (macOS) has no `\|`; use `sed -E`.
+- Tab order is not the order of the window: the inspector first, then the rest,
+  so counts of Tabs from earlier branches no longer hold.  Read the `focused
+  widget` lines.
+- The `Held` and `FileHeld` messages lag one key behind the keyboard (see the
+  failure above), so a log line of `held=` after a Tab shows the key before.
+- On GNU/Linux wtype's keymap gives F5 the physical key code that winit calls
+  Escape (`key: Named(F5)`, `physical_key: Code(Escape)`); the logical key is F5.
 - Nix's dbus looks for `/etc/dbus-1/session.conf`, which Ubuntu lacks for it:
   `dbus-run-session --config-file=<dbus share>/dbus-1/session.conf`.
 - `wlrctl pointer click` makes its virtual pointer for less time than cinq
   needs to bind it; `keys/vptr.c` holds it.
-- A run of this workflow waited 47 minutes with every job queued, even on
-  ubuntu-latest, with no incident on githubstatus.com; cancelling and rerunning
-  it did not help, and attempt 2 started only after about two more hours.
+- On windows-11-arm cinq handles each key 20 s or more late, so the script waits
+  for cinq to log each key before the next step.
+- BlackHole needs `sudo killall coreaudiod` after the install; the sandbox's
+  PulseAudio needs `ALSA_PLUGIN_DIR` to find the pulse plugin of ALSA.
