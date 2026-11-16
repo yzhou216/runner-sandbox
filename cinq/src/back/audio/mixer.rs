@@ -90,6 +90,21 @@ impl Mixer {
         name: Option<&str>,
         channels: u16,
     ) -> Result<(Self, Stream), Fault> {
+        eprintln!("O {:.3} open {device:?} begins", crate::stamp());
+        let opened = Self::opened(device, name, channels);
+        eprintln!(
+            "O {:.3} open {device:?} ends {}",
+            crate::stamp(),
+            opened.as_ref().err().map_or_else(|| "ok".to_owned(), |fault| format!("{fault:?}"))
+        );
+        opened
+    }
+
+    fn opened(
+        device: Option<&str>,
+        name: Option<&str>,
+        channels: u16,
+    ) -> Result<(Self, Stream), Fault> {
         let found = match device {
             Some(id) => device::find(id, name).map_err(Fault::Missing)?,
             None => cpal::default_host()

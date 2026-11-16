@@ -113,12 +113,45 @@ impl App {
             typed: app.typed.filter(|_| kept),
             ..app
         };
+        let shown = format!("{message:?}");
+        let moved = matches!(message, Message::Landed { .. } | Message::Reached { .. });
         let (app, task) = app.handled(message);
         let app = Self {
             link_problem: app.link_problem.filter(|_| app.help),
             unapplied: unapplied.or(app.unapplied),
             ..app
         };
+        if !passive || moved {
+            sandbox!(
+                "update {} | list={} rows={} selected_row={:?} selected_id={:?} keys={:?} help={} menu={} new_kind={:?} search={:?} clipped={:?} remark={:?} shown={} held={} file_held={} tab={:?} output={:?} unapplied={:?} outputs=[{}]",
+                shown.chars().take(100).collect::<String>(),
+                app.list + 1,
+                app.row_count(),
+                app.row().map(|row| row + 1),
+                app.selected,
+                app.keys,
+                app.help,
+                app.menu,
+                app.new_kind,
+                app.search
+                    .as_ref()
+                    .map(|search| (search.text.clone(), search.backward)),
+                app.clipped.as_ref().map(|clipped| clipped.told.clone()),
+                app.remark,
+                app.outputs_shown,
+                app.held,
+                app.file_held,
+                app.tab,
+                app.output,
+                app.unapplied,
+                app.workspace
+                    .outputs()
+                    .iter()
+                    .map(|o| format!("{:?}={}@{}", o.id, o.name, o.channels))
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
+        }
         (app, task)
     }
 }

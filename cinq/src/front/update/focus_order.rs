@@ -32,9 +32,20 @@ struct Slot {
 /// Moves the keyboard to the field after the one that has it, or before it
 /// when `backward`, or to the first or last where none has it
 pub(super) fn move_focus<T: Send + 'static>(backward: bool) -> Task<T> {
-    operate(Reading::new(view::INSPECTOR)).then(move |slots| match chosen(&slots, backward) {
-        Some(target) => operate::<T>(Giving(0, target)),
-        None => Task::none(),
+    operate(Reading::new(view::INSPECTOR)).then(move |slots| {
+        let target = chosen(&slots, backward);
+        sandbox!(
+            "focus backward={backward} slots={:?} -> target={target:?} in_inspector={:?}",
+            slots
+                .iter()
+                .map(|slot| (slot.inspector, slot.focused))
+                .collect::<Vec<_>>(),
+            target.and_then(|at| slots.get(at)).map(|slot| slot.inspector)
+        );
+        match target {
+            Some(target) => operate::<T>(Giving(0, target)),
+            None => Task::none(),
+        }
     })
 }
 
@@ -111,8 +122,16 @@ impl<T> Operation<T> for Giving {
         operate(self);
     }
 
-    fn focusable(&mut self, _id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Focusable) {
+    fn focusable(&mut self, id: Option<&Id>, bounds: Rectangle, state: &mut dyn Focusable) {
         if self.0 == self.1 {
+            sandbox!(
+                "focused widget order={} id={id:?} x={} y={} width={} height={}",
+                self.0,
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height
+            );
             state.focus();
         } else {
             state.unfocus();

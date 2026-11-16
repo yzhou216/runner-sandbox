@@ -126,6 +126,11 @@ pub(super) fn landing(
     let row_height = shape.content / cues as f32;
     let fit = rows_fitting(shape.view, shape.content, cues);
     let moved = rows(page, count, scroll, fit);
+    sandbox!(
+        "page {page:?} count={count:?} view={} content={} cues={cues} fit={fit} moves={moved}",
+        shape.view,
+        shape.content
+    );
     let wanted = shape.scrolled + page.sign() as f32 * moved as f32 * row_height;
     let offset = wanted.clamp(0.0, (shape.content - shape.view).max(0.0));
     let (first_row, last_row) = Shape {

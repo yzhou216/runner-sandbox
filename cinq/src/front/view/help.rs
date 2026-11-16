@@ -69,6 +69,26 @@ pub(super) fn view(app: &App) -> Element<'_, Message> {
         ", apart from the space bar, which is Space.",
         Message::OpenLink,
     );
+    {
+        thread_local!(static LAST: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) });
+        let rows = bound(keymap)
+            .into_iter()
+            .map(|action| format!("{action:?} = {}", keymap.listed(action)))
+            .collect::<Vec<_>>()
+            .join(" ; ");
+        let told = format!("first_steps={:?} rows={rows}", first_steps(keymap));
+        LAST.with(|last| {
+            if *last.borrow() != told {
+                eprintln!(
+                    "SANDBOX {:.3} helptext {told}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0.0, |time| time.as_secs_f64())
+                );
+                last.replace(told.clone());
+            }
+        });
+    }
     let page = column![
         text(format!("Keys of the {} keymap", keymap.name())).size(24),
         text(first_steps(keymap)),

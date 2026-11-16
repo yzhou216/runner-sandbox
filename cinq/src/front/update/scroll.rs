@@ -96,7 +96,13 @@ impl Operation for Measure {
             height: row.height,
             margin,
         };
-        let Some(offset) = scrolling_to(span, scrolled, height) else {
+        let offset = scrolling_to(span, scrolled, height);
+        sandbox!(
+            "revealed view={height} scrolled={scrolled} row_top={} row_height={} margin={margin} -> offset={offset:?}",
+            span.top,
+            span.height
+        );
+        let Some(offset) = offset else {
             return Outcome::None;
         };
         let offset = AbsoluteOffset {

@@ -83,6 +83,20 @@ impl App {
         arrive: impl Fn(usize) -> Message + Send + 'static,
         land: impl Fn(Shape) -> Option<Landing> + Send + 'static,
     ) -> (Self, Task<Message>) {
+        let land = move |shape: Shape| {
+            let landing = land(shape);
+            if let Some(landing) = &landing {
+                sandbox!(
+                    "measured view={} content={} scrolled={} -> offset={} row={}",
+                    shape.view,
+                    shape.content,
+                    shape.scrolled,
+                    landing.offset,
+                    landing.row + 1
+                );
+            }
+            landing
+        };
         let id = self.scrollable();
         let kept = self.measures.rows.filter(|kept| self.fits(*kept));
         let app = self.remeasured();
@@ -154,6 +168,12 @@ impl App {
         count: usize,
         shape: Shape,
     ) -> Self {
+        sandbox!(
+            "measure view={} content={} scrolled={}",
+            shape.view,
+            shape.content,
+            shape.scrolled
+        );
         if serial != self.measures.serial {
             return self;
         }

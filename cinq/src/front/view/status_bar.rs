@@ -126,6 +126,21 @@ fn bar(app: &App, width: f32) -> Element<'_, Message> {
             (status.into(), shown)
         }
     };
+    {
+        thread_local!(static LAST: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) });
+        LAST.with(|last| {
+            if *last.borrow() != shown {
+                eprintln!(
+                    "SANDBOX {:.3} status hints={shown:?} room={room} menu={}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0.0, |time| time.as_secs_f64()),
+                    app.menu
+                );
+                last.replace(shown.clone());
+            }
+        });
+    }
     row![left, text(shown).wrapping(Wrapping::None)]
         .spacing(SPACING)
         .padding(SPACING)
