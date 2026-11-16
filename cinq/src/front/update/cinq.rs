@@ -57,6 +57,7 @@ impl Cinq {
     /// Taking the state out of `self` instead of cloning it keeps updates
     /// free of copies.
     pub(in crate::front) fn update(&mut self, message: Message) -> Task<Message> {
+        let said: String = format!("{message:?}").chars().take(120).collect();
         let routed = matches!(
             message,
             Message::Reconfigured(_) | Message::ChooseAudioDevice(_)
@@ -80,6 +81,25 @@ impl Cinq {
         let (app, load) = app.load();
         let (app, stage) = app.staged();
         self.app = app;
+        eprintln!(
+            "U {:.3} {said} | shown={} list={} selected={:?} outputs=[{}] output={:?} sends={:?}",
+            crate::stamp(),
+            self.app.outputs_shown,
+            self.app.list,
+            self.app.selected,
+            self.app
+                .workspace
+                .outputs()
+                .iter()
+                .map(|o| format!("{:?}={}@{}", o.id, o.name, o.channels))
+                .collect::<Vec<_>>()
+                .join(","),
+            self.app.output,
+            self.app
+                .selected
+                .and_then(|id| self.app.workspace.cue(id))
+                .and_then(|cue| cue.sends.clone()),
+        );
         Task::batch([task, load, stage])
     }
 

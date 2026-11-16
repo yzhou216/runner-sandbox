@@ -37,7 +37,16 @@ mod man;
 use std::{
     io::{self, Write},
     process::ExitCode,
+    time::{SystemTime, UNIX_EPOCH},
 };
+
+/// Seconds since the epoch, which the log of the sandbox branch stamps its
+/// lines with
+pub(crate) fn stamp() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0.0, |elapsed| elapsed.as_secs_f64())
+}
 
 use clap::Parser;
 

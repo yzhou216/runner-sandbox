@@ -131,6 +131,7 @@ impl App {
 /// Reads a key that no widget captured, with Shift applied, so that Shift
 /// and `g` make `G`
 pub(super) fn key_press(event: keyboard::Event) -> Option<Message> {
+    eprintln!("K {:.3} {event:?}", crate::stamp());
     let KeyPress { press, repeat, .. } = KeyPress::of(&event)?;
     press.map(|press| Message::Typed { press, repeat })
 }
