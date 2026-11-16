@@ -230,7 +230,8 @@ def view(directory, phase):
             at += 1
     say("5", phase + " outputs view", "passed" if at == len(want) else "failed",
         f"(shown, outputs) after each change: {states}; keys seen: {''.join(k if len(k) == 1 else '<' + k + '>' for _, k in keys)}")
-    with_sends = [f["sends"] for _, _, _, f in updates if "Some" in f.get("sends", "")]
+    # The last line may be cut where the process was stopped while writing it
+    with_sends = [f["sends"] for _, _, _, f in updates if "Some" in f.get("sends", "") and f["sends"].rstrip().endswith("})")]
     names = {}
     for _, _, _, f in updates:
         names.update({i: n for i, n in re.findall(r"OutputId\((\d+)\)=([^@,\]]+)@", f.get("outputs", ""))})

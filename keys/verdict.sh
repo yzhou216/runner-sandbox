@@ -355,7 +355,7 @@ fi
 if [ -f "$out/outs.timeline" ]; then
   o() { segment outs "$1" | grep '^update' | tail -n 1; }
   names() { o "$1" | sed -n 's/.* outputs=\[\(.*\)\]$/\1/p'; }
-  out_of() { o "$1" | sed -n 's/.* output=\(Some(OutputId([0-9]*))\|None\) .*/\1/p'; }
+  out_of() { o "$1" | sed -En 's/.* output=(Some\(OutputId\([0-9]*\)\)|None) .*/\1/p'; }
   o 14-l | grep -q ' shown=true ' && [ "$(out_of 14-l)" = 'Some(OutputId(1))' ]
   st=$?; check "14 l shows the outputs and selects the first: $(out_of 14-l)" "$st" "$(o 14-l)"
   segment outs 14-cc | grep -q 'message Focus(Name(' && segment outs 14-name | grep -q 'message SettingTyped(OutputName(OutputId(1)), "Front")' &&
