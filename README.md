@@ -196,7 +196,7 @@ Only the commit in `lights.yml` changed.  Run **44054355789** (commit
 | TCP and UDP `/test [7, 2.5, '12', 'hello']` | arrived | arrived on all three, UDP 0.2 s after TCP |
 | Burst of five | one connection, 0.11 s steps on riscv64 | one connection, 0.09 to 0.11 s steps on all three |
 | Three cues 3 s apart | each a connection, closed 1.0 s after | the same (3 connections, 3.0 s apart) |
-| Refused port | `Connection refused (os error 111)` / `(os error 61)` on FreeBSD, at t+16.19 to 16.40 s | the same text, at t+16.15 (riscv64), 16.40 (x86_64 FreeBSD), 15.91 s (aarch64 FreeBSD, whose clock starts 0.4 s earlier relative to the lights) |
+| Refused port | `Connection refused (os error 111)` / `(os error 61)` on FreeBSD, at t+16.19 to 16.40 s | the same text, at t+16.15 (riscv64), 16.40 (x86_64 FreeBSD), 15.91 s |
 | Cue while the console is down | warned once; the two cues after arrived at once | the same: warned once at t+31.57 to 31.80 s (31.29 s aarch64), `/back` and `/after` arrived |
 | No answer, 10.255.255.1:3037 | `connection timed out` at t+41.51 to 41.82 s; `/behind` arrived | `connection timed out` at t+41.55 (riscv64), 41.78 (x86_64), 41.27 s (aarch64); `/behind` arrived at the same time |
 | Compositor ends | `Io error: Broken pipe (os error 32)` three times | the same |
@@ -204,7 +204,6 @@ Only the commit in `lights.yml` changed.  Run **44054355789** (commit
 | Window of cinq on FreeBSD | found by title as before (not re-examined) | the same (not re-examined) |
 
 Difference: none in behavior.  The riscv64 fade ran at 35.3 frames/s against
-37.8 (a different board again, and the runner pays for seven docker and
-flannel networks), and aarch64 FreeBSD at 15.3 against 16.9 (emulated); the
+37.8 (on a different board again; I did not look for the cause), and aarch64 FreeBSD at 15.3 against 16.9 (emulated); the
 x86_64 FreeBSD numbers equal the earlier ones.  The riscv64 build took 238 s
 against 6001 s on the other board.
