@@ -93,3 +93,45 @@ stand-in lifetime).
 - `listen.py` on Darwin: 19 `EADDRINUSE` on the join of each group through
   the computer's address, since the join through `0.0.0.0` already covers
   it; harmless.
+
+## Rerun on 1a21980 (2026-11-16)
+
+cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (`wip/light-cues`, rebased
+onto the latest master and cleaned up) in place of 97af215; only `CINQ` in
+`darwin.yml` and the checkout in `intel.yml` changed.  Runs **43985736020**
+(`darwin.yml`, commit 54b8dd2) and **43985735985** (`intel.yml`, same
+commit).  The jobs waited for runners for up to 2 h 45 min (the Nix runs
+started at 02:57, 03:19, and 03:21 UTC).  Artifacts read: `build-`,
+`lights-`, `net-`, and `cable-` of each runner.  Every verdict file has the
+same check counts as before: 8 `ok` lines in `lights` (7 DMX and source
+checks plus discovery), 15 in `net`, 6 in `cable`, none failing.
+
+| Runner | Old (43697228332, 43697229131) | New |
+| --- | --- | --- |
+| `macos-latest` (Darwin 26.7.2, aarch64) | all pass; Nix build 639 s | all pass (job 22 min with all phases) |
+| `macos-26` (26.7.2) | all pass; 692 s | all pass |
+| `macos-15` (15.8.2) | all pass; 663 s | all pass |
+| `macos-15-intel`, Nix | fails: `does not provide attribute 'packages.x86_64-darwin.cinq'` | fails with the same error |
+| `macos-15-intel`, cargo (`intel.yml`, 15.7.9, rustc 1.98.0) | all pass; 562 s | all pass; `cargo build` 7 min 02 s; `Identifier=io.yiyuzhou.cinq`, ad hoc |
+| `macos-14` | never ran: configuration not supported | never ran, same message; I cancelled it after 2 h 40 min |
+
+| Check | Old | New (aarch64 x3, Intel) |
+| --- | --- | --- |
+| sACN universes 1, 2, 999 and Art-Net 0, 1, 998 | 51/179, 128, 255 at the right addresses, then out | the same, all `ok` |
+| sACN priority, source name, discovery | 100, `cinq`, `[1, 2, 999]` in 9-12 packets | 100, `cinq`, 9-11 packets (10 on Intel) |
+| Idle refresh | 12 packets in 12 s per universe, protocol, sender | 12 in 12 s on every one |
+| Fade of 4 s, packets in 4.5 s | 120-127, 27-28/s | 127-128, 28.2-28.4/s; Intel 121, 26.9/s |
+| Senders | 127.0.0.1 and the en0 address | the same |
+| Local Network prompts | one for cinq, a second for `hosted-compute-` on aarch64, at +8.1-9.5 s and +12.3-15.1 s; Intel one press | the same shape: +7.9 to +10.1 s and +13.0 to +16.5 s; Intel one press at +9.1 s |
+| Before Allow, sACN on en0 | none; sACN on 127.0.0.1 only (28-31 packets) | none; 25-30 packets on 127.0.0.1 (Intel 31 and 3 on en0 before its Allow) |
+| After the last Allow, 5 s | 15-16 packets, 12 on `macos-26` | 15-16 on all, `macos-26` 15 |
+| TCP and UDP arguments `7 1.5 "hello world" "42"` | decoded, 16-43 ms after GO | decoded, 12-33 ms after GO on aarch64 (Intel 15-18 ms) |
+| Burst of 3 GOs 0.3 s apart | 1 connection, 4-6 ms between messages | 1 connection, 3-5 ms (Intel 3 ms) |
+| 3 GOs 4 s apart | 3 connections | 3 connections |
+| Refusing destination | warns after 10-23 ms, `Connection refused (os error 61)` | warns after 12-15 ms (Intel 16 ms), same text |
+| Stand-in stopped, then restarted | refuses the same way; cue after restart in 9-28 ms | the same; 11-14 ms |
+| Cable pulled with pf | before 17-30 ms; during never; `blip` never; after 9-24 ms; warning 1.012-1.023 s `connection timed out` | before 18-33 ms; both `never`; after 10-31 ms; warning 1.011-1.015 s (Intel 1.017 s), same text |
+
+Difference: none.  The `macos-15-intel` job of `darwin.yml` printed
+AppleScript syntax errors after its Nix failure (as it ran on without
+`cinq.app`); `intel.yml` is the Intel result.
