@@ -157,8 +157,8 @@ cue, as the man page does not say; a refused TCP port on Windows always reads
 
 cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (`wip/light-cues`, rebased
 onto the latest master and cleaned up) in place of 97af215, cross-built the
-same way.  Two changes to `windows.yml` besides the commit: none to a step,
-but the three jobs `build`, `cues`, and `eos` carried
+same way.  One more change to `windows.yml` besides the commit: the three jobs
+`build`, `cues`, and `eos` carried
 `if: github.run_attempt == 0 # skipped, ran in 43693917753` (a leftover that
 skipped them); the first run of the rerun, 43985731709 (commit 0ed57ef),
 therefore ran only the two firewall jobs and was cancelled, and the guards
