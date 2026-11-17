@@ -135,3 +135,49 @@ checks plus discovery), 15 in `net`, 6 in `cable`, none failing.
 Difference: none.  The `macos-15-intel` job of `darwin.yml` printed
 AppleScript syntax errors after its Nix failure (I did not look into why;
 `intel.yml` is the Intel result).
+
+## Rerun on 0ed5d6c (2026-11-17)
+
+cinq `0ed5d6c41dbe29b3140f29238dae014a0a8baa81` (`wip/light-cues`, rebased
+onto the rewritten master; every commit kept its tree) in place of 1a21980;
+only `CINQ` in `darwin.yml` and the checkout in `intel.yml` changed.  Runs
+**44054345889** (`darwin.yml`, commit 9faabb3) and **44054345897**
+(`intel.yml`, same commit).  The jobs started within 15 minutes of the push
+(09:23 to 09:59 UTC), unlike the 2 h 45 min of the last rerun.  Artifacts
+read: `build-`, `lights-`, `net-`, and `cable-` of each runner.  Every
+verdict file has the same check counts as before: 8 `ok` lines in `lights`,
+15 in `net`, 6 in `cable`, none failing.
+
+| Runner | Old (43985736020, 43985735985) | New |
+| --- | --- | --- |
+| `macos-latest` (Darwin 26.7.2, aarch64) | all pass; job 22 min with all phases | all pass; Nix build 5 min 08 s (09:40:03 to 09:45:11) |
+| `macos-26` (26.7.2) | all pass | all pass; Nix build 14 min 45 s |
+| `macos-15` (15.8.2) | all pass | all pass; Nix build 14 min 29 s |
+| `macos-15-intel`, Nix | fails: `does not provide attribute 'packages.x86_64-darwin.cinq'` | fails with the same error, after 46 s |
+| `macos-15-intel`, cargo (`intel.yml`, 15.7.9) | all pass; `cargo build` 7 min 02 s; `Identifier=io.yiyuzhou.cinq`, ad hoc | all pass; `cargo build` 14 min 29 s; `Identifier=io.yiyuzhou.cinq`, `TeamIdentifier=not set` |
+| `macos-14` | never ran: configuration not supported; I cancelled it | never ran, same message (`The configuration 'macos-14-arm64-us-default' is not supported`); the platform cancelled the job at 09:36 UTC (I did not cancel it), which made the run's conclusion `cancelled` while every other job finished |
+
+| Check | Old (aarch64 x3, Intel) | New |
+| --- | --- | --- |
+| sACN universes 1, 2, 999 and Art-Net 0, 1, 998 | right addresses, then out | the same, all `ok` (130, 3, 3 changes per stream) |
+| sACN priority, source name, discovery | 100, `cinq`, `[1, 2, 999]` in 9-11 packets | 100, `cinq`, 10-13 packets (11 on Intel) |
+| Idle refresh | 12 in 12 s per universe, protocol, sender | 12 in 12 s on every one |
+| Fade of 4 s, packets in 4.5 s | 127-128, 28.2-28.4/s; Intel 121, 26.9/s | 126-127, 28.0-28.2/s; Intel 119, 26.4/s |
+| Senders | 127.0.0.1 and the en0 address | the same |
+| Local Network prompts | one for cinq, a second for `hosted-compute-` on aarch64, at +7.9 to +10.1 s and +13.0 to +16.5 s; Intel one press at +9.1 s | the same shape: first press +7.0 to +10.7 s, second +10.8 to +17.4 s; Intel one press at +12.1 s |
+| Before Allow, sACN on en0 | none; 24-30 packets on 127.0.0.1; on Intel 3 reached en0 early | none on any runner, Intel included; 22-37 sACN packets on 127.0.0.1 (Art-Net on en0 and 127.0.0.1 went out as before) |
+| After the last Allow, 5 s | 15-16 packets on all, `macos-26` 15 | 15-16 on all; `macos-26` 13 sACN on en0 and 15 on the others |
+| TCP and UDP arguments `7 1.5 "hello world" "42"` | decoded, 12-33 ms after GO on aarch64 (Intel 15-18 ms) | decoded; TCP 17, 52, 24 ms (Intel 36), UDP 11, 17, 15 ms (Intel 26) on `macos-latest`, `macos-26`, `macos-15` |
+| Burst of 3 GOs 0.3 s apart | 1 connection, 3-5 ms (Intel 3 ms) | 1 connection, 3-5 ms between messages (Intel 6 ms) |
+| 3 GOs 4 s apart | 3 connections | 3 connections |
+| Refusing destination | warns after 12-15 ms (Intel 16 ms), `Connection refused (os error 61)` | warns after 12, 29, 16 ms (Intel 28 ms), same text |
+| Stand-in stopped, then restarted | refuses the same way; cue after restart in 11-14 ms | the same: warns after 8, 32, 11 ms (Intel 22 ms); `back` after 8, 25, 10 ms (Intel 23 ms) |
+| Cable pulled with pf | before 18-33 ms; both `never`; after 10-31 ms; warning 1.011-1.015 s (Intel 1.017 s) | before 11, 40, 17 ms (Intel 34); both `never`; after 9, 22, 17 ms (Intel 31); `after blip` 8, 30, 40 ms; warning 1.013, 1.022, 1.036 s (Intel 1.031 s), same text |
+
+Difference: no change in behavior.  The latencies on `macos-26` (TCP 52 ms,
+`apart-1` 38 ms, cable `before` 40 ms) and `macos-15` (`after blip` 40 ms)
+are above the old 12-33 ms range for single values, while `macos-latest`
+(the same Darwin 26.7.2) gave 8-17 ms; I took that for runner load and did
+not run those jobs again.  The cargo build on Intel took 14 min 29 s
+against 7 min 02 s and the Nix builds on `macos-26` and `macos-15` 14.5
+minutes, also longer than before (11 minutes); I did not look into why.
