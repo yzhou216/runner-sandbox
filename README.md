@@ -122,3 +122,40 @@ arrived at once.  Three `Io error: Broken pipe (os error 32)` lines when
 sway ends.
 
 Difference: none.  cinq still prints version 0.1.4.
+
+## Rerun on 0ed5d6c (2026-11-17)
+
+cinq `0ed5d6c41dbe29b3140f29238dae014a0a8baa81` (cinq 0.1.4, `wip/light-cues`,
+rebased onto the rewritten master; every commit kept its tree) in place of
+1a21980.  Only `CINQ` in `.github/workflows/distro.yml` changed.  Run
+**44054350718** (commit 4332bf2): both builds and all 17 test jobs green
+(09:24 to 09:54 UTC).  Artifacts read: the 17 `<distribution>-<arch>` ones;
+the `summary.txt` of each `out.tar` comes from `analyze.py`.
+
+| Distribution | Old (43985739821), x86_64 and aarch64 alike | New (44054350718), x86_64 and aarch64 alike |
+| --- | --- | --- |
+| debian:stable (glibc 2.41) | refused (`2.41-12+deb13u4`); forced: `GLIBC_2.43` not found | the same, same version string; `GLIBC_2.43` and `GLIBC_2.44` not found |
+| debian:testing (2.43) | refused (`2.43-7`); forced: `GLIBC_2.44` not found | the same |
+| ubuntu:24.04 (2.39) | refused (`2.39-0ubuntu8.9`); `GLIBC_2.43` not found | the same (also `GLIBC_2.44` in the forced run) |
+| ubuntu:25.10 (2.42) | refused (`2.42-0ubuntu3.1`); `GLIBC_2.43` not found | the same (also `GLIBC_2.44`) |
+| ubuntu:rolling (2.44) | installs, 12 of 12 PASS | installs, 12 of 12 PASS (`cinq 0.1.4`) |
+| fedora:latest (45) | installs, 12 of 12 PASS | installs, 12 of 12 PASS |
+| fedora:rawhide | installs, 12 of 12 PASS | installs, 12 of 12 PASS |
+| opensuse/tumbleweed | zypper refuses (`nothing provides 'libgcc'`); `--nodeps` plus libraries: 12 of 12 PASS | the same refusal; then 12 of 12 PASS |
+| archlinux:latest (x86_64) | installs, 12 of 12 PASS | installs, 12 of 12 PASS |
+
+In the 9 containers where cinq ran: sACN priority 100, source `cinq`,
+discovery lists 1, 2, 999 (first at start, then every 10 s: -6.3, 3.7, 14.6,
+24.6 ... on fedora:latest), Art-Net Port-Address 0, 1, 998, senders 127.0.0.1
+and 172.17.0.2, idle 10 packets in 10 s per universe, sender, and protocol, a
+fade of 153 packets in 4 s (38.2 per second), the burst of four network cues
+at 12.93 to 12.97 s on one TCP connection (UDP datagram in between), GOs 3 s
+or more apart one connection each, the refused destination warned 4 to 10 ms
+after GO (`Connection refused (os error 111)`; 5 ms to 127.0.0.1:3037 while
+the stand-in was down), and the cue after its return arrived 3 to 4 ms after
+GO.  Three `Io error: Broken pipe (os error 32)` lines when sway ends.
+
+Difference: none.  cinq still prints version 0.1.4.  A forced run on the old
+release printed only the `GLIBC_2.43` error for some of the four refused
+images in the README above; I did not compare both lines per image against
+the earlier artifacts.
