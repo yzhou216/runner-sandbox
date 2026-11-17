@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# cinq's light and network cues (97af215, branch wip/light-cues) on
+# cinq's light and network cues (1a21980, branch wip/light-cues) on
 # GNU/Linux, natively built with Nix on x86_64 and aarch64: sACN and Art-Net
 # heard on the runner, network cues to a stand-in console, a cable that
 # comes out under cinq, a console that loses its power, and OLA, the Open
@@ -17,7 +17,7 @@ defaults:
   run:
     shell: bash
 env:
-  SHA: 97af215a58520fe2a30ae5d2bffb98f90800a9e6
+  SHA: 1a2198013d7e4a7122b90c4141ca5285096a5df9
 jobs:
   linux:
     name: ${{ matrix.arch }}
