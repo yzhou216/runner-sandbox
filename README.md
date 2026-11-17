@@ -168,3 +168,43 @@ Difference: none in behavior.  Bigger numbers come from the code under test
 (the `light` filter now matches 26 tests, 8 more than before, since master added names such as
 `highlight_follows...` and `the_sidebar_lights_only_while...`, none in `back::light`, whose 3 tests are unchanged), the riscv64
 board, and emulation speed on aarch64.
+
+## Rerun on 0ed5d6c (2026-11-17)
+
+cinq `0ed5d6c41dbe29b3140f29238dae014a0a8baa81` (`wip/light-cues`, rebased
+onto the rewritten master; every commit kept its tree) in place of 1a21980.
+Only the commit in `lights.yml` changed.  Run **44054355789** (commit
+3c72884, message tag `[skip aarch64 unit]`): all nine jobs green (09:33 to
+10:14 UTC; no long wait for runners this time).  Artifacts read:
+`unit-riscv64`, `unit-x86_64-freebsd`, `gui-riscv64`, `gui-x86_64-freebsd`,
+`gui-aarch64-freebsd`; `analyze.py` ran over the three `gui-*` ones.
+
+| Platform | Old (43985744045) | New (44054355789) |
+| --- | --- | --- |
+| cross builds of `#riscv64-linux`, `#x86_64-freebsd`, `#aarch64-freebsd` | built, all three | built, all three |
+| riscv64 unit, `cargo test --no-run` | 6001 s on `riscv-runner-52` | 238 s on `riscv-runner-47` (kernel 5.10.113-scw1; I did not look into the difference) |
+| riscv64 unit, network (11), light, osc (5) | 11, 26, 5 passed; 1.59 s, 0.07 s, 0.01 s; 42 of 42 alone | 11, 26, 5 passed; 1.58 s, 0.05 s, 0.01 s; 42 of 42 alone, none failing |
+| x86_64 FreeBSD unit | 538 s; 11, 26, 5; 1.54 s, 0.01 s, 0.00 s; 42 of 42 | 531 s; 11, 26, 5; 1.54 s, 0.01 s, 0.00 s; 42 of 42 |
+| aarch64 FreeBSD unit | skipped as instructed | skipped as instructed |
+| riscv64 show | played, all values exact | played, all values exact |
+| x86_64 FreeBSD show | played, all values exact | played, all values exact |
+| aarch64 FreeBSD show | played, all values exact | played, all values exact |
+| DMX (all three shows) | `{1: 51}` 4.0 s, `{1: 179, 2: 255}` 3.0 s, u2 `{10: 128}` 8 s, u999 `{512: 255}`, finals `{2: 77}`, `{10: 204}`; Art-Net 0, 1, 998; priority 100, `cinq` | identical final states and holds on all three (x86_64: `{1: 51}` 4.0 s from t+0.99, `{1: 179, 2: 255}` 3.0 s from t+5.99, `{10: 128}` 8.0 s, `{512: 255}` 45.0 s, then `{2: 77}` and `{10: 204}` for 33.0 s) |
+| Fade rate per universe and sender | 37.8/s riscv64; 38.6/s x86_64 FreeBSD; 16.9/s aarch64 FreeBSD | 35.3/s; 38.3/s; 15.3/s (emulated; cinq 132.5 percent of a core, old 130) |
+| Idle refresh, discovery | 0.7 to 1.0/s; `[1, 2, 999]` every 10.0 s | 0.8/s (aarch64 1.2/s) in the idle window, 1.0/s between cues; discovery at 4.99, 15.96, 25.97 ... on x86_64 FreeBSD |
+| Packets per sender | x86_64 FreeBSD 831 Art-Net, 837 sACN; riscv64 795 and 801 from seven addresses | x86_64 FreeBSD 831 and 837 (the same); riscv64 762 and 774 from seven addresses (127.0.0.1, 172.17.0.1, 172.18.0.1, 172.19.0.1, 10.244.65.0, 10.244.65.1, 62.210.163.219); aarch64 FreeBSD 408 and 414 |
+| TCP and UDP `/test [7, 2.5, '12', 'hello']` | arrived | arrived on all three, UDP 0.2 s after TCP |
+| Burst of five | one connection, 0.11 s steps on riscv64 | one connection, 0.09 to 0.11 s steps on all three |
+| Three cues 3 s apart | each a connection, closed 1.0 s after | the same (3 connections, 3.0 s apart) |
+| Refused port | `Connection refused (os error 111)` / `(os error 61)` on FreeBSD, at t+16.19 to 16.40 s | the same text, at t+16.15 (riscv64), 16.40 (x86_64 FreeBSD), 15.91 s (aarch64 FreeBSD, whose clock starts 0.4 s earlier relative to the lights) |
+| Cue while the console is down | warned once; the two cues after arrived at once | the same: warned once at t+31.57 to 31.80 s (31.29 s aarch64), `/back` and `/after` arrived |
+| No answer, 10.255.255.1:3037 | `connection timed out` at t+41.51 to 41.82 s; `/behind` arrived | `connection timed out` at t+41.55 (riscv64), 41.78 (x86_64), 41.27 s (aarch64); `/behind` arrived at the same time |
+| Compositor ends | `Io error: Broken pipe (os error 32)` three times | the same |
+| cinq CPU with `tiny-skia` on x86_64 FreeBSD | 54.9 s | 54.1 s (100.5 percent of a core) |
+| Window of cinq on FreeBSD | found by title as before (not re-examined) | the same (not re-examined) |
+
+Difference: none in behavior.  The riscv64 fade ran at 35.3 frames/s against
+37.8 (a different board again, and the runner pays for seven docker and
+flannel networks), and aarch64 FreeBSD at 15.3 against 16.9 (emulated); the
+x86_64 FreeBSD numbers equal the earlier ones.  The riscv64 build took 238 s
+against 6001 s on the other board.
