@@ -135,3 +135,31 @@ runners before it started).  Artifacts read from it: `<arch>-light`,
 Difference: none beyond the numbers above (merge 0.08 to 0.06 s, fade rate
 34.6 to 34.7 frames/s).  The two OLA phases printed the same numbers on
 x86_64 and aarch64.
+
+## Rerun on 0ed5d6c (2026-11-17)
+
+cinq `0ed5d6c41dbe29b3140f29238dae014a0a8baa81` (`wip/light-cues`, rebased
+onto the rewritten master; every commit kept its tree) in place of 1a21980.
+Only the commit in `.github/workflows/lights.yml` changed.  Run
+**44054338253** (commit 3da304d, both arches green, every step green; the
+jobs ran 09:23 to 09:51 UTC).  Artifacts read: `<arch>-light`, `-stress`,
+`-lan`, `-powercut`, `-refuse`, `-gateway`.
+
+| Check | Old (43985729726) | New (44054338253) |
+| --- | --- | --- |
+| Light output, 20 checks (`check-light.py`) | all ok, both arches | all ok, both arches; senders 10.1.0.162 (aarch64 10.1.0.93), 127.0.0.1, 172.17.0.1 |
+| DMX values, universes 1, 2, 999 | exact | exact (5 of 5 and 2 of 2 steps in order, 249 and 41 changes, then zeros) |
+| sACN priority 100 only, source `cinq`, discovery [1, 2, 999], 512 slots | yes, no terminated packet | yes, 3 discovery packets, no packet with the stream terminated option |
+| Idle refresh, fade rate | 1/s; 34 in the fade, 21 in the 0.5 s fade | 1/s; 34-35 in a 3 s fade, 21 in the 0.5 s fade, identical on every sender and arch |
+| Network cues: TCP, UDP arguments | `[]`, `['hello world', 7, 2.5, '12']` | the same |
+| 50 TCP, 50 UDP in one GO | 1 connection each way | 1 connection, 50 TCP and 50 UDP |
+| Console restarted before a GO | 10 cues, 3 connections | 10 `/again` cues, 3 connections |
+| Soak, 300 cues 0.1 s apart | 300, RSS flat 58.9 MB / 71.5 MB | 300, RSS 59.0 to 59.1 MB (x86_64), flat 71.7 MB (aarch64) |
+| Cable pulled (`lan.sh`) | -8 ms / -5 ms; while out and `blip` never; `connection timed out` | -8 ms / -5 ms after GO; both `never`; 12 of 12 ok |
+| Power cut | `/cut 2` and `/cut 3` on new connections | the same, on two new connections |
+| ion-test.toml, universe 999 | 155 changes each | 155 changes each, sACN source `cinq` priority 100 |
+| Refused, no resolve, no route, repeat | os error 111 at 0.00 s; lookup 0.00 s; timed out 1.00 s; no second line | the same text and times (-0.00, +0.00, +1.00 s); GO 2 and 5 print nothing |
+| OLA (a) to (g) | all `ok`; first level 0.03 s, merge 0.06 s, takeover 2.05 s, never drops, 34.7 frames/s | 16 of 16 `ok` on both arches; first level 0.03 s (aarch64 0.04), merge 0.06 s, takeover 2.05 s, never drops (60 s), 34.9 frames/s (aarch64 34.6), fade 102 to 179 in 2.20 s (2.17), dummy port 34.3/s, 0 frames after quit |
+
+Difference: none beyond the numbers above (x86_64 fade 34.7 to 34.9
+frames/s, 2.17 to 2.20 s).
