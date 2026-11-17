@@ -87,3 +87,38 @@ identical:
   `/usr/bin`).
 - Old distributions need a glibc of 2.44, which no release other than
   Ubuntu 26.10, Fedora 45 and 46, Tumbleweed, and Arch has at this date.
+
+## Rerun on 1a21980 (2026-11-16)
+
+cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (cinq 0.1.4, `wip/light-cues`,
+rebased onto the latest master and cleaned up) in place of 97af215.  Only
+`CINQ` in `.github/workflows/distro.yml` changed.  Run **43985739821**
+(commit 39df31f): both builds and all 17 test jobs green.  Artifacts read:
+the 17 `<distribution>-<arch>` ones; `analyze.py` and `report.txt` come from
+them.
+
+| Distribution | Old (43693560570, 43695248629) | New (43985739821), x86_64 and aarch64 alike |
+| --- | --- | --- |
+| debian:stable (glibc 2.41) | refused: `libc6 (>= 2.44) but 2.41-12+deb13u4`; forced: `GLIBC_2.43` not found | the same, same version strings |
+| debian:testing (2.43) | refused (`2.43-7`); forced: `GLIBC_2.44` not found | the same |
+| ubuntu:24.04 (2.39) | refused; forced: `GLIBC_2.43` not found | refused (`2.39-0ubuntu8.9`); `GLIBC_2.43` not found |
+| ubuntu:25.10 (2.42) | refused; forced: `GLIBC_2.43` not found | refused (`2.42-0ubuntu3.1`); `GLIBC_2.43` not found |
+| ubuntu:rolling (2.44) | installs, all checks pass | installs, 12 of 12 DMX checks PASS |
+| fedora:latest (45) | installs, all checks pass | installs, 12 of 12 PASS |
+| fedora:rawhide (2.44.9000) | installs, all checks pass | installs, 12 of 12 PASS |
+| opensuse/tumbleweed | zypper refuses (`nothing provides 'libgcc'`); `rpm --nodeps` plus libraries: all pass | the same refusal (exit 4, `cinq-0.1.4-1.x86_64` and `.aarch64`); then 12 of 12 PASS |
+| archlinux:latest (x86_64) | installs, all checks pass | installs, 12 of 12 PASS |
+
+In the 9 containers where cinq ran, the numbers equal the old ones: sACN
+priority 100, source `cinq`, discovery lists 1, 2, 999 (first at start, then
+every 10.0 s), Art-Net Port-Address 0, 1, 998, senders 127.0.0.1 and
+172.17.0.2, idle 10 packets in 10 s per universe, sender, and protocol, a
+fade of 153 packets in 4 s (38.2 per second), the burst of four network cues
+at 12.94 to 13.25 s on one TCP connection (UDP datagram in between), GOs 3 s
+or more apart one connection each, the refused destination warned once 4 to 5
+ms after GO (`Connection refused (os error 111)`), the same text for
+127.0.0.1:3037 while the stand-in was down, and the cue after its return
+arrived at once.  Three `Io error: Broken pipe (os error 32)` lines when
+sway ends.
+
+Difference: none.  cinq still prints version 0.1.4.
