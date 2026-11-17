@@ -106,3 +106,32 @@ the output.
   machine, so sACN reached OLA through eth0's own multicast loop.
 - The real Ion Xe, its per-address priority (start code 0xDD) packets, or a
   hardware DMX output.
+
+## Rerun on 1a21980 (2026-11-16)
+
+cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (`wip/light-cues`, rebased
+onto the latest master and cleaned up) in place of 97af215.  Only the commit
+in `.github/workflows/lights.yml` changed.  Run **43985729726** (commit
+4c08a91, both arches green, every step green; it waited 86 minutes for
+runners before it started).  Artifacts read from it: `<arch>-light`,
+`-stress`, `-lan`, `-powercut`, `-refuse`, `-gateway`, `-runner`.
+
+| Check | Old (43698236045) | New (43985729726) |
+| --- | --- | --- |
+| Light output, 20 checks (`check-light.py`) | all ok, both arches | all ok, both arches; senders 10.1.0.211 (aarch64 10.1.0.67), 127.0.0.1, 172.17.0.1 |
+| DMX values, universes 1, 2, 999 | exact | exact |
+| sACN priority 100 only, source `cinq`, discovery [1, 2, 999] every 10 s, 512 slots | yes | yes, no packet with the stream terminated option after quitting |
+| Idle refresh, fade rate | 1/s; 34-35/s, 21 in the 0.5 s fade | 1/s; 34 in the fade, 21 in the 0.5 s fade, identical on every sender and arch |
+| Network cues: TCP, UDP arguments | `[]`, `['hello world', 7, 2.5, '12']` | the same |
+| 50 TCP, 50 UDP in one GO | 1 connection, in order | 1 connection each way, all 50 and 50 |
+| Console restarted before a GO | 10 cues, 3 connections in all | 10 cues, 3 connections |
+| Soak, 300 cues 0.1 s apart | 300, RSS flat 58.6 MB / 71.3 MB | 300, RSS flat 58.9 MB / 71.5 MB |
+| Cable pulled (`lan.sh`) | before, after, again, blip arrive under 10 ms; while out and `blip` never; warning `connection timed out` | the same: -8 ms (x86_64), -5 ms (aarch64) after GO; both `never`; same warning |
+| Power cut | GO after the cut and the next arrive on new connections | `/cut 2` and `/cut 3` on new connections |
+| ion-test.toml, universe 999 | sACN and Art-Net 998 at the far end | 155 changes each, sources `cinq` priority 100 |
+| Refused, no resolve, no route, repeat | os error 111 at 0.00 s; lookup failure 0.00 s; timed out 1.00 s; no second line; `Warnings (3)` | the same text and times (0.00, 0.00, 1.00 s); `Warnings (3)` in `refuse/go-5.png` |
+| OLA (a) to (g) | exact, merge 0.08 s, 2.05 s takeover, never drops, 34.6 frames/s | all `ok`; first level 0.03 s, merge 0.06 s, takeover 2.05 s, never drops (60 s), 34.7 frames/s (aarch64 34.9), fade 102 to 179 in 2.17 s, dummy port 34.3/s, 0 frames after quit |
+
+Difference: none beyond the numbers above (merge 0.08 to 0.06 s, fade rate
+34.6 to 34.7 frames/s).  The two OLA phases printed the same numbers on
+x86_64 and aarch64.
