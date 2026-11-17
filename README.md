@@ -165,6 +165,6 @@ green.  The jobs waited for runners for 1.5 hours.  Artifacts read:
 | Window of cinq on FreeBSD | title only, `app_id` null | found by title as before (not re-examined) |
 
 Difference: none in behavior.  Bigger numbers come from the code under test
-(the `light` filter now matches 26 tests, since master added names such as
-`highlight_follows...`; the `back::light` tests are the same 18), the riscv64
+(the `light` filter now matches 26 tests, 8 more than before, since master added names such as
+`highlight_follows...` and `the_sidebar_lights_only_while...`, none in `back::light`, whose 3 tests are unchanged), the riscv64
 board, and emulation speed on aarch64.
