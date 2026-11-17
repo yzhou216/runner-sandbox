@@ -123,7 +123,7 @@ checks plus discovery), 15 in `net`, 6 in `cable`, none failing.
 | Fade of 4 s, packets in 4.5 s | 120-127, 27-28/s | 127-128, 28.2-28.4/s; Intel 121, 26.9/s |
 | Senders | 127.0.0.1 and the en0 address | the same |
 | Local Network prompts | one for cinq, a second for `hosted-compute-` on aarch64, at +8.1-9.5 s and +12.3-15.1 s; Intel one press | the same shape: +7.9 to +10.1 s and +13.0 to +16.5 s; Intel one press at +9.1 s |
-| Before Allow, sACN on en0 | none; sACN on 127.0.0.1 only (28-31 packets) | none; 25-30 packets on 127.0.0.1 (Intel 31 and 3 on en0 before its Allow) |
+| Before Allow, sACN on en0 | none; sACN on 127.0.0.1 only (28-31 packets) | none; 24-30 packets on 127.0.0.1; on Intel 3 sACN packets reached en0 before the logged press, the first 0.023 s before the mark of the press (the Allow took effect before the script logged it) |
 | After the last Allow, 5 s | 15-16 packets, 12 on `macos-26` | 15-16 on all, `macos-26` 15 |
 | TCP and UDP arguments `7 1.5 "hello world" "42"` | decoded, 16-43 ms after GO | decoded, 12-33 ms after GO on aarch64 (Intel 15-18 ms) |
 | Burst of 3 GOs 0.3 s apart | 1 connection, 4-6 ms between messages | 1 connection, 3-5 ms (Intel 3 ms) |
@@ -133,5 +133,5 @@ checks plus discovery), 15 in `net`, 6 in `cable`, none failing.
 | Cable pulled with pf | before 17-30 ms; during never; `blip` never; after 9-24 ms; warning 1.012-1.023 s `connection timed out` | before 18-33 ms; both `never`; after 10-31 ms; warning 1.011-1.015 s (Intel 1.017 s), same text |
 
 Difference: none.  The `macos-15-intel` job of `darwin.yml` printed
-AppleScript syntax errors after its Nix failure (as it ran on without
-`cinq.app`); `intel.yml` is the Intel result.
+AppleScript syntax errors after its Nix failure (I did not look into why;
+`intel.yml` is the Intel result).
