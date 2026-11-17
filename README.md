@@ -190,3 +190,42 @@ artifacts I analyzed again with the same `analyze.py`.
 
 Difference: none beyond timing noise.  The Eos job was not looked at in
 screenshots this time; its fired cues come from `osc.txt` of `eos-fired`.
+
+## Rerun on 0ed5d6c (2026-11-17)
+
+cinq `0ed5d6c41dbe29b3140f29238dae014a0a8baa81` (`wip/light-cues`, rebased
+onto the rewritten master; every commit kept its tree) in place of 1a21980,
+cross-built the same way.  Only `CINQ` in `windows.yml` changed.  Run
+**44054341942** (commit 3a970cf): all seven jobs green (09:23 to 09:54 UTC).
+Old numbers below come from run 43996374290.  Artifacts read: `cues-*`
+(analyzed with `analyze.py`), `firewall-*`, `eos-fired`.
+
+| Check | Old (43996374290), x86_64 / aarch64 | New (44054341942), x86_64 / aarch64 |
+| --- | --- | --- |
+| DMX after GO 1, after the fade, after the blackout (all 18 streams) | slots 51, 77, 102, 128, 179, 204; u2 slot 10 255; u999 51, 255; then 255/0, 128, 0; zeros | identical on both: last packets of all 18 streams after GO 1, 2, and 3 equal across the two arches (e.g. u1 `{1: 51, 2: 77, 3: 102, 4: 128, 5: 179, 512: 204}`, then `{1: 255, 3: 102, ...}`, then `{}`) |
+| Art-Net Port-Address, sACN priority, name, length | 0, 1, 998; 100, `cinq`, 512 | the same |
+| Idle refresh per stream | 1.05-1.07 / 1.05 per s | 1.05-1.07 / 1.04-1.07 per s |
+| Fade of 4 s | 129, 33.95/s, median 28 ms, longest 318 ms / 119, 31.3/s, 32 ms, 286 ms | 126, 33.16/s, median 29 ms, longest 319 ms / 120, 31.58/s, 32 ms, 284 ms |
+| Discovery (universe 64214) | lists (1, 2, 999), every 10.02-10.4 s (6 per source on x86_64) | the same, every 10.0-10.45 s, 6 per source |
+| After cinq ends | none | none |
+| Sources | three: 10.1.0.47, 172.27.0.1, 127.0.0.1 (x86_64), 193 packets per stream; 19 failed group joins | three: 10.1.0.5, 172.21.80.1, 127.0.0.1 (x86_64; aarch64 10.1.0.101, 172.24.96.1), 188 packets per stream on x86_64 (183 aarch64), equal counts |
+| Network cues: stand-in log | identical text line by line on both arches | identical on both arches (`console-one` 10 connections, all closed; `console-two` the same text), timestamps and ports aside |
+| Arguments `"hello world" 7 2.5 "12" -4 1e3 abc` over TCP and UDP | decoded | decoded |
+| Latency GO to arrival | burst, UDP, TCP 5, 5, 4 ms / 10, 10, 8 ms | 5, 4, 4 ms / **64**, 11, 9 ms (aarch64 burst, the first network GO, took 64 ms; the other two equal the old values) |
+| Refused 127.0.0.1:3999 | `connection timed out` after 0.991 / 0.967 s | `connection timed out` after 0.991 / 0.922 s |
+| No answer 203.0.113.7:3037 | after 0.997 / 0.990 s | after 1.030 / 1.013 s |
+| 255.255.255.255, 224.0.0.1, 0.0.0.0 | os error 10049 each | the same |
+| Name that does not resolve | `No such host is known. (os error 11001)`, 0.095 s (aarch64) | the same text, 0.032 s (x86_64) |
+| UDP to a port nobody listens on | no warning within 5 s | no warning (5 s checked on aarch64; no warning line on standard error on either) |
+| Firewall, `windows-latest` | no prompt, no rule | no prompt, no rule |
+| Firewall, `windows-11-arm` | prompt, two Block rules; a click on Allow turns them into Allow | the same (Enter, Tab then Enter, and Alt+A failed; the click answered it at 34.9 s) |
+| cinq's own firewall rule or prompt | none | none (the only rule is `sandbox python`, Allow) |
+| Eos on aarch64 | fired `1/1` at 36.62 s, `1/2` at 45.07, `1/3` at 53.47, `1/2` at 78.62; `127.0.0.1:3999: connection timed out` once | fired `1/1` at 36.83 s, `1/2` at 45.23, `1/3` at 53.64, `1/2` at 78.76; `127.0.0.1:3999: connection timed out` once |
+
+Difference: none beyond timing noise, with one number to watch: the first
+network GO on `windows-11-arm` reached the stand-in 64 ms after the key
+against 10 ms before.  The same GO is a single key press and the cues of
+the burst arrived within the same millisecond; the other two aarch64 latencies
+(11 and 9 ms) equal the old ones.  I did not run the job again.  The Eos job
+was not looked at in screenshots; its fired cues come from `osc.txt` of
+`eos-fired`.
