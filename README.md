@@ -114,8 +114,8 @@ priority 100, source `cinq`, discovery lists 1, 2, 999 (first at start, then
 every 10.0 s), Art-Net Port-Address 0, 1, 998, senders 127.0.0.1 and
 172.17.0.2, idle 10 packets in 10 s per universe, sender, and protocol, a
 fade of 153 packets in 4 s (38.2 per second), the burst of four network cues
-at 12.94 to 13.25 s on one TCP connection (UDP datagram in between), GOs 3 s
-or more apart one connection each, the refused destination warned once 4 to 5
+at about 12.9 to 13.3 s on one TCP connection (UDP datagram in between), GOs 3 s
+or more apart one connection each, the refused destination warned once 4 to 10
 ms after GO (`Connection refused (os error 111)`), the same text for
 127.0.0.1:3037 while the stand-in was down, and the cue after its return
 arrived at once.  Three `Io error: Broken pipe (os error 32)` lines when
