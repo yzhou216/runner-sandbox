@@ -222,10 +222,4 @@ Old numbers below come from run 43996374290.  Artifacts read: `cues-*`
 | cinq's own firewall rule or prompt | none | none (the only rule is `sandbox python`, Allow) |
 | Eos on aarch64 | fired `1/1` at 36.62 s, `1/2` at 45.07, `1/3` at 53.47, `1/2` at 78.62; `127.0.0.1:3999: connection timed out` once | fired `1/1` at 36.83 s, `1/2` at 45.23, `1/3` at 53.64, `1/2` at 78.76; `127.0.0.1:3999: connection timed out` once |
 
-Difference: none beyond timing noise, with one number to watch: the first
-network GO on `windows-11-arm` reached the stand-in 64 ms after the key
-against 10 ms before.  The same GO is a single key press and the cues of
-the burst arrived within the same millisecond; the other two aarch64 latencies
-(11 and 9 ms) equal the old ones.  I did not run the job again.  The Eos job
-was not looked at in screenshots; its fired cues come from `osc.txt` of
-`eos-fired`.
+Difference: none beyond timing noise.  The first network GO on `windows-11-arm` reached the stand-in 64 ms after the key against 10 ms before.  I ran that job once more (job 133978162480 of the same run, attempt 2, green): burst, UDP, TCP 10, 8, 8 ms, refused after 0.944 s, no answer after 1.011 s, no such name after 0.030 s, and no warning for broadcast, multicast, 0.0.0.0, or UDP to nobody; so the 64 ms was a single slow start, not a change.  The Eos job was not looked at in screenshots; its fired cues come from `osc.txt` of `eos-fired`.
