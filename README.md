@@ -152,3 +152,41 @@ cue, as the man page does not say; a refused TCP port on Windows always reads
 `cues-x86_64-windows`, `cues-aarch64-windows` (`marks.txt`, `wire.pcap`,
 `dmx.jsonl`, `console-*.txt`, `cinq-*-err.txt`, `shots/`), `eos-fired`,
 `firewall-windows-11-arm`, `firewall-windows-latest`.
+
+## Rerun on 1a21980 (2026-11-16)
+
+cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (`wip/light-cues`, rebased
+onto the latest master and cleaned up) in place of 97af215, cross-built the
+same way.  Two changes to `windows.yml` besides the commit: none to a step,
+but the three jobs `build`, `cues`, and `eos` carried
+`if: github.run_attempt == 0 # skipped, ran in 43693917753` (a leftover that
+skipped them); the first run of the rerun, 43985731709 (commit 0ed57ef),
+therefore ran only the two firewall jobs and was cancelled, and the guards
+came out in e58ec20.  Run **43996374290** (commit e58ec20): all seven jobs
+green.  Old numbers below come from run 43693917753, whose `cues-*`
+artifacts I analyzed again with the same `analyze.py`.
+
+| Check | Old (43693917753), x86_64 / aarch64 | New (43996374290), x86_64 / aarch64 |
+| --- | --- | --- |
+| DMX after GO 1, after the fade, after the blackout (all 18 streams) | slots 51, 77, 102, 128, 179, 204; u2 slot 10 255; u999 51, 255; then 255/0, 128, 0; zeros | identical on both, 18 of 18 streams |
+| Art-Net Port-Address, sACN priority, name, length | 0, 1, 998; 100, `cinq`, 512 | the same |
+| Idle refresh per stream | 1.05-1.07 / 1.03-1.07 per s | 1.05-1.07 / 1.05 per s |
+| Fade of 4 s | 126 packets, 33.2/s, median gap 30 ms, longest 340 ms / 120, 31.6/s, 32 ms, 318 ms | 129, 33.95/s, median 28 ms, longest 318 ms / 119, 31.3/s, 32 ms, 286 ms |
+| Discovery (universe 64214) | lists (1, 2, 999), every 10.0-10.4 s | the same, every 10.02-10.4 s (6 per source on x86_64) |
+| After cinq ends | no packet from 1 to 12 s | none |
+| Sources | Ethernet 10.1.0.x, Hyper-V 172.x.0.1, 127.0.0.1, equal counts | the same three (10.1.0.47, 172.27.0.1, 127.0.0.1 on x86_64), 193 packets per stream; 19 failed group joins, `[WinError 10022]`, as before |
+| Network cues: stand-in log | 39 lines, 11 connections, all closed | identical text line by line (timestamps and ports aside) on both arches |
+| Arguments `"hello world" 7 2.5 "12" -4 1e3 abc` over TCP and UDP | decoded | decoded |
+| Latency GO to arrival | 3-8 ms / 9-12 ms | burst, UDP, TCP 5, 5, 4 ms / 10, 10, 8 ms |
+| Refused 127.0.0.1:3999 | `connection timed out` after 0.911 / 0.946 s | `connection timed out` after 0.991 / 0.967 s |
+| No answer 203.0.113.7:3037 | `connection timed out` after 1.024 / 0.987 s | after 0.997 / 0.990 s |
+| 255.255.255.255, 224.0.0.1, 0.0.0.0 | os error 10049 each | the same |
+| Name that does not resolve | `No such host is known. (os error 11001)`, 0.03 s | the same text, 0.095 s (aarch64) |
+| UDP to a port nobody listens on | no warning | no warning within 5 s |
+| Firewall, `windows-latest` | no prompt, no rule | no prompt, no rule |
+| Firewall, `windows-11-arm` | prompt, two Block rules; a click on Allow turns them into Allow | the same (`Alt+A` failed, the click answered it) |
+| cinq's own firewall rule or prompt | none | none (the only rule is the allow rule of the script) |
+| Eos on aarch64 | fired `1/1` at 36.99 s, `1/2` at 45.37, `1/3` at 53.84, `1/2` at 79.05; refused cue warned once | fired `1/1` at 36.62 s, `1/2` at 45.07, `1/3` at 53.47, `1/2` at 78.62; `127.0.0.1:3999: connection timed out` once |
+
+Difference: none beyond timing noise.  The Eos job was not looked at in
+screenshots this time; its fired cues come from `osc.txt` of `eos-fired`.
