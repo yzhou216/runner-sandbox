@@ -155,7 +155,4 @@ after GO (`Connection refused (os error 111)`; 5 ms to 127.0.0.1:3037 while
 the stand-in was down), and the cue after its return arrived 3 to 4 ms after
 GO.  Three `Io error: Broken pipe (os error 32)` lines when sway ends.
 
-Difference: none.  cinq still prints version 0.1.4.  A forced run on the old
-release printed only the `GLIBC_2.43` error for some of the four refused
-images in the README above; I did not compare both lines per image against
-the earlier artifacts.
+Difference: none.  cinq still prints version 0.1.4.  `ldd` of the forced install prints both `GLIBC_2.44` and `GLIBC_2.43` on debian:stable and the two Ubuntu images (only `GLIBC_2.44` on debian:testing); the first rerun quoted one line per image.
