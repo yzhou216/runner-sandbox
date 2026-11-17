@@ -128,3 +128,43 @@ both, 831 and 837 packets each on x86_64.
   tar it and upload in a later step.
 - A `cargo test --no-run` of cinq takes 4837 s on RISE, 535 s on x86_64
   FreeBSD, and 14979 s on emulated aarch64 FreeBSD.
+
+## Rerun on 1a21980 (2026-11-16)
+
+cinq `1a2198013d7e4a7122b90c4141ca5285096a5df9` (`wip/light-cues`, rebased
+onto the latest master and cleaned up) in place of 97af215.  Only the commit
+in `lights.yml` changed.  Run **43985744045** (commit 9f1b2b3, message tag
+`[skip aarch64 unit]`, so the unit tests ran on riscv64 and x86_64 FreeBSD but
+not on emulated aarch64 FreeBSD, which took 4 h 18 min before): all nine jobs
+green.  The jobs waited for runners for 1.5 hours.  Artifacts read:
+`unit-riscv64`, `unit-x86_64-freebsd`, `gui-riscv64`, `gui-x86_64-freebsd`,
+`gui-aarch64-freebsd`; `analyze.py` ran over the three `gui-*` ones.
+
+| Platform | Old (43693040726, 43697377734) | New (43985744045) |
+| --- | --- | --- |
+| cross builds of `#riscv64-linux`, `#x86_64-freebsd`, `#aarch64-freebsd` | built | built, all three |
+| riscv64 unit, `cargo test --no-run` | 4837 s | 6001 s on another board (`riscv-runner-52`; the suite grew from 400 to 858 tests) |
+| riscv64 unit, network (11), light, osc (5) | 11, 18, 5 passed; 1.57 s, 0.02 s, 0.01 s | 11, 26, 5 passed; 1.59 s, 0.07 s, 0.01 s; 42 of 42 alone, none failing; slowest `tcp_message_after_a_quiet_second...` 1.58 s (old 1.56 s) |
+| x86_64 FreeBSD unit | 535 s; 11, 18, 5; 1.54 s, 0.00 s, 0.00 s; 34 of 34 | 538 s; 11, 26, 5; 1.54 s, 0.01 s, 0.00 s; 42 of 42; slowest 1.54 s |
+| aarch64 FreeBSD unit | 34 of 34 passed; 14979 s | skipped as instructed |
+| riscv64 show | played, all values exact | played, all values exact |
+| x86_64 FreeBSD show | played, all values exact | played, all values exact |
+| aarch64 FreeBSD show | played, all values exact | played, all values exact |
+| DMX (all three shows) | 51 (u1 address 1), 128 (u2, 10), 255 (u999, 512), 179 and 255, fade to 0, 77, 204; Art-Net 0, 1, 998; priority 100, `cinq` | identical final states and holds (e.g. `{1: 51}` 4.0 s, `{1: 179, 2: 255}` 3.0 s) |
+| Fade rate per universe and sender | 37.5-37.8/s riscv64; 38.3/s x86_64 FreeBSD; 10.6/s aarch64 FreeBSD | 37.8/s; 38.6/s; 16.9/s (emulated; cinq 130 percent of a core, old 136) |
+| Idle refresh, discovery | about 1/s per universe; `[1, 2, 999]` every 10.0 s | the same (0.7 to 1.0/s in the windows, discovery at 4.98, 14.98, ... on x86_64) |
+| Packets per sender | x86_64 FreeBSD 831 Art-Net, 837 sACN; riscv64 780 and 786 from five addresses | x86_64 FreeBSD 831 and 837 (the same); riscv64 795 and 801 from seven addresses (`flannel`, `docker0`, and two new Docker bridges) |
+| TCP and UDP `/test [7, 2.5, '12', 'hello']` | arrived | arrived |
+| Burst of five | one connection, about 0.1 s apart | the same (0.11 s steps on riscv64) |
+| Three cues 3 s apart | each a connection, closed 1.0 s after | the same |
+| Refused port | `Connection refused (os error 111)` / `(os error 61)` on FreeBSD, within 0.1 s | the same text, at t+16.19 to 16.40 s as before (within 0.4 s of the old times) |
+| Cue while the console is down | warned once; the two cues after arrived at once | the same |
+| No answer, 10.255.255.1:3037 | `connection timed out`, 1.00 s riscv64, 1.03 s FreeBSD; the cue behind it arrived 0.8 s after its own cue | `connection timed out` at t+41.51 to 41.82 s (old 41.28 to 41.81); the cue behind it arrived (`/behind` at t+41.57 on riscv64) |
+| Compositor ends | `Io error: Broken pipe (os error 32)` three times | the same |
+| cinq CPU with `tiny-skia` on x86_64 FreeBSD | 54.9 s in about 52 s | 54.9 s |
+| Window of cinq on FreeBSD | title only, `app_id` null | found by title as before (not re-examined) |
+
+Difference: none in behavior.  Bigger numbers come from the code under test
+(the `light` filter now matches 26 tests, since master added names such as
+`highlight_follows...`; the `back::light` tests are the same 18), the riscv64
+board, and emulation speed on aarch64.
