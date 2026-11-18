@@ -45,25 +45,26 @@ def decode(c, ifdr):
     for i in range(32):
         p = rf.pin(f'X{i}')
         if i in (10, 11, 12):
-            q = (p[0] + 40 + 80 * (i - 10), p[1])
-            path(c, p, q)
-            c.add('Out', q, Label=f'A{i - 10}', Bits=64)
+            # Below the register file, from the bottom up so that no wires cross
+            x, y = 1560 - 20 * (i - 10), 1200 + 60 * (i - 10)
+            path(c, p, (x, p[1]), (x, y))
+            c.add('Out', (x, y), Label=f'A{i - 10}', Bits=64)
         else:
             c.add('Probe', p)
     # The instruction word goes to both decoders and under the register file
     iw = ifdr.pin('IW_1')
     path(c, iw, (920, iw[1]), (920, idec.pin('IW')[1]), idec.pin('IW'))
     path(c, (920, idec.pin('IW')[1]), (920, rdec.pin('IW')[1]), rdec.pin('IW'))
-    path(c, (920, rdec.pin('IW')[1]), (920, 1260), (1620, 1260), (1620, drex.pin("IW_1")[1]), drex.pin('IW_1'))
-    probe(c, (1000, 1260), (1000, 1300), 'IW DR')
+    path(c, (920, rdec.pin('IW')[1]), (920, 1400), (1700, 1400), (1700, drex.pin("IW_1")[1]), drex.pin('IW_1'))
+    probe(c, (1000, 1400), (1000, 1440), 'IW DR')
     # DR/EX takes no input during a stall and clears for a stall or a flush
     tunnel(c, drex, 'EN', 'EN', 'down')
     tunnel(c, drex, 'CLK', 'GCLK', 'down')
-    clr2 = c.add('Or', (1740, 300), Inputs=3)
+    clr2 = c.add('Or', (1800, 300), Inputs=3)
     tunnel(c, clr2, 'In_1', 'CLR', 'left')
     tunnel(c, clr2, 'In_2', 'FLUSH', 'left')
     tunnel(c, clr2, 'In_3', 'STALL', 'left')
     o = clr2.pin('out')
     p = drex.pin('CLR')
-    path(c, o, (p[0], o[1]), p)
+    path(c, o, (o[0] + 20, o[1]), (o[0] + 20, 200), (p[0], 200), p)
     return {'drex': drex, 'rf': rf}

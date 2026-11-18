@@ -30,7 +30,6 @@ def fetch(c, prog):
     iw = imem.pin('IW')
     path(c, iw, (560, iw[1]), (560, ifdr.pin('IW_0')[1]), ifdr.pin('IW_0'))
     probe(c, (560, 140), (580, 140), 'IW IF')
-    probe(c, (300, 160), (320, 160), 'PC IF')
     # PC control: clear, clock, and enable unless stalled
     clrp = pc.pin('CLR')
     path(c, clrp, (180, clrp[1]), (180, -40))
