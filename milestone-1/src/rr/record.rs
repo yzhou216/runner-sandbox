@@ -75,7 +75,6 @@ pub fn record_game_state(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn save_game_state(
     active: Option<Single<&Tetromino, With<Active>>>,
     next: Option<Single<&Tetromino, With<Next>>>,

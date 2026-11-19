@@ -42,7 +42,7 @@ impl Bag for DeterministicBag {
 #[cfg(feature = "rng")]
 mod random {
     use super::*;
-    use rand::{SeedableRng, rngs::SmallRng, seq::SliceRandom};
+    use rand::{SeedableRng, rngs::SmallRng};
 
     /// The random tile bag
     #[derive(PartialEq, Debug)]
@@ -53,37 +53,25 @@ mod random {
 
     impl RandomBag {
         /// Create a bag from given starting RNG seed.
-        pub fn from_seed(seed: u64) -> Self {
-            Self {
-                remaining_pieces: vec![],
-                rng: SmallRng::seed_from_u64(seed),
-            }
+        pub fn from_seed(_seed: u64) -> Self {
+            todo!("Create an empty bag, seed the RNG from the given value.")
         }
 
         // Refill the bag if it is empty.  This should create one of each
         // tetromino, shuffle them, and put them in the bag.
         fn refill(&mut self) {
             debug_assert!(self.remaining_pieces.is_empty());
-            self.remaining_pieces = ALL_TETROMINO_TYPES.map(get_tetromino).to_vec();
-            self.remaining_pieces.shuffle(&mut self.rng);
+            todo!()
         }
     }
 
     impl Bag for RandomBag {
         fn next_tetromino(&mut self) -> Tetromino {
-            let next = self.peek();
-            self.remaining_pieces.pop();
-            next
+            todo!("Get the next tetromino from the bag.  Refill it if necessary")
         }
 
         fn peek(&mut self) -> Tetromino {
-            if self.remaining_pieces.is_empty() {
-                self.refill();
-            }
-            *self
-                .remaining_pieces
-                .last()
-                .expect("the bag was refilled when it ran empty")
+            todo!()
         }
     }
 
@@ -94,59 +82,5 @@ mod random {
                 rng: SmallRng::from_os_rng(),
             }
         }
-    }
-}
-
-// From: Claude Code (AI-generated), tests for RandomBag
-#[cfg(all(test, feature = "rng"))]
-mod rng_tests {
-    use super::*;
-
-    fn draw(bag: &mut RandomBag, count: usize) -> Vec<Tetromino> {
-        (0..count).map(|_| bag.next_tetromino()).collect()
-    }
-
-    #[test]
-    fn every_bag_has_each_tetromino_once() {
-        (0..32).for_each(|seed| {
-            draw(&mut RandomBag::from_seed(seed), 21)
-                .chunks(7)
-                .for_each(|bag| {
-                    ALL_TETROMINO_TYPES.iter().for_each(|&typ| {
-                        let copies = bag.iter().filter(|&&t| t == get_tetromino(typ)).count();
-                        assert_eq!(copies, 1, "seed {seed} does not have one of each piece");
-                    });
-                });
-        });
-    }
-
-    #[test]
-    fn peek_agrees_with_the_next_tetromino() {
-        let mut bag = RandomBag::from_seed(5);
-        (0..20).for_each(|_| {
-            let peeked = bag.peek();
-            assert_eq!(peeked, bag.peek(), "peeking must not take the piece");
-            assert_eq!(peeked, bag.next_tetromino());
-        });
-    }
-
-    #[test]
-    fn the_same_seed_gives_the_same_pieces() {
-        let first = draw(&mut RandomBag::from_seed(42), 30);
-        let second = draw(&mut RandomBag::from_seed(42), 30);
-        assert_eq!(first, second);
-    }
-
-    #[test]
-    fn different_seeds_give_different_pieces() {
-        let sequences: Vec<_> = (0..8)
-            .map(|seed| {
-                draw(&mut RandomBag::from_seed(seed), 14)
-                    .iter()
-                    .map(|t| format!("{:?}", t.cells()))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        assert!(sequences.windows(2).any(|pair| pair[0] != pair[1]));
     }
 }

@@ -10,14 +10,9 @@ defaults:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  # Course CI's checks, with hold kept in or removed from enabled_features
+  # Course CI's checks
   checks:
-    name: checks (${{ matrix.hold }} hold)
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        hold: [with, without]
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -27,13 +22,6 @@ jobs:
             libasound2-dev libudev-dev libx11-dev libxcursor-dev libxi-dev \
             libxrandr-dev libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
       - uses: taiki-e/install-action@nextest
-      - name: Remove hold from enabled_features
-        if: matrix.hold == 'without'
-        working-directory: milestone-1
-        run: |
-          sed -i '/^enabled_features = /s/, "hold"//' Cargo.toml
-          grep '^enabled_features = ' Cargo.toml
-          ! grep -q '^enabled_features = .*"hold"' Cargo.toml
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: milestone-1
@@ -71,10 +59,14 @@ jobs:
         run: |
           Xvfb :99 -screen 0 1024x1024x24 &
           echo DISPLAY=:99 >> "$GITHUB_ENV"
-      - name: Record hard-drop-hold-0 at normal speed
-        run: ./record.sh hard-drop-hold-0 config-0.json false 2
-      - name: Record level-up at four times speed
-        run: ./record.sh level-up config-deterministic.json true 8
+      - name: Record score-deterministic at normal speed
+        run: ./record.sh score-deterministic config-deterministic.json true 2
+      - name: Record score-deterministic2 at normal speed
+        run: ./record.sh score-deterministic2 config-deterministic.json true 2
+      - name: Record score-deterministic3 at normal speed
+        run: ./record.sh score-deterministic3 config-deterministic.json true 2
+      - name: Record score-deterministic4 at normal speed
+        run: ./record.sh score-deterministic4 config-deterministic.json true 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -2,7 +2,10 @@
 
 use super::board::Block;
 use super::data::*;
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::prelude::*;
+
+/// Number of lines that can hold obstacles, including the invisible ones
+const LINES: usize = (BOARD_HEIGHT + INVISIBLE_ROWS) as usize;
 
 /// Return whether the given tetromino collides with any of the obstacles or it
 /// is out of bounds.
@@ -26,29 +29,36 @@ pub fn delete_full_lines(
     // Number of obstacles on each line
     let line_sizes = obstacles
         .iter()
-        .fold(HashMap::<i32, u32>::new(), |mut sizes, (_, block)| {
-            *sizes.entry(block.cell.1).or_default() += 1;
+        .fold([0u32; LINES], |mut sizes, (_, block)| {
+            sizes[block.cell.1 as usize] += 1;
             sizes
         });
-    let full_lines: Vec<i32> = line_sizes
-        .into_iter()
-        .filter(|&(_, size)| size == BOARD_WIDTH)
-        .map(|(line, _)| line)
-        .collect();
-    if full_lines.is_empty() {
+    let full = line_sizes.map(|size| size == BOARD_WIDTH);
+    let lines_cleared = full.iter().filter(|&&is_full| is_full).count() as u32;
+    if lines_cleared == 0 {
         return;
     }
 
+    // Naive gravity: the obstacles on each line drop by the number of deleted
+    // lines below it, which is a cumulative sum from the bottom line up
+    let drops: Vec<i32> = full
+        .iter()
+        .scan(0, |deleted_below, &is_full| {
+            let drop = *deleted_below;
+            *deleted_below += is_full as i32;
+            Some(drop)
+        })
+        .collect();
+
     obstacles.iter_mut().for_each(|(entity, mut block)| {
-        if full_lines.contains(&block.cell.1) {
+        let line = block.cell.1 as usize;
+        if full[line] {
             commands.entity(entity).despawn();
         } else {
-            // Naive gravity: drop by the number of deleted lines below the block
-            let line = block.cell.1;
-            block.cell.1 -= full_lines.iter().filter(|&&full| full < line).count() as i32;
+            block.cell.1 -= drops[line];
         }
     });
 
     #[cfg(feature = "score")]
-    commands.trigger(crate::score::LinesCleared(full_lines.len() as u32));
+    commands.trigger(crate::score::LinesCleared(lines_cleared));
 }

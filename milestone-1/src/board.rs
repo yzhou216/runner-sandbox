@@ -306,18 +306,7 @@ pub fn deactivate_if_stuck(
 }
 
 /// Offset that moves a tetromino from the origin to the middle of a side window.
-pub const SIDE_WINDOW_OFFSET: i32 = 2;
-
-/// Show the piece at the front of the bag in the next window, replacing the
-/// piece that is shown there now.
-pub fn show_next_piece(commands: &mut Commands, state: &mut GameState, shown: Option<Entity>) {
-    if let Some(shown) = shown {
-        commands.entity(shown).despawn();
-    }
-    let mut preview = state.bag.peek();
-    preview.shift(SIDE_WINDOW_OFFSET, SIDE_WINDOW_OFFSET);
-    commands.spawn((preview, Next));
-}
+const SIDE_WINDOW_OFFSET: i32 = 2;
 
 /// Spawn the next tetromino if there is no active tetromino.  This should also
 /// update the next tetromino window.
@@ -347,7 +336,12 @@ pub fn spawn_next_tetromino(
     commands.spawn((tetromino, Active));
 
     // Replace the preview with the piece that comes after this one
-    show_next_piece(&mut commands, &mut state, next.map(|next| *next));
+    if let Some(next) = next {
+        commands.entity(*next).despawn();
+    }
+    let mut preview = state.bag.peek();
+    preview.shift(SIDE_WINDOW_OFFSET, SIDE_WINDOW_OFFSET);
+    commands.spawn((preview, Next));
 }
 
 /// Redraw the board.

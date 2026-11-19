@@ -39,7 +39,7 @@ dev = ["common", "bevy/dynamic_linking"]
 test = ["dev", "bevy/bevy_ci_testing"]
 ci = ["common", "bevy/bevy_ci_testing"]
 common = ["enabled_features", "bevy/debug", "bevy/serialize", "bevy/experimental_bevy_ui_widgets"]
-enabled_features = ["config", "collision", "score", "rng", "hard_drop", "hold"]
+enabled_features = ["config", "collision", "score"]
 
 [[test]]
 name = "end_to_end"
