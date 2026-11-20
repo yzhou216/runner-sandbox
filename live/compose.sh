@@ -144,9 +144,11 @@ awk -F'\t' -v screen0="$screen0" -v begin="$begin" '$2 == "measure" { printf "%.
       awk '/RMS level dB/ { print $NF; exit }')
     printf '%s\t%s\t%s\n' "$at" "$db" "$what" >> "$out/levels.tsv"
   done
+# The tone peaks at -3 dBFS and a sine's RMS is 3 dB under its peak, so with
+# the cue at 0 dB the RMS is -6.01 dB: the cue's level is the RMS plus 6.01
 {
-  echo '| Time in video (s) | RMS level heard (dB) | End of the wait |'
-  echo '| ---: | ---: | --- |'
-  awk -F'\t' '{ printf "| %.1f | %s | %s |\n", $1, $2, $3 }' "$out/levels.tsv"
+  echo '| Time in video (s) | RMS level heard (dB) | Cue level implied (dB) | End of the wait |'
+  echo '| ---: | ---: | ---: | --- |'
+  awk -F'\t' '{ printf "| %.1f | %.1f | %.1f | %s |\n", $1, $2, $2 + 6.01, $3 }' "$out/levels.tsv"
 } > "$out/levels.md"
 cat "$out/levels.md"

@@ -9,11 +9,14 @@
 # and FADE_TABS.
 #
 # Usage: run.sh CINQ NAME OUT, with the tools of record.sh and compose.sh on
-# PATH, ALSA_PLUGIN_DIR naming the directory of the pulse plugin of ALSA, and
-# FONTS naming the directory of the share/fonts of DejaVu
+# PATH, CINQ a cinq program or a directory with bin/cinq, ALSA_PLUGIN_DIR
+# naming the directory of the pulse plugin of ALSA, and FONTS naming the
+# directory of the share/fonts of DejaVu
 set -euo pipefail
 here=$(dirname "$(readlink -f "$0")")
 cinq=$(readlink -f "$1") name=$2
+[ -d "$cinq" ] && cinq=$cinq/bin/cinq
+test -x "$cinq"
 out=$(mkdir -p "$3" && readlink -f "$3")
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT

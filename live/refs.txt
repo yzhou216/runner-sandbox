@@ -5,8 +5,8 @@
 # One recording per line: name, the commit of github:yzhou216/cinq to build,
 # and optionally the level in dB that the Swell cue fades to, -6.0 by default.
 # The line tools names the commit whose nixpkgs supplies the tools of every
-# recording.  To record the build with the changes, add a line such as
-# "after <full commit>".
+# recording.  The lines before and after, in this order, are what the
+# side-by-side video compares.  To record other builds, change the commits.
 tools d554f526b0855cdb941ba8797a51628e362dac20
 before d554f526b0855cdb941ba8797a51628e362dac20
-before-loud d554f526b0855cdb941ba8797a51628e362dac20 0.0
+after 37a17f59735d24a1a832c8da8c1ba6f81faac205

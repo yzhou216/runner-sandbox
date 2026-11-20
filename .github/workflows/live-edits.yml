@@ -60,14 +60,47 @@ jobs:
         env:
           SWELL: ${{ matrix.swell }}
         run: |
+          mkdir -p logs
           PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
           export ALSA_PLUGIN_DIR FONTS
           ALSA_PLUGIN_DIR=$(readlink -f alsa-plugins)/lib/alsa-lib
           FONTS=$(readlink -f fonts)/share/fonts
-          live/run.sh result-cinq "${{ matrix.name }}" "out/${{ matrix.name }}"
+          # Every command goes to the log, which the artifact keeps on failure
+          bash -x live/run.sh result-cinq "${{ matrix.name }}" "out/${{ matrix.name }}" 2>&1 |
+            tee "logs/${{ matrix.name }}.log"
       - if: always()
         uses: actions/upload-artifact@main
         with:
           name: ${{ matrix.name }}
-          path: out
+          path: |
+            out
+            logs
           if-no-files-found: ignore
+  side:
+    needs: record
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@main
+        with:
+          path: parts
+      - name: Put before and after side by side
+        run: |
+          tools=$(awk '$1 == "tools" { print $2 }' live/refs.txt)
+          before=$(awk '$1 == "before" { print $2 }' live/refs.txt)
+          after=$(awk '$1 == "after" { print $2 }' live/refs.txt)
+          nix build --out-link ffmpeg --inputs-from "github:yzhou216/cinq/$tools" nixpkgs#ffmpeg-headless
+          nix build --out-link fonts --inputs-from "github:yzhou216/cinq/$tools" nixpkgs#dejavu_fonts
+          find parts -type f
+          mkdir -p out
+          PATH=$(readlink -f ffmpeg)/bin:$PATH bash -x live/side.sh \
+            parts/before/before/before.mp4 parts/after/after/after.mp4 out/side-by-side.mp4 \
+            "$(readlink -f fonts)/share/fonts/truetype/DejaVuSans.ttf" \
+            "BEFORE: master ${before:0:8}" "AFTER: wip/live-edits ${after:0:8}"
+      - uses: actions/upload-artifact@main
+        with:
+          name: side-by-side
+          path: out
