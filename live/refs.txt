@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# One recording per line: name, the commit of github:yzhou216/cinq to build,
+# and optionally the level in dB that the Swell cue fades to, -6.0 by default.
+# The line tools names the commit whose nixpkgs supplies the tools of every
+# recording.  To record the build with the changes, add a line such as
+# "after <full commit>".
+tools d554f526b0855cdb941ba8797a51628e362dac20
+before d554f526b0855cdb941ba8797a51628e362dac20
+before-loud d554f526b0855cdb941ba8797a51628e362dac20 0.0
