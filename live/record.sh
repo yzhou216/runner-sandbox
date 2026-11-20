@@ -136,7 +136,7 @@ event go-1
 sleep 4
 measure "GO on cue 1: the tone has risen for 4 s"
 
-caption "GO fires cue 2, a pause cue on the tone.  The tone stops where it is, and the State column reads paused."
+caption "GO fires cue 2, a pause cue on the tone.  The tone holds, and its State reads paused."
 keys -k F5
 event go-2
 sleep 1
