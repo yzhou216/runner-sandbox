@@ -96,8 +96,8 @@ jobs:
           nix build --out-link fonts --inputs-from "github:yzhou216/cinq/$tools" nixpkgs#dejavu_fonts
           find parts -type f
           mkdir -p out
-          PATH=$(readlink -f ffmpeg)/bin:$PATH bash -x live/side.sh \
-            parts/before/before/before.mp4 parts/after/after/after.mp4 out/side-by-side.mp4 \
+          PATH=$(for tool in ffmpeg*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH bash -x live/side.sh \
+            parts/before/out/before/before.mp4 parts/after/out/after/after.mp4 out/side-by-side.mp4 \
             "$(readlink -f fonts)/share/fonts/truetype/DejaVuSans.ttf" \
             "BEFORE: master ${before:0:8}" "AFTER: wip/live-edits ${after:0:8}"
       - uses: actions/upload-artifact@main
