@@ -4,43 +4,50 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq group cues
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Session of 2026-11-21 that records cinq on a hosted runner while a group cue
+fires the cues that it holds, the keys that indent and outdent a cue move one
+in and out of the group, and a stop cue stops the group.  The build is
+`github:yzhou216/cinq/6e13597f02d0b324812e6a2184f96ab66b090f17` (branch
+`wip/groups`), and the tools come from the nixpkgs of the same commit.  It
+reuses the recording scripts of the branch `cinq/2026-11-20-devamp`.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+## What was tested
 
-## Setup
+- Runner: `ubuntu-latest`, with a headless sway, `wtype` for every key,
+  `wf-recorder` for the screen, and a private PulseAudio whose null sink
+  `parec` records.  `live/compose.sh` joins the screen, a graph of the heard
+  RMS level, and captions.
+- Show (`live/make-show.sh`): the rain is 4 s of 440 Hz at -30 dBFS and loops,
+  and the thunder is 3 s of 660 Hz at -14 dBFS.  List Main: 1 group "Scene",
+  then at `depth = 1` the audio "Rain" with `loop = true` and the audio
+  "Thunder" with `pre_wait = 2.0`, then the stop cue "End the scene" that
+  targets the group, at depth 0.  The cue list numbers them 1, 1.1, 1.2, 2.
+- Keys (`live/record.sh`), one `wtype -s 300` call each, in the vi keymap that
+  is the default: `G` selects the stop cue, `>` `>` indents it into the group,
+  `<` `<` outdents it, `g` `g` and `Enter` put the group on standby, and GO and
+  Panic are F5 and F12, bound in `config.toml`, so no key is Space or Escape.
+  F5 fires the group, and F5 again 6.6 s later fires the stop cue.
 
-Fork this repository, then clone it into the agent's skills directory:
+## Runs
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+- 44884498816: passed, first push.  Its artifact `groups` holds `groups.mp4`,
+  the screenshots, and the logs.
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
+## Result (run 44884498816)
 
-## Contributing
+Times are seconds in `groups.mp4`; the key stamps are taken when `wtype`
+returns, which is about 0.3 s after the key.  GO is at 12.0 s and the stop
+cue at 18.6 s.
 
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
+| Time (s) | RMS (dB) | What |
+| ---: | ---: | --- |
+| 0 to 11.75 | silence | list, `>>`, `<<` (the stop cue moves in under the thunder and out again) |
+| 12.25 to 13.75 | -33.0 | the rain alone, as the group is running |
+| 14.25 to 16.75 | -16.9 | the rain and the thunder, from 2 s after GO for 3 s |
+| 17.25 to 18.25 | -33.0 | the rain alone again |
+| 18.75 to the end | silence | after the stop cue |
 
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Standby moved to the stop cue at GO, the State column of the group read
+`running`, and the Active list was empty after the stop.
