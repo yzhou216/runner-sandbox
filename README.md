@@ -4,43 +4,39 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# The GHC bootstrap chain on riscv64
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+The chain of [nixpkgs#591060](https://github.com/NixOS/nixpkgs/pull/591060)
+goes Hugs -> MicroHs -> GHC 6.2.2, and from 6.2.2 up the ladder of
+[andreabedini/ghc-bootstrap](https://github.com/andreabedini/ghc-bootstrap).
+`.github/workflows/riscv64.yml` tries its first links on a RISE
+`ubuntu-24.04-riscv` runner (a `scaleway-em-rv1` board, 4 cores, Ubuntu
+24.04), with the runner's own toolchain, since cache.nixos.org has nothing for
+riscv64-linux, not even the stdenv.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+1. Hugs from nixpkgs's source, with its configure flags and C flags, the
+   hsc2hs fix of nixpkgs#591107, and config.sub and config.guess replaced as
+   nixpkgs does for every package.  nixpkgs's rewrite of `/bin/cp` is left
+   out: it changes every file's time, after which Hugs's Makefile reruns
+   autoreconf and configure without the flags wherever autoreconf exists.
+2. nixpkgs's Hugs install check.
+3. MicroHs 0.16.8.0 stage 1 compiled by that Hugs, with nixpkgs's two Hugs
+   patches (`patches/`, from nixpkgs, MIT) and the command of its `boot.nix`
+   and `stage1.nix`, then a hello-world compiled by it.
+4. GHC 6.2.2's configure, with config.sub and config.guess replaced.
 
-## Setup
+## Outcome
 
-Fork this repository, then clone it into the agent's skills directory:
+Run 44906649374 (35 minutes):
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
+- Hugs builds; only network, X11, HGL, OpenGL, GLUT, OpenAL and ALUT are
+  skipped, as on x86_64-linux, and the install check prints `(55,True,True)`.
+- Hugs compiles MicroHs stage 1 in 15 minutes, and the result compiles and
+  runs a hello-world.
+- GHC 6.2.2 stops at once: `Unrecognised platform: riscv64-unknown-linux-gnu`.
+  Its configure.ac knows a fixed list of 2004 platforms, and no GHC release
+  before 8.8.1 knows riscv64 (8.8.1 as an unknown, unregisterised one).
 
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+So Hugs and MicroHs work on riscv64, and the chain stops at its first GHC.
+Run 44902750271 failed at `make install` (the `/bin/cp` rewrite above), and run
+44904153189 at a hello-world named by module rather than by file.
