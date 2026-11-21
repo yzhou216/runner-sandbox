@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The first links of the GHC bootstrap chain of nixpkgs#591060 on riscv64,
+# with the runner's own toolchain, since cache.nixos.org has next to nothing
+# for riscv64-linux: Hugs as nixpkgs builds it, MicroHs 0.16.8.0 stage 1
+# compiled by that Hugs as nixpkgs's microhs does, and GHC 6.2.2's configure.
+name: riscv64
+on: push
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  chain:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: toolchain
+        run: |
+          uname -a
+          nproc
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison autotools-dev perl curl git
+          gcc --version | head -n 1
+
+      # nixpkgs's hugs: the same source, its configure flags and C flags, its
+      # hsc2hs fix, and config.sub and config.guess replaced as nixpkgs does
+      # for every package (the 2006 ones do not know riscv64)
+      - name: Hugs
+        run: |
+          rev=1f7b60e05b12df00d715d535bb01c189bc1b9b3c
+          curl -sL "https://github.com/augustss/hugs98-plus-Sep2006/archive/$rev.tar.gz" | tar xz
+          cd "hugs98-plus-Sep2006-$rev"
+          find . -type f -exec sed -i 's@/bin/cp@cp@' {} +
+          find . -name config.sub -o -name config.guess | while read -r f; do
+            cp "/usr/share/misc/$(basename "$f")" "$f"
+          done
+          sed -i 's/default_compiler = "gcc"/default_compiler = "cc"/' hsc2hs/Main.hs
+          grep -q 'default_compiler = "cc"' hsc2hs/Main.hs
+          unset STRIP
+          CFLAGS="-Wno-error=implicit-int -Wno-error=implicit-function-declaration" ./configure \
+            --prefix="$HOME/hugs" --enable-char-encoding=utf8 --disable-path-canonicalization \
+            --disable-timer --disable-profiling --disable-stack-dumps --enable-large-banner \
+            --disable-internal-prims --disable-debug --disable-tag --disable-lint \
+            --disable-only98 --enable-ffi --enable-pthreads
+          make > make.log 2>&1 || { tail -n 50 make.log; exit 1; }
+          grep 'Skipping .* package' make.log || true
+          make install > install.log 2>&1 || { tail -n 50 install.log; exit 1; }
+
+      # nixpkgs's hugs installCheckPhase
+      - name: Hugs install check
+        run: |
+          cat > check.hs <<'EOF'
+          import System.CPUTime (getCPUTime)
+          import System.Posix.Files (fileExist)
+
+          main :: IO ()
+          main = do
+            t <- getCPUTime
+            e <- fileExist "check.hs"
+            print (sum [1 .. 10 :: Int], t >= 0, e)
+          EOF
+          out=$("$HOME/hugs/bin/runhugs" check.hs)
+          echo "$out"
+          [ "$out" = "(55,True,True)" ]
+
+      # nixpkgs's microhs boot.nix and stage1.nix
+      - name: MicroHs 0.16.8.0 stage 1 by Hugs
+        run: |
+          git clone -q --depth 1 --branch v0.16.8.0 https://github.com/augustss/MicroHs
+          cd MicroHs
+          patch -p1 < ../patches/hugs.patch
+          patch -p1 < ../patches/hugs-viewpatterns.patch
+          rm -r generated
+          mkdir -p bin
+          make PREFIX="$HOME/mhs" mhs.conf
+          s=$PWD
+          time MHSDIR=. "$HOME/hugs/bin/runhugs" "+P$s/hugs:$s/src:$s/paths:{Hugs}/packages/*:hugs/obj" \
+            -98 +o +w -h100m "$s/hugs/Main.hs" -l -imhs -isrc -ipaths MicroHs.Main -o bin/mhs
+          printf 'main :: IO ()\nmain = putStrLn "hello from MicroHs on riscv64"\n' > Hello.hs
+          MHSDIR=. ./bin/mhs Hello -oHello
+          ./Hello
+
+      # config.sub and config.guess replaced as above, so that 6.2.2's own
+      # platform check is what decides
+      - name: GHC 6.2.2 configure
+        run: |
+          curl -sL https://downloads.haskell.org/~ghc/6.2.2/ghc-6.2.2-src.tar.bz2 | tar xj
+          cd ghc-6.2.2
+          find . -name config.sub -o -name config.guess | while read -r f; do
+            cp "/usr/share/misc/$(basename "$f")" "$f"
+          done
+          ./configure > configure.log 2>&1 || true
+          tail -n 15 configure.log
+          grep -q 'Unrecognised platform' configure.log
