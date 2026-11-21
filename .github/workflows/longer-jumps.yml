@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Builds ghc622, then ghc683 with it, then ghc6123 with that (default.nix).
+# Each job passes its compiler's closure to the next as an artifact.  If
+# ghc622-run holds a run ID, ghc622 comes from that run's artifact instead of
+# being built again (about three and a half hours).
+name: longer-jumps
+on: push
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  ghc622:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            trusted-users = root runner
+            require-sigs = false
+      - name: reuse an earlier run's ghc622
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f ghc622-run ]; then
+            gh run download "$(cat ghc622-run)" -R "$GITHUB_REPOSITORY" -n ghc622-closure
+            zstd -dc closure.nar.zst | nix-store --import > /dev/null
+            rm closure.nar.zst
+          fi
+      - name: build ghc622
+        run: timeout -s INT 340m nix build -L --no-link -f . ghc622
+      - name: export ghc622
+        run: |
+          out=$(nix build --no-link --print-out-paths -f . ghc622)
+          # shellcheck disable=SC2046
+          nix-store --export $(nix-store -qR "$out") | zstd -T0 > closure.nar.zst
+          ls -l closure.nar.zst
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ghc622-closure
+          path: closure.nar.zst
+          retention-days: 30
+          compression-level: 0
+
+  ghc683:
+    needs: ghc622
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            trusted-users = root runner
+            require-sigs = false
+      - name: import ghc622
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -n ghc622-closure
+          zstd -dc closure.nar.zst | nix-store --import > /dev/null
+          rm closure.nar.zst
+      - name: build ghc683
+        run: timeout -s INT 340m nix build -L --no-link -f . ghc683
+      - name: export ghc683
+        run: |
+          out=$(nix build --no-link --print-out-paths -f . ghc683)
+          # shellcheck disable=SC2046
+          nix-store --export $(nix-store -qR "$out") | zstd -T0 > closure.nar.zst
+          ls -l closure.nar.zst
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ghc683-closure
+          path: closure.nar.zst
+          retention-days: 30
+          compression-level: 0
+
+  ghc6123:
+    needs: ghc683
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            trusted-users = root runner
+            require-sigs = false
+      - name: import ghc683
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -n ghc683-closure
+          zstd -dc closure.nar.zst | nix-store --import > /dev/null
+          rm closure.nar.zst
+      - name: build ghc6123
+        run: timeout -s INT 340m nix build -L --no-link -f . ghc6123
