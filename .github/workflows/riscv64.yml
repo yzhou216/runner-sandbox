@@ -35,13 +35,15 @@ jobs:
 
       # nixpkgs's hugs: the same source, its configure flags and C flags, its
       # hsc2hs fix, and config.sub and config.guess replaced as nixpkgs does
-      # for every package (the 2006 ones do not know riscv64)
+      # for every package (the 2006 ones do not know riscv64).  nixpkgs also
+      # rewrites /bin/cp, which its sandbox lacks; that sed changes every
+      # file's time, after which make reruns autoreconf and configure without
+      # these flags where autoreconf exists, as it does here.
       - name: Hugs
         run: |
           rev=1f7b60e05b12df00d715d535bb01c189bc1b9b3c
           curl -sL "https://github.com/augustss/hugs98-plus-Sep2006/archive/$rev.tar.gz" | tar xz
           cd "hugs98-plus-Sep2006-$rev"
-          find . -type f -exec sed -i 's@/bin/cp@cp@' {} +
           find . -name config.sub -o -name config.guess | while read -r f; do
             cp "/usr/share/misc/$(basename "$f")" "$f"
           done
