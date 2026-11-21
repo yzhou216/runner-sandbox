@@ -90,7 +90,7 @@ jobs:
           time MHSDIR=. "$HOME/hugs/bin/runhugs" "+P$s/hugs:$s/src:$s/paths:{Hugs}/packages/*:hugs/obj" \
             -98 +o +w -h100m "$s/hugs/Main.hs" -l -imhs -isrc -ipaths MicroHs.Main -o bin/mhs
           printf 'main :: IO ()\nmain = putStrLn "hello from MicroHs on riscv64"\n' > Hello.hs
-          MHSDIR=. ./bin/mhs Hello -oHello
+          MHSDIR=. ./bin/mhs Hello.hs -oHello
           ./Hello
 
       # config.sub and config.guess replaced as above, so that 6.2.2's own
