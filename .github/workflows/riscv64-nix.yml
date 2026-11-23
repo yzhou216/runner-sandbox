@@ -95,10 +95,27 @@ jobs:
           nix build --dry-run -f . "${attrs[@]}" 2> plan.txt || { cat plan.txt; exit 1; }
           grep 'will be' plan.txt
 
-      # One step per milestone, since a running job's log cannot be read
+      # The gcc of nixpkgs's riscv64 bootstrap tools is a non-PIE executable
+      # linked at 0x10000.  Unpacking it, patchelf grows its RPATH and maps the
+      # moved headers one page lower, below this kernel's vm.mmap_min_addr of
+      # 65536, so only root can run it (bootstrap-tools-probe.yml, run
+      # 45090967386).  The stdenv, the only part that runs the bootstrap
+      # tools, is therefore built as root outside the sandbox, and everything
+      # after it as usual.
       - name: build the stdenv
         working-directory: nixpkgs
-        run: nix build --keep-going --no-link -f . stdenv
+        run: |
+          cat /proc/sys/vm/mmap_min_addr
+          sudo env "PATH=$PATH" "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" \
+            nix-build --no-out-link --keep-going -A stdenv \
+            --option sandbox false --option max-jobs 2 --option cores 4 \
+            --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
+
+      - name: return the store to the runner user
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" /nix
+
+      # One step per milestone, since a running job's log cannot be read
 
       - name: build Hugs
         working-directory: nixpkgs
