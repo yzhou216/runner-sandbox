@@ -20,6 +20,7 @@ permissions:
   contents: read
 
 env:
+  G: haskell.compiler.ghc622Bootstrap
   REV: 4ce9145b0825c6f09f82c464c6409a227fc5cd34
   ATTRS: >-
     haskell.compiler.ghc622Bootstrap
@@ -91,18 +92,44 @@ jobs:
           nix build --dry-run -f . "${attrs[@]}" 2> plan.txt || { cat plan.txt; exit 1; }
           grep 'will be' plan.txt
 
-      # Stops before the job limit, so that the binary cache is still saved
-      - name: build
+      # One step per milestone, since a running job's log cannot be read
+      - name: build the stdenv
         working-directory: nixpkgs
-        run: |
-          read -ra attrs <<< "$ATTRS"
-          timeout -s INT 7000m nix build --keep-going --no-link -f . "${attrs[@]}"
+        run: nix build --keep-going --no-link -f . stdenv
+
+      - name: build Hugs
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . hugs
+
+      - name: build MicroHs
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . haskell.compiler.microhs
+
+      - name: build the 6.2.2 tree, runtime, happy and GMP
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . "$G.tree" "$G.rts" "$G.happy" "$G.gmp"
+
+      - name: build stage 1
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . "$G.stage1"
+
+      - name: build stage 2
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . "$G.base" "$G.stage2"
+
+      - name: build stages 3 to 5 and the fixpoint check
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . "$G.tests.fixpoint"
+
+      - name: build the installed compiler and its test
+        working-directory: nixpkgs
+        run: nix build --keep-going --no-link -f . "$G" "$G.tests.hello"
 
       # The report without the stage 3 files, which all differ from stage 2's
       - name: fixpoint report
         working-directory: nixpkgs
         run: |
-          out=$(nix build --no-link --print-out-paths -f . haskell.compiler.ghc622Bootstrap.tests.fixpoint)
+          out=$(nix build --no-link --print-out-paths -f . "$G.tests.fixpoint")
           awk '/^stage 3 vs stage 2/ { p = 1 } p || !/^differs: /' "$out/report.txt"
 
       - name: collect the build logs
