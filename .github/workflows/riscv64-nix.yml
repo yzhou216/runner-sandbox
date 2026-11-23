@@ -32,8 +32,11 @@ env:
     haskell.compiler.ghc622Bootstrap
     haskell.compiler.ghc622Bootstrap.tests.fixpoint
     haskell.compiler.ghc622Bootstrap.tests.hello
-  # bootstrap-stage2-stdenv-linux, whose xgcc the bootstrap tools' gcc builds
+  # The stdenv's bootstrap stages: stage 2 has the xgcc that the bootstrap
+  # tools' gcc builds, stage 3 the glibc and stage 4 the final gcc
   STAGE2: stdenv.__bootPackages.stdenv.__bootPackages.stdenv.__bootPackages.stdenv.__bootPackages.stdenv
+  STAGE3: stdenv.__bootPackages.stdenv.__bootPackages.stdenv.__bootPackages.stdenv
+  STAGE4: stdenv.__bootPackages.stdenv.__bootPackages.stdenv
   # Memory, disk and load every two minutes, run in the background of each
   # build step, so that the log shows the machine's state if the runner is
   # lost
@@ -127,7 +130,7 @@ jobs:
             --option sandbox false --option max-jobs 1 --option cores 4 \
             --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
 
-      - name: return the store to the runner user
+      - name: return the store to the runner user (xgcc)
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" /nix
 
@@ -140,6 +143,52 @@ jobs:
           path: ${{ runner.temp }}/nix-cache
           key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-xgcc
 
+      - name: build the stdenv's glibc
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          sudo nice -n 19 env "PATH=$PATH" "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" \
+            nix-build -Q --no-out-link --keep-going -A "$STAGE3" \
+            --option sandbox false --option max-jobs 1 --option cores 4 \
+            --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
+
+      - name: return the store to the runner user (glibc)
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" /nix
+
+      - name: fill the binary cache (glibc)
+        run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (glibc)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-glibc
+
+      - name: build the stdenv's final gcc
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          sudo nice -n 19 env "PATH=$PATH" "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" \
+            nix-build -Q --no-out-link --keep-going -A "$STAGE4" \
+            --option sandbox false --option max-jobs 1 --option cores 4 \
+            --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
+
+      - name: return the store to the runner user (gcc)
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" /nix
+
+      - name: fill the binary cache (gcc)
+        run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (gcc)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-gcc
+
       - name: build the stdenv
         working-directory: nixpkgs
         run: |
@@ -150,7 +199,7 @@ jobs:
             --option sandbox false --option max-jobs 1 --option cores 4 \
             --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
 
-      - name: return the store to the runner user again
+      - name: return the store to the runner user (stdenv)
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" /nix
 
@@ -171,6 +220,15 @@ jobs:
           trap 'kill "$reslog"' EXIT
           nice -n 19 nix build --keep-going --no-link -f . hugs haskell.compiler.microhs \
             "$G.tree" "$G.rts" "$G.happy" "$G.gmp"
+
+      - name: fill the binary cache (microhs)
+        run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (microhs)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-microhs
 
       - name: build stage 1
         working-directory: nixpkgs
@@ -210,6 +268,15 @@ jobs:
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
           nice -n 19 nix build --keep-going --no-link -f . "$G.tests.fixpoint"
+
+      - name: fill the binary cache (stage3to5)
+        run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (stage3to5)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-stage3to5
 
       - name: build the installed compiler and its test
         working-directory: nixpkgs
