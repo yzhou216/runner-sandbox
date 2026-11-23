@@ -1,0 +1,130 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The GHC bootstrap chain of nixpkgs#591060 (Hugs -> MicroHs -> GHC 6.2.2),
+# with the riscv64 support of the yzhou216/nixpkgs branch
+# ghc-bootstrap-503150-riscv64, built by Nix itself on a RISE runner.
+# cache.nixos.org has next to nothing for riscv64-linux, so Nix first builds
+# the stdenv from nixpkgs's riscv64 bootstrap tools.  Every store path is then
+# copied into a file binary cache that actions/cache keeps, so that the next
+# push resumes where this run stopped.
+name: riscv64-nix
+on: push
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+env:
+  REV: 4ce9145b0825c6f09f82c464c6409a227fc5cd34
+  ATTRS: >-
+    haskell.compiler.ghc622Bootstrap
+    haskell.compiler.ghc622Bootstrap.tests.fixpoint
+    haskell.compiler.ghc622Bootstrap.tests.hello
+
+jobs:
+  chain:
+    runs-on: ubuntu-24.04-riscv
+    # Under RISE's pod deadline of about six days
+    timeout-minutes: 7200
+    steps:
+      # The address layout matters to 6.2.2's fixed heap address: mmap's base
+      # with the default stack limit and with the unlimited one of the builds
+      - name: machine
+        run: |
+          uname -a
+          nproc
+          free -g
+          df -h / "$RUNNER_TEMP"
+          grep -m 1 '^mmu' /proc/cpuinfo || true
+          echo "stack limit: $(ulimit -s) soft, $(ulimit -Hs) hard"
+          cat /proc/self/maps
+          (ulimit -s unlimited && cat /proc/self/maps) || true
+
+      - name: restore the binary cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: riscv64-nix-
+
+      # Laid out before Nix starts, so that a daemon running as root does not
+      # create its directories
+      - name: prepare the binary cache
+        run: |
+          cache=$RUNNER_TEMP/nix-cache
+          mkdir -p "$cache/nar" "$cache/log" "$cache/realisations" "$cache/debuginfo"
+          [ -f "$cache/nix-cache-info" ] ||
+            printf 'StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 10\n' > "$cache/nix-cache-info"
+          echo "$(find "$cache" -name '*.narinfo' | wc -l) paths, $(du -sh "$cache" | cut -f1)"
+
+      - name: install nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            max-jobs = 2
+            cores = 4
+            extra-substituters = file://${{ runner.temp }}/nix-cache?trusted=true
+            log-lines = 100
+
+      - name: nix settings
+        run: |
+          nix --version
+          nix config show | grep -E '^(sandbox|sandbox-fallback|substituters|extra-substituters|trusted-users|max-jobs|cores|system) '
+
+      - name: checkout nixpkgs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: yzhou216/nixpkgs
+          ref: ${{ env.REV }}
+          path: nixpkgs
+          persist-credentials: false
+
+      - name: plan
+        working-directory: nixpkgs
+        run: |
+          read -ra attrs <<< "$ATTRS"
+          nix build --dry-run -f . "${attrs[@]}" 2> plan.txt || { cat plan.txt; exit 1; }
+          grep 'will be' plan.txt
+
+      # Stops before the job limit, so that the binary cache is still saved
+      - name: build
+        working-directory: nixpkgs
+        run: |
+          read -ra attrs <<< "$ATTRS"
+          timeout -s INT 7000m nix build --keep-going --no-link -f . "${attrs[@]}"
+
+      # The report without the stage 3 files, which all differ from stage 2's
+      - name: fixpoint report
+        working-directory: nixpkgs
+        run: |
+          out=$(nix build --no-link --print-out-paths -f . haskell.compiler.ghc622Bootstrap.tests.fixpoint)
+          awk '/^stage 3 vs stage 2/ { p = 1 } p || !/^differs: /' "$out/report.txt"
+
+      - name: collect the build logs
+        if: always()
+        run: sudo tar -C /nix/var/log/nix -cf "$RUNNER_TEMP/logs.tar" drvs
+
+      - name: upload the build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logs
+          path: ${{ runner.temp }}/logs.tar
+
+      - name: fill the binary cache
+        if: always()
+        run: |
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+          echo "$(find "$RUNNER_TEMP/nix-cache" -name '*.narinfo' | wc -l) paths, $(du -sh "$RUNNER_TEMP/nix-cache" | cut -f1)"
+
+      - name: save the binary cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}
