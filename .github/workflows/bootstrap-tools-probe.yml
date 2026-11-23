@@ -51,7 +51,10 @@ jobs:
       - name: unpack the bootstrap tools
         working-directory: nixpkgs
         run: |
-          drv=$(nix-store -qR "$(nix-instantiate -A stdenv 2> /dev/null)" | grep -- '-bootstrap-tools\.drv$')
+          # The derivation that run 45089536119 unpacked, among the closure's
+          # derivations of that name
+          nix-store -qR "$(nix-instantiate -A stdenv 2> /dev/null)" | grep -- '-bootstrap-tools\.drv$'
+          drv=/nix/store/x3k2fj3krv4knx68rqbzcn2hr6j8qhxc-bootstrap-tools.drv
           bt=$(nix-store --realise "$drv")
           echo "bt=$bt" >> "$GITHUB_ENV"
           echo "$drv -> $bt"
