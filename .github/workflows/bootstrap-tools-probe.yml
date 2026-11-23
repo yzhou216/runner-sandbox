@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Why the gcc of nixpkgs's riscv64 bootstrap tools segfaults on this runner
+# (riscv64-nix.yml, run 45089536119): the bootstrap tools as Nix unpacks them,
+# run inside and outside the build sandbox, and under gdb and strace.
+name: bootstrap-tools-probe
+on:
+  push:
+    paths:
+      - .github/workflows/bootstrap-tools-probe.yml
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+env:
+  REV: 4ce9145b0825c6f09f82c464c6409a227fc5cd34
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 120
+    steps:
+      - name: machine
+        run: |
+          uname -a
+          getconf PAGESIZE
+          sed -n 1,12p /proc/cpuinfo
+
+      - name: debugging tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gdb strace file
+
+      - name: install nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: checkout nixpkgs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: yzhou216/nixpkgs
+          ref: ${{ env.REV }}
+          path: nixpkgs
+          persist-credentials: false
+
+      - name: unpack the bootstrap tools
+        working-directory: nixpkgs
+        run: |
+          drv=$(nix-store -qR "$(nix-instantiate -A stdenv 2> /dev/null)" | grep -- '-bootstrap-tools\.drv$')
+          bt=$(nix-store --realise "$drv")
+          echo "bt=$bt" >> "$GITHUB_ENV"
+          echo "$drv -> $bt"
+          file -L "$bt/bin/gcc" "$bt/bin/bash"
+          "$bt/bin/gcc" -dumpmachine || echo "gcc -dumpmachine: exit $?"
+          "$bt/bin/gcc" -v 2>&1 | tail -n 3 || true
+
+      # Every executable of the bootstrap tools that dies of a signal
+      - name: crashing bootstrap binaries
+        continue-on-error: true
+        run: |
+          for f in "$bt"/bin/* "$bt"/libexec/gcc/*/*/*; do
+            [ -f "$f" ] && [ -x "$f" ] || continue
+            rc=0
+            timeout 10 "$f" --version < /dev/null > /dev/null 2>&1 || rc=$?
+            if [ "$rc" -gt 128 ] && [ "$rc" != 137 ]; then
+              echo "$f: exit $rc"
+            fi
+          done
+
+      - name: program headers
+        continue-on-error: true
+        run: |
+          for f in bin/gcc bin/bash libexec/gcc/*/*/cc1 bin/as; do
+            [ -e "$bt/$f" ] || continue
+            echo "== $f"
+            readelf -lW "$bt/$f" | sed -n '/Program Headers/,/Section to Segment/p'
+            readelf -dW "$bt/$f" | grep -E 'NEEDED|RPATH|RUNPATH|FLAGS' || true
+          done
+
+      - name: compile outside the sandbox
+        continue-on-error: true
+        run: |
+          cd "$RUNNER_TEMP"
+          printf 'int main(void) { return 0; }\n' > t.c
+          rc=0
+          "$bt/bin/gcc" -v -c t.c -o t.o > out.txt 2>&1 || rc=$?
+          tail -n 15 out.txt
+          echo "exit $rc"
+
+      - name: gdb
+        continue-on-error: true
+        run: |
+          cd "$RUNNER_TEMP"
+          gdb -q -batch -ex run -ex bt -ex 'info registers pc sp ra' -ex "x/8i \$pc" \
+            -ex 'info sharedlibrary' --args "$bt/bin/gcc" -c t.c -o t.o > gdb1.txt 2>&1 || true
+          tail -n 60 gdb1.txt
+          gdb -q -batch -ex 'set follow-fork-mode child' -ex run -ex bt -ex "x/8i \$pc" \
+            --args "$bt/bin/gcc" -c t.c -o t.o > gdb2.txt 2>&1 || true
+          tail -n 40 gdb2.txt
+
+      - name: strace
+        continue-on-error: true
+        run: |
+          cd "$RUNNER_TEMP"
+          strace -f -o trace.txt "$bt/bin/gcc" -c t.c -o t.o || true
+          grep -E 'SIGSEGV|SIGILL|SIGBUS|execve|killed|ENOSYS|EPERM' trace.txt > signals.txt || true
+          head -n 40 signals.txt
+          tail -n 40 trace.txt
+
+      # The same compile as a derivation, in the sandbox and outside it
+      - name: compile in a derivation
+        continue-on-error: true
+        run: |
+          cd "$RUNNER_TEMP"
+          cat > probe.nix <<'EOF'
+          { bt, salt }:
+          derivation {
+            name = "gcc-probe-${salt}";
+            system = "riscv64-linux";
+            builder = "${builtins.storePath bt}/bin/bash";
+            args = [
+              "-c"
+              ''
+                export PATH=${builtins.storePath bt}/bin
+                printf 'int main(void) { return 0; }\n' > t.c
+                gcc -c t.c -o t.o; echo "gcc exit $?"
+                mkdir $out
+              ''
+            ];
+          }
+          EOF
+          nix-build probe.nix --argstr bt "$bt" --argstr salt sandbox --no-out-link > sandbox.txt 2>&1 || true
+          tail -n 5 sandbox.txt
+          sudo env "PATH=$PATH" nix-build probe.nix --argstr bt "$bt" --argstr salt nosandbox \
+            --option sandbox false --no-out-link 2>&1 | tail -n 5 || true

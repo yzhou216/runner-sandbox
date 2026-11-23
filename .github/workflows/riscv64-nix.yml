@@ -10,7 +10,10 @@
 # copied into a file binary cache that actions/cache keeps, so that the next
 # push resumes where this run stopped.
 name: riscv64-nix
-on: push
+on:
+  push:
+    paths:
+      - .github/workflows/riscv64-nix.yml
 
 defaults:
   run:
