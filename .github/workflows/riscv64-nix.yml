@@ -9,7 +9,9 @@
 # the stdenv from nixpkgs's riscv64 bootstrap tools.  After each long stretch
 # every store path is copied into a file binary cache that actions/cache
 # keeps, so that the next push resumes from there even if the runner is lost
-# (run 45091613851 lost its runner 37 minutes in, before any save).
+# (run 45091613851 lost its runner 37 minutes in, before any save, and run
+# 45105648117 during the checkout).  Build output is not streamed, to keep
+# the runner's connection quiet; the logs are uploaded at the end.
 name: riscv64-nix
 on:
   push:
@@ -121,7 +123,7 @@ jobs:
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
           sudo nice -n 19 env "PATH=$PATH" "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" \
-            nix-build --no-out-link --keep-going -A "$STAGE2" \
+            nix-build -Q --no-out-link --keep-going -A "$STAGE2" \
             --option sandbox false --option max-jobs 1 --option cores 4 \
             --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
 
@@ -144,7 +146,7 @@ jobs:
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
           sudo nice -n 19 env "PATH=$PATH" "NIX_SSL_CERT_FILE=$NIX_SSL_CERT_FILE" \
-            nix-build --no-out-link --keep-going -A stdenv \
+            nix-build -Q --no-out-link --keep-going -A stdenv \
             --option sandbox false --option max-jobs 1 --option cores 4 \
             --option extra-substituters "file://$RUNNER_TEMP/nix-cache?trusted=true"
 
@@ -167,7 +169,7 @@ jobs:
         run: |
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          nice -n 19 nix build -L --keep-going --no-link -f . hugs haskell.compiler.microhs \
+          nice -n 19 nix build --keep-going --no-link -f . hugs haskell.compiler.microhs \
             "$G.tree" "$G.rts" "$G.happy" "$G.gmp"
 
       - name: build stage 1
@@ -175,7 +177,7 @@ jobs:
         run: |
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          nice -n 19 nix build -L --keep-going --no-link -f . "$G.stage1"
+          nice -n 19 nix build --keep-going --no-link -f . "$G.stage1"
 
       - name: fill the binary cache (stage 1)
         run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
@@ -191,7 +193,7 @@ jobs:
         run: |
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          nice -n 19 nix build -L --keep-going --no-link -f . "$G.base" "$G.stage2"
+          nice -n 19 nix build --keep-going --no-link -f . "$G.base" "$G.stage2"
 
       - name: fill the binary cache (stage 2)
         run: nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
@@ -207,14 +209,14 @@ jobs:
         run: |
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          nice -n 19 nix build -L --keep-going --no-link -f . "$G.tests.fixpoint"
+          nice -n 19 nix build --keep-going --no-link -f . "$G.tests.fixpoint"
 
       - name: build the installed compiler and its test
         working-directory: nixpkgs
         run: |
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          nice -n 19 nix build -L --keep-going --no-link -f . "$G" "$G.tests.hello"
+          nice -n 19 nix build --keep-going --no-link -f . "$G" "$G.tests.hello"
 
       # The report without the stage 3 files, which all differ from stage 2's
       - name: fixpoint report
