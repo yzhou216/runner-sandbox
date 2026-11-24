@@ -1,0 +1,256 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The riscv64 build of riscv64-nix.yml, emulated with QEMU on amd64 runners,
+# since RISE runners kept being lost.  Each matrix job builds for up to about
+# 5 hours 15 minutes, then copies every store path into the file binary cache
+# that actions/cache keeps, and the next job resumes from there.  The first
+# job starts from the stdenv stages that the RISE runs saved.  A job that ends
+# with everything built, with a failed build, or without any new path (a
+# single derivation longer than a job) stops the run; in the last case the
+# binary cache is also uploaded as an artifact, to carry on elsewhere.
+name: riscv64-qemu
+on:
+  push:
+    paths:
+      - .github/workflows/riscv64-qemu.yml
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  actions: write # Delete superseded cache entries
+
+concurrency:
+  group: riscv64-qemu
+  cancel-in-progress: false
+
+env:
+  G: haskell.compiler.ghc622Bootstrap
+  REV: 4ce9145b0825c6f09f82c464c6409a227fc5cd34
+  ATTRS: >-
+    haskell.compiler.ghc622Bootstrap
+    haskell.compiler.ghc622Bootstrap.tests.fixpoint
+    haskell.compiler.ghc622Bootstrap.tests.hello
+  # Memory, disk and load every ten minutes, in the background of the build
+  RESLOG: >-
+    while sleep 600; do
+    echo "[res] $(date -u +%T)
+    mem $(free -m | awk '/^Mem/ { print $3 "M used, " $7 "M available" }'),
+    disk $(df -h / | awk 'NR == 2 { print $3 " used, " $4 " free" }'),
+    load $(cut -d ' ' -f 1-3 /proc/loadavg)";
+    done
+
+jobs:
+  chunk:
+    name: chunk ${{ matrix.chunk }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        chunk: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    steps:
+      # The cache's path is part of its entries' version: the RISE runs'
+      # entries restore only at this same path
+      - name: start
+        run: |
+          echo "START=$(date +%s)" >> "$GITHUB_ENV"
+          echo "CACHE=$RUNNER_TEMP/nix-cache" >> "$GITHUB_ENV"
+
+      # An earlier job of this run attempt stopped it
+      - name: look for a stop
+        id: stop
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: stop
+          key: riscv64-stop-${{ github.run_id }}-${{ github.run_attempt }}
+          lookup-only: true
+
+      - name: machine
+        if: steps.stop.outputs.cache-hit != 'true'
+        run: |
+          uname -a
+          grep -m 1 'model name' /proc/cpuinfo
+          nproc
+          free -g
+          df -h /
+
+      - name: restore the binary cache
+        if: steps.stop.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CACHE }}
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-c${{ matrix.chunk }}
+          restore-keys: riscv64-nix-
+
+      - name: prepare the binary cache
+        if: steps.stop.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$CACHE/nar" "$CACHE/log" "$CACHE/realisations" "$CACHE/debuginfo"
+          [ -f "$CACHE/nix-cache-info" ] ||
+            printf 'StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 10\n' > "$CACHE/nix-cache-info"
+          paths=$(find "$CACHE" -name '*.narinfo' | wc -l)
+          echo "PATHS=$paths" >> "$GITHUB_ENV"
+          echo "$paths paths, $(du -sh "$CACHE" | cut -f1)"
+
+      # Debian's binfmt entries have the F flag, so that the kernel opens QEMU
+      # when registering it and builds find it inside Nix's sandbox
+      - name: install qemu
+        if: steps.stop.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q qemu-user-static
+          qemu-riscv64-static --version | head -n 1
+          cat /proc/sys/fs/binfmt_misc/qemu-riscv64
+          grep -q '^flags: .*F' /proc/sys/fs/binfmt_misc/qemu-riscv64
+
+      - name: install nix
+        if: steps.stop.outputs.cache-hit != 'true'
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            extra-platforms = riscv64-linux
+            max-jobs = 2
+            cores = 4
+            extra-substituters = file://${{ env.CACHE }}?trusted=true
+            log-lines = 100
+
+      - name: checkout nixpkgs
+        if: steps.stop.outputs.cache-hit != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: yzhou216/nixpkgs
+          ref: ${{ env.REV }}
+          path: nixpkgs
+          persist-credentials: false
+
+      - name: plan
+        if: steps.stop.outputs.cache-hit != 'true'
+        working-directory: nixpkgs
+        run: |
+          read -ra attrs <<< "$ATTRS"
+          nix build --dry-run --argstr system riscv64-linux -f . "${attrs[@]}" 2> plan.txt ||
+            { cat plan.txt; exit 1; }
+          grep 'will be' plan.txt
+
+      # Stops 315 minutes into the job, leaving time to save what was built.
+      # Whatever was still building is listed as unfinished.
+      - name: build
+        id: build
+        if: steps.stop.outputs.cache-hit != 'true'
+        working-directory: nixpkgs
+        run: |
+          read -ra attrs <<< "$ATTRS"
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          budget=$(( START + 315 * 60 - $(date +%s) ))
+          status=0
+          timeout --signal=INT --kill-after=5m "$budget" \
+            nix build --keep-going --no-link --argstr system riscv64-linux -f . "${attrs[@]}" \
+            2>&1 | tee "$RUNNER_TEMP/build.txt" || status=$?
+          echo "status $status"
+          { grep -o "building '/nix/store/[^']*\.drv'" "$RUNNER_TEMP/build.txt" || true; } |
+            cut -d "'" -f 2 | sort -u |
+            while read -r drv; do
+              nix-store -q --outputs "$drv" | xargs nix-store --check-validity 2> /dev/null ||
+                echo "unfinished: $drv"
+            done | tee "$RUNNER_TEMP/unfinished.txt"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: fill the binary cache
+        id: fill
+        if: ${{ !cancelled() && steps.build.outcome != 'skipped' }}
+        env:
+          STATUS: ${{ steps.build.outputs.status }}
+        run: |
+          nix copy --all --to "file://$CACHE?compression=zstd"
+          paths=$(find "$CACHE" -name '*.narinfo' | wc -l)
+          echo "$paths paths ($(( paths - PATHS )) new), $(du -sh "$CACHE" | cut -f1)"
+          mkdir -p stop
+          if [ "$STATUS" = 0 ]; then
+            echo "done" > stop/reason
+          elif [ "$STATUS" != 124 ]; then
+            { echo "failed with status $STATUS"; cat "$RUNNER_TEMP/unfinished.txt"; } > stop/reason
+          elif [ "$paths" = "$PATHS" ]; then
+            { echo "no new paths"; cat "$RUNNER_TEMP/unfinished.txt"; } > stop/reason
+            echo "export=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f stop/reason ]; then
+            cat stop/reason
+            echo "stop=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: save the binary cache
+        id: save
+        if: ${{ !cancelled() && steps.fill.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CACHE }}
+          key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-c${{ matrix.chunk }}
+
+      # Each entry holds every path of the ones before it.  The sandbox's 10 GB
+      # of cache is shared with other sessions, so keep only the newest.
+      - name: delete superseded cache entries
+        if: ${{ !cancelled() && steps.save.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-c${{ matrix.chunk }}
+        run: |
+          gh cache list -R "$GITHUB_REPOSITORY" --key "$KEY" --json key -q '.[].key' | grep -qx "$KEY" ||
+            { echo "::warning::$KEY is missing, so the older entries stay"; exit 0; }
+          gh cache list -R "$GITHUB_REPOSITORY" --key riscv64-nix- -L 100 --json key -q '.[].key' |
+            grep -vx "$KEY" | while read -r old; do
+              gh cache delete "$old" -R "$GITHUB_REPOSITORY"
+              echo "deleted $old"
+            done
+
+      - name: export the binary cache
+        if: ${{ !cancelled() && steps.fill.outputs.export == 'true' }}
+        run: tar -C "$CACHE/.." -cf "$RUNNER_TEMP/nix-cache.tar" nix-cache
+
+      - name: upload the binary cache
+        if: ${{ !cancelled() && steps.fill.outputs.export == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nix-cache
+          path: ${{ runner.temp }}/nix-cache.tar
+          compression-level: 0
+          retention-days: 14
+
+      - name: collect the build logs
+        if: always() && steps.stop.outputs.cache-hit != 'true'
+        run: sudo tar -C /nix/var/log/nix -cf "$RUNNER_TEMP/logs.tar" drvs
+
+      - name: upload the build logs
+        if: always() && steps.stop.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logs-${{ matrix.chunk }}
+          path: ${{ runner.temp }}/logs.tar
+          retention-days: 30
+
+      # The report without the stage 3 files, which all differ from stage 2's
+      - name: fixpoint report
+        if: steps.build.outputs.status == '0'
+        working-directory: nixpkgs
+        run: |
+          out=$(nix build --no-link --print-out-paths --argstr system riscv64-linux -f . "$G.tests.fixpoint")
+          awk '/^stage 3 vs stage 2/ { p = 1 } p || !/^differs: /' "$out/report.txt"
+
+      - name: stop the run
+        if: ${{ !cancelled() && steps.fill.outputs.stop == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: stop
+          key: riscv64-stop-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: result
+        if: ${{ !cancelled() && steps.fill.outputs.stop == 'true' }}
+        run: |
+          cat stop/reason
+          [ "$(cat stop/reason)" = "done" ]
