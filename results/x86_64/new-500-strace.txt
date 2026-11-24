@@ -1,0 +1,32 @@
+strace: Process 46736 attached
+strace: Process 46736 detached
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+ 99.98    0.034766          12      2733           clock_nanosleep
+  0.02    0.000006           6         1           restart_syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.034772          12      2734           total
+strace: Process 46736 attached
+22:09:01.434282 restart_syscall(<... resuming interrupted clock_nanosleep ...>) = 0
+22:09:01.434437 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.435588 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.436711 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.437834 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.438955 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.440079 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.441167 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.442299 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.444184 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.445307 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.446421 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.448768 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.449904 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.451027 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.452177 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.453301 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.454430 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.455555 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.456676 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.457806 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.458935 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0
+22:09:01.460060 clock_nanosleep(CLOCK_MONOTONIC, 0, {tv_sec=0, tv_nsec=1000000}, 0x72c68bdfd778) = 0

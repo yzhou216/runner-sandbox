@@ -1,0 +1,60 @@
+21:52:48 probe: 0 ticks in 6 s = 0.00 percent of one core; without audio threads 0 ticks = 0.00 percent; 33.2 wakes/s in all; threads as ticks/wakes: notify-rs_debou=0t/122w, 20 threads, RSS 57876 kB
+21:52:48 probe: process ended 0.03 s after the window closed
+21:52:49 == old ==
+21:54:10 2 old 500 cues idle, run 1: 49 ticks in 60 s = 0.82 percent of one core; without audio threads 44 ticks = 0.73 percent; 1000.0 wakes/s in all; threads as ticks/wakes: MAIN=30t/138w tokio-rt-worker=0t/198w tokio-rt-worker=0t/222w tokio-rt-worker=0t/193w cinq=1t/60w notify-rs_debou=1t/1198w smithay-clipboa=0t/152w cinq=0t/62w cinq=1t/43w cinq=11t/56991w, 20 threads, RSS 72172 kB
+21:55:10 2 old 500 cues idle, run 2: 51 ticks in 60 s = 0.85 percent of one core; without audio threads 47 ticks = 0.78 percent; 999.7 wakes/s in all; threads as ticks/wakes: MAIN=31t/130w tokio-rt-worker=0t/178w tokio-rt-worker=0t/215w tokio-rt-worker=0t/237w cinq=1t/60w notify-rs_debou=0t/1199w smithay-clipboa=0t/151w cinq=1t/30w cinq=1t/54w cinq=1t/42w cinq=12t/56978w, 20 threads, RSS 72176 kB
+21:56:10 2 old 500 cues idle, run 3: 52 ticks in 60 s = 0.87 percent of one core; without audio threads 48 ticks = 0.80 percent; 999.5 wakes/s in all; threads as ticks/wakes: MAIN=31t/118w tokio-rt-worker=0t/207w tokio-rt-worker=0t/237w tokio-rt-worker=0t/165w cinq=1t/60w notify-rs_debou=1t/1199w smithay-clipboa=0t/149w cinq=1t/30w cinq=1t/58w cinq=1t/50w cinq=12t/56987w, 20 threads, RSS 72176 kB
+21:56:16 old-500: busiest thread 42551, cinq, waits in hrtimer_nanosleep, exe /nix/store/xzzca1dh6dqx1cvjl74min2iw5i4g5gi-cinq-0.1.7/bin/cinq
+21:56:19 6 old 500 cues: process ended 0.03 s after the window closed
+21:56:20 old-500 stderr: 
+21:57:40 3 old lights demo idle, run 1: 16 ticks in 60 s = 0.27 percent of one core; without audio threads 10 ticks = 0.17 percent; 57.9 wakes/s in all; threads as ticks/wakes: MAIN=7t/254w tokio-rt-worker=0t/361w tokio-rt-worker=0t/341w tokio-rt-worker=0t/306w cinq=2t/60w notify-rs_debou=1t/1198w smithay-clipboa=0t/290w, 19 threads, RSS 58084 kB
+21:58:40 3 old lights demo idle, run 2: 16 ticks in 60 s = 0.27 percent of one core; without audio threads 11 ticks = 0.18 percent; 57.7 wakes/s in all; threads as ticks/wakes: MAIN=7t/262w tokio-rt-worker=0t/254w tokio-rt-worker=1t/379w tokio-rt-worker=0t/364w cinq=3t/60w notify-rs_debou=0t/1197w smithay-clipboa=0t/283w, 19 threads, RSS 58084 kB
+21:59:41 3 old lights demo idle, run 3: 15 ticks in 60 s = 0.25 percent of one core; without audio threads 10 ticks = 0.17 percent; 57.4 wakes/s in all; threads as ticks/wakes: MAIN=6t/271w tokio-rt-worker=1t/406w tokio-rt-worker=0t/255w tokio-rt-worker=1t/320w cinq=2t/60w notify-rs_debou=0t/1197w smithay-clipboa=0t/271w, 19 threads, RSS 58084 kB
+22:00:46 3b old lights demo, cue 1 held: 20 ticks in 60 s = 0.33 percent of one core; without audio threads 15 ticks = 0.25 percent; 57.8 wakes/s in all; threads as ticks/wakes: MAIN=7t/257w tokio-rt-worker=1t/295w tokio-rt-worker=1t/370w tokio-rt-worker=1t/343w cinq=3t/60w notify-rs_debou=1t/1194w smithay-clipboa=1t/289w, 19 threads, RSS 58476 kB
+22:00:46 6b old lights demo with cue 1 held: process ended 0.03 s after the window closed
+22:00:47 old-light stderr: 
+22:00:47 == new ==
+22:02:08 2 new 500 cues idle, run 1: 20 ticks in 60 s = 0.33 percent of one core; without audio threads 16 ticks = 0.27 percent; 982.2 wakes/s in all; threads as ticks/wakes: cinq=1t/60w notify-rs_debou=1t/1199w cinq=12t/56980w cinq=2t/30w, 21 threads, RSS 73392 kB
+22:03:08 2 new 500 cues idle, run 2: 21 ticks in 60 s = 0.35 percent of one core; without audio threads 16 ticks = 0.27 percent; 982.3 wakes/s in all; threads as ticks/wakes: cinq=1t/60w notify-rs_debou=0t/1198w cinq=12t/56989w cinq=3t/30w, 21 threads, RSS 73392 kB
+22:04:09 2 new 500 cues idle, run 3: 21 ticks in 60 s = 0.35 percent of one core; without audio threads 17 ticks = 0.28 percent; 982.1 wakes/s in all; threads as ticks/wakes: cinq=1t/60w notify-rs_debou=2t/1196w cinq=12t/56982w cinq=2t/30w, 21 threads, RSS 73392 kB
+22:04:14 new-500: busiest thread 45331, cinq, waits in hrtimer_nanosleep, exe /nix/store/8946dxwx0qqwn55c9i52059ivyn1nd4b-cinq-0.1.7/bin/cinq
+22:04:26 4-delete: screen changes after the action: +1.04 4-delete-2.png 
+22:04:35 4-restore: screen changes after the action: +0.53 4-restore-2.png 
+22:04:44 4-replace: screen changes after the action: +1.59 4-replace-2.png 
+22:04:44 6 new 500 cues: process ended 0.03 s after the window closed
+22:04:45 new-500 stderr: 
+22:06:05 3 new lights demo idle, run 1: 9 ticks in 60 s = 0.15 percent of one core; without audio threads 4 ticks = 0.07 percent; 32.5 wakes/s in all; threads as ticks/wakes: cinq=3t/60w notify-rs_debou=1t/1198w, 20 threads, RSS 57100 kB
+22:07:05 3 new lights demo idle, run 2: 7 ticks in 60 s = 0.12 percent of one core; without audio threads 3 ticks = 0.05 percent; 32.5 wakes/s in all; threads as ticks/wakes: cinq=2t/60w notify-rs_debou=1t/1198w, 20 threads, RSS 57100 kB
+22:08:05 3 new lights demo idle, run 3: 8 ticks in 60 s = 0.13 percent of one core; without audio threads 2 ticks = 0.03 percent; 32.5 wakes/s in all; threads as ticks/wakes: cinq=2t/60w notify-rs_debou=0t/1198w, 20 threads, RSS 57100 kB
+22:08:05 6 new lights demo: process ended 0.03 s after the window closed
+22:08:06 new-light stderr: 
+22:09:32 3b new lights demo, cue 1 held: 9 ticks in 60 s = 0.15 percent of one core; without audio threads 3 ticks = 0.05 percent; 32.5 wakes/s in all; threads as ticks/wakes: cinq=2t/60w notify-rs_debou=1t/1197w, 20 threads, RSS 58116 kB
+22:09:32 6b new lights demo with cue 1 held: process ended 0.03 s after the window closed
+22:09:33 new-light stderr: 
+22:09:33 new-held stderr: 
+22:09:33 5 lo: interfaces in the namespace: lo               DOWN           ;
+22:09:35 5 lo: cinq is process 50089:   50089 cinq            /nix/store/8946dxwx0qqwn55c9i52059ivyn1nd4b-cinq-0.1.7/bin/cinq --config-dir /home/runner/work/_temp/tmp.EtvgcBnunX/c5 /home/runner/work/_temp/tmp.EtvgcBnunX/demo-new/lights.cinq.toml
+22:09:45 5-lo-boot: screen changes after the action: +0.00 5-lo-boot-1.png +0.05 5-lo-boot-2.png +0.11 5-lo-boot-3.png 
+22:09:45 5 lo: no input since launch; first stderr line at +0.04 s after launch
+22:09:53 5-lo-go: screen changes after the action: +0.02 5-lo-go-3.png 
+22:09:53 5 lo: stderr so far: 1795558173.243778264 cinq: light output: no network interface
+22:09:55 5 lo: interfaces after: lo               UNKNOWN        127.0.0.1/8 ::1/128 ;
+22:10:03 5-lo-up: screen changes after the action: +0.83 5-lo-up-2.png 
+22:10:03 5 lo: stderr: 1795558173.243778264 cinq: light output: no network interface
+22:10:03 6 lights demo in namespace lo: process ended 0.03 s after the window closed
+22:10:04 5 dummy: interfaces in the namespace: lo               DOWN           ;
+22:10:06 5 dummy: cinq is process 53572:   53572 cinq            /nix/store/8946dxwx0qqwn55c9i52059ivyn1nd4b-cinq-0.1.7/bin/cinq --config-dir /home/runner/work/_temp/tmp.EtvgcBnunX/c5 /home/runner/work/_temp/tmp.EtvgcBnunX/demo-new/lights.cinq.toml
+22:10:16 5-dummy-boot: screen changes after the action: +0.00 5-dummy-boot-1.png +0.05 5-dummy-boot-2.png +0.10 5-dummy-boot-3.png 
+22:10:16 5 dummy: no input since launch; first stderr line at +0.03 s after launch
+22:10:24 5-dummy-go: screen changes after the action: +0.04 5-dummy-go-3.png 
+22:10:24 5 dummy: stderr so far: 1795558204.125328982 cinq: light output: no network interface
+22:10:26 5 dummy: interfaces after: lo               DOWN           ;d0               UNKNOWN        10.77.0.1/24 fe80::e87d:f2ff:fe1f:f0a/64 ;
+22:10:34 5-dummy-up: screen changes after the action: +0.86 5-dummy-up-2.png 
+22:10:34 5 dummy: stderr: 1795558204.125328982 cinq: light output: no network interface
+22:10:34 6 lights demo in namespace dummy: process ended 0.03 s after the window closed
+22:10:47 7 first start stderr bytes: 0
+22:10:57 7 first start: process ended 0.03 s after the window closed
+22:10:58 7 config.toml after: efbbbf then: audio_device = "alsa:paced"|[keys]|go = ["Space", "F9"]|
+22:11:08 7 second start: process ended 0.03 s after the window closed
+22:11:09 7 second start stderr bytes: 0
+22:11:09 7 config.toml at the end: efbbbf then: audio_device = "alsa:paced"|[keys]|go = ["Space", "F9"]|

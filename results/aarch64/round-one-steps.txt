@@ -1,0 +1,24 @@
+18:55:26 1 silent start
+18:55:48 1 1-demo stderr bytes: 0
+18:55:48 1 1-empty stderr bytes: 0
+18:55:48 2 keymap cua
+18:56:01 2 stderr:   ⚠ config.toml: cinq no longer ships the cua keymap, so vi stands in for it
+   ╭─[/home/runner/work/_temp/tmp.aLPvSIsm6F/c2/config.toml:1:10]
+ 1 │ keymap = "cua"
+   ·          ─────
+ 2 │ 
+   ╰────
+18:56:01 3 hint
+18:56:22 3 stderr: 
+18:56:22 4 osc
+18:56:37 4 stderr: cinq: OSC from 127.0.0.1: no cue is numbered "99"
+18:56:55 4 taken stderr: cinq: osc_listen: cannot listen on 127.0.0.1:53000: Address already in use (os error 98); trying again every 2 seconds
+18:56:55 5 watch
+18:57:12 5 stderr: 
+18:57:12 6 paste
+18:57:31 6 stderr: 
+18:57:31 7 errors
+18:57:40 7 dir stderr: cinq: cannot open /home/runner/work/_temp/tmp.aLPvSIsm6F/adir: Is a directory (os error 21)
+18:57:51 7 save stderr: cinq: cannot save /home/runner/work/_temp/tmp.aLPvSIsm6F/s7/show.cinq.toml: Permission denied (os error 13) at path "/home/runner/work/_temp/tmp.aLPvSIsm6F/s7/.tmpod0laR"
+18:57:51 8 network
+18:58:05 8 stderr: cinq: network cue to tcp://127.0.0.1:9: Connection refused (os error 111)
