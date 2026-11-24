@@ -120,13 +120,17 @@ jobs:
             new="$(cat run/run-${{ matrix.arch }}-new/path.txt)/bin/cinq"
             scale=1 rounds=2
             [ "${{ matrix.arch }}" = aarch64 ] && scale=4 rounds=1
-            export ROUNDS=$rounds AUDIO_LABEL=$AUDIO_LABEL ITEM_LABEL=$ITEM_LABEL
+            export AUDIO_LABEL=$AUDIO_LABEL ITEM_LABEL=$ITEM_LABEL
             export LIGHTS_OLD=$PWD/lights-old.toml LIGHTS_NEW=$PWD/lights-new.toml
-            for stage in idle c4 c5 c7; do
-              echo "== stage $stage"
+            for spec in idle:null:$rounds idle:none:1 c4:null:1 c5:null:1 c7:null:1; do
+              stage=${spec%%:*}
+              rest=${spec#*:}
+              sound=${rest%%:*}
+              n=${rest#*:}
+              echo "== stage $stage, sound $sound"
               limit=$((900 * scale))
               [ "$stage" = idle ] && limit=$((2400 * scale))
-              timeout -k 10 "$limit" bash fb/idle.sh "$old" "$new" idle-out "$scale" "$stage" || echo "== stage $stage ended with $?"
+              ROUNDS=$n ASOUND=$sound timeout -k 10 "$limit" bash fb/idle.sh "$old" "$new" idle-out "$scale" "$stage" || echo "== stage $stage ended with $?"
               pkill cinq || true
               pkill sway || true
               jail -r nonet || true

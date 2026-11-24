@@ -40,7 +40,8 @@ export WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1
 export ICED_BACKEND=tiny-skia
 unset WAYLAND_DISPLAY DISPLAY SWAYSOCK DBUS_SESSION_BUS_ADDRESS
 mkdir -p "$HOME"
-printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+[ "${ASOUND:-null}" = null ] && printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+tag=${ASOUND:-null}
 mkdir -m 700 "$XDG_RUNTIME_DIR"
 printf 'output HEADLESS-1 resolution 1280x800\n' > "$work/sway.config"
 { uname -a; "$old" --version; "$new" --version; nproc 2> /dev/null; sysctl -n hw.model hw.ncpu; } > "$out/versions.txt" 2>&1
@@ -118,6 +119,7 @@ stop() {
   swaymsg -q '[title=" - cinq$"] kill' || true
   for _ in $(seq 600); do kill -0 "$pid" 2> /dev/null || break; sleep 0.1; done
   t1=$(ts)
+  ps -H -o tid,time,pcpu,state,wchan,comm -p "$pid" > "$out/$1.threads-after" 2>&1
   kill -0 "$pid" 2> /dev/null && { gone=LINGERS; kill "$pid"; }
   wait "$pid" 2> /dev/null || true
   res "exit $1: $(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.2f", b - a }') s, process $gone"
@@ -129,18 +131,20 @@ idle() {
   local a b t0 t1
   nap 20
   shot "$1-0-loaded"
+  ps -H -o tid,time,pcpu,state,wchan,comm -p "$pid" > "$out/$1.threads-before" 2>&1
   a=$(cpu "$pid")
   t0=$(ts)
   sleep 60
   b=$(cpu "$pid")
   t1=$(ts)
+  ps -H -o tid,time,pcpu,state,wchan,comm -p "$pid" > "$out/$1.threads-after" 2>&1
   res "idle $1: $a s -> $b s over $(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.1f", b - a }') s = $(awk -v a="$a" -v b="$b" -v t0="$t0" -v t1="$t1" 'BEGIN { printf "%.2f", (b - a) / (t1 - t0) * 100 }') percent of one core"
 }
 # burst NAME SECONDS: frames of the screen for a while, with their times,
 # keeping only the first and each that differs from the one before
 burst() {
   local end t sum last=''
-  end=$(awk -v n="$(ts)" -v s="$2" -v k="$scale" 'BEGIN { print n + s * k }')
+  end=$(awk -v n="$(ts)" -v s="$2" -v k="$scale" 'BEGIN { printf "%.2f", n + s * k }')
   while [ "$(awk -v n="$(ts)" -v e="$end" 'BEGIN { print (n < e) }')" = 1 ]; do
     t=$(ts)
     grim "$out/$1-$t.png" || continue
@@ -158,12 +162,12 @@ for round in $(seq "$rounds"); do
   for which in old new; do
     bin=$old
     [ "$which" = new ] && bin=$new
-    start "big-$which-$round" "$bin" big.cinq.toml
-    idle "big-$which-$round"
-    stop "big-$which-$round"
-    start "lights-$which-$round" "$bin" "lights/$which.cinq.toml"
-    idle "lights-$which-$round"
-    stop "lights-$which-$round"
+    start "big-$which-$round-$tag" "$bin" big.cinq.toml
+    idle "big-$which-$round-$tag"
+    stop "big-$which-$round-$tag"
+    start "lights-$which-$round-$tag" "$bin" "lights/$which.cinq.toml"
+    idle "lights-$which-$round-$tag"
+    stop "lights-$which-$round-$tag"
   done
 done
 fi
