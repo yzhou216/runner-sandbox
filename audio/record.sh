@@ -143,10 +143,14 @@ quit() {
   pid=''
   sleep 2
 }
-# Selects cue $1 of the list, puts it on standby, and fires it with GO
-fire() {
+# Selects cue $1 of the list, which a GO that moves standby along has left behind
+choose() {
   key gg
   if [ "$1" -gt 1 ]; then key "$(printf '%*s' $(($1 - 1)) '' | tr ' ' j)"; fi
+}
+# Selects cue $1, puts it on standby, and fires it with GO
+fire() {
+  choose "$1"
   key -k Return
   press F9 "${2:-go-$1}"
 }
@@ -219,6 +223,8 @@ mark end-4
 # Check 8: clearing the last send of a cue that plays
 fire 8
 sleep 4
+# GO moves the selection to the next cue, so select cue 8 again
+choose 8
 shot 8-before
 type_into 2 ''
 press Tab cleared-house
@@ -233,8 +239,11 @@ leave
 press F10 panic-8
 sleep 3
 
-# Check 7: a device that goes away while a cue plays on both outputs
+# Check 7: the device of Booth goes away (its PulseAudio server stops) while a cue that
+# sends to both outputs and a cue that sends to Booth alone play
 fire 7
+sleep 1
+fire 9
 sleep 4
 shot 7-before
 PULSE_RUNTIME_PATH=$work/run-booth pulseaudio --kill
@@ -244,9 +253,6 @@ shot 7-after-3s
 pactl list short sink-inputs > "$out/inputs-after-3s.txt"
 sleep 4
 shot 7-after-7s
-fire 9
-sleep 3
-shot 7-booth-only
 mark end-7
 press F10 panic-7
 sleep 3
