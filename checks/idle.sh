@@ -30,7 +30,13 @@ cat > "$work/sway.config" <<'CONF'
 output HEADLESS-1 resolution 1280x800
 for_window [app_id="cinq"] floating enable, resize set 1100 700, move position center
 CONF
-printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+if grep -q Dummy /proc/asound/cards 2> /dev/null; then
+  printf 'pcm.!default { type plug\n slave.pcm "hw:Dummy,0" }\nctl.!default { type hw\n card Dummy }\n' > "$HOME/.asoundrc"
+  echo dummy-card > "$out/sound.txt"
+else
+  printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+  echo null-device > "$out/sound.txt"
+fi
 
 sway -c "$work/sway.config" > "$out/sway.log" 2>&1 &
 for _ in $(seq 100); do
@@ -78,7 +84,7 @@ start() {
   : > "$out/$phase.err"
   local run=("$2" --config-dir "$3" "$4")
   if [ -n "${5:-}" ]; then
-    sudo --preserve-env ip netns exec "$5" /usr/bin/setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups "${run[@]}" \
+    sudo env "HOME=$HOME" "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" "FONTCONFIG_FILE=$FONTCONFIG_FILE" "ICED_BACKEND=$ICED_BACKEND" ip netns exec "$5" /usr/bin/setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups "${run[@]}" \
       2> >(while IFS= read -r l; do printf '%s %s\n' "$(now)" "$l" >> "$out/$phase.err"; done) &
     sleep 2
     cinq=$(pgrep -n -x cinq)
@@ -107,13 +113,20 @@ closewin() {
 # ticks PID: processor time of all threads of a process so far, in clock ticks
 ticks() { awk '{print $14 + $15}' "/proc/$1/stat"; }
 
+# threads PID: processor ticks of each thread, busiest first
+threads() {
+  for t in "/proc/$1"/task/*; do
+    printf '%s %s\n' "$(awk '{print $14 + $15}' "$t/stat")" "$(cat "$t/comm")"
+  done | sort -rn | head -6 | tr '\n' ';'
+}
+
 # measure PHASE SECONDS: processor time of cinq over the interval, as percent of one core
 measure() {
   local a b
   a=$(ticks "$cinq")
   sleep "$2"
   b=$(ticks "$cinq")
-  say "$1: $(awk -v a="$a" -v b="$b" -v hz="$hz" -v s="$2" 'BEGIN{printf "%d ticks in %d s = %.2f percent of one core", b-a, s, (b-a)/hz/s*100}'), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
+  say "$1: $(awk -v a="$a" -v b="$b" -v hz="$hz" -v s="$2" 'BEGIN{printf "%d ticks in %d s = %.2f percent of one core", b-a, s, (b-a)/hz/s*100}'), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB; threads by total ticks so far: $(threads "$cinq")"
 }
 
 # series NAME SECONDS: screenshots as fast as they come, one kept at each change

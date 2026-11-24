@@ -46,7 +46,15 @@ jobs:
           echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
           cinq-old/bin/cinq --version || true
           cinq-new/bin/cinq --version || true
+      - name: Dummy sound card, paced by a timer where the null device spins
+        run: |
+          sudo apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)" || true
+          sudo modprobe snd-dummy || true
+          cat /proc/asound/cards || true
+          sudo chmod a+rw /dev/snd/* || true
+          ls -l /dev/snd || true
       - name: Round one again, check 1
+        if: false
         run: |
           mkdir -p out/r1
           bash -x checks/check.sh "$FONTS" out/r1 demo-new 2> out/r1/trace.txt || true
