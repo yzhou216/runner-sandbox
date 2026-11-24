@@ -92,7 +92,7 @@ kind = "audio"
 name = "Alpha"
 file = "sounds/alpha.wav"
 TOML
-cp "$work/two.wav" "$shows/sounds/alpha.wav"
+cp "$work/five.wav" "$shows/sounds/alpha.wav"
 res "show: $(grep -c '^\[\[list.cue\]\]' "$shows/big.cinq.toml") cues, $(ls "$shows/sounds" | wc -l | tr -d ' ') files, $(du -sk "$shows/sounds" | cut -f1) KiB"
 
 pid=''
