@@ -2,15 +2,18 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Eight checks of cinq c9408b4b490e on windows-latest and windows-11-arm,
-# with cinq cross-built on ubuntu-latest
+# Seven checks of cinq 16c365b2c189 (NEW) against d534417e464a (OLD, v0.1.7)
+# on windows-latest and windows-11-arm, with both cross-built on
+# ubuntu-latest: the eight checks of round one, idle processor time, file
+# watching, light news, clean exit, and a byte order mark
 name: cinq on Windows
 on: push
 permissions:
   actions: read
   contents: read
 env:
-  CINQ: github:yzhou216/cinq/17c2b0755ee66d31a99cf4513d8f34c48f09d2f2
+  NEW: 16c365b2c189c8e0b0f21e9d8902383a714bb61c
+  OLD: d534417e464a5a95823a183a0483a17a230bf3d3
 defaults:
   run:
     shell: bash
@@ -20,6 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [x86_64-windows, aarch64-windows]
+        version: [new, old]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -29,13 +33,16 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
-          nix build "$CINQ#${{ matrix.target }}"
+          sha=$NEW
+          [ "${{ matrix.version }}" = old ] && sha=$OLD
+          nix build "github:yzhou216/cinq/$sha#${{ matrix.target }}"
           mkdir cinq-windows && cp -rL result/. cinq-windows/ && find cinq-windows
       - uses: actions/upload-artifact@v4
         with:
-          name: cinq-${{ matrix.target }}
+          name: cinq-${{ matrix.version }}-${{ matrix.target }}
           path: cinq-windows
-  checks:
+  # Check 1, the eight checks of round one, on NEW
+  round-one:
     needs: build
     strategy:
       fail-fast: false
@@ -46,12 +53,12 @@ jobs:
           - os: windows-11-arm
             target: aarch64-windows
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: cinq-${{ matrix.target }}
+          name: cinq-new-${{ matrix.target }}
           path: cinq-windows
       - name: Make the sounds
         run: mkdir win/sounds && python win/sounds.py win/sounds
@@ -63,5 +70,79 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: checks-${{ matrix.target }}
+          name: round-one-${{ matrix.target }}
+          path: out
+  # Checks 2 and 3, idle processor time of OLD and NEW
+  idle:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-windows
+          - os: windows-11-arm
+            target: aarch64-windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-new-${{ matrix.target }}
+          path: cinq-new
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-old-${{ matrix.target }}
+          path: cinq-old
+      - name: Make the sounds and fetch the lights demo
+        run: |
+          mkdir win/sounds && python win/sounds.py win/sounds
+          curl -fsSL "https://raw.githubusercontent.com/yzhou216/cinq/$NEW/doc/demo/lights.cinq.toml" -o win/shows/lights.cinq.toml
+      - name: Clear the desktop of windows-11-arm
+        if: matrix.os == 'windows-11-arm'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File win/prep.ps1
+      - name: Idle
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File win/idle.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: idle-${{ matrix.target }}
+          path: out
+  # Checks 4 to 7 on NEW
+  live:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-windows
+          - os: windows-11-arm
+            target: aarch64-windows
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-new-${{ matrix.target }}
+          path: cinq-new
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinq-old-${{ matrix.target }}
+          path: cinq-old
+      - name: Make the sounds and fetch the lights demo
+        run: |
+          mkdir win/sounds && python win/sounds.py win/sounds
+          curl -fsSL "https://raw.githubusercontent.com/yzhou216/cinq/$NEW/doc/demo/lights.cinq.toml" -o win/shows/lights.cinq.toml
+      - name: Clear the desktop of windows-11-arm
+        if: matrix.os == 'windows-11-arm'
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File win/prep.ps1
+      - name: Checks 4 to 7
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File win/live.ps1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ matrix.target }}
           path: out
