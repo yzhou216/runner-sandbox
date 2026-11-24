@@ -18,9 +18,9 @@ for sink in house booth; do
       /RMS_level=/ { split($0, v, "="); level = (v[2] == "-inf" ? -120 : v[2]); printf "%.1f\t%.1f\n", time, level }' \
     > "$out/$sink.rec.tsv"
   calibration=$(gawk -F'\t' -v sink="$sink" '$2 == "calibrate-" sink { print $1 }' "$out/marks.tsv")
-  # The first window above -40 dB after the first second is the beep
+  # The first window above -40 dB is the beep
   gawk -F'\t' -v wall="$calibration" -v sink="$sink" '
-    $1 > 1 && $2 > -40 && !found { offset = $1 - wall; found = 1; printf "%s: beep at %.1f s in the recording, offset %.2f s\n", sink, $1, offset > "/dev/stderr" }
+    $2 > -40 && !found { offset = $1 - wall; found = 1; printf "%s: beep at %.1f s in the recording, offset %.2f s\n", sink, $1, offset > "/dev/stderr" }
     { rows[NR] = $0 }
     END { for (i = 1; i <= NR; i++) { split(rows[i], f, "\t"); printf "%.2f\t%s\n", f[1] - offset, f[2] } }' \
     "$out/$sink.rec.tsv" > "$out/$sink.tsv"
