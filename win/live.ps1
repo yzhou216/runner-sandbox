@@ -65,26 +65,20 @@ Summarize '4-watch'
 $ms = Close-Cinq $p
 Log "EXIT many new: $ms ms"
 Summarize '4-watch'
-$p = Start-Cinq '6-lights' $go "$lights\show.cinq.toml"
-Shot '6-lights-open'
-$ms = Close-Cinq $p
-Log "EXIT lights new: $ms ms"
-Summarize '6-lights'
-$p = Start-Cinq '6-many' $go "$many\show.cinq.toml"
-Start-Sleep 20
-$ms = Close-Cinq $p
-Log "EXIT many new again: $ms ms"
-Summarize '6-many'
-Use-Cinq 'old'
-$p = Start-Cinq '6-many-old' $go "$many\show.cinq.toml"
-Start-Sleep 20
-$ms = Close-Cinq $p
-Log "EXIT many old: $ms ms"
-Summarize '6-many-old'
-$p = Start-Cinq '6-lights-old' $go "$lights\show.cinq.toml"
-$ms = Close-Cinq $p
-Log "EXIT lights old: $ms ms"
-Summarize '6-lights-old'
+foreach ($which in 'new', 'old') {
+    Use-Cinq $which
+    foreach ($round in 1..3) {
+        $p = Start-Cinq "6-lights-$which-$round" $go "$lights\show.cinq.toml"
+        $ms = Close-Cinq $p
+        Log "EXIT lights $which round ${round}: $ms ms"
+        Summarize "6-lights-$which-$round"
+        $p = Start-Cinq "6-many-$which-$round" $go "$many\show.cinq.toml"
+        Start-Sleep 20
+        $ms = Close-Cinq $p
+        Log "EXIT many $which round ${round}: $ms ms"
+        Summarize "6-many-$which-$round"
+    }
+}
 Use-Cinq 'new'
 
 # 5 Light news: GO on a light cue, then no input at all
@@ -122,13 +116,17 @@ function Bom([string]$name, [string]$how) {
     $head = ($bytes[0..3] | ForEach-Object { '{0:X2}' -f $_ }) -join ' '
     Log "$name ($how): config.toml starts $head"
 }
-function Run-Bom([string]$name, [string]$shell, [string]$exe) {
+function Run-Bom([string]$name, [string]$shell, [string]$which) {
     $cfg = "$work\cfg-$name"
     New-Item -ItemType Directory -Force -Path $cfg | Out-Null
-    $cmd = "Set-Content -Path '$cfg\config.toml' -Value ('[keys]' + [Environment]::NewLine + 'go = [`"Space`", `"F9`"]') -Encoding utf8"
-    & $shell -NoProfile -Command $cmd
-    Bom $name $shell
-    $script:Exe = $exe
+    # A file, since a native command line loses the double quotes
+    $script = "$work\write-$name.ps1"
+    Set-Content -Path $script -Value @(
+        "Set-Content -Path '$cfg\config.toml' -Value ('[keys]' + [Environment]::NewLine + 'go = [`"Space`", `"F9`"]') -Encoding utf8"
+        '"{0} {1}" -f $PSVersionTable.PSVersion, $PSVersionTable.PSEdition')
+    $version = & $shell -NoProfile -ExecutionPolicy Bypass -File $script
+    Bom $name "$shell $version"
+    Use-Cinq $which
     $p = Start-Cinq $name $null "$small\show.cinq.toml"
     Shot "$name-start"
     Key '{F9}' 'F9'
@@ -138,9 +136,9 @@ function Run-Bom([string]$name, [string]$shell, [string]$exe) {
     Log "$name closed in $ms ms"
     Summarize $name
 }
-Run-Bom '7a-ps51-new' 'powershell' "$root\cinq-new\bin\cinq.exe"
-if (Get-Command pwsh -ErrorAction SilentlyContinue) { Run-Bom '7b-pwsh-new' 'pwsh' "$root\cinq-new\bin\cinq.exe" }
-Run-Bom '7c-ps51-old' 'powershell' "$root\cinq-old\bin\cinq.exe"
+Run-Bom '7a-ps51-new' 'powershell' 'new'
+if (Get-Command pwsh -ErrorAction SilentlyContinue) { Run-Bom '7b-pwsh-new' 'pwsh' 'new' }
+Run-Bom '7c-ps51-old' 'powershell' 'old'
 
 # 7d The audio device list, reached by hint mode, with the mark in place
 Use-Cinq 'new'

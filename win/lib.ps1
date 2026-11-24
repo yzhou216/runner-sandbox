@@ -53,9 +53,14 @@ function Start-Cinq([string]$name, $config, [string]$show) {
     }
     if (-not $w) { Log "no window for $name"; Shot "$name-nowindow"; return $p }
     Log "window after $i s"
+    # The first window of a job draws at its own default size, larger than
+    # the desktop, until it is moved again
+    foreach ($r in 1..4) {
+        Start-Sleep 2
+        $w = Get-Process -Id $p.Id -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0
+        if ($w) { $null = [Place]::MoveWindow($w.MainWindowHandle, 0, 0, 1024, 720, $true) }
+    }
     Start-Sleep 2
-    $null = [Place]::MoveWindow($w.MainWindowHandle, 0, 0, 1024, 720, $true)
-    Start-Sleep 5
     $p
 }
 
