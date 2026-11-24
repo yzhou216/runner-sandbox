@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays cinq of commit 861183a5cd82 through eight audio checks with audio/record.sh
+# Plays cinq of commit 16c365b2c189 through eight audio checks with audio/record.sh
 # in a headless sway session with a PulseAudio server of its own, records the
 # sound of each output, and measures its levels with audio/report.sh
 on: push
@@ -28,7 +28,7 @@ jobs:
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Build cinq and the tools of the session
         run: |
-          nix build --out-link result-cinq github:yzhou216/cinq/861183a5cd82b7e6a460f498e7e2102b7172446f#cinq
+          nix build --out-link result-cinq github:yzhou216/cinq/16c365b2c189c8e0b0f21e9d8902383a714bb61c#cinq
           nix build --out-link tools nixpkgs#sway-unwrapped nixpkgs#wtype nixpkgs#grim \
             nixpkgs#pulseaudio nixpkgs#ffmpeg-headless nixpkgs#gawk nixpkgs#imagemagick
           nix build --out-link alsa-plugins nixpkgs#alsa-plugins
