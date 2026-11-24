@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# The eight checks of cinq on macos-latest, with cinq built natively by Nix
-name: Darwin checks
+# The eight checks of round one, and idle, file watch, light news, exit, and byte order
+# mark checks, of cinq OLD and NEW on macos-latest, built natively by Nix
+name: Darwin idle checks
 on: push
 permissions:
   contents: read
@@ -11,7 +12,8 @@ defaults:
   run:
     shell: bash
 env:
-  CINQ: github:yzhou216/cinq/17c2b0755ee66d31a99cf4513d8f34c48f09d2f2
+  NEW: github:yzhou216/cinq/16c365b2c189c8e0b0f21e9d8902383a714bb61c
+  OLD: github:yzhou216/cinq/d534417e464a5a95823a183a0483a17a230bf3d3
 jobs:
   darwin:
     strategy:
@@ -20,23 +22,63 @@ jobs:
         runner: [macos-latest]
     name: ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@master
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build cinq
+      - uses: actions/cache/restore@v4
+        id: apps
+        with:
+          path: apps
+          key: apps-16c365b-d534417
+      - name: Check the cached apps
+        id: link
+        if: steps.apps.outputs.cache-hit == 'true'
         run: |
-          mkdir out
-          { sw_vers; uname -m; } | tee out/runner.txt
-          nix build "$CINQ#cinq" --print-build-logs 2>&1 | tail -n 30 | tee out/build.txt
-          cp -R result/Applications/cinq.app cinq.app
-          chmod -R u+w cinq.app
+          mkdir -p out
+          otool -L apps/*/Contents/MacOS/cinq | tee out/otool.txt
+          if grep -q /nix/store out/otool.txt; then echo nix=true >> "$GITHUB_OUTPUT"; fi
+      - name: Build cinq
+        if: steps.apps.outputs.cache-hit != 'true' || steps.link.outputs.nix == 'true'
+        run: |
+          mkdir -p apps out
+          for v in old new; do
+            ref=$OLD
+            [ "$v" = new ] && ref=$NEW
+            nix build "$ref#cinq" -o "result-$v" --print-build-logs 2>&1 | tail -n 15 | tee "out/build-$v.txt"
+            cp -R "result-$v/Applications/cinq.app" "apps/cinq-$v.app"
+            chmod -R u+w "apps/cinq-$v.app"
+          done
+      - uses: actions/cache/save@v4
+        if: steps.apps.outputs.cache-hit != 'true'
+        with:
+          path: apps
+          key: apps-16c365b-d534417
       - name: Helpers
-        run: swiftc -O -o ui darwin/screen.swift
-      - name: Checks
-        run: bash -x darwin/checks.sh "$PWD/cinq.app" out/checks 2> out/checks-trace.txt
+        run: |
+          mkdir -p out
+          { sw_vers; uname -m; } | tee out/runner.txt
+          swiftc -O -o ui darwin/screen.swift
+      - name: Round one, NEW
+        if: always()
+        run: bash -x darwin/checks.sh "$PWD/apps/cinq-new.app" out/checks 2> out/checks-trace.txt
+      - name: Idle (checks 2 and 3)
+        if: always()
+        run: bash -x darwin/idle.sh "$PWD/apps" out/idle 2> out/idle-trace.txt
+      - name: File watch (check 4)
+        if: always()
+        run: bash -x darwin/watch.sh "$PWD/apps" out/watch 2> out/watch-trace.txt
+      - name: Light news (check 5)
+        if: always()
+        run: bash -x darwin/light.sh "$PWD/apps" out/light 2> out/light-trace.txt
+      - name: Clean exit (check 6)
+        if: always()
+        run: bash -x darwin/exit.sh "$PWD/apps" out/exit 2> out/exit-trace.txt
+      - name: Byte order mark (check 7)
+        if: always()
+        run: bash -x darwin/bom.sh "$PWD/apps" out/bom 2> out/bom-trace.txt
       - if: always()
         uses: actions/upload-artifact@v4
         with:

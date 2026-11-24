@@ -8,6 +8,8 @@
 //   ui click [--double] [--contains] TEXT [SECONDS]
 //   ui wait [--contains] TEXT [SECONDS]
 //   ui list
+//   ui ocr FILE            (the text of a picture, as list prints it)
+//   ui at X Y              (a click at a point)
 //   ui keys LETTERS        (virtual key codes, which password fields take)
 //   ui key [--shift] [--command] return|tab|escape|a
 //   ui scroll X Y LINES
@@ -15,6 +17,9 @@ import AppKit
 import Vision
 
 let source = CGEventSource(stateID: .hidSystemState)
+
+// Picture that `ui ocr` reads in place of a screenshot
+var ocrFile: String? = nil
 
 struct Line {
   let text: String
@@ -39,12 +44,14 @@ struct Line {
 }
 
 func lines() -> [Line] {
-  let path = "/tmp/ui-screen.png"
-  let capture = Process()
-  capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-  capture.arguments = ["-x", path]
-  try? capture.run()
-  capture.waitUntilExit()
+  let path = ocrFile ?? "/tmp/ui-screen.png"
+  if ocrFile == nil {
+    let capture = Process()
+    capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+    capture.arguments = ["-x", path]
+    try? capture.run()
+    capture.waitUntilExit()
+  }
   guard let image = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil)
     .flatMap({ CGImageSourceCreateImageAtIndex($0, 0, nil) })
   else { return [] }
@@ -134,6 +141,11 @@ case "click", "wait":
   if command == "click" { click(point, count: double ? 2 : 1) }
 case "list":
   lines().forEach { print("\($0.text)\t\(Int($0.center.x))\t\(Int($0.center.y))") }
+case "ocr":
+  ocrFile = arguments[0]
+  lines().forEach { print("\($0.text)\t\(Int($0.center.x))\t\(Int($0.center.y))") }
+case "at":
+  click(CGPoint(x: Double(arguments[0])!, y: Double(arguments[1])!), count: 1)
 case "windows":
   ((CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]) ?? []).forEach {
     print(
