@@ -74,7 +74,7 @@ jobs:
         if: false # done in run 45462049037
         run: bash -x darwin/light.sh "$PWD/apps" out/light 2> out/light-trace.txt
       - name: Light news again (check 5), with reject routes
-        if: always()
+        if: false # done in run 45473900709
         run: bash -x darwin/light2.sh "$PWD/apps" out/light2 2> out/light2-trace.txt
       - name: Idle, where the time goes
         if: false # done in run 45473153343
@@ -83,8 +83,8 @@ jobs:
         if: false # done in run 45473153343
         run: bash -x darwin/exit.sh "$PWD/apps" out/exit 2> out/exit-trace.txt
       - name: Byte order mark (check 7)
-        if: false # done in run 45473153343
-        run: bash -x darwin/bom.sh "$PWD/apps" out/bom 2> out/bom-trace.txt
+        if: always()
+        run: bash -x darwin/bom3.sh "$PWD/apps" out/bom3 2> out/bom3-trace.txt
       - if: always()
         uses: actions/upload-artifact@v4
         with:
