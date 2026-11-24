@@ -35,6 +35,7 @@ allow() {
 # launch NAME SHOW CONFIGDIR: opens cinq.app on SHOW, with its standard error in NAME/cinq.log
 launch() {
   D=$OUT/$1
+  [ -f "$3/config.toml" ] || { mkdir -p "$W/cfg-$1"; set -- "$1" "$2" "$W/cfg-$1"; }
   mkdir -p "$D"
   mark "launch $1"
   open -n --stdout "$D/cinq.log" --stderr "$D/cinq.log" "$APP" --args --config-dir "$3" "$2"

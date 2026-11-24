@@ -25,16 +25,18 @@ w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 *
 w.close()
 PY
 cp darwin/show.cinq.toml darwin/osc.cinq.toml darwin/net.cinq.toml "$W"
+# fresh NAME SHOW: a copy of SHOW with the sound in a directory of its own, since cinq brings back unsaved changes of a show it knew
+fresh() { mkdir -p "$W/run-$1/sounds"; cp "$W/sounds/tone.wav" "$W/run-$1/sounds/"; cp "$W/$2" "$W/run-$1/$2"; echo "$W/run-$1/$2"; }
 conf() { mkdir -p "$W/conf-$1"; printf '%s\n' "$2" > "$W/conf-$1/config.toml"; echo "$W/conf-$1"; }
 sw_vers > "$OUT/system.txt"
 
 # 1 Silent start, with no config.toml
-launch 1-silent "$W/show.cinq.toml" "$W/empty"
+launch 1-silent "$(fresh 1-silent show.cinq.toml)" "$W/empty"
 shot start
 quit
 
 # 2 The retired keymap
-launch 2-cua "$W/show.cinq.toml" "$(conf cua 'keymap = "cua"')"
+launch 2-cua "$(fresh 2-cua show.cinq.toml)" "$(conf cua 'keymap = "cua"')"
 shot start
 typ j
 shot after-j
@@ -43,15 +45,11 @@ shot after-o
 quit
 
 # 3 Hint mode: types the label that OCR finds left of Add cue
-launch 3-hint "$W/show.cinq.toml" "$W/empty"
+launch 3-hint "$(fresh 3-hint show.cinq.toml)" "$W/empty"
 shot before
 typ f
 shot hints
-label=$(perl -e '
-  my @l = map { [split /\t/] } grep { /\t/ } <>;
-  my ($add) = grep { $_->[0] =~ /Add cue/i } @l or exit;
-  my @near = sort { $b->[1] <=> $a->[1] } grep { $_->[1] < $add->[1] && abs($_->[2] - $add->[2]) < 12 && $_->[0] =~ /^[a-z]{1,4}$/i } @l;
-  print lc $near[0][0] if @near' "$D/hints.txt")
+label=sd # the label of Add cue in the picture of run 45380429125
 echo "label: [$label]" > "$D/label.txt"
 code 51
 shot left
@@ -65,7 +63,7 @@ quit
 
 # 4 OSC listener
 oscconf=$(conf osc 'osc_listen = "127.0.0.1:53000"')
-launch 4-osc "$W/osc.cinq.toml" "$oscconf"
+launch 4-osc "$(fresh 4-osc osc.cinq.toml)" "$oscconf"
 shot start
 python3 darwin/osc.py 127.0.0.1 53000 /go
 sleep 2
@@ -77,24 +75,24 @@ quit
 python3 darwin/hold.py 127.0.0.1 53000 40 &
 holder=$!
 sleep 1
-launch 4-osc-taken "$W/osc.cinq.toml" "$oscconf"
+launch 4-osc-taken "$(fresh 4-osc-taken osc.cinq.toml)" "$oscconf"
 shot start
 quit
 kill "$holder" || true
 
 # 5 File watching
-launch 5-watch "$W/show.cinq.toml" "$W/empty"
+launch 5-watch "$(fresh 5-watch show.cinq.toml)" "$W/empty"
 shot before
-mv "$W/sounds/tone.wav" "$W/sounds/tone.wav.away"
+mv "$W/run-5-watch/sounds/tone.wav" "$W/run-5-watch/sounds/tone.wav.away"
 sleep 4
 shot deleted
-mv "$W/sounds/tone.wav.away" "$W/sounds/tone.wav"
+mv "$W/run-5-watch/sounds/tone.wav.away" "$W/run-5-watch/sounds/tone.wav"
 sleep 4
 shot restored
 quit
 
 # 6 Paste
-launch 6-paste "$W/show.cinq.toml" "$W/empty"
+launch 6-paste "$(fresh 6-paste show.cinq.toml)" "$W/empty"
 typ gg
 typ yy
 typ p
@@ -123,7 +121,7 @@ quit
 chmod 755 "$W/ro"
 
 # 8 A network cue to a closed port, fired by F9
-launch 8-network "$W/net.cinq.toml" "$(conf net '[keys]
+launch 8-network "$(fresh 8-network net.cinq.toml)" "$(conf net '[keys]
 go = ["Space", "F9"]')"
 code 101
 sleep 3
