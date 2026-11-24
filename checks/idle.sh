@@ -110,24 +110,29 @@ ticks() { awk '{print $14 + $15}' "/proc/$1/stat"; }
 
 # snapshot PID: one line per thread, as "ID ticks name"
 snapshot() {
+  local t name
   for t in "/proc/$1"/task/*; do
-    printf '%s %s %s\n' "${t##*/}" "$(awk '{print $14 + $15}' "$t/stat")" "$(tr ' ' _ < "$t/comm")"
+    name=$(tr ' ' _ < "$t/comm")
+    [ "${t##*/}" = "$1" ] && name=MAIN
+    printf '%s %s %s %s\n' "${t##*/}" "$(awk '{print $14 + $15}' "$t/stat")" "$name" "$(awk '/^voluntary_ctxt_switches/{print $2}' "$t/status")"
   done
 }
 
 # measure PHASE SECONDS: processor time of cinq over the interval, as percent
 # of one core, in all and without the threads that play audio, which spin on a
-# device that never blocks; sets audio_ticks to the ticks of those threads
+# device that never blocks, and the wakes (voluntary context switches) of each
+# thread; sets audio_ticks to the ticks of those threads
 measure() {
   local a b delta
   a=$(snapshot "$cinq")
   sleep "$2"
   b=$(snapshot "$cinq")
   delta=$(join <(echo "$a") <(echo "$b"))
-  audio_ticks=$(awk '$3 ~ /alsa|cpal/ { s += $4 - $2 } END { print s + 0 }' <<< "$delta")
+  audio_ticks=$(awk '$3 ~ /alsa|cpal/ { s += $5 - $2 } END { print s + 0 }' <<< "$delta")
   say "$1: $(awk -v hz="$hz" -v s="$2" '
-    { d = $4 - $2; all += d; if ($3 ~ /alsa|cpal/) audio += d; else if (d > 0) busy = busy sprintf(" %s=%d", $3, d) }
-    END { printf "%d ticks in %d s = %.2f percent of one core; without audio threads %d ticks = %.2f percent; busiest others:%s", all, s, all / hz / s * 100, all - audio, (all - audio) / hz / s * 100, busy }' <<< "$delta"), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
+    { d = $5 - $2; w = $7 - $4; all += d; wakes += w
+      if ($3 ~ /alsa|cpal/) audio += d; else if (d > 0 || w > s) busy = busy sprintf(" %s=%dt/%dw", $3, d, w) }
+    END { printf "%d ticks in %d s = %.2f percent of one core; without audio threads %d ticks = %.2f percent; %.1f wakes/s in all; threads as ticks/wakes:%s", all, s, all / hz / s * 100, all - audio, (all - audio) / hz / s * 100, wakes / s, busy }' <<< "$delta"), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
 }
 
 # series NAME SECONDS: screenshots as fast as they come, one kept at each change
@@ -190,7 +195,7 @@ for ver in old new; do
   start "$ver-500" "${!bin}" "$work/c-big-$ver" "$work/big-$ver/show.cinq.toml"
   sleep 20
   shot "$ver-500-0-loaded"
-  measure "2 $ver 500 cues idle" 60
+  for rep in 1 2 3; do measure "2 $ver 500 cues idle, run $rep" 60; done
   shot "$ver-500-1-after"
   if [ "$ver" = new ]; then
     # 4. File watching, in the same instance
@@ -222,7 +227,7 @@ for ver in old new; do
   start "$ver-light" "${!bin}" "$work/c-light-$ver" "$work/demo-$ver/lights.cinq.toml"
   sleep 20
   shot "$ver-light-0-loaded"
-  measure "3 $ver lights demo idle" 60
+  for rep in 1 2 3; do measure "3 $ver lights demo idle, run $rep" 60; done
   if [ "$ver" = new ]; then
     closewin "6 $ver lights demo"
     say "$ver-light stderr: $(cat "$out/$ver-light.err")"
@@ -310,8 +315,13 @@ if [ -n "${HINT_AUDIO:-}" ]; then
     key "$HINT_ITEM"
     shot 7-bom-4-chosen
   else
+    key -k Return
+    shot 7-bom-3c-open
     key f
-    shot 7-bom-3b-itemhints
+    shot 7-bom-3d-openhints
+    key -k Down
+    key -k Return
+    shot 7-bom-4-chosen
   fi
 fi
 closewin "7 first start"
