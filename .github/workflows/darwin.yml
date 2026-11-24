@@ -74,7 +74,7 @@ jobs:
         if: false # done in run 45462049037
         run: bash -x darwin/light.sh "$PWD/apps" out/light 2> out/light-trace.txt
       - name: Light news again (check 5), with reject routes and lo0 down
-        if: always()
+        if: false # done in run 45479879605; en0 is never taken down
         run: bash -x darwin/light2.sh "$PWD/apps" out/light2 2> out/light2-trace.txt
       - name: Idle, where the time goes
         if: false # done in run 45473153343

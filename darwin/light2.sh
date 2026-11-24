@@ -24,10 +24,7 @@ echo "broadcasts: $broadcasts" | tee "$OUT/routes.txt"
 # fail_on: sends fail at once, to the broadcast address of each interface and the sACN groups
 # by reject routes (via the loopback address), and to the loopback address with lo0 down
 fail_on() {
-  # Back up by itself after 30 s, whatever the script does, since the runner needs en0
-  (sleep 30; sudo ifconfig en0 up; sudo ifconfig lo0 up; sudo ipconfig set en0 DHCP) > "$OUT/watchdog.txt" 2>&1 &
   sudo ifconfig lo0 down >> "$OUT/routes.txt" 2>&1
-  sudo ifconfig en0 down >> "$OUT/routes.txt" 2>&1
   for target in $(for b in $broadcasts; do echo "-host,$b"; done) -net,239.255.0.0/16; do
     # shellcheck disable=SC2086 # The target holds a flag and an address
     sudo route -n add ${target//,/ } 127.0.0.1 -reject >> "$OUT/routes.txt" 2>&1 && echo "$target" >> "$OUT/added.txt"
@@ -41,8 +38,6 @@ fail_off() {
   done
   : > "$OUT/added.txt"
   sudo ifconfig lo0 up >> "$OUT/routes.txt" 2>&1
-  sudo ifconfig en0 up >> "$OUT/routes.txt" 2>&1
-  sudo ipconfig set en0 DHCP >> "$OUT/routes.txt" 2>&1
 }
 APP=$APPS/cinq-new.app
 launch 5-light "$(fresh light tlights)" "$(conf go-new "$GO")"
