@@ -33,3 +33,7 @@ Notes:
 - Label letters depend on the state (Add cue was `sf` with cues playing, `sd` when idle).
 - The storm demo opens a black stage window over the main window in sway (floating, same size).
 - Nothing differs between x86_64 and aarch64.
+
+## Rerun on cinq 17c2b075 (2026-11-24)
+
+Same workflow, only the cinq commit changed to `17c2b0755ee66d31a99cf4513d8f34c48f09d2f2` (`verify-drop-cua-2`: a thread watches the file stamps and wakes the window on a change; the light thread reports differently).  Run **45397391054**, green first time, no rerun.  All eight checks pass on x86_64 and aarch64.  Check 5: a deleted sound file gave `BROKEN` and `file not found` within the sampling delay (about 4 s), and the warning went when the file was back.  Check 1: standard error 0 bytes.  Standard error, status bar, and screenshots match the first run; nothing differs.
