@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64]
+        arch: [aarch64]
         rev: [old, new]
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64]
+        arch: [aarch64]
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -91,7 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64]
+        arch: [aarch64]
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
