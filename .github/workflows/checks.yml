@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: cinq checks
+on: push
+permissions:
+  actions: read
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  SHA: c9408b4b490ef3e26cd5e27048b09981f3f52f48
+  HINT_LABEL: ""
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    name: linux (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+        if: matrix.os == 'ubuntu-latest'
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq, the demo, and the tools
+        run: |
+          nix build --out-link cinq-build "github:yzhou216/cinq/$SHA#cinq" --print-build-logs
+          nix build --out-link demo-build "github:yzhou216/cinq/$SHA#demo" --print-build-logs
+          nix build --inputs-from "github:yzhou216/cinq/$SHA" --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from "github:yzhou216/cinq/$SHA" --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim
+          for link in tools*; do echo "$(readlink -f "$link")/bin" >> "$GITHUB_PATH"; done
+          echo "$(readlink -f cinq-build)/bin" >> "$GITHUB_PATH"
+          echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
+          find demo-build | head -40
+      - name: Checks
+        run: |
+          mkdir out
+          bash -x checks/check.sh "$FONTS" out demo-build 2> out/trace.txt || true
+          cat out/steps.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: out-${{ matrix.os }}
+          path: out
