@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+name: cinq idle checks
+on: push
+permissions:
+  actions: read
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  NEW: 16c365b2c189c8e0b0f21e9d8902383a714bb61c
+  OLD: d534417e464a5a95823a183a0483a17a230bf3d3
+  SHA: 16c365b2c189c8e0b0f21e9d8902383a714bb61c
+  HINT_LABEL: sd
+  HINT_AUDIO: ''
+  HINT_ITEM: ''
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    name: linux (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+        if: matrix.os == 'ubuntu-latest'
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build both cinq builds, the demos, and the tools
+        run: |
+          nix build --out-link cinq-new "github:yzhou216/cinq/$NEW#cinq" --print-build-logs
+          nix build --out-link demo-new "github:yzhou216/cinq/$NEW#demo" --print-build-logs
+          nix build --out-link cinq-old "github:yzhou216/cinq/$OLD#cinq" --print-build-logs
+          nix build --out-link demo-old "github:yzhou216/cinq/$OLD#demo" --print-build-logs
+          nix build --inputs-from "github:yzhou216/cinq/$NEW" --out-link fonts nixpkgs#dejavu_fonts
+          nix build --inputs-from "github:yzhou216/cinq/$NEW" --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim
+          for link in tools*; do echo "$(readlink -f "$link")/bin" >> "$GITHUB_PATH"; done
+          echo "$(readlink -f cinq-new)/bin" >> "$GITHUB_PATH"
+          echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
+          cinq-old/bin/cinq --version || true
+          cinq-new/bin/cinq --version || true
+      - name: Round one again, check 1
+        run: |
+          mkdir -p out/r1
+          bash -x checks/check.sh "$FONTS" out/r1 demo-new 2> out/r1/trace.txt || true
+          cat out/r1/steps.txt
+      - name: Idle, file watch, light news, exit, byte order mark
+        run: |
+          mkdir -p out/r2
+          bash -x checks/idle.sh "$FONTS" out/r2 cinq-old/bin/cinq demo-old cinq-new/bin/cinq demo-new 2> out/r2/trace.txt || true
+          cat out/r2/steps.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: out-${{ matrix.os }}
+          path: out
