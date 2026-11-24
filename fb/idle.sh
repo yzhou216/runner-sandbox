@@ -9,7 +9,7 @@
 # a config.toml that starts with a byte order mark.  Results go to
 # OUT/results.txt; screenshots and standard error to OUT.
 #
-# Usage: idle.sh OLD NEW OUT SCALE, with sway, wtype, grim, and python3 on PATH;
+# Usage: idle.sh OLD NEW OUT SCALE STAGE (idle, c4, c5, or c7), with sway, wtype, grim, and python3 on PATH;
 # OLD and NEW are cinq binaries; SCALE stretches every wait (1 natively, 4
 # when emulated)
 set -uo pipefail
@@ -19,6 +19,7 @@ new=$2
 out=$(mkdir -p "$3" && cd "$3" && pwd)
 scale=${4:-1}
 rounds=${ROUNDS:-2}
+stage=${5:-idle}
 label=${AUDIO_LABEL:-}
 item=${ITEM_LABEL:-}
 work=$(mktemp -d)
@@ -151,6 +152,7 @@ burst() {
 }
 go='go = ["Space", "F9"]'
 
+if [ "$stage" = idle ]; then
 # Checks 2, 3, and 6: idle time and exit, OLD and NEW alternately
 for round in $(seq "$rounds"); do
   for which in old new; do
@@ -164,7 +166,9 @@ for round in $(seq "$rounds"); do
     stop "lights-$which-$round"
   done
 done
+fi
 
+if [ "$stage" = c4 ]; then
 # Check 4: file watch under NEW, 500 cues
 start c4 "$new" big.cinq.toml "[keys]
 $go"
@@ -191,7 +195,10 @@ res "c4 replaced s005 (2 s -> 5 s) at $(ts)"
 wait "$b"
 shot c4-final
 stop c4
+fi
 
+
+if [ "$stage" = c5 ]; then
 # Check 5: light news in a VNET jail, loopback at first, then none, then back
 if jail -c name=nonet path=/ vnet persist > "$out/jail.txt" 2>&1; then
   res "jail nonet created (vnet)"
@@ -216,7 +223,9 @@ $go" nonet
 else
   res "jail nonet NOT created: $(cat "$out/jail.txt")"
 fi
+fi
 
+if [ "$stage" = c7 ]; then
 # Check 7: byte order mark
 start c7 "$new" small.cinq.toml "$(printf '\357\273\277[keys]\n%s' "$go")"
 nap 10
@@ -245,9 +254,9 @@ stop c7b
 res "c7 stderr bytes: first $(wc -c < "$out/c7.err" | tr -d ' '), restart $(wc -c < "$out/c7b.err" | tr -d ' ')"
 res "c7 config after first run: $(od -c "$work/c7/cfg/config.toml" | head -4 | tr '\n' ' ')"
 res "c7 config after restart: $(od -c "$work/c7b/cfg/config.toml" | head -4 | tr '\n' ' ')"
+fi
 
 mark done
 swaymsg exit > /dev/null 2>&1 || true
 sleep 2
 kill "$sway" 2> /dev/null || true
-wait 2> /dev/null || true
