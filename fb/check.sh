@@ -85,6 +85,8 @@ TOML
 
 pid=''
 shot() { grim "$out/$1.png" || true; }
+# tall NAME: the same screen on a tall output, so the whole sidebar shows
+tall() { swaymsg -q 'output HEADLESS-1 resolution 1280x2400' || true; nap 3; grim "$out/$1-tall.png" || true; swaymsg -q 'output HEADLESS-1 resolution 1280x800' || true; nap 2; }
 focus() { swaymsg -q '[title=" - cinq$"] focus' || true; nap 0.5; }
 key() { focus; wtype -s 300 -d 100 "$@"; nap 1.5; }
 # start PHASE SHOW [CONFIG TEXT]: a fresh copy of the show, the config if given
@@ -126,6 +128,7 @@ key j
 shot c2-1-j
 key o
 shot c2-2-o
+tall c2-2-o
 stop c2
 
 # 3. Hint mode
@@ -152,6 +155,7 @@ shot c4-1-go
 osc 53000 /cue/99/start
 nap 3
 shot c4-2-cue99
+tall c4-2-cue99
 stop c4
 python3 -c '
 import socket, time
@@ -163,6 +167,7 @@ nap 1
 start c4b main.cinq.toml 'osc_listen = "127.0.0.1:53001"'
 nap 3
 shot c4b-1-taken
+tall c4b-1-taken
 stop c4b
 kill "$holder" 2> /dev/null || true
 
@@ -193,6 +198,7 @@ mkdir -p "$work/c7dir"
 pid=$!
 nap 10
 shot c7b-opening-a-directory
+tall c7b-opening-a-directory
 swaymsg -q '[title=" - cinq$"] kill' || true
 wait "$pid" 2> /dev/null || true
 mkdir -p "$work/c7/ro" "$work/c7/cfg"
@@ -217,6 +223,7 @@ $go"
 key -k F9
 nap 3
 shot c8-1-fired
+tall c8-1-fired
 stop c8
 
 mark done
