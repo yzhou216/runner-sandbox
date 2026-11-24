@@ -27,3 +27,7 @@ Runs: 45380429125 (first try: state leaked between my launches, since cinq bring
 - No Local Network prompt appeared at all (loopback only); `ui click Allow` found none.
 - Not run: the cross build `#aarch64-darwin`, other Darwin runners.
 - No cinq failures found.
+
+## Rerun on cinq 17c2b075 (2026-11-24)
+
+Same workflow, only the cinq commit changed to `17c2b0755ee66d31a99cf4513d8f34c48f09d2f2` (`verify-drop-cua-2`: a thread watches the file stamps and wakes the window on a change; the light thread reports differently).  Run **45397427755**, green first time, no rerun.  All eight checks pass on macos-latest.  Check 5: a deleted sound file gave `BROKEN` and `file not found` within the sampling delay (about 4 s), and the warning went when the file was back.  Check 1: standard error 0 bytes.  The sidebar line of check 4's `no cue is numbered "99"` was out of view in the picture (status bar showed 1 warning); stderr has the exact text, as in the first run.
