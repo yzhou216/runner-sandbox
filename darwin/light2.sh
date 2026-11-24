@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Check 5: light output made to fail by reject routes (a send to a rejected address fails
+# Check 5: light output made to fail by reject routes and lo0 down (a send to such an address fails
 # at once, where a pf drop leaves the send a success), and NEW fires a light cue by GO and
 # then gets no input at all.  A burst of screenshots says when the sidebar shows the
 # problem, and when it goes after the routes are removed.  The routes cover the loopback
@@ -21,21 +21,23 @@ templatelights "$W/tlights"
 { ifconfig -a; netstat -rn -f inet; } > "$OUT/network-before.txt" 2>&1
 broadcasts=$(ifconfig -a | awk '/inet .* broadcast / { for (i = 1; i <= NF; i++) if ($i == "broadcast") print $(i + 1) }')
 echo "broadcasts: $broadcasts" | tee "$OUT/routes.txt"
-# route VERB: adds the reject routes, or deletes them
-route_all() {
-  flag=""
-  [ "$1" = add ] && flag=-reject
-  sudo route -n "$1" -host 127.0.0.1 $flag >> "$OUT/routes.txt" 2>&1 || echo "route $1 127.0.0.1 failed" >> "$OUT/routes.txt"
-  for b in $broadcasts; do
-    sudo route -n "$1" -host "$b" $flag >> "$OUT/routes.txt" 2>&1 || echo "route $1 $b failed" >> "$OUT/routes.txt"
+# fail_on: sends fail at once, to the broadcast address of each interface and the sACN groups
+# by reject routes (via the loopback address), and to the loopback address with lo0 down
+fail_on() {
+  sudo ifconfig lo0 down >> "$OUT/routes.txt" 2>&1
+  for target in $(for b in $broadcasts; do echo "-host,$b"; done) -net,239.255.0.0/16; do
+    # shellcheck disable=SC2086 # The target holds a flag and an address
+    sudo route -n add ${target//,/ } 127.0.0.1 -reject >> "$OUT/routes.txt" 2>&1 && echo "$target" >> "$OUT/added.txt"
   done
-  sudo route -n "$1" -net 239.255.0.0/16 $flag >> "$OUT/routes.txt" 2>&1 || echo "route $1 239.255.0.0/16 failed" >> "$OUT/routes.txt"
 }
-restore() {
-  route_all delete
-  sudo ifconfig lo0 down
-  sudo ifconfig lo0 up
-  ifconfig lo0 >> "$OUT/routes.txt" 2>&1
+# fail_off: removes only the routes that fail_on added, and brings lo0 up
+fail_off() {
+  for target in $(cat "$OUT/added.txt" 2> /dev/null); do
+    # shellcheck disable=SC2086
+    sudo route -n delete ${target//,/ } >> "$OUT/routes.txt" 2>&1
+  done
+  : > "$OUT/added.txt"
+  sudo ifconfig lo0 up >> "$OUT/routes.txt" 2>&1
 }
 APP=$APPS/cinq-new.app
 launch 5-light "$(fresh light tlights)" "$(conf go-new "$GO")"
@@ -44,7 +46,7 @@ focus
 burst "$D/frames" &
 burster=$!
 sleep 3
-route_all add
+fail_on
 t_rule=$(now)
 mark "routes added"
 netstat -rn -f inet > "$OUT/network-rules.txt" 2>&1
@@ -53,7 +55,7 @@ osascript -e 'tell application "System Events" to key code 101' || true
 t_go=$(now)
 mark "GO under the routes"
 sleep 15
-route_all delete
+fail_off
 t_lift=$(now)
 mark "routes removed"
 sleep 15
@@ -61,7 +63,7 @@ touch "$D/frames/stop"
 wait "$burster"
 shot end
 # probe: what a UDP send to each address does with the routes back
-route_all add
+fail_on
 python3 - << 'PY' > "$OUT/probe.txt" 2>&1
 import re, socket, subprocess
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -73,7 +75,8 @@ for to in [("127.0.0.1", 6454), ("127.0.0.1", 5568)] + [(b, 6454) for b in bs] +
     except OSError as e:
         print("with the routes", to, "failed:", e)
 PY
-restore
+fail_off
+ifconfig lo0 >> "$OUT/routes.txt" 2>&1
 quit
 readframes "$D/frames"
 {
