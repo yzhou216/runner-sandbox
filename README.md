@@ -47,3 +47,20 @@ Check 7: PulseAudio moves the streams of an unloaded sink to the default sink, s
 
 Notes: Panic fades out over about a second rather than cutting, a design point to confirm against "a fraction of a second".  GO moves the selection to the next cue, which the first script missed.  The beep of calibration falls in the first second of the House recording on the runner (the analysis first skipped it).
 Files: audio/record.sh, make-show.sh, analyze.sh, report.sh; artifacts hold screenshots and the recordings.
+
+## Rerun with cinq 16c365b2, run 45461092221
+
+Branch `cinq/2026-11-24-audio-rerun` of yzhou216/runner-sandbox; run 45461092221 (ubuntu-latest, success, first attempt).  Build: `audio: split follow and hearing out of voice` (16c365b2c189c8e0b0f21e9d8902383a714bb61c).  Only the SHA in audio.yml changed; the earlier README left nothing broken.  Old numbers are run 45404626989 (861183a5).
+
+| # | Check | Old | New |
+|---|-------|-----|-----|
+| 1 | -6 dB cue, default device | -12.0, booth silent | -12.0, booth silent |
+| 2 | sends House 0, Booth -10 | -12.0 / -22.0 | -12.0 / -22.0 |
+| 3 | fade to -20 over 3 s | -18 to -26, linear, flat at +3.0 s | -18 to -26 (booth -28 to -36), linear, flat at +3.0 s |
+| 4 | loop, devamp | loop -9 until +7.3 s, ending -17 for 2 s, silent at +10 s | loop -9.0, left at +8.0 s, ending -17.0, silent at +10.0 s |
+| 5 | Stop / Panic | 0.1 s; 1.0 s | 0.1 s; 1.0 s |
+| 6 | -12 typed while playing | -12 to -18, -22 to -28 | -12 to -18, -22 to -28 |
+| 7 | booth device gone | house -6.0; OUTPUT FAILED on cue 9; sidebar warns | house -6.0; cue 9 OUTPUT FAILED, silent: output failed; warning "alsa:booth: cannot open"; Levels "Booth (cannot open)" |
+| 8 | last send cleared | status "Changed cue 8 to play nowhere", silent in <0.2 s | same status, silent 0.1 s after both |
+
+Difference: none.  Every number matches the earlier run.
