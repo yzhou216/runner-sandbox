@@ -16,7 +16,7 @@ for line in open(sys.argv[2], errors="replace"):
     parts = line.rstrip("\n").split("\t")
     if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
         rows.append((parts[0], int(parts[1]), int(parts[2])))
-device = [r for r in rows if re.search(r"efault|device|davic|dafsul", r[0], re.I) and r[1] > 700]
+device = [r for r in rows if re.search(r"ystem|ystern", r[0]) and r[1] > 700] or [r for r in rows if re.search(r"efault|device", r[0], re.I) and r[1] > 700]
 if not device:
     sys.exit(0)
 anchor = min(device, key=lambda r: r[2])
