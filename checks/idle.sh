@@ -30,13 +30,8 @@ cat > "$work/sway.config" <<'CONF'
 output HEADLESS-1 resolution 1280x800
 for_window [app_id="cinq"] floating enable, resize set 1100 700, move position center
 CONF
-if grep -q Dummy /proc/asound/cards 2> /dev/null; then
-  printf 'pcm.!default { type plug\n slave.pcm "hw:Dummy,0" }\nctl.!default { type hw\n card Dummy }\n' > "$HOME/.asoundrc"
-  echo dummy-card > "$out/sound.txt"
-else
-  printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
-  echo null-device > "$out/sound.txt"
-fi
+printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+echo null-device > "$out/sound.txt"
 
 sway -c "$work/sway.config" > "$out/sway.log" 2>&1 &
 for _ in $(seq 100); do
@@ -113,20 +108,26 @@ closewin() {
 # ticks PID: processor time of all threads of a process so far, in clock ticks
 ticks() { awk '{print $14 + $15}' "/proc/$1/stat"; }
 
-# threads PID: processor ticks of each thread, busiest first
-threads() {
+# snapshot PID: one line per thread, as "ID ticks name"
+snapshot() {
   for t in "/proc/$1"/task/*; do
-    printf '%s %s\n' "$(awk '{print $14 + $15}' "$t/stat")" "$(cat "$t/comm")"
-  done | sort -rn | head -6 | tr '\n' ';'
+    printf '%s %s %s\n' "${t##*/}" "$(awk '{print $14 + $15}' "$t/stat")" "$(tr ' ' _ < "$t/comm")"
+  done
 }
 
-# measure PHASE SECONDS: processor time of cinq over the interval, as percent of one core
+# measure PHASE SECONDS: processor time of cinq over the interval, as percent
+# of one core, in all and without the threads that play audio, which spin on a
+# device that never blocks; sets audio_ticks to the ticks of those threads
 measure() {
-  local a b
-  a=$(ticks "$cinq")
+  local a b delta
+  a=$(snapshot "$cinq")
   sleep "$2"
-  b=$(ticks "$cinq")
-  say "$1: $(awk -v a="$a" -v b="$b" -v hz="$hz" -v s="$2" 'BEGIN{printf "%d ticks in %d s = %.2f percent of one core", b-a, s, (b-a)/hz/s*100}'), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB; threads by total ticks so far: $(threads "$cinq")"
+  b=$(snapshot "$cinq")
+  delta=$(join <(echo "$a") <(echo "$b"))
+  audio_ticks=$(awk '$4 ~ /alsa|cpal/ { s += $5 - $3 } END { print s + 0 }' <<< "$delta")
+  say "$1: $(awk -v hz="$hz" -v s="$2" '
+    { d = $5 - $3; all += d; if ($4 ~ /alsa|cpal/) audio += d; else if (d > 0) busy = busy sprintf(" %s=%d", $4, d) }
+    END { printf "%d ticks in %d s = %.2f percent of one core; without audio threads %d ticks = %.2f percent; busiest others:%s", all, s, all / hz / s * 100, all - audio, (all - audio) / hz / s * 100, busy }' <<< "$delta"), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
 }
 
 # series NAME SECONDS: screenshots as fast as they come, one kept at each change
@@ -152,6 +153,31 @@ mark() { now > "$out/$1.act"; }
 lags() {
   say "$1: screen changes after the action: $(awk -v a="$(cat "$out/$1.act")" '$1 > a {printf "+%.2f %s ", $1 - a, $2}' "$out/$1.changes")"
 }
+
+# Writable copies of the demos
+for ver in old new; do
+  demo=demo_$ver
+  cp -rL "${!demo}" "$work/demo-$ver"
+  chmod -R u+w "$work/demo-$ver"
+done
+
+# A device paced by a reader of a pipe, where the null device spins a thread
+# at a whole core: kept only if cinq's audio threads then idle
+mkfifo "$work/pace"
+(while :; do pv -q -L 192000 < "$work/pace" > /dev/null; done) &
+printf 'pcm.paced { type file\n slave.pcm "null"\n file "%s"\n format raw }\npcm.!default { type plug\n slave.pcm "paced" }\nctl.!default { type null }\n' "$work/pace" > "$HOME/.asoundrc"
+conf "$work/c-probe"
+start probe "$cinq_new" "$work/c-probe" "$work/demo-new/lights.cinq.toml"
+sleep 8
+measure probe 6
+closewin probe
+if [ "$audio_ticks" -gt $((hz * 2)) ]; then
+  say "paced device failed, audio threads still busy ($audio_ticks ticks in 6 s): back to the null device"
+  printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
+else
+  echo paced-device > "$out/sound.txt"
+fi
+cat "$out/probe.err" >> "$out/steps.txt"
 
 # 1. Idle cost, old and new
 for ver in old new; do
@@ -192,8 +218,6 @@ for ver in old new; do
   closewin "6 $ver 500 cues"
   say "$ver-500 stderr: $(cat "$out/$ver-500.err")"
   # light patch
-  cp -rL "${!demo}" "$work/demo-$ver"
-  chmod -R u+w "$work/demo-$ver"
   conf "$work/c-light-$ver"
   start "$ver-light" "${!bin}" "$work/c-light-$ver" "$work/demo-$ver/lights.cinq.toml"
   sleep 20
@@ -271,6 +295,9 @@ TOML
 start 7-bom "$cinq_new" "$work/c7" "$work/s7/show.cinq.toml"
 sleep 8
 shot 7-bom-0-start
+swaymsg -q output HEADLESS-1 resolution 1400x1500
+swaymsg -q '[app_id="cinq"] resize set 1300 1450, move position 20 20'
+sleep 2
 key -k F9
 shot 7-bom-1-f9
 say "7 first start stderr bytes: $(wc -c < "$out/7-bom.err")"

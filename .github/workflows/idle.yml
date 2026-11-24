@@ -40,19 +40,12 @@ jobs:
           nix build --out-link cinq-old "github:yzhou216/cinq/$OLD#cinq" --print-build-logs
           nix build --out-link demo-old "github:yzhou216/cinq/$OLD#demo" --print-build-logs
           nix build --inputs-from "github:yzhou216/cinq/$NEW" --out-link fonts nixpkgs#dejavu_fonts
-          nix build --inputs-from "github:yzhou216/cinq/$NEW" --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim
+          nix build --inputs-from "github:yzhou216/cinq/$NEW" --out-link tools nixpkgs#sway nixpkgs#wtype nixpkgs#grim nixpkgs#pv
           for link in tools*; do echo "$(readlink -f "$link")/bin" >> "$GITHUB_PATH"; done
           echo "$(readlink -f cinq-new)/bin" >> "$GITHUB_PATH"
           echo "FONTS=$(readlink -f fonts)/share/fonts" >> "$GITHUB_ENV"
           cinq-old/bin/cinq --version || true
           cinq-new/bin/cinq --version || true
-      - name: Dummy sound card, paced by a timer where the null device spins
-        run: |
-          sudo apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)" || true
-          sudo modprobe snd-dummy || true
-          cat /proc/asound/cards || true
-          sudo chmod a+rw /dev/snd/* || true
-          ls -l /dev/snd || true
       - name: Round one again, check 1
         if: false
         run: |
