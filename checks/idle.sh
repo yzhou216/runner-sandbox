@@ -135,6 +135,19 @@ measure() {
     END { printf "%d ticks in %d s = %.2f percent of one core; without audio threads %d ticks = %.2f percent; %.1f wakes/s in all; threads as ticks/wakes:%s", all, s, all / hz / s * 100, all - audio, (all - audio) / hz / s * 100, wakes / s, busy }' <<< "$delta"), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
 }
 
+
+# busy_thread PHASE: names the thread that wakes most, other than the main one,
+# and traces its system calls for a few seconds
+busy_thread() {
+  local a b tid
+  a=$(snapshot "$cinq")
+  sleep 5
+  b=$(snapshot "$cinq")
+  tid=$(join <(echo "$a") <(echo "$b") | awk '$3 != "MAIN" { w = $7 - $4; if (w > m) { m = w; t = $1 } } END { print t }')
+  say "$1: busiest thread $tid, $(cat "/proc/$cinq/task/$tid/comm"), waits in $(cat "/proc/$cinq/task/$tid/wchan"), exe $(readlink "/proc/$cinq/exe")"
+  { sudo timeout -s INT 3 strace -c -p "$tid" 2>&1 | head -20; sudo timeout -s INT 1 strace -tt -p "$tid" 2>&1 | head -24; } > "$out/$1-strace.txt"
+}
+
 # series NAME SECONDS: screenshots as fast as they come, one kept at each change
 series() {
   local end=$((SECONDS + $2)) last='' n=0 t h
@@ -170,7 +183,7 @@ done
 # at a whole core: kept only if cinq's audio threads then idle
 mkfifo "$work/pace"
 (while :; do pv -q -L 192000 < "$work/pace" > /dev/null; done) &
-printf 'pcm.paced { type file\n slave.pcm "null"\n file "%s"\n format raw }\npcm.!default { type plug\n slave.pcm "paced" }\nctl.!default { type null }\n' "$work/pace" > "$HOME/.asoundrc"
+printf 'pcm.paced { type file\n hint { show on\n description "Paced test device" }\n slave.pcm "null"\n file "%s"\n format raw }\npcm.!default { type plug\n slave.pcm "paced" }\nctl.!default { type null }\n' "$work/pace" > "$HOME/.asoundrc"
 conf "$work/c-probe"
 start probe "$cinq_new" "$work/c-probe" "$work/demo-new/lights.cinq.toml"
 sleep 8
@@ -196,6 +209,7 @@ for ver in old new; do
   sleep 20
   shot "$ver-500-0-loaded"
   for rep in 1 2 3; do measure "2 $ver 500 cues idle, run $rep" 60; done
+  busy_thread "$ver-500"
   shot "$ver-500-1-after"
   if [ "$ver" = new ]; then
     # 4. File watching, in the same instance
@@ -321,10 +335,11 @@ if [ -n "${HINT_AUDIO:-}" ]; then
   else
     key -k Return
     shot 7-bom-3c-open
-    key f
-    shot 7-bom-3d-openhints
     key -k Down
-    key -k Return
+    shot 7-bom-3d-down
+    focus
+    wtype -s 300 -M ctrl y -m ctrl
+    sleep 1
     shot 7-bom-4-chosen
   fi
 fi
