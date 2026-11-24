@@ -24,3 +24,26 @@ Method: private PulseAudio, null sinks `house` (default) and `booth` (own server
 | 8 | clear last send | status `Changed cue 8 to play nowhere`; house silent 0.1 s after its send cleared, booth 0.2 s after the last | pass |
 
 Notes: a cue that still plays on another output does not read `OUTPUT FAILED`; the sidebar and the Levels tab warn instead. While I worked, something else edited and committed `audio/record.sh` on the branch (a separate booth server, the cue 9 fix); I kept it.
+
+## cinq 861183a5 audio checks, 2026-11-24
+
+See `audio/` for the scripts and the workflow `audio.yml` (run 45404626989, ubuntu-latest, success).
+
+Local: GNU/Linux, private PulseAudio and headless sway (out6); runner numbers are from the artifact of 45404626989.
+Levels are RMS of the monitor of each sink; a -3 dBFS tone at cue level L reads L-6.
+
+| # | Check | Local | ubuntu-latest |
+|---|-------|-------|---------------|
+| 1 | -6 dB cue, default device | -12.0 (steady) | -12.0 |
+| 2 | sends House 0, Booth -10 | -12.0 / -22.0 | -12.0 / -22.0 |
+| 3 | fade to -20 over 3 s | -18 to -26.0, linear, done at +3.0 s | same |
+| 4 | loop 2-4 s, devamp | loop -9.0 until devamp (+7.3 s), ending -17.0 for 2 s, silent at +10 s | same |
+| 5 | Stop / Panic | Stop silent in <0.1 s; Panic 0.9 s ramp (-6 dB per 0.1 s) | 0.1 s; 1.0 s |
+| 6 | -12 typed while playing | -12.0 to -18.0 and -22.0 to -28.0 (moved by the change) | same |
+| 7 | device gone | pass, see below | pass |
+| 8 | last send cleared | status bar `Changed cue 8 to play nowhere`, silent in <0.2 s | same |
+
+Check 7: PulseAudio moves the streams of an unloaded sink to the default sink, so cinq saw no fault.  Booth therefore lives on a PulseAudio server of its own, which the script kills.  A cue sending to both outputs keeps playing on House (-6.0), the sidebar warns `alsa:booth: cannot open, retrying` within 7 s (not yet at 3 s), and the Levels tab says `Booth (cannot open)`.  The cue itself does not read `OUTPUT FAILED`: by the manual that needs every send to fail.  A cue 9 sending only to Booth reads `OUTPUT FAILED` and `silent: output failed` in the Active list.
+
+Notes: Panic fades out over about a second rather than cutting, a design point to confirm against "a fraction of a second".  GO moves the selection to the next cue, which the first script missed.  The beep of calibration falls in the first second of the House recording on the runner (the analysis first skipped it).
+Files: audio/record.sh, make-show.sh, analyze.sh, report.sh; artifacts hold screenshots and the recordings.
