@@ -147,13 +147,16 @@ $cfg = "$work\cfg-$name"
 New-Item -ItemType Directory -Force -Path $cfg | Out-Null
 Set-Content -Path "$cfg\config.toml" -Value ('[keys]' + [Environment]::NewLine + 'go = ["Space", "F9"]') -Encoding utf8
 $p = Start-Cinq $name $null "$small\show.cinq.toml"
+[Input]::SetCursorPos(880, 330) | Out-Null
+for ($j = 0; $j -lt 14; $j++) { [Place]::mouse_event(0x800, 0, 0, -120, [IntPtr]::Zero); Start-Sleep -Milliseconds 100 }
+Start-Sleep 1; Shot "$name-scrolled"
 Key 'f' 'f'; Start-Sleep 1; Shot "$name-hints"
-$label = (Get-Content "$root\win\hint7.txt" -ErrorAction SilentlyContinue | Select-Object -First 1)
-if ($label) {
-    Key $label "label $label"; Start-Sleep 1; Shot "$name-list"
-    Key '{DOWN}' 'Down'; Start-Sleep 1; Shot "$name-down"
-    Key '{ENTER}' 'Enter'; Start-Sleep 1; Shot "$name-chosen"
-}
+Key '{BACKSPACE}' 'Backspace'; Start-Sleep 1
+Log 'click the Default device list'
+[Input]::Click(862, 403)
+Start-Sleep 1; Shot "$name-list"
+Key '{DOWN}' 'Down'; Start-Sleep 1; Shot "$name-down"
+Key '{ENTER}' 'Enter'; Start-Sleep 1; Shot "$name-chosen"
 $ms = Close-Cinq $p
 Log "$name closed in $ms ms"
 Summarize $name
