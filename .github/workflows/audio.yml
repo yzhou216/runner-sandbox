@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Plays cinq of commit 861183a5cd82 through eight audio checks with audio/record.sh
+# in a headless sway session with a PulseAudio server of its own, records the
+# sound of each output, and measures its levels with audio/report.sh
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@main
+      # Commit before wimpysworld/nothing-but-nix#56, whose TMPDIR under /nix
+      # makes the installer of Nix 2.35.4 fail with permission denied
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            extra-substituters = https://yzhou216.cachix.org
+            extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+      - name: Build cinq and the tools of the session
+        run: |
+          nix build --out-link result-cinq github:yzhou216/cinq/861183a5cd82b7e6a460f498e7e2102b7172446f#cinq
+          nix build --out-link tools nixpkgs#sway-unwrapped nixpkgs#wtype nixpkgs#grim \
+            nixpkgs#pulseaudio nixpkgs#ffmpeg-headless nixpkgs#gawk nixpkgs#imagemagick
+          nix build --out-link alsa-plugins nixpkgs#alsa-plugins
+          nix build --out-link fonts nixpkgs#dejavu_fonts
+          ls -d tools* result-cinq alsa-plugins fonts
+      - name: Play cinq and measure the sound
+        run: |
+          mkdir -p out logs
+          PATH=$(for tool in tools*; do printf '%s/bin:' "$(readlink -f "$tool")"; done)$PATH
+          export ALSA_PLUGIN_DIR
+          ALSA_PLUGIN_DIR=$(readlink -f alsa-plugins)/lib/alsa-lib
+          # Every command goes to the log, which the artifact keeps on failure
+          timeout -k 10 900 bash -x audio/record.sh result-cinq out 2>&1 | tee logs/record.log
+          bash audio/analyze.sh out
+          bash audio/report.sh out | tee out/report.txt
+      - if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: audio
+          path: |
+            out
+            logs
+          if-no-files-found: ignore
