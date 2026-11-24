@@ -12,7 +12,7 @@ defaults:
     shell: bash
 env:
   SHA: c9408b4b490ef3e26cd5e27048b09981f3f52f48
-  HINT_LABEL: ""
+  HINT_LABEL: sf
 jobs:
   linux:
     strategy:

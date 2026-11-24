@@ -118,9 +118,9 @@ say "2 keymap cua"
 audio_show "$work/s2"
 conf "$work/c2" 'keymap = "cua"'
 start 2-cua "$work/c2" "$work/s2/show.cinq.toml"
-key j j
+key j
 shot 2-cua-1-j
-key o o
+key o
 shot 2-cua-2-o
 stop
 say "2 stderr: $(cat "$out/2-cua.err")"
@@ -130,14 +130,14 @@ say "3 hint"
 audio_show "$work/s3"
 conf "$work/c3"
 start 3-hint "$work/c3" "$work/s3/show.cinq.toml"
-key f f
+key f
 shot 3-hint-1-labels
-key a a
+key a
 key -k BackSpace
 shot 3-hint-2-backspace-after-a
 key -k BackSpace
 shot 3-hint-3-left
-key f f
+key f
 if [ -n "${HINT_LABEL:-}" ]; then
   key "$HINT_LABEL"
   shot 3-hint-4-typed
@@ -195,8 +195,8 @@ say "6 paste"
 audio_show "$work/s6"
 conf "$work/c6"
 start 6-paste "$work/c6" "$work/s6/show.cinq.toml"
-key yy yy
-key p p
+key yy
+key p
 shot 6-paste-1-now
 sleep 5
 shot 6-paste-2-later
@@ -235,7 +235,7 @@ message = "/test"
 TOML
 conf "$work/c8"
 start 8-net "$work/c8" "$work/s8/show.cinq.toml"
-key F9 -k F9
+key -k F9
 sleep 3
 shot 8-net-1-go
 stop
