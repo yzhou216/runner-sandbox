@@ -1,0 +1,42 @@
+show: 500 cues, 501 files, 44228 KiB
+idle big-old-1-null: 20.43 s -> 81.13 s over 60.0 s = 101.16 percent of one core
+exit big-old-1-null: 0.11 s, process gone
+idle lights-old-1-null: 20.13 s -> 80.27 s over 60.0 s = 100.22 percent of one core
+exit lights-old-1-null: 0.11 s, process gone
+idle big-new-1-null: 20.32 s -> 80.73 s over 60.0 s = 100.67 percent of one core
+exit big-new-1-null: 0.11 s, process gone
+idle lights-new-1-null: 20.09 s -> 80.12 s over 60.0 s = 100.04 percent of one core
+exit lights-new-1-null: 0.11 s, process gone
+idle big-old-2-null: 20.42 s -> 81.14 s over 60.0 s = 101.19 percent of one core
+exit big-old-2-null: 0.11 s, process gone
+idle lights-old-2-null: 20.13 s -> 80.28 s over 60.0 s = 100.24 percent of one core
+exit lights-old-2-null: 0.11 s, process gone
+idle big-new-2-null: 20.30 s -> 80.72 s over 60.0 s = 100.69 percent of one core
+exit big-new-2-null: 0.11 s, process gone
+idle lights-new-2-null: 20.10 s -> 80.14 s over 60.0 s = 100.06 percent of one core
+exit lights-new-2-null: 0.11 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+idle big-old-1-none: 0.25 s -> 0.63 s over 60.0 s = 0.63 percent of one core
+exit big-old-1-none: 0.11 s, process gone
+idle lights-old-1-none: 0.12 s -> 0.29 s over 60.0 s = 0.28 percent of one core
+exit lights-old-1-none: 0.11 s, process gone
+idle big-new-1-none: 0.15 s -> 0.18 s over 60.0 s = 0.05 percent of one core
+exit big-new-1-none: 0.11 s, process gone
+idle lights-new-1-none: 0.07 s -> 0.11 s over 60.0 s = 0.07 percent of one core
+exit lights-new-1-none: 0.11 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+c4 deleted s003 at 1795552879.977475398
+c4 restored s003 at 1795552893.991422445
+c4 replaced s005 (2 s -> 5 s) at 1795552908.027504367
+exit c4: 0.11 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+jail nonet created (vnet)
+c5 loopback address removed at 1795552937.791006132
+c5 loopback address back at 1795552949.818953930
+exit c5: 0.11 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+exit c7: 0.11 s, process gone
+exit c7b: 0.11 s, process gone
+c7 stderr bytes: first 0, restart 0
+c7 config after first run: 0000000  357 273 277   [   k   e   y   s   ]  \n   g   o       =       [ 0000020    "   S   p   a   c   e   "   ,       "   F   9   "   ]  \n     0000037 
+c7 config after restart: 0000000  357 273 277   [   k   e   y   s   ]  \n   g   o       =       [ 0000020    "   S   p   a   c   e   "   ,       "   F   9   "   ]  \n     0000037 

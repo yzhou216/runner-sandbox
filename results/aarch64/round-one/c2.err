@@ -1,0 +1,6 @@
+  ⚠ config.toml: cinq no longer ships the cua keymap, so vi stands in for it
+   ╭─[/tmp/tmp.1jbWC4qlDq/c2/cfg/config.toml:1:10]
+ 1 │ keymap = "cua"
+   ·          ─────
+   ╰────
+

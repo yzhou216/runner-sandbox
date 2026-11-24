@@ -1,0 +1,34 @@
+show: 500 cues, 501 files, 44228 KiB
+idle big-old-1-null: 95.08 s -> 164.45 s over 60.1 s = 115.45 percent of one core
+exit big-old-1-null: 0.28 s, process gone
+idle lights-old-1-null: 83.25 s -> 144.88 s over 60.1 s = 102.57 percent of one core
+exit lights-old-1-null: 0.26 s, process gone
+idle big-new-1-null: 89.17 s -> 154.24 s over 60.1 s = 108.28 percent of one core
+exit big-new-1-null: 0.29 s, process gone
+idle lights-new-1-null: 81.71 s -> 142.18 s over 60.1 s = 100.64 percent of one core
+exit lights-new-1-null: 0.27 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+idle big-old-1-none: 9.74 s -> 15.39 s over 60.1 s = 9.41 percent of one core
+exit big-old-1-none: 0.24 s, process gone
+idle lights-old-1-none: 3.93 s -> 6.06 s over 60.1 s = 3.55 percent of one core
+exit lights-old-1-none: 0.24 s, process gone
+idle big-new-1-none: 2.70 s -> 3.14 s over 60.1 s = 0.73 percent of one core
+exit big-new-1-none: 0.23 s, process gone
+idle lights-new-1-none: 1.62 s -> 1.98 s over 60.1 s = 0.60 percent of one core
+exit lights-new-1-none: 0.25 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+c4 deleted s003 at 1795555369.736358029
+c4 restored s003 at 1795555425.918593683
+c4 replaced s005 (2 s -> 5 s) at 1795555482.435785284
+exit c4: 0.26 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+jail nonet created (vnet)
+c5 loopback address removed at 1795555604.614965825
+c5 loopback address back at 1795555653.085817477
+exit c5: 0.29 s, process gone
+show: 500 cues, 501 files, 44228 KiB
+exit c7: 0.25 s, process gone
+exit c7b: 0.28 s, process gone
+c7 stderr bytes: first 0, restart 0
+c7 config after first run: 0000000  357 273 277   [   k   e   y   s   ]  \n   g   o       =       [ 0000020    "   S   p   a   c   e   "   ,       "   F   9   "   ]  \n     0000037 
+c7 config after restart: 0000000  357 273 277   [   k   e   y   s   ]  \n   g   o       =       [ 0000020    "   S   p   a   c   e   "   ,       "   F   9   "   ]  \n     0000037 
