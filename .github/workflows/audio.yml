@@ -41,7 +41,7 @@ jobs:
           export ALSA_PLUGIN_DIR
           ALSA_PLUGIN_DIR=$(readlink -f alsa-plugins)/lib/alsa-lib
           # Every command goes to the log, which the artifact keeps on failure
-          timeout -k 10 900 bash -x audio/record.sh result-cinq out 2>&1 | tee logs/record.log
+          timeout -k 10 900 bash -x audio/record.sh result-cinq/bin/cinq out 2>&1 | tee logs/record.log
           bash audio/analyze.sh out
           bash audio/report.sh out | tee out/report.txt
       - if: always()

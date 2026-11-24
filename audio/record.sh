@@ -244,6 +244,9 @@ shot 7-after-3s
 pactl list short sink-inputs > "$out/inputs-after-3s.txt"
 sleep 4
 shot 7-after-7s
+fire 9
+sleep 3
+shot 7-booth-only
 mark end-7
 press F10 panic-7
 sleep 3

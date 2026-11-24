@@ -7,7 +7,7 @@
 # a mono 440 Hz tone at -3 dBFS that lasts 40 seconds; vamp.flac, six seconds of
 # 440 Hz in three parts (an introduction at -20 dBFS, a loop section at -6 dBFS,
 # an ending at -14 dBFS); plain.cinq.toml, one cue on the default device; and
-# outputs.cinq.toml, two outputs and the cues of checks 2 to 8.
+# outputs.cinq.toml, two outputs and the cues of checks 2 to 8 (cue 9 sends only to Booth).
 #
 # Usage: make-show.sh DIRECTORY, with ffmpeg on PATH
 set -euo pipefail
@@ -119,4 +119,13 @@ file = "tone.flac"
 [list.cue.sends]
 House = 0.0
 Booth = -10.0
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "audio"
+name = "Booth only"
+file = "tone.flac"
+[list.cue.sends]
+Booth = 0.0
 TOML
