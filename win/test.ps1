@@ -17,6 +17,7 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class Place {
+    [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, int d, IntPtr e);
     [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool r);
 }
 '@
@@ -50,7 +51,7 @@ function Start-Cinq([string]$name, $config, [string]$show) {
     Log "window after $i s"
     Start-Sleep 2
     $null = [Place]::MoveWindow($w.MainWindowHandle, 0, 0, 1024, 720, $true)
-    Start-Sleep 3
+    Start-Sleep 5
     $p
 }
 
@@ -83,6 +84,16 @@ function New-Show([string]$name, [string]$file = 'show.cinq.toml') {
     "$d\$file"
 }
 
+# Scrolls the sidebar down in two steps, to read its warnings, and back up
+function SideShot([string]$name) {
+    [Input]::SetCursorPos(880, 330) | Out-Null
+    for ($i = 0; $i -lt 2; $i++) {
+        for ($j = 0; $j -lt 6; $j++) { [Place]::mouse_event(0x800, 0, 0, -120, [IntPtr]::Zero); Start-Sleep -Milliseconds 100 }
+        Start-Sleep 1; Shot "$name-side$i"
+    }
+    for ($j = 0; $j -lt 14; $j++) { [Place]::mouse_event(0x800, 0, 0, 120, [IntPtr]::Zero); Start-Sleep -Milliseconds 100 }
+}
+
 # Answers the firewall prompt of windows-11-arm, if it came up
 function Prompt([string]$label) {
     $t = [Windows32]::Titles() | Where-Object { $_ -match 'Windows Security|Firewall' }
@@ -96,12 +107,14 @@ Shot 'desktop'
 # 1 Silent start, no config.toml
 $null = Start-Cinq '1-silent' $null (New-Show '1')
 Shot '1-start'
+SideShot '1'
 Stop-Cinq '1-silent'
 
 # 2 The retired keymap
 $null = Start-Cinq '2-cua' "keymap = `"cua`"`n" (New-Show '2')
 Shot '2-start'
 Key 'j' 'j'; Start-Sleep 1; Shot '2-after-j'
+SideShot '2'
 Key 'o' 'o'; Start-Sleep 1; Shot '2-after-o'
 Stop-Cinq '2-cua'
 
@@ -113,7 +126,6 @@ $label = (Get-Content "$root\win\hint.txt" -ErrorAction SilentlyContinue | Selec
 if ($label) {
     foreach ($c in $label.ToCharArray()) { Key "$c" "label $c"; Start-Sleep -Milliseconds 400 }
     Start-Sleep 1; Shot '3-label-typed'
-    Key 'f' 'f again'; Start-Sleep 1
 }
 Key 'f' 'f'; Start-Sleep 1; Shot '3-hints-again'
 Key '{BACKSPACE}' 'Backspace'; Start-Sleep 1; Shot '3-backspace'
@@ -130,12 +142,14 @@ python "$root\win\osc.py" 127.0.0.1 53000 /go; Log 'sent /go'
 Start-Sleep 2; Shot '4a-after-go'
 python "$root\win\osc.py" 127.0.0.1 53000 /cue/99/start; Log 'sent /cue/99/start'
 Start-Sleep 2; Shot '4a-after-99'
+SideShot '4a'
 Stop-Cinq '4a-osc'
 $hold = Start-Process $py -ArgumentList "`"$root\win\hold.py`"", '127.0.0.1', 53000, 60 -WindowStyle Hidden -PassThru
 Start-Sleep 2
 $null = Start-Cinq '4b-taken' $osc (New-Show '4b')
 Start-Sleep 3
 Shot '4b-taken'
+SideShot '4b'
 Stop-Cinq '4b-taken'
 Stop-Process -Id $hold.Id -Force -ErrorAction SilentlyContinue
 
@@ -146,6 +160,7 @@ $null = Start-Cinq '5-watch' $go $show5
 Shot '5-start'
 Move-Item $tone "$tone.away"; Log 'file taken away'
 Start-Sleep 4; Shot '5-gone'
+SideShot '5'
 Move-Item "$tone.away" $tone; Log 'file put back'
 Start-Sleep 4; Shot '5-back'
 Stop-Cinq '5-watch'
@@ -163,6 +178,7 @@ $dir = "$work\adirectory"
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $null = Start-Cinq '7a-directory' $go $dir
 Shot '7a-directory'
+SideShot '7a'
 Stop-Cinq '7a-directory'
 $ro = "$work\readonly"
 New-Item -ItemType Directory -Force -Path $ro | Out-Null
@@ -183,6 +199,7 @@ $null = Start-Cinq '8-net' $go (New-Show '8' 'net.cinq.toml')
 Shot '8-start'
 Key '{F9}' 'F9'
 Start-Sleep 3; Shot '8-after-go'
+SideShot '8'
 Start-Sleep 3; Shot '8-after-go-later'
 Stop-Cinq '8-net'
 Log 'done'
