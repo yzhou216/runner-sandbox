@@ -47,3 +47,7 @@ Notes:
   below); a tall output showed it whole.
 - Without a sound card every audio start fails (`OUTPUT FAILED`); a null ALSA
   device made GO work.
+
+## Rerun on cinq 17c2b075 (2026-11-24)
+
+Same workflow, only the cinq commit changed to `17c2b0755ee66d31a99cf4513d8f34c48f09d2f2` (`verify-drop-cua-2`: a thread watches the file stamps and wakes the window on a change; the light thread reports differently).  Run **45397444813**, green first time, no rerun.  All eight checks pass on x86_64 and aarch64.  Check 5: a deleted sound file gave `BROKEN` and `file not found` within the sampling delay (about 4 s), and the warning went when the file was back.  Check 1: standard error 0 bytes.  Check 4 port taken: sidebar `osc_listen: cannot listen, address in use; retrying` on both (aarch64 in c4b-1-taken.png; its later tall shot shows 0 warnings, consistent with the holder having quit and cinq's retry binding).
