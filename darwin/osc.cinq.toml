@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "wait"
+name = "Hold"
+duration = 60.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "memo"
+name = "Second"
