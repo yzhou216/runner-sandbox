@@ -124,9 +124,9 @@ measure() {
   sleep "$2"
   b=$(snapshot "$cinq")
   delta=$(join <(echo "$a") <(echo "$b"))
-  audio_ticks=$(awk '$4 ~ /alsa|cpal/ { s += $5 - $3 } END { print s + 0 }' <<< "$delta")
+  audio_ticks=$(awk '$3 ~ /alsa|cpal/ { s += $4 - $2 } END { print s + 0 }' <<< "$delta")
   say "$1: $(awk -v hz="$hz" -v s="$2" '
-    { d = $5 - $3; all += d; if ($4 ~ /alsa|cpal/) audio += d; else if (d > 0) busy = busy sprintf(" %s=%d", $4, d) }
+    { d = $4 - $2; all += d; if ($3 ~ /alsa|cpal/) audio += d; else if (d > 0) busy = busy sprintf(" %s=%d", $3, d) }
     END { printf "%d ticks in %d s = %.2f percent of one core; without audio threads %d ticks = %.2f percent; busiest others:%s", all, s, all / hz / s * 100, all - audio, (all - audio) / hz / s * 100, busy }' <<< "$delta"), $(ls "/proc/$cinq/task" | wc -l) threads, RSS $(awk '/VmRSS/{print $2}' "/proc/$cinq/status") kB"
 }
 
@@ -309,6 +309,9 @@ if [ -n "${HINT_AUDIO:-}" ]; then
   if [ -n "${HINT_ITEM:-}" ]; then
     key "$HINT_ITEM"
     shot 7-bom-4-chosen
+  else
+    key f
+    shot 7-bom-3b-itemhints
   fi
 fi
 closewin "7 first start"

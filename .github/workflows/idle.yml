@@ -15,7 +15,7 @@ env:
   OLD: d534417e464a5a95823a183a0483a17a230bf3d3
   SHA: 16c365b2c189c8e0b0f21e9d8902383a714bb61c
   HINT_LABEL: sd
-  HINT_AUDIO: ''
+  HINT_AUDIO: sc
   HINT_ITEM: ''
 jobs:
   linux:
