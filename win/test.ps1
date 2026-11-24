@@ -112,6 +112,12 @@ Shot 'desktop'
 # 1 Silent start, no config.toml
 $null = Start-Cinq '1-silent' $null (New-Show '1')
 Shot '1-start'
+for ($r = 0; $r -lt 3; $r++) {
+    $w = Get-Process cinq -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
+    if ($w) { $null = [Place]::MoveWindow($w.MainWindowHandle, 0, 0, 1024, 720, $true) }
+    Start-Sleep 3
+    Shot "1-fitted-$r"
+}
 SideShot '1'
 Stop-Cinq '1-silent'
 
