@@ -25,6 +25,10 @@ if sys.argv[1] == "label":
     if near:
         print(re.sub(r"\W", "", near[0][0]))
 else:
+    named = [r for r in rows if re.search(r"Apple|Null|Virtual", r[0]) and r[1] > 700]
+    if named:
+        print(named[0][1], named[0][2])
+        sys.exit(0)
     below = [r for r in rows if 12 < r[2] - anchor[2] < 80 and abs(r[1] - anchor[1]) < 90 and not re.search(r"efault", r[0], re.I)]
     if below:
         first = min(below, key=lambda r: r[2])
