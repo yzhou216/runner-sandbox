@@ -4,43 +4,23 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq audio checks, 2026-11-24
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Branch `cinq/2026-11-24-audio-checks` of yzhou216/runner-sandbox; cinq 861183a5cd82 (`nix build github:yzhou216/cinq/861183a5cd82b7e6a460f498e7e2102b7172446f#cinq`) on ubuntu-latest.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+Runs: 45395016716 failed (my script ran the program's directory, not its binary); 45397676219 passed but its check 8 edited cue 9 (selection had moved), so discarded; **45401496386 is the result** (pass; its first analysis took the wrong beep, re-analysed from the artifact with the fixed `analyze.sh`).
 
-## Setup
+Method: private PulseAudio, null sinks `house` (default) and `booth` (own server, so killing it removes the device); ALSA PCMs `alsa:house`, `alsa:booth`; monitors recorded; a 440 Hz mono tone at -3 dBFS (so RMS = cue level - 6 dB - send); GO is F9, Panic F10. Times are from the key's wtype call to the measured sound, aligned by a calibration beep, so accurate to about 0.2 s.
 
-Fork this repository, then clone it into the agent's skills directory:
+| # | Check | Measured | Verdict |
+|---|---|---|---|
+| 1 | cue at -6 dB, default device | house -12.0 dB RMS (expected -12.0), booth silent | pass |
+| 2 | sends House 0, Booth -10 | house -12.0, booth -22.0 | pass |
+| 3 | fade to -20 over 3 s | house -18.0 to -26.0, booth -28.0 to -36.0, linear from GO, flat from +3.0 s | pass |
+| 4 | loop 2-4 s, then devamp | intro -23, loop -9 until devamp (+7.3 s), left at the pass end (+8.0 s), ending -17 for 2 s, silent from +10.0 s | pass |
+| 5 | Stop; Panic F10 | Stop: silent within 0.2 s; Panic: fade to silence 1.0 s (a one-second fade by design, not a fraction of a second) | pass, Panic takes 1.0 s |
+| 6 | level typed -6 to -12 on Levels | house -12.0 to -18.0, booth -22.0 to -28.0 (change -6.0 dB) | pass |
+| 7 | booth device gone | cue 9 (Booth only) `OUTPUT FAILED`, sidebar warns `alsa:booth: stopped`; cue 7 on both keeps house at -6.0 dB | pass |
+| 8 | clear last send | status `Changed cue 8 to play nowhere`; house silent 0.1 s after its send cleared, booth 0.2 s after the last | pass |
 
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Notes: a cue that still plays on another output does not read `OUTPUT FAILED`; the sidebar and the Levels tab warn instead. While I worked, something else edited and committed `audio/record.sh` on the branch (a separate booth server, the cue 9 fix); I kept it.
