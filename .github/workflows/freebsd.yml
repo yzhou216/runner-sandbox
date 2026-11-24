@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Second round of the 2026-11-24 checks on FreeBSD: the eight checks of round
+# one on NEW, then idle time, file watch, light news, clean exit, and the byte
+# order mark, with OLD and NEW cross built, in a VM, in headless sway.
+name: FreeBSD idle checks
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  NEW: 16c365b2c189c8e0b0f21e9d8902383a714bb61c
+  OLD: d534417e464a5a95823a183a0483a17a230bf3d3
+  HINT_LABEL: sd
+  AUDIO_LABEL: ""
+  ITEM_LABEL: ""
+jobs:
+  cross:
+    name: cinq ${{ matrix.rev }} for ${{ matrix.arch }}-freebsd, cross built
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64]
+        rev: [old, new]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: cachix/cachix-action@master
+        with:
+          name: yzhou216
+          skipPush: true
+      - run: |
+          sha=$OLD
+          [ "${{ matrix.rev }}" = new ] && sha=$NEW
+          nix build "github:yzhou216/cinq/$sha#${{ matrix.arch }}-freebsd"
+          mkdir run
+          readlink -f result > run/path.txt
+          nix-store -qR result | tar -cf run/closure.tar -T -
+          ls -l run
+      - uses: actions/upload-artifact@v7
+        with:
+          name: run-${{ matrix.arch }}-${{ matrix.rev }}
+          path: run
+          retention-days: 3
+  round-one:
+    name: round-one checks on ${{ matrix.arch }}-freebsd
+    needs: cross
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: run-${{ matrix.arch }}-new
+          path: run
+      - uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          envs: HINT_LABEL
+          mem: 6144
+          cpu: 4
+          prepare: pkg install -y bash python3 sway wtype grim dejavu
+          run: |
+            tar -xf run/closure.tar -C /
+            rm run/closure.tar
+            "$(cat run/path.txt)/bin/cinq" --version
+            scale=1
+            [ "${{ matrix.arch }}" = aarch64 ] && scale=4
+            HINT_LABEL=$HINT_LABEL bash fb/check.sh "$(cat run/path.txt)/bin/cinq" out "$scale" || true
+      - if: always()
+        run: tar -czf checks-${{ matrix.arch }}-freebsd.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: checks-${{ matrix.arch }}-freebsd
+          path: checks-${{ matrix.arch }}-freebsd.tar.gz
+  idle:
+    name: idle checks on ${{ matrix.arch }}-freebsd
+    needs: cross
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: run-${{ matrix.arch }}-*
+          path: run
+      - run: |
+          curl -fsSL "https://raw.githubusercontent.com/yzhou216/cinq/$OLD/doc/demo/lights.cinq.toml" -o lights-old.toml
+          curl -fsSL "https://raw.githubusercontent.com/yzhou216/cinq/$NEW/doc/demo/lights.cinq.toml" -o lights-new.toml
+          cmp lights-old.toml lights-new.toml && echo "the lights demo is the same in OLD and NEW"
+          ls -lR run
+      - uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          envs: AUDIO_LABEL ITEM_LABEL
+          mem: 6144
+          cpu: 4
+          prepare: pkg install -y bash python3 sway wtype grim dejavu
+          run: |
+            tar -xf run/run-${{ matrix.arch }}-old/closure.tar -C /
+            tar -xf run/run-${{ matrix.arch }}-new/closure.tar -C /
+            rm run/run-${{ matrix.arch }}-old/closure.tar run/run-${{ matrix.arch }}-new/closure.tar
+            old="$(cat run/run-${{ matrix.arch }}-old/path.txt)/bin/cinq"
+            new="$(cat run/run-${{ matrix.arch }}-new/path.txt)/bin/cinq"
+            scale=1 rounds=2
+            [ "${{ matrix.arch }}" = aarch64 ] && scale=4 rounds=1
+            ROUNDS=$rounds AUDIO_LABEL=$AUDIO_LABEL ITEM_LABEL=$ITEM_LABEL \
+              LIGHTS_OLD=$PWD/lights-old.toml LIGHTS_NEW=$PWD/lights-new.toml \
+              bash fb/idle.sh "$old" "$new" idle-out "$scale" || true
+      - if: always()
+        run: tar -czf idle-${{ matrix.arch }}-freebsd.tar.gz idle-out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: idle-${{ matrix.arch }}-freebsd
+          path: idle-${{ matrix.arch }}-freebsd.tar.gz
