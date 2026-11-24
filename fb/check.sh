@@ -24,6 +24,7 @@ export WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1
 export ICED_BACKEND=tiny-skia
 unset WAYLAND_DISPLAY DISPLAY SWAYSOCK DBUS_SESSION_BUS_ADDRESS
 mkdir -p "$HOME"
+printf 'pcm.!default { type null }\nctl.!default { type null }\n' > "$HOME/.asoundrc"
 mkdir -m 700 "$XDG_RUNTIME_DIR"
 printf 'output HEADLESS-1 resolution 1280x800\n' > "$work/sway.config"
 { uname -a; "$cinq" --version; } > "$out/versions.txt" 2>&1
