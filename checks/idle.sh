@@ -251,9 +251,13 @@ for how in lo dummy; do
   sudo ip netns add "$ns"
   sudo ip netns exec "$ns" ip link set lo down
   say "5 $how: interfaces in the namespace: $(sudo ip netns exec "$ns" ip -br addr | tr '\n' ';')"
+  series "5-$how-boot" 12 & sp=$!
+  mark "5-$how-boot"
   start "5-$how" "$cinq_new" "$work/c5" "$work/demo-new/lights.cinq.toml" "$ns"
   say "5 $how: cinq is process $cinq: $(ps -o pid,comm,args -p "$cinq" | tail -1)"
-  sleep 8
+  wait "$sp"
+  lags "5-$how-boot"
+  say "5 $how: no input since launch; first stderr line at +$(awk -v a="$(cat "$out/5-$how-boot.act")" 'NR == 1 {printf "%.2f", $1 - a}' "$out/5-$how.err") s after launch"
   shot "5-$how-0-start"
   series "5-$how-go" 8 & sp=$!
   sleep 2
