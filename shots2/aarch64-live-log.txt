@@ -1,0 +1,130 @@
+    4.5 WWAHost 5416
+   11.3 closed window 'C:\Windows\system32\wsl.exe'
+    2.9 arch AMD64 runner ARM64 powershell 5.1.26100.9974
+    1.7 closed window 'C:\Windows\system32\wsl.exe'
+    7.0 start 4-watch (new)
+    8.3 window after 1 s
+   31.3 closed window 'C:\Windows\system32\wsl.exe'
+   38.8 delete f001.wav
+   40.8 4a-deleted table changed at 1923 ms
+   40.8 4a-deleted bar changed at 1923 ms
+   46.9 put f001.wav back
+   48.8 4b-back table changed at 1825 ms
+   48.8 4b-back bar changed at 1825 ms
+   55.2 replace f002.wav by a longer one, written under a new name and moved over
+   56.7 4c-replaced table changed at 1377 ms
+   63.3 4c-replaced bar did not change in 8 s
+   63.4 write f003.wav through a handle that shares nothing
+   64.0 4d-held table changed at 491 ms
+   64.0 4d-held bar changed at 491 ms
+   59.3 closed window 'C:\Windows\system32\wsl.exe'
+   71.7 release f003.wav
+   73.1 4e-released table changed at 1361 ms
+   73.1 4e-released bar changed at 1361 ms
+   79.9 stderr of 4-watch: 0 characters
+   80.3 EXIT many new: 350 ms
+   80.3 stderr of 4-watch: 0 characters
+   80.4 start 6-lights-new-1 (new)
+   81.4 window after 1 s
+   92.3 EXIT lights new round 1: 336 ms
+   92.3 stderr of 6-lights-new-1: 0 characters
+   92.3 start 6-many-new-1 (new)
+   93.4 window after 1 s
+   89.3 closed window 'C:\Windows\system32\wsl.exe'
+  123.4 EXIT many new round 1: 31 ms
+  123.5 stderr of 6-many-new-1: 0 characters
+  123.5 start 6-lights-new-2 (new)
+  119.6 closed window 'C:\Windows\system32\wsl.exe'
+  124.5 window after 1 s
+  134.9 EXIT lights new round 2: 349 ms
+  134.9 stderr of 6-lights-new-2: 0 characters
+  134.9 start 6-many-new-2 (new)
+  136.0 window after 1 s
+  149.5 closed window 'C:\Windows\system32\wsl.exe'
+  166.4 EXIT many new round 2: 350 ms
+  166.4 stderr of 6-many-new-2: 0 characters
+  166.4 start 6-lights-new-3 (new)
+  167.4 window after 1 s
+  177.8 EXIT lights new round 3: 350 ms
+  177.8 stderr of 6-lights-new-3: 0 characters
+  177.8 start 6-many-new-3 (new)
+  178.9 window after 1 s
+  179.4 closed window 'C:\Windows\system32\wsl.exe'
+  209.3 EXIT many new round 3: 348 ms
+  209.3 stderr of 6-many-new-3: 0 characters
+  209.3 start 6-lights-old-1 (old)
+  210.3 window after 1 s
+  209.5 closed window 'C:\Windows\system32\wsl.exe'
+  220.4 EXIT lights old round 1: 31 ms
+  220.4 stderr of 6-lights-old-1: 0 characters
+  220.4 start 6-many-old-1 (old)
+  221.4 window after 1 s
+  239.5 closed window 'C:\Windows\system32\wsl.exe'
+  251.5 EXIT many old round 1: 30 ms
+  251.5 stderr of 6-many-old-1: 0 characters
+  251.5 start 6-lights-old-2 (old)
+  252.5 window after 1 s
+  262.9 EXIT lights old round 2: 348 ms
+  262.9 stderr of 6-lights-old-2: 0 characters
+  262.9 start 6-many-old-2 (old)
+  264.0 window after 1 s
+  269.5 closed window 'C:\Windows\system32\wsl.exe'
+  294.4 EXIT many old round 2: 348 ms
+  294.4 stderr of 6-many-old-2: 0 characters
+  294.4 start 6-lights-old-3 (old)
+  295.4 window after 1 s
+  299.8 closed window 'C:\Windows\system32\wsl.exe'
+  305.8 EXIT lights old round 3: 333 ms
+  305.8 stderr of 6-lights-old-3: 0 characters
+  305.8 start 6-many-old-3 (old)
+  306.8 window after 1 s
+  329.6 closed window 'C:\Windows\system32\wsl.exe'
+  337.2 EXIT many old round 3: 348 ms
+  337.2 stderr of 6-many-old-3: 0 characters
+  343.6 start 5-lights (new)
+  344.7 window after 1 s
+  355.7 key F9
+  355.8 5a-go table changed at 1 ms
+  363.9 5a-go bar did not change in 8 s
+  364.0 outbound block rule for cinq.exe, then GO again
+  359.8 closed window 'C:\Windows\system32\wsl.exe'
+  367.3 key F9
+  367.3 5b-blocked table changed at 1 ms
+  375.4 5b-blocked bar did not change in 8 s
+  376.3 virtual adapters: vEthernet (Default Switch)
+  380.4 key F9
+  380.5 5c-virtual-down table changed at 0 ms
+  380.9 5c-virtual-down table changed at 472 ms
+  388.5 5c-virtual-down bar did not change in 8 s
+  390.8 stderr of 5-lights: 0 characters
+  391.9 7a-ps51-new (powershell 5.1.26100.9974 Desktop): config.toml starts EF BB BF 5B
+  391.9 start 7a-ps51-new (new)
+  392.9 window after 1 s
+  389.7 closed window 'C:\Windows\system32\wsl.exe'
+  403.8 key F9
+  404.9 7a-ps51-new closed in 25 ms
+  404.9 stderr of 7a-ps51-new: 0 characters
+  405.4 7b-pwsh-new (pwsh 7.6.10 Core): config.toml starts 5B 6B 65 79
+  405.4 start 7b-pwsh-new (new)
+  406.5 window after 1 s
+  417.3 key F9
+  418.8 7b-pwsh-new closed in 358 ms
+  418.8 stderr of 7b-pwsh-new: 0 characters
+  419.8 7c-ps51-old (powershell 5.1.26100.9974 Desktop): config.toml starts EF BB BF 5B
+  419.8 start 7c-ps51-old (old)
+  420.9 window after 1 s
+  419.9 closed window 'C:\Windows\system32\wsl.exe'
+  431.8 key F9
+  432.9 7c-ps51-old closed in 41 ms
+  432.9 stderr of 7c-ps51-old: 0 characters
+  432.9 start 7d-device (new)
+  434.0 window after 1 s
+  444.8 key f
+  446.2 7d-device closed in 348 ms
+  446.2 stderr of 7d-device: 0 characters
+  446.3 7d-device config.toml: EF BB BF then [keys] | go = ["Space", "F9"] | 
+  446.3 start 7d-device-again (new)
+  447.3 window after 1 s
+  450.0 closed window 'C:\Windows\system32\wsl.exe'
+  457.8 stderr of 7d-device-again: 0 characters
+  457.8 done

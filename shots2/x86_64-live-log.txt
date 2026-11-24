@@ -1,0 +1,114 @@
+    5.7 arch AMD64 runner X64 powershell 5.1.26100.33822
+    6.4 start 4-watch (new)
+    7.6 window after 1 s
+   42.9 delete f001.wav
+   44.5 4a-deleted table changed at 1535 ms
+   44.5 4a-deleted bar changed at 1535 ms
+   51.4 put f001.wav back
+   52.9 4b-back table changed at 1367 ms
+   52.9 4b-back bar changed at 1367 ms
+   59.7 replace f002.wav by a longer one, written under a new name and moved over
+   60.7 4c-replaced table changed at 922 ms
+   67.9 4c-replaced bar did not change in 8 s
+   68.0 write f003.wav through a handle that shares nothing
+   68.5 4d-held table changed at 472 ms
+   68.5 4d-held bar changed at 472 ms
+   76.3 release f003.wav
+   76.8 4e-released table changed at 443 ms
+   76.8 4e-released bar changed at 443 ms
+   84.5 stderr of 4-watch: 0 characters
+   84.6 EXIT many new: 61 ms
+   84.6 stderr of 4-watch: 0 characters
+   84.6 start 6-lights-new-1 (new)
+   85.6 window after 1 s
+   95.9 EXIT lights new round 1: 348 ms
+   96.0 stderr of 6-lights-new-1: 0 characters
+   96.0 start 6-many-new-1 (new)
+   97.0 window after 1 s
+  127.3 EXIT many new round 1: 330 ms
+  127.3 stderr of 6-many-new-1: 0 characters
+  127.3 start 6-lights-new-2 (new)
+  128.3 window after 1 s
+  138.7 EXIT lights new round 2: 336 ms
+  138.7 stderr of 6-lights-new-2: 0 characters
+  138.7 start 6-many-new-2 (new)
+  139.7 window after 1 s
+  169.8 EXIT many new round 2: 35 ms
+  169.8 stderr of 6-many-new-2: 0 characters
+  169.8 start 6-lights-new-3 (new)
+  170.8 window after 1 s
+  181.2 EXIT lights new round 3: 342 ms
+  181.2 stderr of 6-lights-new-3: 0 characters
+  181.2 start 6-many-new-3 (new)
+  182.2 window after 1 s
+  212.6 EXIT many new round 3: 348 ms
+  212.6 stderr of 6-many-new-3: 0 characters
+  212.6 start 6-lights-old-1 (old)
+  213.6 window after 1 s
+  223.7 EXIT lights old round 1: 45 ms
+  223.7 stderr of 6-lights-old-1: 0 characters
+  223.7 start 6-many-old-1 (old)
+  224.7 window after 1 s
+  254.8 EXIT many old round 1: 56 ms
+  254.8 stderr of 6-many-old-1: 0 characters
+  254.8 start 6-lights-old-2 (old)
+  255.8 window after 1 s
+  266.1 EXIT lights old round 2: 343 ms
+  266.1 stderr of 6-lights-old-2: 0 characters
+  266.2 start 6-many-old-2 (old)
+  267.2 window after 1 s
+  297.2 EXIT many old round 2: 29 ms
+  297.2 stderr of 6-many-old-2: 0 characters
+  297.2 start 6-lights-old-3 (old)
+  298.2 window after 1 s
+  308.3 EXIT lights old round 3: 42 ms
+  308.3 stderr of 6-lights-old-3: 0 characters
+  308.3 start 6-many-old-3 (old)
+  309.3 window after 1 s
+  339.7 EXIT many old round 3: 332 ms
+  339.7 stderr of 6-many-old-3: 0 characters
+  344.3 start 5-lights (new)
+  345.3 window after 1 s
+  359.5 key F9
+  365.5 5a-go table changed at 0 ms
+  365.9 5a-go table changed at 458 ms
+  373.7 5a-go bar did not change in 8 s
+  373.8 outbound block rule for cinq.exe, then GO again
+  396.9 key F9
+  397.0 5b-blocked table changed at 0 ms
+  397.5 5b-blocked table changed at 485 ms
+  405.4 5b-blocked bar did not change in 8 s
+  406.5 virtual adapters: vEthernet (nat)
+  410.4 key F9
+  410.5 5c-virtual-down table changed at 0 ms
+  411.0 5c-virtual-down table changed at 487 ms
+  418.7 5c-virtual-down bar did not change in 8 s
+  421.1 stderr of 5-lights: 0 characters
+  423.5 7a-ps51-new (powershell 5.1.26100.33822 Desktop): config.toml starts EF BB BF 5B
+  423.5 start 7a-ps51-new (new)
+  424.5 window after 1 s
+  435.4 key F9
+  436.5 7a-ps51-new closed in 43 ms
+  436.5 stderr of 7a-ps51-new: 0 characters
+  437.9 7b-pwsh-new (pwsh 7.6.10 Core): config.toml starts 5B 6B 65 79
+  437.9 start 7b-pwsh-new (new)
+  439.0 window after 1 s
+  449.8 key F9
+  451.3 7b-pwsh-new closed in 339 ms
+  451.3 stderr of 7b-pwsh-new: 0 characters
+  451.5 7c-ps51-old (powershell 5.1.26100.33822 Desktop): config.toml starts EF BB BF 5B
+  451.5 start 7c-ps51-old (old)
+  452.5 window after 1 s
+  463.4 key F9
+  464.8 7c-ps51-old closed in 327 ms
+  464.8 stderr of 7c-ps51-old: 0 characters
+  464.8 start 7d-device (new)
+  465.9 window after 1 s
+  476.7 key f
+  478.1 7d-device closed in 342 ms
+  478.1 stderr of 7d-device: 0 characters
+  478.1 7d-device config.toml: EF BB BF then [keys] | go = ["Space", "F9"] | 
+  478.1 start 7d-device-again (new)
+  479.1 window after 1 s
+  489.5 stderr of 7d-device-again: 0 characters
+  489.5 done
