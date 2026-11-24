@@ -46,7 +46,7 @@ NEW is lower everywhere, but the 500-cue show is not near zero.  The main (UI) t
 60 s and NEW's main thread shows none among its busy threads, which is the fix.  What remains in NEW, and is the same in
 OLD, is one thread that sleeps 1 ms in a loop: `strace` shows 2733 `clock_nanosleep` calls of 1 ms in 3 s
 (`results/*/new-500-strace.txt`), about 950 wakes per second, 34 ticks per minute on x86_64, 12 on aarch64.  It only
-appears with the 500-cue show (the lights demo has one wake per second less than OLD and no such thread); it is probably
+appears with the 500-cue show (the lights demo process wakes 57 times a second in OLD and 32.5 in NEW, with no such thread); it is probably
 the streaming decoder of the sound made ready for the standby cue, but I did not trace it to its source.
 
 ## Light news (NEW, lights demo, network namespace with `lo` down)
