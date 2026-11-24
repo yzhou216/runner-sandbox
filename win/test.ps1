@@ -22,6 +22,10 @@ public static class Place {
 }
 '@
 
+if ($env:RUNNER_ARCH -eq "ARM64") {
+    Start-Process powershell -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSScriptRoot\closer.ps1`"", 600 -WindowStyle Hidden
+}
+
 $py = (Get-Command python).Source
 New-NetFirewallRule -DisplayName 'sandbox python' -Direction Inbound -Action Allow -Program $py -Profile Any | Out-Null
 $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -57,6 +61,7 @@ function Start-Cinq([string]$name, $config, [string]$show) {
 
 function Key([string]$k, [string]$label) {
     CloseWsl
+    Start-Sleep -Milliseconds 500
     $p = Get-Process cinq -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0 | Select-Object -First 1
     if (-not $p) { Log "no cinq window for $label"; return }
     $null = [Input]::SetForegroundWindow($p.MainWindowHandle)
@@ -124,7 +129,7 @@ Shot '3-start'
 Key 'f' 'f'; Start-Sleep 1; Shot '3-hints'
 $label = (Get-Content "$root\win\hint.txt" -ErrorAction SilentlyContinue | Select-Object -First 1)
 if ($label) {
-    foreach ($c in $label.ToCharArray()) { Key "$c" "label $c"; Start-Sleep -Milliseconds 400 }
+    Key $label "label $label"
     Start-Sleep 1; Shot '3-label-typed'
 }
 Key 'f' 'f'; Start-Sleep 1; Shot '3-hints-again'
