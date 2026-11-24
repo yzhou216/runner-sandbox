@@ -11,7 +11,7 @@ defaults:
   run:
     shell: bash
 env:
-  SHA: c9408b4b490ef3e26cd5e27048b09981f3f52f48
+  SHA: 17c2b0755ee66d31a99cf4513d8f34c48f09d2f2
   HINT_LABEL: sd
 jobs:
   linux:
