@@ -32,6 +32,8 @@ shot after-f9
 grep -c -F 'Active (1' "$D/after-f9.txt" | sed 's/^/Active (1 lines after F9: /' | tee -a "$OUT/bom.txt"
 code 53
 sleep 1
+./ui scroll 890 380 -3
+sleep 1
 typ f
 sleep 1
 shot hints

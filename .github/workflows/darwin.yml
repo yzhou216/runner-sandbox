@@ -62,17 +62,20 @@ jobs:
           { sw_vers; uname -m; } | tee out/runner.txt
           swiftc -O -o ui darwin/screen.swift
       - name: Round one, NEW
-        if: always()
+        if: false # done in run 45462049037
         run: bash -x darwin/checks.sh "$PWD/apps/cinq-new.app" out/checks 2> out/checks-trace.txt
       - name: Idle (checks 2 and 3)
-        if: always()
+        if: false # done in run 45462049037
         run: bash -x darwin/idle.sh "$PWD/apps" out/idle 2> out/idle-trace.txt
       - name: File watch (check 4)
-        if: always()
+        if: false # done in run 45462049037
         run: bash -x darwin/watch.sh "$PWD/apps" out/watch 2> out/watch-trace.txt
       - name: Light news (check 5)
-        if: always()
+        if: false # done in run 45462049037
         run: bash -x darwin/light.sh "$PWD/apps" out/light 2> out/light-trace.txt
+      - name: Idle, where the time goes
+        if: always()
+        run: bash -x darwin/idle2.sh "$PWD/apps" out/idle2 2> out/idle2-trace.txt
       - name: Clean exit (check 6)
         if: always()
         run: bash -x darwin/exit.sh "$PWD/apps" out/exit 2> out/exit-trace.txt

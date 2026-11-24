@@ -31,6 +31,13 @@ for show in 500 lights; do
   cmd "$show" w
   if kill -0 "$PID" 2> /dev/null; then
     shot after-w
+    ./ui at 13 44
+    sleep 0.1
+    t=$(now)
+    echo "$show: red close button, the process ended after $(waitgone "$PID" 6) s" | tee -a "$OUT/exit.txt"
+    shot after-button
+  fi
+  if kill -0 "$PID" 2> /dev/null; then
     cmd "$show" q
   fi
   if kill -0 "$PID" 2> /dev/null; then

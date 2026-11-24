@@ -23,19 +23,20 @@ w.close()
 PY
 }
 
-# template500 DIR: a show of 500 audio cues, each with a 2 s file of its own, and a 5 s file long.wav
-template500() {
+# templaten DIR COUNT: a show of COUNT audio cues, each with a 2 s file of its own, and a 5 s file long.wav
+templaten() {
   mkdir -p "$1/sounds"
   tone "$1/sounds/s001.wav" 2
   tone "$1/sounds/long.wav" 5
-  python3 - "$1" << 'PY'
+  python3 - "$1" "$2" << 'PY'
 import shutil, sys
 d = sys.argv[1]
-for i in range(2, 501):
+n = int(sys.argv[2])
+for i in range(2, n + 1):
     shutil.copyfile(f"{d}/sounds/s001.wav", f"{d}/sounds/s{i:03d}.wav")
 with open(f"{d}/show.cinq.toml", "w") as f:
     f.write('[[list]]\nname = "Main"\n')
-    for i in range(1, 501):
+    for i in range(1, n + 1):
         f.write(f'\n[[list.cue]]\nid = {i}\nnumber = "{i}"\nkind = "audio"\nname = "Cue {i}"\nfile = "sounds/s{i:03d}.wav"\nlevel = 0.0\n')
 PY
 }
@@ -110,3 +111,4 @@ waitgone() {
   done
   awk -v a="$start" -v b="$(now)" 'BEGIN { printf "%.2f\n", b - a }'
 }
+template500() { templaten "$1" 500; }
