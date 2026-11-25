@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The eight checks of the 2026-11-24 brief on cinq ab9fada0 (verify-drop-cua-regroup),
+# cross built for FreeBSD and run in headless sway in a VM, x86_64 and
+# emulated aarch64.
+name: FreeBSD checks
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  CINQ: ab9fada06db75110f94d58cd471a965a55448af9
+  HINT_LABEL: sd
+jobs:
+  cross:
+    name: cinq for ${{ matrix.arch }}-freebsd, cross built
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: cachix/cachix-action@master
+        with:
+          name: yzhou216
+          skipPush: true
+      - run: |
+          nix build "github:yzhou216/cinq/$CINQ#${{ matrix.arch }}-freebsd"
+          mkdir run
+          readlink -f result > run/path.txt
+          nix-store -qR result | tar -cf run/closure.tar -T -
+          ls -l run
+      - uses: actions/upload-artifact@v7
+        with:
+          name: run-${{ matrix.arch }}-freebsd
+          path: run
+          retention-days: 3
+  checks:
+    name: checks on ${{ matrix.arch }}-freebsd
+    needs: cross
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: run-${{ matrix.arch }}-freebsd
+          path: run
+      - uses: vmactions/freebsd-vm@main
+        with:
+          arch: ${{ matrix.arch }}
+          envs: HINT_LABEL
+          mem: 6144
+          cpu: 4
+          prepare: pkg install -y bash python3 sway wtype grim dejavu
+          run: |
+            tar -xf run/closure.tar -C /
+            rm run/closure.tar
+            "$(cat run/path.txt)/bin/cinq" --version
+            scale=1
+            [ "${{ matrix.arch }}" = aarch64 ] && scale=4
+            HINT_LABEL=$HINT_LABEL bash fb/check.sh "$(cat run/path.txt)/bin/cinq" out "$scale" || true
+      - if: always()
+        run: tar -czf checks-${{ matrix.arch }}-freebsd.tar.gz out
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: checks-${{ matrix.arch }}-freebsd
+          path: checks-${{ matrix.arch }}-freebsd.tar.gz
