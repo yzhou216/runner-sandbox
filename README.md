@@ -4,43 +4,22 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq FINAL on GNU/Linux, eight checks
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Branch `cinq/2026-11-24-linux-final`, a rerun of `cinq/2026-11-24-linux-checks` with only the cinq commit changed to
+`ab9fada06db75110f94d58cd471a965a55448af9` (`verify-drop-cua-regroup`).  Run **45520333765**, green first time on
+`ubuntu-latest` (x86_64) and `ubuntu-24.04-arm` (aarch64), no rerun.  The script never fails on a bad check, so standard
+error files and screenshots were read for every check on x86_64 and a sample on aarch64.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+All eight checks pass on both arches, as in the earlier branch.  Nothing differs.
 
-## Setup
-
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+| # | Check | x86_64 | aarch64 | Evidence |
+| --- | --- | --- | --- | --- |
+| 1 | Silent start | pass | pass | `1-demo.err`, `1-empty.err` 0 bytes |
+| 2 | `keymap = "cua"` | pass | pass | stderr at `config.toml:1:10`, sidebar warning, `o` added cue 4 |
+| 3 | Hint mode | pass | pass | labels shown, status bar `Type a label`, Backspace after `a` stays in the mode |
+| 4 | OSC | pass | pass | `/go` fired cue 1; cue 99 message; held port: warning `address in use; retrying`, stderr `(os error 98)` |
+| 5 | File watching | pass | pass | `BROKEN`, `file not found`; restored, warnings 0 |
+| 6 | Paste | pass | pass | `Pasted cue 4`, copy shows `0:08.0` |
+| 7 | Errors in words | pass | pass | `Cannot save: permission denied` in status bar and sidebar; stderr keeps `(os error N)` |
+| 8 | Closed port | pass | pass | `SEND FAILED`, `Connection refused (os error 111)` |
