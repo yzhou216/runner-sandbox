@@ -11,7 +11,7 @@ defaults:
   run:
     shell: bash
 env:
-  CINQ: github:yzhou216/cinq/17c2b0755ee66d31a99cf4513d8f34c48f09d2f2
+  CINQ: github:yzhou216/cinq/ab9fada06db75110f94d58cd471a965a55448af9
 jobs:
   darwin:
     strategy:
