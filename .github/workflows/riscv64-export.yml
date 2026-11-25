@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The newest binary cache of riscv64-qemu.yml as an artifact, for a codespace
+# to carry on with a derivation longer than a job, since only workflows can
+# read the Actions cache
+name: riscv64-export
+on:
+  push:
+    paths:
+      - .github/workflows/riscv64-export.yml
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: restore the binary cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: riscv64-nix-export
+          restore-keys: riscv64-nix-
+          fail-on-cache-miss: true
+
+      - name: export the binary cache
+        run: |
+          echo "$(find "$RUNNER_TEMP/nix-cache" -name '*.narinfo' | wc -l) paths, $(du -sh "$RUNNER_TEMP/nix-cache" | cut -f1)"
+          tar -C "$RUNNER_TEMP" -cf "$RUNNER_TEMP/nix-cache.tar" nix-cache
+
+      - name: upload the binary cache
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nix-cache
+          path: ${{ runner.temp }}/nix-cache.tar
+          compression-level: 0
+          retention-days: 14
