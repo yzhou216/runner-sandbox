@@ -44,3 +44,20 @@ change `SKILL.md` and cite the runs that support them.
 ## License
 
 Licensed under `0BSD OR CC0-1.0`.
+
+## Final rerun with cinq ab9fada0, run 45520340417
+
+Branch `cinq/2026-11-24-audio-final` of yzhou216/runner-sandbox; run 45520340417 (ubuntu-latest, success, first attempt).  Build ab9fada06db75110f94d58cd471a965a55448af9; only the SHA in audio.yml changed.  Earlier numbers: README of `cinq/2026-11-24-audio-rerun` (16c365b2, run 45461092221).
+
+| # | Check | Earlier | FINAL |
+|---|-------|---------|-------|
+| 1 | -6 dB cue, default device | -12.0, booth silent | -12.0, booth silent |
+| 2 | sends House 0, Booth -10 | -12.0 / -22.0 | -12.0 / -22.0 |
+| 3 | fade to -20 over 3 s | -18 to -26 (booth -28 to -36), flat at +3.0 s | same |
+| 4 | loop, devamp | loop -9.0, left at +8.0 s, ending -17.0, silent +10.0 s | same (devamp mark +7.3 s) |
+| 5 | Stop / Panic | 0.1 s; 1.0 s | Stop silent by 0.2 s (house) / 0.1 s (booth); Panic silent at 1.0 s |
+| 6 | -12 typed while playing | -12 to -18, -22 to -28 | same |
+| 7 | booth device gone | house -6.0; cue 9 OUTPUT FAILED; "alsa:booth: cannot open"; "Booth (cannot open)" | same, seen in screenshots |
+| 8 | last send cleared | status "Changed cue 8 to play nowhere", silent 0.1 s | same |
+
+Differences: none.  Every number and message matches.  Only wobble: Stop on the house sink reads last sound 0.1 s, silent from 0.2 s, against 0.1 s before; the same 0.2 s measuring accuracy covers it.
