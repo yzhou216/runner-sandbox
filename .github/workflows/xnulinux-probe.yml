@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Whether a GitHub-hosted arm64 runner can host xnulinux at all: PAC, 4K
+# pages, module loading, and upstream's fki.ko and xnu.ko built and loaded
+name: xnulinux-probe
+on:
+  push:
+    paths:
+      - .github/workflows/xnulinux-probe.yml
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Host
+        run: |
+          uname -a; head -3 /etc/os-release
+          echo "page size $(getconf PAGESIZE)"; nproc; free -m
+          grep -m1 Features /proc/cpuinfo; lscpu
+          cat /proc/cmdline
+          cat /sys/kernel/security/lockdown || true
+          mokutil --sb-state || true
+          grep -i cma /proc/meminfo || true
+          ls -la /dev/kvm || true
+          grep -E 'CONFIG_(CMA|KPROBES|MODULE_SIG|ARM64_PTR_AUTH|ARM64_4K_PAGES|KALLSYMS|ARM64_VA_BITS|EFI)[_=]' "/boot/config-$(uname -r)" || true
+          sudo cat /proc/iomem
+          sudo dmesg | grep -i -E 'hyper|efi:|pauth|pointer auth|cma' | head -40
+      - name: Upstream modules
+        run: |
+          git clone -q https://github.com/AFK-surf/xnulinux
+          cd xnulinux
+          git log -1 --format='%H %s'
+          K=/lib/modules/$(uname -r)/build
+          [ -d "$K" ] || sudo apt-get install -y -qq "linux-headers-$(uname -r)"
+          make -C "$K" M="$PWD/fki-ko" modules
+          make -C "$K" M="$PWD/xnu-ko" KBUILD_EXTRA_SYMBOLS="$PWD/fki-ko/Module.symvers" modules
+          modinfo fki-ko/fki.ko; modinfo xnu-ko/xnu.ko
+          sudo dmesg -C
+          sudo insmod fki-ko/fki.ko || echo "insmod fki failed: $?"
+          sudo dmesg
+          lsmod | grep -E '^(fki|xnu)' || true
+          ls -la /dev/xnu* || true
