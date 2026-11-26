@@ -71,7 +71,7 @@ pkgs.testers.runNixOSTest {
     import time
 
     uuid = "${rootUuid}"
-    log_filter = "grep -a 'fki:\\|xnu:' | grep -av 'darwin console:' | tail -n 200"
+    log_filter = "grep -av 'darwin console:' | tail -n 150"
 
     def console():
         return machine.succeed("dmesg | ${consoleLines}")
@@ -84,8 +84,10 @@ pkgs.testers.runNixOSTest {
             print(machine.succeed("journalctl -u xnulinux --no-pager; dmesg | " + log_filter))
             raise Exception("modprobe xnu returned: the run ended")
 
+    eol = "\\n"
+
     def send(line):
-        machine.succeed("printf '%s\\n' " + shlex.quote(line) + " >> /var/tmp/console-in")
+        machine.succeed(f"printf '%s{eol}' " + shlex.quote(line) + " >> /var/tmp/console-in")
 
     def wait_console(text, timeout, retry=None):
         deadline = time.time() + timeout
@@ -160,9 +162,20 @@ pkgs.testers.runNixOSTest {
 
     with subtest("PureDarwin's shell answers on the console"):
         try:
-            wait_console("xnulinux-42", 3600, retry="echo xnulinux-$((6*7))")
+            wait_console("root@localhost", 3600)
         finally:
             save("boot")
+        print(f"prompt after {time.time() - start:.0f} s")
+        time.sleep(30)
+        # Which line ending reaches zsh
+        for name, end in [("lf", "\\n"), ("cr", "\\r")]:
+            machine.succeed(f"printf 'echo probe-{name}-$((6*7)){end}' >> /var/tmp/console-in")
+            time.sleep(60)
+        save("probe")
+        if "probe-cr-42" in console():
+            eol = "\\r"
+        elif "probe-lf-42" not in console():
+            raise Exception("no probe reached the shell")
         print(f"shell after {time.time() - start:.0f} s")
         run(1, "uname -a")
         run(2, "sysctl kern.ostype kern.osrelease kern.version hw.ncpu hw.memsize hw.pagesize")
@@ -173,7 +186,7 @@ pkgs.testers.runNixOSTest {
         save("shell")
 
     with subtest("screenshots"):
-        echoes = "echo xnulinux-$((6*7))" in console()
+        echoes = "echo probe-lf-$((6*7))" in console() or "echo probe-cr-$((6*7))" in console()
         noecho = "XNU_CONSOLE_NOECHO=1 " if echoes else ""
         machine.wait_for_unit("getty@tty1.service")
         machine.send_chars(f"clear; {noecho}xnu-console\n")

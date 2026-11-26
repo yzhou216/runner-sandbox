@@ -56,7 +56,29 @@ until sudo dmesg | grep -aq "fki: darwin console:"; do
   check_run; sleep 5
 done
 echo "first console line after $((SECONDS - start)) s"
-wait_console "xnulinux-42" 1800 'echo xnulinux-$((6*7))'
+wait_console "root@localhost" 1800
+echo "prompt after $((SECONDS - start)) s"
+sleep 30
+# Which line ending reaches zsh, and whether xnu.ko reads the file at all
+# (its access time moves past its modification time when read)
+probe() {	# probe NAME BYTES
+  printf "$2" >> /var/tmp/console-in
+  stat -c "$1 written: size %s access %x modify %y" /var/tmp/console-in
+  sleep 20
+  stat -c "$1 after 20 s: access %x" /var/tmp/console-in
+  console | tail -n 3 | cut -c1-200
+}
+probe enter '\n'
+probe lf 'echo probe-lf-$((6*7))\n'
+probe cr 'echo probe-cr-$((6*7))\r'
+probe slow ''
+for c in e c h o ' ' s l o w - '$' '(' '(' 6 '*' 7 ')' ')'; do printf '%s' "$c" >> /var/tmp/console-in; sleep 0.3; done
+printf '\r' >> /var/tmp/console-in; sleep 20; console | tail -n 3 | cut -c1-200
+save probe
+if console | grep -qF -e "probe-cr-42" -e "slow-42"; then eol='\r'
+elif console | grep -qF "probe-lf-42"; then eol='\n'
+else echo "no probe reached the shell" >&2; exit 1; fi
+send() { printf "%s$eol" "$1" >> /var/tmp/console-in; }
 echo "shell after $((SECONDS - start)) s"
 save boot
 run 1 "uname -a"
