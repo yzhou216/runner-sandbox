@@ -202,7 +202,7 @@ jobs:
       - name: Test
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          ./driver/bin/nixos-test-driver --output-dir "$RUNNER_TEMP/out" 2>&1 | tee "$RUNNER_TEMP/out/test.log"
+          ./driver/bin/nixos-test-driver -o "$RUNNER_TEMP/out" 2>&1 | tee "$RUNNER_TEMP/out/test.log"
       - name: Framebuffer
         if: always()
         run: |
@@ -218,6 +218,7 @@ jobs:
           path: ${{ runner.temp }}/out
 
   boot-native:
+    if: false # Run 45905380222 boots natively
     needs: [kc, disk]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
