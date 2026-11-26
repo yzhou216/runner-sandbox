@@ -88,9 +88,11 @@ The service follows these rules:
 1. Objects are written once and never replaced.  A new run writes new
    objects, so no cache or row goes stale, and a run can always be repeated
    from the inputs it names.
+
 2. An object is written before the row that names it, and a row is deleted
    before its object.  A failure in between leaves an orphaned object, which
    a periodic sweep removes, and never a row that names nothing.
+
 3. Each tenant has a prefix of its own, within which sources are named by
    their content:
 
@@ -102,9 +104,11 @@ The service follows these rules:
    Naming by content stores a source that is uploaded twice only once.  The
    prefix keeps tenants from probing for the files of others by checksum, and
    makes deleting a tenant or measuring its usage a matter of one prefix.
+
 4. Clients never hold credentials for the store.  The service hands out
    presigned URLs for uploads and downloads, which S3, Google Cloud Storage,
    and Azure support, and streams the files itself from a local disk.
+
 5. A worker takes a run from the queue, runs geoai with the URLs of the
    inputs and the output, and records the result.  geoai itself never
    connects to the database, so it works the same with or without the
