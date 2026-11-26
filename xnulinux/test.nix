@@ -39,12 +39,9 @@ pkgs.testers.runNixOSTest {
       boot.kernelPackages = pkgs.linuxPackages_latest;
       boot.extraModulePackages = [ config.boot.kernelPackages.xnulinux ];
       # Linux keeps the first 4 GiB of the VM's 8, and fki.ko's carve-out is
-      # the memory above it.  fki.ko walks 4-level page tables, and QEMU's max
-      # CPU has LPA2, with which this kernel would use 52-bit addresses and 5
-      # levels; arm64.nolva turns LPA2 off.
+      # the memory above it
       boot.kernelParams = [
         "mem=4G"
-        "arm64.nolva"
         "nokaslr"
         "log_buf_len=128M"
       ];
@@ -59,9 +56,13 @@ pkgs.testers.runNixOSTest {
         memorySize = 8192;
         cores = 4;
         diskSize = 4096;
-        # Last -cpu wins; the implementation-defined PAC algorithm is much
-        # faster under TCG than QARMA5
-        qemu.options = [ "-cpu max,pauth-impdef=on" ];
+        # The runner's CPU, whose PAC fki.ko needs.  QEMU's max CPU also has
+        # LPA2, with which this kernel uses 5-level page tables that fki.ko
+        # does not walk, and S1PIE, with which Linux reads fki.ko's
+        # descriptors through its permission indirection, as read-only.  The
+        # last -cpu wins, and the implementation-defined PAC algorithm is much
+        # faster under TCG than QARMA5.
+        qemu.options = [ "-cpu neoverse-n2,pauth-impdef=on" ];
       };
     };
 

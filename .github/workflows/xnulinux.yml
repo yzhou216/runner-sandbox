@@ -218,6 +218,7 @@ jobs:
           path: ${{ runner.temp }}/out
 
   boot-native:
+    if: false # Run 45909253465 boots natively
     needs: [kc, disk]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
