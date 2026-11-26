@@ -18,11 +18,15 @@ let
   # Lines of XNU's /dev/console, which fki.ko logs
   consoleLines = "sed -un 's/^.*fki: darwin console: //p'";
 
+  # The same for a terminal: fki.ko writes escape and backspace bytes out as
+  # \x1b and \x08
+  renderLines = "sed -un '/fki: darwin console: /{s/^.*fki: darwin console: //; s/\\\\x1b/\\x1b/g; s/\\\\x08/\\x08/g; p}'";
+
   # Interactive terminal on XNU's /dev/console, like upstream's xnu-console.sh
   xnuConsole = pkgs.writeShellScriptBin "xnu-console" ''
     if [ "''${1:-}" = --new ]; then follow=-W; else follow=-w; fi
     [ "''${XNU_CONSOLE_NOECHO:-0}" = 1 ] && stty -echo
-    dmesg "$follow" | ${consoleLines} &
+    dmesg "$follow" | ${renderLines} &
     trap 'kill $!' EXIT
     while IFS= read -r line; do printf '%s\n' "$line" >> /var/tmp/console-in; done
   '';
@@ -199,7 +203,7 @@ pkgs.testers.runNixOSTest {
             " modinfo -F filename fki xnu; " + noecho + "xnu-console --new\n"
         )
         time.sleep(10)
-        for cmd in ["uname -a", "sysctl kern.version hw.ncpu hw.memsize", "ls /"]:
+        for cmd in ["unsetopt prompt_sp", "uname -a", "sw_vers", "sysctl hw.ncpu hw.memsize", "launchctl list"]:
             machine.send_chars(cmd + "\n")
             time.sleep(30)
         machine.screenshot("linux-and-darwin")

@@ -93,9 +93,9 @@ save shell
 noecho=0; console | grep -F -e 'echo probe-lf-$((6*7))' -e 'echo probe-cr-$((6*7))' >/dev/null && noecho=1
 Xvfb :99 -screen 0 1280x800x24 & sleep 3
 export DISPLAY=:99
-xterm -geometry 160x50+0+0 -fa 'DejaVu Sans Mono' -fs 10 -e bash -c "uname -a; lsmod | grep -E '^(fki|xnu) '; XNU_CONSOLE_NOECHO=$noecho bash $S/console.sh --new" &
+xterm -geometry 160x50+0+0 -fa 'DejaVu Sans Mono' -fs 10 -e bash -c "clear; uname -a; lsmod | grep -E '^(fki|xnu) '; XNU_CONSOLE_NOECHO=$noecho bash $S/console.sh --new" &
 sleep 5
-for c in "uname -a" "sysctl kern.version hw.ncpu hw.memsize" "ls /" "launchctl list"; do
+for c in "unsetopt prompt_sp" "uname -a" "sw_vers" "sysctl hw.ncpu hw.memsize" "launchctl list"; do
   xdotool type --delay 50 "$c"; xdotool key Return; sleep 10
 done
 ffmpeg -loglevel error -f x11grab -video_size 1280x800 -i :99 -frames:v 1 "$OUT/xterm.png"
