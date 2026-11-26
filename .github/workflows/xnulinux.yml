@@ -1,0 +1,230 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# linuxPackages.xnulinux (nixpkgs/xnulinux.patch) built and booted: XNU's free
+# kernel collection built with upstream's scripts, PureDarwin's userland on an
+# HFS+ disk made on a Mac, and both booted by the Nixpkgs modules in a NixOS
+# VM and by upstream's own boot script on the runner's Ubuntu kernel
+name: xnulinux
+on:
+  push:
+    paths:
+      - .github/workflows/xnulinux.yml
+      - nixpkgs/**
+      - xnulinux/**
+defaults:
+  run:
+    shell: bash
+env:
+  XNULINUX_REV: 803cfe0b7dad434e6eeb98d254b2c14cadc991d8
+  PD_REV: b3b4b2812fdd1c5c251dc3089b5a1a9e00d29970
+  NIXPKGS_REV: 2786a2a72088ecf32aea5b3ec52099e6a7cff78f
+jobs:
+  module:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: Nixpkgs with the package
+        run: |
+          git init -q "$RUNNER_TEMP/nixpkgs"
+          git -C "$RUNNER_TEMP/nixpkgs" fetch -q --depth 1 https://github.com/NixOS/nixpkgs "$NIXPKGS_REV"
+          git -C "$RUNNER_TEMP/nixpkgs" checkout -q FETCH_HEAD
+          git -C "$RUNNER_TEMP/nixpkgs" apply "$PWD/nixpkgs/xnulinux.patch"
+      - name: Build for Linux 6.18 and the latest kernel
+        run: |
+          nix-build "$RUNNER_TEMP/nixpkgs" -A linuxPackages.xnulinux -A linuxPackages_latest.xnulinux -o xnulinux
+          for r in xnulinux*; do
+            find -L "$r" -type f | sort
+            find -L "$r" -name '*.ko*' -exec modinfo {} \;
+          done
+
+  kc:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/kc
+          key: xnulinux-kc-${{ env.XNULINUX_REV }}-1
+      - name: Source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone -q https://github.com/AFK-surf/xnulinux "$HOME/xnulinux"
+          git -C "$HOME/xnulinux" checkout -q "$XNULINUX_REV"
+          df -h / "$HOME"; nproc; free -m
+      - name: XNU (macOS-DroidVM's toolchain and xnu-12377)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /lib/firmware/xnu
+          bash "$HOME/xnulinux/scripts/vm-xnu-build.sh"
+          df -h /
+      - name: xnulinux's kexts
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: bash xnulinux/kexts.sh "$HOME/xnulinux"
+      - name: Kernel collection without Apple's kexts
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/kc"
+          OUT="$RUNNER_TEMP/kc/kc-free.bin" bash "$HOME/xnulinux/scripts/free-kc/build.sh"
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/kc/kc-free.bin"
+          cp ~/w/dvm/out/k27/kernel-k27.macho ~/w/free-kc/kclink.log "$RUNNER_TEMP/kc/"
+      - run: ls -la "$RUNNER_TEMP/kc"; sha256sum "$RUNNER_TEMP/kc"/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kc
+          path: ${{ runner.temp }}/kc
+
+  pd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pd
+          key: xnulinux-pd-root-${{ env.PD_REV }}-1
+      - uses: cachix/install-nix-action@v31
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          extra_nix_config: |
+            extra-substituters = https://hydra.lab004.dev
+            extra-trusted-public-keys = hydra.lab004.dev-1:gPXVaEarmWgIFDuqmpf+9gXetBCC9jxzkZg+CZ8cC+M=
+      - name: Plan
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          df -h /; nproc; free -m
+          nix build --dry-run "git+https://github.com/AFK-surf/PureDarwin?submodules=1&rev=$PD_REV#image-arm64-virt-minimal" 2>&1 | tail -n 100
+      - name: PureDarwin's arm64 image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          nix build -L --keep-going "git+https://github.com/AFK-surf/PureDarwin?submodules=1&rev=$PD_REV#image-arm64-virt-minimal" -o pd-image
+          find -L pd-image -maxdepth 2 | head
+      - name: Root file system
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone -q https://github.com/AFK-surf/xnulinux "$RUNNER_TEMP/xnulinux"
+          git -C "$RUNNER_TEMP/xnulinux" checkout -q "$XNULINUX_REV"
+          img=$(find -L pd-image -name '*.img' | head -1)
+          if [ -z "$img" ]; then
+            z=$(find -L pd-image -name '*.img.zst' | head -1)
+            zstd -d "$z" -o "$RUNNER_TEMP/pd.img"; img=$RUNNER_TEMP/pd.img
+          fi
+          mkdir -p "$RUNNER_TEMP/pd"
+          bash "$RUNNER_TEMP/xnulinux/scripts/puredarwin-root.sh" "$img" "$RUNNER_TEMP/pd/root.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pd
+          path: ${{ runner.temp }}/pd
+
+  disk:
+    needs: pd
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/disk.tar.zst
+          key: xnulinux-pd-disk-${{ env.PD_REV }}-${{ env.XNULINUX_REV }}-1
+      - uses: actions/download-artifact@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          name: pd
+          path: ${{ runner.temp }}/pd
+      - name: HFS+ disk
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          command -v zstd || brew install zstd
+          git clone -q https://github.com/AFK-surf/xnulinux "$RUNNER_TEMP/xnulinux"
+          git -C "$RUNNER_TEMP/xnulinux" checkout -q "$XNULINUX_REV"
+          mkdir -p "$RUNNER_TEMP/disk"
+          bash "$RUNNER_TEMP/xnulinux/scripts/mk-puredarwin-disk.sh" "$RUNNER_TEMP/pd/root.tar.gz" "$RUNNER_TEMP/disk/pd.img" > "$RUNNER_TEMP/disk/pd.conf"
+          cat "$RUNNER_TEMP/disk/pd.conf"; ls -la "$RUNNER_TEMP/disk"
+          tar -C "$RUNNER_TEMP/disk" -cf - pd.img pd.conf | zstd -T0 > "$RUNNER_TEMP/disk.tar.zst"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: disk
+          path: ${{ runner.temp }}/disk.tar.zst
+
+  boot-nixos:
+    needs: [kc, disk]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: kc
+          path: ${{ runner.temp }}/kc
+      - uses: actions/download-artifact@v4
+        with:
+          name: disk
+          path: ${{ runner.temp }}
+      - uses: cachix/install-nix-action@v31
+      - name: Nixpkgs with the package
+        run: |
+          git init -q "$RUNNER_TEMP/nixpkgs"
+          git -C "$RUNNER_TEMP/nixpkgs" fetch -q --depth 1 https://github.com/NixOS/nixpkgs "$NIXPKGS_REV"
+          git -C "$RUNNER_TEMP/nixpkgs" checkout -q FETCH_HEAD
+          git -C "$RUNNER_TEMP/nixpkgs" apply "$PWD/nixpkgs/xnulinux.patch"
+          git clone -q https://github.com/AFK-surf/xnulinux "$RUNNER_TEMP/xnulinux"
+          git -C "$RUNNER_TEMP/xnulinux" checkout -q "$XNULINUX_REV"
+      - name: Test driver
+        run: |
+          mkdir -p "$RUNNER_TEMP/disk"
+          zstd -d < "$RUNNER_TEMP/disk.tar.zst" | tar -C "$RUNNER_TEMP/disk" -xf -
+          . "$RUNNER_TEMP/disk/pd.conf"
+          nix-build xnulinux/test.nix -A driver -o driver --arg nixpkgs "$RUNNER_TEMP/nixpkgs" \
+            --arg kc "$RUNNER_TEMP/kc/kc-free.bin" --arg disk "$RUNNER_TEMP/disk/pd.img" --argstr rootUuid "$ROOT_UUID"
+      - name: Test
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          ./driver/bin/nixos-test-driver --output-dir "$RUNNER_TEMP/out" 2>&1 | tee "$RUNNER_TEMP/out/test.log"
+      - name: Framebuffer
+        if: always()
+        run: |
+          for f in "$RUNNER_TEMP"/out/*-fb.raw; do
+            [ -s "$f" ] && python3 -I "$RUNNER_TEMP/xnulinux/tools/hosted/fb2png.py" "$f" 1280 800 "${f%.raw}.png"
+            rm -f "$f"
+          done
+          ls -la "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-nixos
+          path: ${{ runner.temp }}/out
+
+  boot-native:
+    needs: [kc, disk]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: kc
+          path: ${{ runner.temp }}/kc
+      - uses: actions/download-artifact@v4
+        with:
+          name: disk
+          path: ${{ runner.temp }}
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xterm xdotool ffmpeg zstd "linux-headers-$(uname -r)" >/dev/null
+          git clone -q https://github.com/AFK-surf/xnulinux "$RUNNER_TEMP/xnulinux"
+          git -C "$RUNNER_TEMP/xnulinux" checkout -q "$XNULINUX_REV"
+          mkdir -p "$RUNNER_TEMP/disk"
+          zstd -d < "$RUNNER_TEMP/disk.tar.zst" | tar -C "$RUNNER_TEMP/disk" -xf -
+      - name: Boot
+        run: bash xnulinux/boot-native.sh "$RUNNER_TEMP/xnulinux" "$RUNNER_TEMP/kc/kc-free.bin" "$RUNNER_TEMP/disk" "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-native
+          path: ${{ runner.temp }}/out

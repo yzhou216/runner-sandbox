@@ -1,0 +1,106 @@
+From dbe1284e31f2ed7791aad2136ce1c2f8da7569da Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Thu, 26 Nov 2026 13:24:31 -0800
+Subject: [PATCH] linuxPackages.xnulinux: init at 0-unstable-2026-11-26
+
+---
+ pkgs/os-specific/linux/xnulinux/default.nix | 73 +++++++++++++++++++++
+ pkgs/top-level/linux-kernels.nix            |  2 +
+ 2 files changed, 75 insertions(+)
+ create mode 100644 pkgs/os-specific/linux/xnulinux/default.nix
+
+diff --git a/pkgs/os-specific/linux/xnulinux/default.nix b/pkgs/os-specific/linux/xnulinux/default.nix
+new file mode 100644
+index 000000000000..b74c39028769
+--- /dev/null
++++ b/pkgs/os-specific/linux/xnulinux/default.nix
+@@ -0,0 +1,73 @@
++{
++  lib,
++  stdenv,
++  fetchFromGitHub,
++  kernel,
++  kernelModuleMakeFlags,
++  unstableGitUpdater,
++}:
++
++stdenv.mkDerivation {
++  pname = "xnulinux";
++  version = "0-unstable-2026-11-26";
++
++  src = fetchFromGitHub {
++    owner = "AFK-surf";
++    repo = "xnulinux";
++    rev = "803cfe0b7dad434e6eeb98d254b2c14cadc991d8";
++    hash = "sha256-45QRA9u9G+dPrKLf8Be6KV8Dy9ZMsZz0Y/RH6UOEOYg=";
++  };
++
++  __structuredAttrs = true;
++  strictDeps = true;
++
++  nativeBuildInputs = kernel.moduleBuildDependencies;
++
++  makeFlags = kernelModuleMakeFlags ++ [
++    "-C"
++    "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
++    "INSTALL_MOD_PATH=${placeholder "out"}"
++  ];
++
++  # xnu.ko links against the symbols fki.ko exports
++  buildPhase = ''
++    runHook preBuild
++
++    make "''${makeFlags[@]}" M="$PWD/fki-ko" modules
++    make "''${makeFlags[@]}" M="$PWD/xnu-ko" KBUILD_EXTRA_SYMBOLS="$PWD/fki-ko/Module.symvers" modules
++
++    runHook postBuild
++  '';
++
++  installPhase = ''
++    runHook preInstall
++
++    make "''${makeFlags[@]}" M="$PWD/fki-ko" modules_install
++    make "''${makeFlags[@]}" M="$PWD/xnu-ko" modules_install
++
++    runHook postInstall
++  '';
++
++  passthru.updateScript = unstableGitUpdater { };
++
++  meta = {
++    description = "Kernel modules that run XNU, the macOS kernel, inside arm64 Linux";
++    longDescription = ''
++      xnulinux runs a source-built XNU kernel collection as a Linux kernel
++      module, so that Darwin userspace runs natively next to Linux processes.
++      fki.ko lends XNU the host's CPUs, memory, files and network, and xnu.ko
++      loads the kernel collection from the firmware search path and runs it.
++      The kernel collection and the system disk are built separately, as the
++      upstream documentation describes.
++    '';
++    homepage = "https://github.com/AFK-surf/xnulinux";
++    license = with lib.licenses; [
++      gpl2Only # fki.ko
++      apple-psl20 # xnu.ko
++    ];
++    maintainers = with lib.maintainers; [ yiyu ];
++    platforms = [ "aarch64-linux" ];
++    # Upstream asks that the non-GPL xnu.ko be built on the host, not shipped prebuilt
++    hydraPlatforms = [ ];
++  };
++}
+diff --git a/pkgs/top-level/linux-kernels.nix b/pkgs/top-level/linux-kernels.nix
+index d93b3ee61e3c..ad2f152b1992 100644
+--- a/pkgs/top-level/linux-kernels.nix
++++ b/pkgs/top-level/linux-kernels.nix
+@@ -550,6 +550,8 @@ in
+ 
+         x86_energy_perf_policy = callPackage ../os-specific/linux/x86_energy_perf_policy { };
+ 
++        xnulinux = callPackage ../os-specific/linux/xnulinux { };
++
+         xone =
+           if lib.versionAtLeast kernel.version "5.4" then callPackage ../os-specific/linux/xone { } else null;
+ 
+-- 
+2.56.0
+
