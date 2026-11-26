@@ -41,9 +41,15 @@ wait_console() {	# wait_console TEXT TIMEOUT [RETRY]
 run() { send "$2; echo xnulinux-done-$1-\$((6*7))"; wait_console "xnulinux-done-$1-42" 600; }
 
 cd "$X"
+# fki.ko without a carve-out: xnulinux-boot.sh keeps a loaded fki.ko built
+# from the same source, and otherwise loads it with the carve-out of its 16 GB
+# VM, which is the runner's RAM
+make -s -C "/lib/modules/$(uname -r)/build" M="$PWD/fki-ko" modules
+sudo insmod fki-ko/fki.ko carve_mb=0
 start=$SECONDS
 MAC_CONF=$DD/pd.conf DISK=/var/tmp/pd.img IMAGE=xnu/kc-free.bin TRUSTCACHE='' GPU=off RAM_MB=${RAM_MB:-2048} \
-  BOOTARGS="amfi_get_out_of_my_way=1 lp-sip0=2050 bt-transport-override=10 -v" bash scripts/xnulinux-boot.sh
+  BOOTARGS="amfi_get_out_of_my_way=1 lp-sip0=2050 bt-transport-override=10 -v" bash scripts/xnulinux-boot.sh ||
+  { save boot-failed; exit 1; }
 deadline=$((SECONDS + 1800))
 until sudo dmesg | grep -aq "fki: darwin console:"; do
   [ $SECONDS -lt $deadline ] || { save timeout; echo "no console output" >&2; exit 1; }

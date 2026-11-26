@@ -105,7 +105,7 @@ pkgs.testers.runNixOSTest {
             f" dmesg > /var/tmp/{name}-dmesg.txt; cp /var/tmp/xnu-fb.raw /var/tmp/{name}-fb.raw"
         )
         for f in ["console.txt", "dmesg.txt", "fb.raw"]:
-            machine.copy_from_vm(f"/var/tmp/{name}-{f}")
+            machine.copy_from_machine(f"/var/tmp/{name}-{f}")
 
     machine.wait_for_unit("multi-user.target", timeout=dt.timedelta(hours=1))
     machine.succeed("dmesg -n 1")
