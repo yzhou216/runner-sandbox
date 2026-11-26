@@ -32,13 +32,12 @@ jobs:
           git -C "$RUNNER_TEMP/nixpkgs" fetch -q --depth 1 https://github.com/NixOS/nixpkgs "$NIXPKGS_REV"
           git -C "$RUNNER_TEMP/nixpkgs" checkout -q FETCH_HEAD
           git -C "$RUNNER_TEMP/nixpkgs" apply "$PWD/nixpkgs/xnulinux.patch"
-      - name: Build for Linux 6.18 and the latest kernel
+      - name: Build for the latest kernel
         run: |
-          nix-build "$RUNNER_TEMP/nixpkgs" -A linuxPackages.xnulinux -A linuxPackages_latest.xnulinux -o xnulinux
-          for r in xnulinux*; do
-            find -L "$r" -type f | sort
-            find -L "$r" -name '*.ko*' -exec modinfo {} \;
-          done
+          echo "broken on Linux 6.18: $(nix eval -f "$RUNNER_TEMP/nixpkgs" linuxPackages.xnulinux.meta.broken)"
+          nix-build "$RUNNER_TEMP/nixpkgs" -A linuxPackages_latest.xnulinux -o xnulinux
+          find -L xnulinux -type f | sort
+          find -L xnulinux -name '*.ko*' -exec modinfo {} \;
 
   kc:
     runs-on: ubuntu-24.04-arm
@@ -62,6 +61,15 @@ jobs:
           sudo mkdir -p /lib/firmware/xnu
           bash "$HOME/xnulinux/scripts/vm-xnu-build.sh"
           df -h /
+      - name: Kernel slots for the free collection
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          rc=0; python3 -I xnulinux/segaddrs.py ~/w/dvm "$HOME/xnulinux/scripts/free-kc/layout.json" || rc=$?
+          [ "$rc" = 0 ] || [ "$rc" = 3 ] || exit "$rc"
+          if [ "$rc" = 3 ]; then
+            (cd ~/w/dvm && PATH=$PATH:/usr/lib/llvm-21/bin JOBS=12 bash k27/build-kernel27.sh 2>&1 | tail -15)
+            python3 -I xnulinux/segaddrs.py ~/w/dvm "$HOME/xnulinux/scripts/free-kc/layout.json"
+          fi
       - name: xnulinux's kexts
         if: steps.cache.outputs.cache-hit != 'true'
         run: bash xnulinux/kexts.sh "$HOME/xnulinux"
@@ -77,8 +85,19 @@ jobs:
         with:
           name: kc
           path: ${{ runner.temp }}/kc
+      - name: Logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/kc-logs"
+          cp ~/w/dvm/k27/segaddrs.sh ~/w/free-kc/*.log "$RUNNER_TEMP/kc-logs/" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: kc-logs
+          path: ${{ runner.temp }}/kc-logs
 
   pd:
+    if: false # Wait for run 45898903074 to save its PureDarwin cache
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     steps:
@@ -122,6 +141,7 @@ jobs:
           path: ${{ runner.temp }}/pd
 
   disk:
+    if: false
     needs: pd
     runs-on: macos-latest
     steps:
@@ -152,6 +172,7 @@ jobs:
           path: ${{ runner.temp }}/disk.tar.zst
 
   boot-nixos:
+    if: false
     needs: [kc, disk]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 350
@@ -200,6 +221,7 @@ jobs:
           path: ${{ runner.temp }}/out
 
   boot-native:
+    if: false
     needs: [kc, disk]
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120

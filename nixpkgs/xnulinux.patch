@@ -1,20 +1,20 @@
-From dbe1284e31f2ed7791aad2136ce1c2f8da7569da Mon Sep 17 00:00:00 2001
+From 4e14d3c8cf1e14c5abb55edef1dfb98270b3c243 Mon Sep 17 00:00:00 2001
 From: Yiyu Zhou <yiyu@yiyuzhou.io>
 Date: Thu, 26 Nov 2026 13:24:31 -0800
-Subject: [PATCH] linuxPackages.xnulinux: init at 0-unstable-2026-11-26
+Subject: [PATCH] linuxPackages.xnulinux: init at 0-unstable-2026-11-27
 
 ---
- pkgs/os-specific/linux/xnulinux/default.nix | 73 +++++++++++++++++++++
+ pkgs/os-specific/linux/xnulinux/default.nix | 75 +++++++++++++++++++++
  pkgs/top-level/linux-kernels.nix            |  2 +
- 2 files changed, 75 insertions(+)
+ 2 files changed, 77 insertions(+)
  create mode 100644 pkgs/os-specific/linux/xnulinux/default.nix
 
 diff --git a/pkgs/os-specific/linux/xnulinux/default.nix b/pkgs/os-specific/linux/xnulinux/default.nix
 new file mode 100644
-index 000000000000..b74c39028769
+index 000000000000..641235c36651
 --- /dev/null
 +++ b/pkgs/os-specific/linux/xnulinux/default.nix
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,75 @@
 +{
 +  lib,
 +  stdenv,
@@ -26,7 +26,7 @@ index 000000000000..b74c39028769
 +
 +stdenv.mkDerivation {
 +  pname = "xnulinux";
-+  version = "0-unstable-2026-11-26";
++  version = "0-unstable-2026-11-27";
 +
 +  src = fetchFromGitHub {
 +    owner = "AFK-surf";
@@ -86,6 +86,8 @@ index 000000000000..b74c39028769
 +    platforms = [ "aarch64-linux" ];
 +    # Upstream asks that the non-GPL xnu.ko be built on the host, not shipped prebuilt
 +    hydraPlatforms = [ ];
++    # kernel_neon_begin takes a buffer since 6.19
++    broken = kernel.kernelOlder "6.19";
 +  };
 +}
 diff --git a/pkgs/top-level/linux-kernels.nix b/pkgs/top-level/linux-kernels.nix

@@ -35,6 +35,8 @@ pkgs.testers.runNixOSTest {
   nodes.machine =
     { config, pkgs, ... }:
     {
+      # xnulinux needs Linux 6.19 or later
+      boot.kernelPackages = pkgs.linuxPackages_latest;
       boot.extraModulePackages = [ config.boot.kernelPackages.xnulinux ];
       # Linux keeps the first 4 GiB of the VM's 8, and fki.ko's carve-out is
       # the memory above it
