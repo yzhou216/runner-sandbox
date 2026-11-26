@@ -26,12 +26,12 @@ save() {
   [ -s /var/tmp/xnu-fb.raw ] && python3 -I "$X/tools/hosted/fb2png.py" /var/tmp/xnu-fb.raw 1280 800 "$OUT/$1-fb.png" || true
 }
 check_run() {
-  if sudo dmesg | grep -aq "XNU panic"; then save panic; echo "the hosted kernel panicked" >&2; exit 1; fi
+  if sudo dmesg | grep -a "XNU panic" >/dev/null; then save panic; echo "the hosted kernel panicked" >&2; exit 1; fi
   if ! pgrep -f "insmod xnu-ko/xnu.ko" >/dev/null; then save ended; echo "insmod returned: the run ended" >&2; exit 1; fi
 }
 wait_console() {	# wait_console TEXT TIMEOUT [RETRY]
   local deadline=$((SECONDS + $2))
-  until console | grep -qF -- "$1"; do
+  until console | grep -F -- "$1" >/dev/null; do
     [ $SECONDS -lt $deadline ] || { save timeout; echo "no '$1' on the console after $2 s" >&2; exit 1; }
     check_run
     [ -z "${3:-}" ] || send "$3"
@@ -51,7 +51,7 @@ MAC_CONF=$DD/pd.conf DISK=/var/tmp/pd.img IMAGE=xnu/kc-free.bin TRUSTCACHE='' GP
   BOOTARGS="amfi_get_out_of_my_way=1 lp-sip0=2050 bt-transport-override=10 -v" bash scripts/xnulinux-boot.sh ||
   { save boot-failed; exit 1; }
 deadline=$((SECONDS + 1800))
-until sudo dmesg | grep -aq "fki: darwin console:"; do
+until sudo dmesg | grep -a "fki: darwin console:" >/dev/null; do
   [ $SECONDS -lt $deadline ] || { save timeout; echo "no console output" >&2; exit 1; }
   check_run; sleep 5
 done
@@ -75,8 +75,8 @@ probe slow ''
 for c in e c h o ' ' s l o w - '$' '(' '(' 6 '*' 7 ')' ')'; do printf '%s' "$c" >> /var/tmp/console-in; sleep 0.3; done
 printf '\r' >> /var/tmp/console-in; sleep 20; console | tail -n 3 | cut -c1-200
 save probe
-if console | grep -qF -e "probe-cr-42" -e "slow-42"; then eol='\r'
-elif console | grep -qF "probe-lf-42"; then eol='\n'
+if console | grep -F -e "probe-cr-42" -e "slow-42" >/dev/null; then eol='\r'
+elif console | grep -F "probe-lf-42" >/dev/null; then eol='\n'
 else echo "no probe reached the shell" >&2; exit 1; fi
 send() { printf "%s$eol" "$1" >> /var/tmp/console-in; }
 echo "shell after $((SECONDS - start)) s"
@@ -90,7 +90,7 @@ run 6 "mount"
 save shell
 
 # An xterm on the console, typed into with xdotool, as screenshots
-noecho=0; console | grep -qF 'echo xnulinux-$((6*7))' && noecho=1
+noecho=0; console | grep -F -e 'echo probe-lf-$((6*7))' -e 'echo probe-cr-$((6*7))' >/dev/null && noecho=1
 Xvfb :99 -screen 0 1280x800x24 & sleep 3
 export DISPLAY=:99
 xterm -geometry 160x50+0+0 -fa 'DejaVu Sans Mono' -fs 10 -e bash -c "uname -a; lsmod | grep -E '^(fki|xnu) '; XNU_CONSOLE_NOECHO=$noecho bash $S/console.sh --new" &

@@ -78,7 +78,7 @@ pkgs.testers.runNixOSTest {
         return machine.succeed("dmesg | ${consoleLines}")
 
     def check_run():
-        if machine.execute("dmesg | grep -aq 'XNU panic'")[0] == 0:
+        if machine.execute("dmesg | grep -a 'XNU panic' > /dev/null")[0] == 0:
             print(machine.succeed("dmesg | " + log_filter))
             raise Exception("the hosted kernel panicked")
         if machine.execute("systemctl is-active -q xnulinux")[0] != 0:
@@ -153,7 +153,7 @@ pkgs.testers.runNixOSTest {
             + " ".join(shlex.quote(a) for a in ["modprobe", "xnu", *args])
         )
         deadline = time.time() + 3600
-        while machine.execute("dmesg | grep -aq 'fki: darwin console:'")[0] != 0:
+        while machine.execute("dmesg | grep -a 'fki: darwin console:' > /dev/null")[0] != 0:
             if time.time() > deadline:
                 save("timeout")
                 raise Exception("no console output")
@@ -209,7 +209,7 @@ pkgs.testers.runNixOSTest {
     with subtest("halt from inside ends the run"):
         send("sync; halt")
         machine.wait_until_succeeds(
-            "dmesg | grep -aq 'the hosted system halted'", timeout=dt.timedelta(minutes=15)
+            "dmesg | grep -a 'the hosted system halted' > /dev/null", timeout=dt.timedelta(minutes=15)
         )
         machine.wait_until_fails("systemctl is-active -q xnulinux", timeout=dt.timedelta(minutes=5))
         machine.succeed("if [ -d /sys/module/xnu ]; then rmmod xnu; fi; rmmod fki")
