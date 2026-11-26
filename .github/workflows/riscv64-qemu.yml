@@ -124,17 +124,6 @@ jobs:
           echo "PATHS=$paths" >> "$GITHUB_ENV"
           echo "$paths paths, $(du -sh "$CACHE" | cut -f1)"
 
-      # Debian's binfmt entries have the F flag, so that the kernel opens QEMU
-      # when registering it and builds find it inside Nix's sandbox
-      - name: install qemu
-        if: steps.stop.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q qemu-user-static
-          qemu-riscv64-static --version | head -n 1
-          cat /proc/sys/fs/binfmt_misc/qemu-riscv64
-          grep -q '^flags: .*F' /proc/sys/fs/binfmt_misc/qemu-riscv64
-
       - name: install nix
         if: steps.stop.outputs.cache-hit != 'true'
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
@@ -154,6 +143,25 @@ jobs:
           ref: ${{ env.REV }}
           path: nixpkgs
           persist-credentials: false
+
+      # Nixpkgs' static QEMU, registered with the F flag, so that the kernel
+      # opens it when registering and builds find it inside Nix's sandbox.
+      # Ubuntu's QEMU 8.2 handed a program started with stdin closed its own
+      # executable as stdin (QEMU issue 2448, fixed in 9.1), which failed three
+      # coreutils tests in chunk 3 of run 45652938847.  The kernel tells QEMU
+      # about the P flag itself, so that argv[0] is kept without a wrapper.
+      - name: install qemu
+        if: steps.stop.outputs.cache-hit != 'true'
+        working-directory: nixpkgs
+        run: |
+          qemu=$(nix build --no-link --print-out-paths -f . pkgsStatic.qemu-user)/bin/qemu-riscv64
+          "$qemu" --version
+          [ ! -e /proc/sys/fs/binfmt_misc/qemu-riscv64 ] ||
+            echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-riscv64 > /dev/null
+          magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xf3\x00'
+          mask='\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff'
+          echo ":qemu-riscv64:M::$magic:$mask:$qemu:PF" | sudo tee /proc/sys/fs/binfmt_misc/register > /dev/null
+          cat /proc/sys/fs/binfmt_misc/qemu-riscv64
 
       - name: plan
         if: steps.stop.outputs.cache-hit != 'true'
@@ -220,7 +228,8 @@ jobs:
           key: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}-c${{ matrix.chunk }}
 
       # Each entry holds every path of the ones before it.  The sandbox's 10 GB
-      # of cache is shared with other sessions, so keep only the newest.
+      # of cache is shared with other sessions, so keep only the newest.  Only
+      # this ref's: a run on a release tag once deleted this branch's entry.
       - name: delete superseded cache entries
         if: ${{ !cancelled() && steps.save.outcome == 'success' }}
         env:
@@ -229,7 +238,7 @@ jobs:
         run: |
           gh cache list -R "$GITHUB_REPOSITORY" --key "$KEY" --json key -q '.[].key' | grep -qx "$KEY" ||
             { echo "::warning::$KEY is missing, so the older entries stay"; exit 0; }
-          gh cache list -R "$GITHUB_REPOSITORY" --key riscv64-nix- -L 100 --json key -q '.[].key' |
+          gh cache list -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key riscv64-nix- -L 100 --json key -q '.[].key' |
             grep -vx "$KEY" | while read -r old; do
               gh cache delete "$old" -R "$GITHUB_REPOSITORY"
               echo "deleted $old"
@@ -260,9 +269,10 @@ jobs:
           path: ${{ runner.temp }}/logs.tar
           retention-days: 30
 
-      # The report without the stage 3 files, which all differ from stage 2's
+      # The report without the stage 3 files, which all differ from stage 2's.
+      # A skipped build's null status equals '0' in expressions, hence outcome.
       - name: fixpoint report
-        if: steps.build.outputs.status == '0'
+        if: steps.build.outcome == 'success' && steps.build.outputs.status == '0'
         working-directory: nixpkgs
         run: |
           out=$(nix build --no-link --print-out-paths --argstr system riscv64-linux -f . "$G.tests.fixpoint")
