@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+[package]
+name = "geoai"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+# Own workspace root, so a Cargo.toml in a parent directory is never consulted
+[workspace]
+members = ["xtask"]
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "string", "wrap_help"] }
+dirs = "7.0.0"
+itertools = "0.15.0"
+num-traits = "0.2.19"
+object_store = { version = "0.14.2", default-features = false, features = ["aws", "azure", "gcp", "http"] }
+rayon = "1.12.0"
+smallvec = "1.16.3"
+steel-core = "0.8.3"
+tabwriter = "1.4.1"
+tiff = "0.11.3"
+tokio = { version = "1.54.1", features = ["rt", "io-util"] }
+url = "2.5.9"
+
+# Steel needs seconds to start when unoptimized, which slows tests and debug runs
+[profile.dev.package."*"]
+opt-level = 3
