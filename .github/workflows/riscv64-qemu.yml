@@ -168,23 +168,23 @@ jobs:
       # cache.nixos.org, spares building git, Rust, CA certificates and Python
       # for riscv64, and tzdata 2026f, whose check fails now that zones it
       # makes identical "from now on" are identical (chunk 1 of run
-      # 45775554215).  The amd64 derivations are those with the same outputs.
+      # 45775554215).  The amd64 derivations are those with the same name,
+      # hash and method, which make up a fixed output's path.
       - name: fetch sources natively
         if: steps.stop.outputs.cache-hit != 'true'
         working-directory: nixpkgs
         run: |
           read -ra attrs <<< "$ATTRS"
           # shellcheck disable=SC2016
-          full='def full: if startswith("/") then . else "/nix/store/" + . end;'
+          key='def fixed: .value as $d | $d.outputs.out | select(.hash != null) | "\($d.name) \(.method) \(.hash)";'
           nix build --dry-run --argstr system riscv64-linux -f . "${attrs[@]}" 2>&1 |
             sed -n '/will be built:$/,/will be fetched/p' | { grep -o '/nix/store/[^ ]*\.drv$' || true; } > riscv64.txt
           xargs -r nix derivation show < riscv64.txt |
-            jq -r "$full"' .[] | .outputs[] | select(.hash != null) | .path | full' > fixed.txt
+            jq -r "$key"' .derivations | to_entries[] | fixed' | sort -u > fixed.txt
           nix derivation show -r -f . "${attrs[@]}" |
-            jq -r --rawfile fixed fixed.txt "$full"'
+            jq -r --rawfile fixed fixed.txt "$key"'
               ($fixed | split("\n") | map(select(. != "") | {(.): true}) | add // {}) as $f
-              | to_entries[] | select(any(.value.outputs[]; .hash != null and $f[.path | full]))
-              | .key | full' > amd64.txt
+              | .derivations | to_entries[] | select($f[fixed] // false) | "/nix/store/" + .key' > amd64.txt
           echo "$(wc -l < fixed.txt) fixed outputs to fetch, $(wc -l < amd64.txt) of them from amd64"
           sed 's/$/^*/' amd64.txt | xargs -r nix build --no-link
 
