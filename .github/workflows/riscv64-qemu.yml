@@ -179,7 +179,8 @@ jobs:
           cat /proc/sys/fs/binfmt_misc/qemu-riscv64
           echo "extra-sandbox-paths = $out" | sudo tee -a /etc/nix/nix.conf
           sudo systemctl restart nix-daemon
-          bash=$(nix build --no-link --print-out-paths --argstr system riscv64-linux -f . bash)/bin/bash
+          # The stdenv's shell, already built
+          bash=$(nix build --no-link --print-out-paths --argstr system riscv64-linux -f . bashNonInteractive.out)/bin/bash
           # Builtins only, so that the riscv64 shell itself reads its maps
           # shellcheck disable=SC2016
           "$bash" -c 'ulimit -s unlimited; while read -r l; do case $l in *"[stack]"*) echo "$l";; esac; done < /proc/self/maps'
