@@ -57,7 +57,10 @@ answer_prompts() {
   asked=$(prompts "$1" | wc -l)
   while ((answered < asked)); do
     sleep 1
-    printf '%s\n' "$passphrase" | socat -u - UNIX-CONNECT:"$work/serial.sock"
+    # Stay connected while the guest reads: the UART takes 8 bytes at a
+    # time, and QEMU drops the rest of the input when the client hangs up
+    { printf '%s\n' "$passphrase" && sleep 5; } |
+      socat -u - UNIX-CONNECT:"$work/serial.sock"
     answered=$((answered + 1))
     echo "Answered passphrase prompt $answered"
   done
