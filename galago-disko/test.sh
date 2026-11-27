@@ -132,8 +132,12 @@ case $1 in
     ;;
 
   check)
-    vm bash -s -- "$(readlink -f "$work/toplevel")" <"$here/check.sh" |
+    # Copy the script first, since a command in it may read its stdin
+    vm 'cat >/root/check.sh' <"$here/check.sh"
+    vm bash /root/check.sh "$(readlink -f "$work/toplevel")" </dev/null |
       tee "$out/check.txt"
+    # Fail if the checks did not run to the end
+    grep -qx '== Done' "$out/check.txt"
     ;;
 
   collect)

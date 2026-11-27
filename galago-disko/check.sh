@@ -8,6 +8,7 @@
 # the system that nixos-anywhere installed.
 
 set -uo pipefail
+exec </dev/null
 
 toplevel=$1
 uuid=5b7154e0-3963-19ed-a95b-50c3ae7fa239
@@ -99,4 +100,5 @@ check "snapper takes snapshots of /home/yiyu" \
 check "systemd-boot is installed" bootctl is-installed --quiet
 
 umount /run/fsroot
+echo "== Done"
 exit $failed
