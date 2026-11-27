@@ -14,15 +14,6 @@ let
       (
         { lib, ... }:
         {
-          # Lists, since the flake sets these as strings that nixpkgs rejects
-          nix.settings = {
-            experimental-features = lib.mkForce [
-              "nix-command"
-              "flakes"
-            ];
-            nix-path = lib.mkForce [ "nixpkgs=flake:nixpkgs" ];
-          };
-
           # Headless runner, and the desktop pulls in builds not yet cached
           services.desktopManager.cosmic.enable = lib.mkForce false;
           services.displayManager.cosmic-greeter.enable = lib.mkForce false;

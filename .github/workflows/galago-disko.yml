@@ -8,13 +8,22 @@ defaults:
   run:
     shell: bash
 env:
-  FLAKE: github:yzhou216/flake/7f2b444fc34ffc4b5c37a046c3c9509848095350
+  FLAKE_BASE: 7f2b444fc34ffc4b5c37a046c3c9509848095350
 jobs:
   install:
     runs-on: ubuntu-latest
     timeout-minutes: 330
     steps:
       - uses: actions/checkout@main
+      - name: Check out the flake with the changes under test
+        run: |
+          git clone --quiet https://github.com/yzhou216/flake "$RUNNER_TEMP/flake"
+          cd "$RUNNER_TEMP/flake"
+          git checkout --quiet "$FLAKE_BASE"
+          git apply --index "$GITHUB_WORKSPACE/galago-disko/flake.patch"
+          git -c user.name=runner -c user.email=runner@localhost \
+            commit --quiet -m "galago-disko: changes under test"
+          echo "FLAKE=git+file://$PWD?rev=$(git rev-parse HEAD)" >>"$GITHUB_ENV"
       - uses: wimpysworld/nothing-but-nix@main
         with:
           hatchet-protocol: rampage
@@ -37,10 +46,12 @@ jobs:
         run: galago-disko/test.sh installer
       - name: Install galago with nixos-anywhere
         run: galago-disko/test.sh install
-      - name: Boot galago from its disk
+      - name: Boot galago from its disk, entering the passphrase once
         run: galago-disko/test.sh boot
       - name: Check the disk layout
         run: galago-disko/test.sh check
+      - name: Boot again with the stock unlock units of NixOS
+        run: galago-disko/test.sh stock
       - name: Collect logs
         if: always()
         run: galago-disko/test.sh collect

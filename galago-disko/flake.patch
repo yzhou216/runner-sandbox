@@ -1,0 +1,296 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+The changes under test to github.com/yzhou216/flake, as a diff against
+7f2b444, under the terms of that repository.  It holds the commits
+from 6c29bed through f927230 and, uncommitted, galago's switch to
+disko/bcachefs-encrypted.nix.
+
+diff --git c/disko/bcachefs-encrypted.nix w/disko/bcachefs-encrypted.nix
+new file mode 100644
+index 0000000..d84259e
+--- /dev/null
++++ w/disko/bcachefs-encrypted.nix
+@@ -0,0 +1,42 @@
++/*
++  The layout of bcachefs.nix with the filesystem encrypted by bcachefs
++  and unlocked in the initrd.  Swap is encrypted by dm-crypt instead,
++  since bcachefs cannot hold swap.
++*/
++{ lib, ... }:
++{
++  imports = [ ./bcachefs.nix ];
++
++  disko.devices = {
++    disk.disk1.content.partitions.plainSwap.content = {
++      /*
++        A new random key at every boot rules out hibernation.  To
++        hibernate, put swap on LUKS instead.
++      */
++      randomEncryption = true;
++      resumeDevice = lib.mkForce false;
++    };
++
++    # Passphrase from `nixos-anywhere --disk-encryption-keys /tmp/secret.key <file>`
++    bcachefs_filesystems.mounted_subvolumes.passwordFile = "/tmp/secret.key";
++  };
++
++  # Hibernating would save the session to swap that the next boot cannot read
++  systemd.sleep.settings.Sleep = {
++    AllowHibernation = false;
++    AllowHybridSleep = false;
++    AllowSuspendThenHibernate = false;
++  };
++
++  /*
++    NixOS asks for the passphrase once for each bcachefs mount in the
++    initrd, since `bcachefs unlock --check` succeeds whether or not the
++    key is loaded.  /, /nix, and /home are one filesystem, so unlock it
++    for / alone; systemd mounts the other two after /sysroot, beneath
++    it.
++  */
++  boot.initrd.systemd.services = {
++    unlock-bcachefs-nix.requiredBy = lib.mkForce [ ];
++    unlock-bcachefs-home.requiredBy = lib.mkForce [ ];
++  };
++}
+diff --git c/flake.nix w/flake.nix
+index df4bf1d..e74cecb 100644
+--- c/flake.nix
++++ w/flake.nix
+@@ -184,75 +184,7 @@
+           system = "x86_64-linux";
+           modules = [
+             "${nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal-new-kernel-no-zfs.nix"
+-            (
+-              {
+-                lib,
+-                pkgs,
+-                ...
+-              }:
+-              {
+-                boot.supportedFilesystems.bcachefs = true;
+-                isoImage.squashfsCompression = "zstd";
+-                zramSwap.enable = true;
+-
+-                nix = {
+-                  package = pkgs.lix;
+-                  channel.enable = false;
+-                  settings = {
+-                    experimental-features = "nix-command flakes";
+-                    nix-path = "nixpkgs=flake:nixpkgs";
+-                    use-xdg-base-directories = true;
+-                    auto-optimise-store = true;
+-                  };
+-                };
+-
+-                services = {
+-                  openssh.enable = true;
+-                  desktopManager.cosmic.enable = true;
+-                  displayManager.cosmic-greeter.enable = true;
+-                };
+-
+-                programs = {
+-                  git.enable = true;
+-                  neovim.enable = true;
+-                  tmux.enable = true;
+-
+-                  htop = {
+-                    enable = true;
+-                    settings.show_program_path = false;
+-                  };
+-
+-                  firefox = {
+-                    enable = true;
+-                    package = pkgs.librewolf;
+-                  };
+-                };
+-
+-                networking = {
+-                  networkmanager.wifi.backend = "iwd";
+-                  wireless.iwd = {
+-                    enable = true;
+-                    settings = {
+-                      IPv6.Enabled = true;
+-                      Settings.AutoConnect = true;
+-                    };
+-                  };
+-                };
+-
+-                environment.systemPackages = with pkgs; [
+-                  bcachefs-tools
+-                  disko
+-                  dumbpipe
+-                  nixos-anywhere
+-                  nixos-facter
+-                  sendme
+-                  skim
+-                  tree
+-                  wget
+-                  zstd
+-                ];
+-              }
+-            )
++            ./machines/nixos/bcachefs-iso.nix
+           ];
+         };
+       };
+diff --git c/machines/darwin/iris.nix w/machines/darwin/iris.nix
+index 53990bd..6452831 100644
+--- c/machines/darwin/iris.nix
++++ w/machines/darwin/iris.nix
+@@ -2,7 +2,6 @@
+ {
+   imports = [
+     ./state-version.nix
+-    ../commons.nix
+     ../../systems/darwin/default.nix
+   ];
+ 
+diff --git c/machines/darwin/lexi.nix w/machines/darwin/lexi.nix
+index 8dddc28..872bbaf 100644
+--- c/machines/darwin/lexi.nix
++++ w/machines/darwin/lexi.nix
+@@ -4,7 +4,6 @@
+ 
+   imports = [
+     ./state-version.nix
+-    ../commons.nix
+     ../../systems/darwin/default.nix
+   ];
+ 
+diff --git c/machines/nixos/bcachefs-iso.nix w/machines/nixos/bcachefs-iso.nix
+new file mode 100644
+index 0000000..8350ac4
+--- /dev/null
++++ w/machines/nixos/bcachefs-iso.nix
+@@ -0,0 +1,57 @@
++{
++  pkgs,
++  ...
++}:
++{
++  imports = [ ../../systems/nix.nix ];
++
++  boot.supportedFilesystems.bcachefs = true;
++  isoImage.squashfsCompression = "zstd";
++  zramSwap.enable = true;
++
++  services = {
++    openssh.enable = true;
++    desktopManager.cosmic.enable = true;
++    displayManager.cosmic-greeter.enable = true;
++  };
++
++  programs = {
++    git.enable = true;
++    neovim.enable = true;
++    tmux.enable = true;
++
++    htop = {
++      enable = true;
++      settings.show_program_path = false;
++    };
++
++    firefox = {
++      enable = true;
++      package = pkgs.librewolf;
++    };
++  };
++
++  networking = {
++    networkmanager.wifi.backend = "iwd";
++    wireless.iwd = {
++      enable = true;
++      settings = {
++        IPv6.Enabled = true;
++        Settings.AutoConnect = true;
++      };
++    };
++  };
++
++  environment.systemPackages = with pkgs; [
++    bcachefs-tools
++    disko
++    dumbpipe
++    nixos-anywhere
++    nixos-facter
++    sendme
++    skim
++    tree
++    wget
++    zstd
++  ];
++}
+diff --git c/machines/nixos/galago.nix w/machines/nixos/galago.nix
+index cc73e0c..954eb8e 100644
+--- c/machines/nixos/galago.nix
++++ w/machines/nixos/galago.nix
+@@ -2,9 +2,8 @@
+ {
+   imports = [
+     ./state-version.nix
+-    ../commons.nix
+     ../../systems/nixos/graphic.nix
+-    ../../disko/bcachefs.nix
++    ../../disko/bcachefs-encrypted.nix
+   ];
+ 
+   hardware.system76.enableAll = true;
+diff --git c/machines/nixos/router.nix w/machines/nixos/router.nix
+index 80bb188..2d03f38 100644
+--- c/machines/nixos/router.nix
++++ w/machines/nixos/router.nix
+@@ -2,7 +2,6 @@
+ {
+   imports = [
+     ./state-version.nix
+-    ../commons.nix
+     ../../systems/nixos/commons.nix
+     ../../disko/bcachefs.nix
+   ];
+diff --git c/systems/darwin/default.nix w/systems/darwin/default.nix
+index 99ffbdf..ce65330 100644
+--- c/systems/darwin/default.nix
++++ w/systems/darwin/default.nix
+@@ -5,6 +5,7 @@
+ }:
+ {
+   imports = [
++    ../nix.nix
+     ../nixpkgs.nix
+     ../shell.nix
+     ../dev.nix
+diff --git c/machines/commons.nix w/systems/nix.nix
+similarity index 52%
+rename from machines/commons.nix
+rename to systems/nix.nix
+index 747fc04..d294a1c 100644
+--- c/machines/commons.nix
++++ w/systems/nix.nix
+@@ -1,12 +1,7 @@
+-{ lib, pkgs, ... }:
++{ pkgs, ... }:
+ {
+   nix = {
+-    # Use the Lix implementation of Nix
+-    # TODO: drop the override once nixpkgs stops passing `-Dmimalloc`
+-    # to Lix 2.95, which does not define that Meson option.
+-    package = pkgs.lix.overrideAttrs (old: {
+-      mesonFlags = lib.filter (flag: !lib.hasPrefix "-Dmimalloc=" flag) old.mesonFlags;
+-    });
++    package = pkgs.lix; # Use the Lix implementation of Nix
+     channel.enable = false;
+     settings = {
+       experimental-features = [
+diff --git c/systems/nixos/commons.nix w/systems/nixos/commons.nix
+index 1825d5e..ed2ef99 100644
+--- c/systems/nixos/commons.nix
++++ w/systems/nixos/commons.nix
+@@ -5,6 +5,7 @@
+ }:
+ {
+   imports = [
++    ../nix.nix
+     ../nixpkgs.nix
+     ../shell.nix
+     ../dev.nix
