@@ -144,24 +144,45 @@ jobs:
           path: nixpkgs
           persist-credentials: false
 
-      # Nixpkgs' static QEMU, registered with the F flag, so that the kernel
-      # opens it when registering and builds find it inside Nix's sandbox.
+      - name: checkout the binfmt wrapper
+        if: steps.stop.outputs.cache-hit != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sandbox
+          sparse-checkout: qemu
+          persist-credentials: false
+
+      # Nixpkgs' static QEMU, behind a static wrapper registered with the F
+      # flag, so that the kernel opens it when registering and builds inside
+      # Nix's sandbox find it; the sandbox also gets QEMU's store path.
       # Ubuntu's QEMU 8.2 handed a program started with stdin closed its own
       # executable as stdin (QEMU issue 2448, fixed in 9.1), which failed three
-      # coreutils tests in chunk 3 of run 45652938847.  The kernel tells QEMU
-      # about the P flag itself, so that argv[0] is kept without a wrapper.
+      # coreutils tests in chunk 3 of run 45652938847.  The wrapper passes QEMU
+      # a 4000 MiB stack, since QEMU takes the chain's `ulimit -s unlimited` to
+      # mean 8 MiB, which stage 1 overflowed compiling GHC.Arr in chunk 2 of
+      # run 45873033892.
       - name: install qemu
         if: steps.stop.outputs.cache-hit != 'true'
         working-directory: nixpkgs
         run: |
-          qemu=$(nix build --no-link --print-out-paths -f . pkgsStatic.qemu-user)/bin/qemu-riscv64
-          "$qemu" --version
+          out=$(nix build --no-link --print-out-paths -f . pkgsStatic.qemu-user)
+          "$out/bin/qemu-riscv64" --version
+          wrapper=/usr/local/libexec/qemu-riscv64-stack
+          sudo mkdir -p "${wrapper%/*}"
+          sudo gcc -static -O2 -Wall -Werror -DQEMU="\"$out/bin/qemu-riscv64\"" -DSTACK='"4000M"' \
+            -o "$wrapper" ../sandbox/qemu/binfmt-stack.c
           [ ! -e /proc/sys/fs/binfmt_misc/qemu-riscv64 ] ||
             echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-riscv64 > /dev/null
           magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xf3\x00'
           mask='\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff'
-          echo ":qemu-riscv64:M::$magic:$mask:$qemu:PF" | sudo tee /proc/sys/fs/binfmt_misc/register > /dev/null
+          echo ":qemu-riscv64:M::$magic:$mask:$wrapper:PF" | sudo tee /proc/sys/fs/binfmt_misc/register > /dev/null
           cat /proc/sys/fs/binfmt_misc/qemu-riscv64
+          echo "extra-sandbox-paths = $out" | sudo tee -a /etc/nix/nix.conf
+          sudo systemctl restart nix-daemon
+          bash=$(nix build --no-link --print-out-paths --argstr system riscv64-linux -f . bash)/bin/bash
+          # Builtins only, so that the riscv64 shell itself reads its maps
+          # shellcheck disable=SC2016
+          "$bash" -c 'ulimit -s unlimited; while read -r l; do case $l in *"[stack]"*) echo "$l";; esac; done < /proc/self/maps'
 
       # Fixed outputs are the same on every platform.  Fetching here the ones
       # that the riscv64 build would fetch, with amd64's fetchers from
