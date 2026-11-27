@@ -1,0 +1,257 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The rest of the GHC 6.2.2 chain natively on a RISE riscv64 board, from the
+# binary cache that riscv64-qemu.yml built under QEMU.  Stage 2's three
+# chunks take about 50 minutes each on amd64 but about 8 hours each under
+# QEMU, longer than a hosted runner's job.  They run one module at a time, so
+# the board's load stays low, unlike the stdenv builds that lost runners
+# (riscv64-nix.yml).  After each milestone every store path is copied into
+# the binary cache and saved, and the superseded entry is deleted.  The
+# concurrency group is riscv64-qemu.yml's, so that the two never run at once.
+name: riscv64-rise
+on:
+  push:
+    paths:
+      - .github/workflows/riscv64-rise.yml
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  actions: write # Delete superseded cache entries
+
+concurrency:
+  group: riscv64-qemu
+  cancel-in-progress: false
+
+env:
+  G: haskell.compiler.ghc622Bootstrap
+  REV: 4ce9145b0825c6f09f82c464c6409a227fc5cd34
+  ATTRS: >-
+    haskell.compiler.ghc622Bootstrap
+    haskell.compiler.ghc622Bootstrap.tests.fixpoint
+    haskell.compiler.ghc622Bootstrap.tests.hello
+  KEY: riscv64-nix-${{ github.run_id }}-${{ github.run_attempt }}
+  # Memory, disk and load every ten minutes, in the background of each build
+  RESLOG: >-
+    while sleep 600; do
+    echo "[res] $(date -u +%T)
+    mem $(free -m | awk '/^Mem/ { print $3 "M used, " $7 "M available" }'),
+    disk $(df -h / | awk 'NR == 2 { print $3 " used, " $4 " free" }'),
+    load $(cut -d ' ' -f 1-3 /proc/loadavg)";
+    done
+  # Deletes the cache entry $PREV once the entry $1 exists, and makes $1 the
+  # next one to delete.  RISE runners have neither gh nor jq.
+  ROTATE: |
+    api=$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/caches
+    auth=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json")
+    if ! curl -fsS "${auth[@]}" "$api?key=$1&ref=$GITHUB_REF" | grep -q "\"key\": *\"$1\""; then
+      echo "::warning::$1 is missing, so $PREV stays"
+      exit 0
+    fi
+    curl -fsS -X DELETE "${auth[@]}" "$api?key=$PREV&ref=$GITHUB_REF" > /dev/null &&
+      echo "deleted $PREV"
+    echo "PREV=$1" >> "$GITHUB_ENV"
+
+jobs:
+  chain:
+    runs-on: ubuntu-24.04-riscv
+    # Under RISE's pod deadline of about six days
+    timeout-minutes: 7200
+    steps:
+      # 6.2.2's fixed heap address must lie below where mmap starts with the
+      # unlimited stack of the builds
+      - name: machine
+        run: |
+          uname -a
+          nproc
+          free -g
+          df -h / "$RUNNER_TEMP"
+          echo "stack limit: $(ulimit -s) soft, $(ulimit -Hs) hard"
+          (ulimit -s unlimited && grep -m 3 -v '^0' /proc/self/maps) || true
+
+      - name: restore the binary cache
+        id: restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}
+          restore-keys: riscv64-nix-
+          fail-on-cache-miss: true
+
+      - name: prepare the binary cache
+        env:
+          MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        run: |
+          echo "PREV=$MATCHED" >> "$GITHUB_ENV"
+          echo "$(find "$RUNNER_TEMP/nix-cache" -name '*.narinfo' | wc -l) paths, $(du -sh "$RUNNER_TEMP/nix-cache" | cut -f1), from $MATCHED"
+
+      - name: install nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          extra_nix_config: |
+            max-jobs = 2
+            cores = 4
+            extra-substituters = file://${{ runner.temp }}/nix-cache?trusted=true
+            log-lines = 100
+
+      - name: checkout nixpkgs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: yzhou216/nixpkgs
+          ref: ${{ env.REV }}
+          path: nixpkgs
+          persist-credentials: false
+
+      - name: plan
+        working-directory: nixpkgs
+        run: |
+          read -ra attrs <<< "$ATTRS"
+          nix build --dry-run -f . "${attrs[@]}" 2> plan.txt || { cat plan.txt; exit 1; }
+          grep 'will be' plan.txt
+          sed -n '/will be built:$/,/will be fetched/p' plan.txt | grep '\.drv$' || true
+
+      # One step per milestone, since a running job's log cannot be read
+      - name: build base and haskell98
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G.base" "$G.stage2.haskell98"
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (base)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-base
+
+      - name: delete the superseded cache entry (base)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-base"
+
+      - name: build stage 2, part 1
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G.stage2.hc1"
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (hc1)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-hc1
+
+      - name: delete the superseded cache entry (hc1)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-hc1"
+
+      - name: build stage 2, part 2
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G.stage2.hc2"
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (hc2)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-hc2
+
+      - name: delete the superseded cache entry (hc2)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-hc2"
+
+      - name: build stage 2, part 3, and link it
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G.stage2"
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (stage 2)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-stage2
+
+      - name: delete the superseded cache entry (stage 2)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-stage2"
+
+      - name: build stages 3 to 5 and the fixpoint check
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G.tests.fixpoint"
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+
+      - name: save the binary cache (stages 3 to 5)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-stage3to5
+
+      - name: delete the superseded cache entry (stages 3 to 5)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-stage3to5"
+
+      - name: build the installed compiler and its test
+        working-directory: nixpkgs
+        run: |
+          bash -c "$RESLOG" & reslog=$!
+          trap 'kill "$reslog"' EXIT
+          nice -n 19 nix build --keep-going --no-link -f . "$G" "$G.tests.hello"
+
+      # The report without the stage 3 files, which all differ from stage 2's
+      - name: fixpoint report
+        working-directory: nixpkgs
+        run: |
+          out=$(nix build --no-link --print-out-paths -f . "$G.tests.fixpoint")
+          awk '/^stage 3 vs stage 2/ { p = 1 } p || !/^differs: /' "$out/report.txt"
+
+      - name: collect the build logs
+        if: always()
+        run: tar -C /nix/var/log/nix -cf "$RUNNER_TEMP/logs.tar" drvs
+
+      - name: upload the build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: logs
+          path: ${{ runner.temp }}/logs.tar
+
+      - name: fill the binary cache
+        if: always()
+        run: |
+          nix copy --all --to "file://$RUNNER_TEMP/nix-cache?compression=zstd"
+          echo "$(find "$RUNNER_TEMP/nix-cache" -name '*.narinfo' | wc -l) paths, $(du -sh "$RUNNER_TEMP/nix-cache" | cut -f1)"
+
+      - name: save the binary cache
+        id: save
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/nix-cache
+          key: ${{ env.KEY }}-end
+
+      - name: delete the superseded cache entry
+        if: ${{ always() && steps.save.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash -c "$ROTATE" rotate "$KEY-end"
