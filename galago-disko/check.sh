@@ -52,8 +52,9 @@ report blkid
 report findmnt -o TARGET,SOURCE,FSTYPE,OPTIONS -t bcachefs,vfat
 report swapon --show
 report cat "/sys/block/$dm/dm/uuid" /sys/power/resume
-report bcachefs unlock -c $root
-report bcachefs show-super $root
+# bcachefs-tools cannot read the superblock of a mounted device, so take
+# the state of the filesystem before it was mounted from the journal
+report journalctl -b -o cat --no-pager -u unlock-bcachefs--.service
 report grep -r . "$options/compression" "$options/background_compression"
 report bcachefs subvolume list -R /run/fsroot
 report bcachefs fs usage -h /
@@ -81,6 +82,12 @@ swap_through_plain_crypt() {
     swapon --show=NAME --noheadings | grep -qx "/dev/$dm"
 }
 
+# shellcheck disable=SC2329 # Called through check
+root_was_locked() {
+  journalctl -b -o cat --no-pager -u unlock-bcachefs--.service |
+    grep -qx 'Device is encrypted and locked'
+}
+
 check "installed system is the one built" \
   test "$(readlink -f /run/current-system)" = "$toplevel"
 check "partitions in order ESP, swap, root" \
@@ -102,8 +109,7 @@ check "root partition fills the rest of the disk" \
   test $(($(size /dev/nvme0n1) - $(size $esp) - $(size $swap) - $(size $root))) -lt $((4 << 20))
 check "root is bcachefs with the UUID in fstab" \
   test "$(fstype $root)" = bcachefs -a "$(lsblk -dno UUID $root)" = "$uuid"
-check "root is encrypted by bcachefs and unlocked" \
-  test "$(bcachefs unlock -c $root)" = "Device is encrypted and unlocked"
+check "initrd found root encrypted by bcachefs and locked" root_was_locked
 check "compression is zstd" test "$(cat "$options/compression")" = zstd
 check "background compression is zstd" \
   test "$(cat "$options/background_compression")" = zstd
