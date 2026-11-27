@@ -219,7 +219,9 @@ jobs:
             { cat plan.txt; exit 1; }
           grep 'will be' plan.txt
 
-      # Stops 315 minutes into the job, leaving time to save what was built.
+      # Stops 348 minutes into the job, leaving time to save what was built,
+      # which took under two minutes.  ghc-6.2.2-base takes about 5.5 hours
+      # (141 of 147 modules after 315 minutes in run 45947925080).
       # Whatever was still building is listed as unfinished.
       - name: build
         id: build
@@ -229,7 +231,7 @@ jobs:
           read -ra attrs <<< "$ATTRS"
           bash -c "$RESLOG" & reslog=$!
           trap 'kill "$reslog"' EXIT
-          budget=$(( START + 315 * 60 - $(date +%s) ))
+          budget=$(( START + 348 * 60 - $(date +%s) ))
           status=0
           timeout --signal=INT --kill-after=5m "$budget" \
             nix build --keep-going --no-link --argstr system riscv64-linux -f . "${attrs[@]}" \
