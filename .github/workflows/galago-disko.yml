@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
 name: galago disko
-on: push
+on:
+  push:
+    paths:
+      - galago-disko/**
 defaults:
   run:
     shell: bash
