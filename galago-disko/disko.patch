@@ -1,0 +1,50 @@
+SPDX-FileCopyrightText: 2018-2024 Nix community projects
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+SPDX-License-Identifier: MIT
+
+A fix to github.com/nix-community/disko at 6747342, the commit that the
+flake pins, under the license of that repository.  After a subvolume of
+an encrypted bcachefs filesystem is mounted, mounting the next one runs
+`bcachefs unlock` again, which fails with EBUSY on the open device.
+disko then takes /sys/fs/bcachefs/<uuid> as proof that the filesystem is
+already unlocked, but bcachefs names that directory after the UUID only
+for a multi-device filesystem, and after the device otherwise.
+
+diff --git i/lib/types/bcachefs_filesystem.nix w/lib/types/bcachefs_filesystem.nix
+index 232f9e1..3d18138 100644
+--- i/lib/types/bcachefs_filesystem.nix
++++ w/lib/types/bcachefs_filesystem.nix
+@@ -193,7 +193,9 @@
+                 MNTPOINT="$(mktemp -d)";
+                 ${lib.optionalString (config.passwordFile != null) ''
+                   if ! bcachefs unlock -k session "/dev/disk/by-uuid/${config.uuid}" < "${config.passwordFile}"; then
+-                    test -d "/sys/fs/bcachefs/${config.uuid}";
++                    # Mounted already, so unlocked.  sysfs names a single-device
++                    # filesystem after its device rather than its UUID.
++                    test -d "/sys/fs/bcachefs/${config.uuid}" || findmnt --source "UUID=${config.uuid}" >&2;
+                   fi;
+                 ''}
+                 mount \
+@@ -232,7 +234,9 @@
+                   mkdir -p "${rootMountPoint}${subvolume.mountpoint}";
+                   ${lib.optionalString (config.passwordFile != null) ''
+                     if ! bcachefs unlock -k session "/dev/disk/by-uuid/${config.uuid}" < "${config.passwordFile}"; then
+-                      test -d "/sys/fs/bcachefs/${config.uuid}";
++                      # Mounted already, so unlocked.  sysfs names a single-device
++                      # filesystem after its device rather than its UUID.
++                      test -d "/sys/fs/bcachefs/${config.uuid}" || findmnt --source "UUID=${config.uuid}" >&2;
+                     fi;
+                   ''}
+                   mount \
+@@ -266,7 +270,9 @@
+                   mkdir -p "${rootMountPoint}${config.mountpoint}";
+                   ${lib.optionalString (config.passwordFile != null) ''
+                     if ! bcachefs unlock -k session "/dev/disk/by-uuid/${config.uuid}" < "${config.passwordFile}"; then
+-                      test -d "/sys/fs/bcachefs/${config.uuid}";
++                      # Mounted already, so unlocked.  sysfs names a single-device
++                      # filesystem after its device rather than its UUID.
++                      test -d "/sys/fs/bcachefs/${config.uuid}" || findmnt --source "UUID=${config.uuid}" >&2;
+                     fi;
+                   ''}
+                   mount \
