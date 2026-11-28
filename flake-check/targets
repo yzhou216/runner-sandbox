@@ -13,3 +13,5 @@ packages.x86_64-linux.bcachefs-iso
 packages.x86_64-linux.openwrt
 darwinConfigurations.iris.system
 darwinConfigurations.lexi.system
+nixosConfigurations.router.config.system.build.vmWithDisko
+nixosConfigurations.galago.pkgs.emacs-git
