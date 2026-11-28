@@ -64,10 +64,13 @@ done <"$here/targets"
 
 evaluate() { # tree
   local tree=$1 t f
+  local impure=(--impure)
+  # PURE evaluates the candidate without --impure, to show that it can be
+  if [ "$tree" = cand ] && [ -n "${PURE:-}" ]; then impure=(); fi
   mkdir -p "$out/$tree"
   for t in "${targets[@]}"; do
     f="$out/$tree/$t"
-    if nix eval --impure --raw "$work/$tree#$t.drvPath" >"$f.drv" 2>"$f.err"; then
+    if nix eval "${impure[@]}" --raw "$work/$tree#$t.drvPath" >"$f.drv" 2>"$f.err"; then
       :
     else
       echo ERROR >"$f.drv"
@@ -88,6 +91,7 @@ r=$out/results.md
   echo "Base \`$base\`; candidate: $( [ "$patched" = yes ] && git -C "$work/cand" diff --shortstat "$base" HEAD || echo 'no patch, same as base')"
   echo
   [ -n "$lock_note" ] && { echo "$lock_note"; echo; }
+  [ -n "${PURE:-}" ] && { echo "The candidate is evaluated without --impure, the base with it."; echo; }
   echo "| Target | Result | Base | Candidate |"
   echo "| --- | --- | --- | --- |"
   for t in "${targets[@]}"; do

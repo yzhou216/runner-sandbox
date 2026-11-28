@@ -6,7 +6,8 @@
 # flake-check/base with those after flake-check/flake.patch, on GNU/Linux
 # and, for the Darwin configurations, on macOS, and builds what
 # flake-check/build lists.  A commit message with [build] runs the builds,
-# and one with [no-darwin] skips the macOS job.
+# one with [no-darwin] skips the macOS job, and one with [pure] evaluates
+# the candidate without --impure.
 name: flake check
 on:
   push:
@@ -38,6 +39,7 @@ jobs:
       - name: Evaluate the base and the candidate
         env:
           RESULTS: ${{ github.workspace }}/results
+          PURE: ${{ contains(github.event.head_commit.message, '[pure]') && '1' || '' }}
         run: flake-check/run.sh ${{ matrix.mode }}
       - name: Show the results
         if: always()
