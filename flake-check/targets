@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+#
+# Flake attributes whose derivations flake-check compares, one per line.
+# Darwin configurations are evaluated on a macOS runner as well.
+nixosConfigurations.galago.config.system.build.toplevel
+nixosConfigurations.galago.config.system.build.diskoScript
+nixosConfigurations.router.config.system.build.toplevel
+nixosConfigurations.router.config.system.build.diskoScript
+nixosConfigurations.bcachefs-iso.config.system.build.toplevel
+packages.x86_64-linux.bcachefs-iso
+packages.x86_64-linux.openwrt
+darwinConfigurations.iris.system
+darwinConfigurations.lexi.system

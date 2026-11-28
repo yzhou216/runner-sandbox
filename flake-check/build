@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+#
+# Flake attributes to build from the candidate, one per line.  Builds are
+# slow, so list only what a change needs; none by default.

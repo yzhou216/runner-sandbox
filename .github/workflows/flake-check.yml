@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Compares the derivations of github.com/yzhou216/flake at the commit in
+# flake-check/base with those after flake-check/flake.patch, on GNU/Linux
+# and, for the Darwin configurations, on macOS, and builds what
+# flake-check/build lists.
+name: flake check
+on:
+  push:
+    paths:
+      - flake-check/**
+      - .github/workflows/flake-check.yml
+defaults:
+  run:
+    shell: bash
+env:
+  NIX_CONFIG: |
+    extra-substituters = https://nix-community.cachix.org https://yzhou216.cachix.org
+    extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+jobs:
+  eval:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: linux
+            os: ubuntu-latest
+          - mode: darwin
+            os: macos-latest
+    name: evaluate (${{ matrix.mode }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Evaluate the base and the candidate
+        env:
+          RESULTS: ${{ github.workspace }}/results
+        run: flake-check/run.sh ${{ matrix.mode }}
+      - name: Show the results
+        if: always()
+        run: |
+          if [ -f results/results.md ]; then
+            tee -a "$GITHUB_STEP_SUMMARY" <results/results.md
+          fi
+          tar -cf results.tar results
+      - uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: results-${{ matrix.mode }}
+          path: results.tar
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@main
+      - name: Check for attributes to build
+        id: wanted
+        run: |
+          if grep -v '^#' flake-check/build | grep -q '[^[:space:]]'; then
+            echo "build=yes" >>"$GITHUB_OUTPUT"
+          fi
+      - uses: wimpysworld/nothing-but-nix@main
+        if: steps.wanted.outputs.build == 'yes'
+        with:
+          hatchet-protocol: rampage
+      - uses: cachix/install-nix-action@master
+        if: steps.wanted.outputs.build == 'yes'
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the candidate
+        if: steps.wanted.outputs.build == 'yes'
+        env:
+          RESULTS: ${{ github.workspace }}/results
+        run: flake-check/build.sh
+      - name: Show the results
+        if: always() && steps.wanted.outputs.build == 'yes'
+        run: |
+          if [ -f results/results.md ]; then
+            tee -a "$GITHUB_STEP_SUMMARY" <results/results.md
+          fi
+          tar -cf results.tar results
+      - uses: actions/upload-artifact@main
+        if: always() && steps.wanted.outputs.build == 'yes'
+        with:
+          name: results-build
+          path: results.tar
