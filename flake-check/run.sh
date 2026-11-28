@@ -65,12 +65,14 @@ done <"$here/targets"
 evaluate() { # tree
   local tree=$1 t f
   local impure=(--impure)
-  # PURE evaluates the candidate without --impure, to show that it can be
+  # PURE evaluates the candidate without --impure, to show that it can be;
+  # the guarded expansion keeps bash 3.2 of macOS from calling an empty
+  # array unbound under set -u
   if [ "$tree" = cand ] && [ -n "${PURE:-}" ]; then impure=(); fi
   mkdir -p "$out/$tree"
   for t in "${targets[@]}"; do
     f="$out/$tree/$t"
-    if nix eval "${impure[@]}" --raw "$work/$tree#$t.drvPath" >"$f.drv" 2>"$f.err"; then
+    if nix eval ${impure[@]+"${impure[@]}"} --raw "$work/$tree#$t.drvPath" >"$f.drv" 2>"$f.err"; then
       :
     else
       echo ERROR >"$f.drv"

@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  6607484 commons: pin emacs-overlay as a flake input
-  98dd7f4 commons: pin emacs master as a flake input
-  4cf5b10 flake: drop --impure from the build commands
+  6e86b5e commons: pin emacs-overlay as a flake input
+  5ca9dc9 commons: pin emacs master as a flake input
+  d740b2b flake: drop --impure from the build commands
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
 index 7930cc5..eb466f5 100644
@@ -28,6 +28,87 @@ index 7930cc5..eb466f5 100644
              --keep-going \
              --no-link \
              ".#nixosConfigurations.galago.config.system.build.toplevel"
+diff --git a/flake.lock b/flake.lock
+index b3f4d32..0b4296d 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -79,6 +79,44 @@
+         "type": "github"
+       }
+     },
++    "emacs-overlay": {
++      "inputs": {
++        "nixpkgs": [
++          "nixpkgs"
++        ],
++        "nixpkgs-stable": "nixpkgs-stable"
++      },
++      "locked": {
++        "lastModified": 1795850262,
++        "narHash": "sha256-GvQQ+GXuLGWjpDxr9bP4D4QKksLutCa5F1g8JqTNPEQ=",
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "rev": "0a34f1e1afa9308f294859e7f9cf86b0908dce85",
++        "type": "github"
++      },
++      "original": {
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "type": "github"
++      }
++    },
++    "emacs-src": {
++      "flake": false,
++      "locked": {
++        "lastModified": 1795795059,
++        "narHash": "sha256-UtUJpw9W1NI1cHpoDkdPc0dV48DlOimRmRwvLWSKdvU=",
++        "owner": "emacsmirror",
++        "repo": "emacs",
++        "rev": "eb8c188750ea1bd50dd91e3ada949b3e155dc95e",
++        "type": "github"
++      },
++      "original": {
++        "owner": "emacsmirror",
++        "ref": "master",
++        "repo": "emacs",
++        "type": "github"
++      }
++    },
+     "flake-compat": {
+       "flake": false,
+       "locked": {
+@@ -305,6 +343,22 @@
+         "type": "github"
+       }
+     },
++    "nixpkgs-stable": {
++      "locked": {
++        "lastModified": 1795502373,
++        "narHash": "sha256-CiSQ3/bsP5gXG2SQzOgwhqwl9MkBRhQQqJd3YmpaYL4=",
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "5b31ff946309736077f0c4ee23bb85d0a0a1c181",
++        "type": "github"
++      },
++      "original": {
++        "owner": "NixOS",
++        "ref": "nixos-26.05",
++        "repo": "nixpkgs",
++        "type": "github"
++      }
++    },
+     "nixpkgs_2": {
+       "locked": {
+         "lastModified": 1761236834,
+@@ -409,6 +463,8 @@
+       "inputs": {
+         "darwin": "darwin",
+         "disko": "disko",
++        "emacs-overlay": "emacs-overlay",
++        "emacs-src": "emacs-src",
+         "homebrew-bundle": "homebrew-bundle",
+         "homebrew-cask": "homebrew-cask",
+         "homebrew-core": "homebrew-core",
 diff --git a/flake.nix b/flake.nix
 index e74cecb..fafc50a 100644
 --- a/flake.nix
