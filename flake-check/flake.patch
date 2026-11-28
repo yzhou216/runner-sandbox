@@ -4,12 +4,12 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
   b58263a iris: accept the module arguments of nix-darwin
-  1026eed commons: drop the settings of the disabled networkmanager
-  5366a98 lexi: explain why the nixbld group id is set
-  7f44c46 scripts: switch to the iris configuration in darwin_setup.sh
-  63aca28 scripts: match only the sip status line in darwin_setup.sh
-  05dccaf scripts: pass the password to sudo verbatim in darwin_setup.sh
-  51bf001 scripts: run darwin-rebuild as root in darwin_setup.sh
+  514dc90 commons: drop the settings of the disabled networkmanager
+  85c4c94 lexi: explain why the nixbld group id is set
+  85f84e5 scripts: switch to the iris configuration in darwin_setup.sh
+  fe8c766 scripts: match only the sip status line in darwin_setup.sh
+  0de62cd scripts: pass the password to sudo verbatim in darwin_setup.sh
+  a87eaa1 scripts: run darwin-rebuild as root in darwin_setup.sh
 
 diff --git a/machines/darwin/iris.nix b/machines/darwin/iris.nix
 index 6452831..df64c2c 100644

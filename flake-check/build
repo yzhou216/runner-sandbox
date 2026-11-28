@@ -4,3 +4,6 @@
 #
 # Flake attributes to build from the candidate, one per line.  Builds are
 # slow, so list only what a change needs; none by default.
+# Unit of t3code on router, which needs the Modus themes built with the
+# Emacs of router.  The single quotes keep the double quotes through xargs.
+nixosConfigurations.router.config.systemd.units.'"t3code.service"'.unit
