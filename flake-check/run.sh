@@ -24,13 +24,26 @@ git config --global user.email flake-check@localhost
 git config --global advice.detachedHead false
 
 git clone --quiet "$url" "$work/base"
-git -C "$work/base" checkout --quiet "$base"
-git clone --quiet "$work/base" "$work/cand"
-git -C "$work/cand" checkout --quiet "$base"
+git -C "$work/base" checkout --quiet -b flake-check "$base"
+
+# SERIES_INDEX=k compares commit k of flake-check/series with the commits
+# before it, which both trees get
+patch_file=$here/flake.patch
+series_note=
+if [ -n "${SERIES_INDEX:-}" ]; then
+  mapfile -t series < <(ls "$here"/series/*.patch | sort)
+  k=$SERIES_INDEX
+  for ((i = 0; i < k - 1; i++)); do
+    git -C "$work/base" am --quiet "${series[$i]}"
+  done
+  patch_file=${series[$((k - 1))]}
+  series_note="Commit $k of ${#series[@]}: $(grep -m 1 '^Subject:' "$patch_file" | sed -E 's/^Subject: (\[PATCH[^]]*\] )?//'); the base has the commits before it."
+fi
+git clone --quiet --branch flake-check "$work/base" "$work/cand"
 
 patched=no
-if [ -s "$here/flake.patch" ] && grep -q '^diff --git ' "$here/flake.patch"; then
-  git -C "$work/cand" apply --index --whitespace=nowarn "$here/flake.patch"
+if [ -s "$patch_file" ] && grep -q '^diff --git ' "$patch_file"; then
+  git -C "$work/cand" apply --index --whitespace=nowarn "$patch_file"
   git -C "$work/cand" commit --quiet -m candidate
   patched=yes
 fi
@@ -88,9 +101,10 @@ r=$out/results.md
 {
   echo "## flake-check ($mode)"
   echo
-  echo "Base \`$base\`; candidate: $( [ "$patched" = yes ] && git -C "$work/cand" diff --shortstat "$base" HEAD || echo 'no patch, same as base')"
+  echo "Base \`$base\`; candidate: $( [ "$patched" = yes ] && git -C "$work/cand" diff --shortstat origin/flake-check HEAD || echo 'no patch, same as base')"
   echo
   [ -n "$lock_note" ] && { echo "$lock_note"; echo; }
+  [ -n "$series_note" ] && { echo "$series_note"; echo; }
   [ -n "${PURE:-}" ] && { echo "The candidate is evaluated without --impure, the base with it."; echo; }
   echo "| Target | Result | Base | Candidate |"
   echo "| --- | --- | --- | --- |"

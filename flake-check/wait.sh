@@ -20,6 +20,13 @@ case $state in
 esac
 dir=$(mktemp -d)
 gh run download "$run" -R "$repo" -D "$dir" >/dev/null 2>&1 || true
+# A series run has one artifact per commit; its summary is enough here
+if [ -f "$dir/results-summary/results.tar" ]; then
+  tar -xf "$dir/results-summary/results.tar" -C "$dir/results-summary"
+  cat "$dir/results-summary/results/results.md"
+  echo "artifacts: $dir"
+  exit 0
+fi
 for t in "$dir"/*/results.tar; do
   [ -f "$t" ] || continue
   d=$(dirname "$t")

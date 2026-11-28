@@ -1,0 +1,106 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Evaluates each commit in flake-check/series against the commits before
+# it, one job per commit, so that every commit of a series is checked on
+# its own; see flake-check.yml for what each job compares.
+name: flake series
+on:
+  push:
+    paths:
+      - flake-check/series/**
+      - .github/workflows/flake-series.yml
+defaults:
+  run:
+    shell: bash
+env:
+  NIX_CONFIG: |
+    accept-flake-config = true
+    extra-substituters = https://nix-community.cachix.org https://yzhou216.cachix.org
+    extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      linux: ${{ steps.plan.outputs.linux }}
+      darwin: ${{ steps.plan.outputs.darwin }}
+    steps:
+      - uses: actions/checkout@main
+      - id: plan
+        run: flake-check/plan-series.sh | tee -a "$GITHUB_OUTPUT"
+  linux:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        k: ${{ fromJSON(needs.plan.outputs.linux) }}
+    name: commit ${{ matrix.k }} (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Evaluate the commit and its parent
+        env:
+          RESULTS: ${{ github.workspace }}/results
+          SERIES_INDEX: ${{ matrix.k }}
+        run: flake-check/run.sh linux
+      - name: Pack the results
+        if: always()
+        run: tar -cf results.tar results
+      - uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: results-linux-${{ matrix.k }}
+          path: results.tar
+  darwin:
+    needs: plan
+    if: needs.plan.outputs.darwin != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        k: ${{ fromJSON(needs.plan.outputs.darwin) }}
+    name: commit ${{ matrix.k }} (darwin)
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@main
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Evaluate the commit and its parent
+        env:
+          RESULTS: ${{ github.workspace }}/results
+          SERIES_INDEX: ${{ matrix.k }}
+        run: flake-check/run.sh darwin
+      - name: Pack the results
+        if: always()
+        run: tar -cf results.tar results
+      - uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: results-darwin-${{ matrix.k }}
+          path: results.tar
+  summary:
+    needs: [linux, darwin]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/download-artifact@main
+        with:
+          pattern: results-*
+          path: artifacts
+      - name: Summarize
+        run: |
+          mkdir -p results
+          flake-check/summarize-series.sh artifacts | tee results/results.md >>"$GITHUB_STEP_SUMMARY"
+          cat results/results.md
+          tar -cf results.tar results
+      - uses: actions/upload-artifact@main
+        with:
+          name: results-summary
+          path: results.tar
