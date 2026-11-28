@@ -5,7 +5,7 @@
 //! Tests of the clips that audio cues play, loops, and progress
 
 use super::*;
-use crate::back::workspace::running::active::Active;
+use crate::back::Active;
 
 #[test]
 fn audio_cue_plays_from_its_start_to_its_end() {

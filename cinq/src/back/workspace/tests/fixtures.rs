@@ -7,8 +7,8 @@
 
 use std::path::Path;
 
-use super::{super::running::active::Active, Workspace};
-use crate::back::{Command, Cue, CueId, CueList, Edit, Kind, Media, Phase, Place, Problem};
+use super::Workspace;
+use crate::back::{Active, Command, Cue, CueId, CueList, Edit, Kind, Media, Phase, Place, Problem};
 
 /// Returns a workspace with one list of cues, whose picture files have
 /// loaded as pictures and every other file as ten seconds of sound

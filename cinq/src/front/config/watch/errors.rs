@@ -147,7 +147,7 @@ fn screen(configs: &mpsc::Receiver<Config>) {
         let mut shown = lock(&SHOWN);
         let resized = shown.as_ref().filter(|_| now != seen).cloned();
         if let Some(config) = reading.or(resized) {
-            drawn(&mut shown, config);
+            redrawn(&mut shown, config);
         }
         now
     });
@@ -155,7 +155,7 @@ fn screen(configs: &mpsc::Receiver<Config>) {
 
 /// Draws the problems of `config` on the terminal in place of those that
 /// `shown` holds, and holds the output of the program while any are left
-fn drawn(shown: &mut Option<Config>, config: Config) {
+fn redrawn(shown: &mut Option<Config>, config: Config) {
     let problems = !config.problems.is_empty();
     if problems {
         held::hold();
