@@ -39,12 +39,12 @@ jobs:
         with:
           path: .
           merge-multiple: true
-      - name: the loader fix changes only deb, rpm, and archlinux
-        run: ./compare.sh drv-before.txt drv-loader.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$'
-      - name: the tidies change nothing
-        run: ./compare.sh drv-loader.txt drv-after.txt '^$'
+      - name: the loader fix changes only deb, rpm, and archlinux (reuse and treefmt read the sources)
+        run: ./compare.sh drv-before.txt drv-loader.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$|^checks [^ ]* (reuse|treefmt)$'
+      - name: the tidies change nothing (reuse and treefmt read the sources)
+        run: ./compare.sh drv-loader.txt drv-after.txt '^checks [^ ]* (reuse|treefmt)$'
       - name: all together
-        run: ./compare.sh drv-before.txt drv-after.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$'
+        run: ./compare.sh drv-before.txt drv-after.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$|^checks [^ ]* (reuse|treefmt)$'
       - if: always()
         run: command grep -v '\.drv$' drv-after.txt || true
   loader:
