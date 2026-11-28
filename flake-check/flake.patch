@@ -1,0 +1,141 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  bbf020f systems: import the shared modules through one module
+  ecb9527 shell: enable tmux for nixos and darwin alike
+  6fe13ba shell: check for darwin through stdenv.hostPlatform
+  0402206 man: set the nixos-only developer documentation in commons
+  b787dd6 darwin: drop nix-init, which dev.nix installs
+
+diff --git a/systems/commons.nix b/systems/commons.nix
+new file mode 100644
+index 0000000..689997b
+--- /dev/null
++++ b/systems/commons.nix
+@@ -0,0 +1,12 @@
++# Modules that NixOS and Darwin share
++{
++  imports = [
++    ./nix.nix
++    ./nixpkgs.nix
++    ./shell.nix
++    ./dev.nix
++    ./vc.nix
++    ./editors.nix
++    ./man.nix
++  ];
++}
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index ce65330..a19200a 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -4,17 +4,7 @@
+   ...
+ }:
+ {
+-  imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
+-  ];
+-
+-  programs.tmux.enable = true;
++  imports = [ ../commons.nix ];
+ 
+   environment = {
+     shells = with pkgs; [ bash ];
+@@ -43,7 +33,6 @@
+       # NixOS
+       nixos-anywhere
+       #nixos-facter
+-      nix-init
+ 
+       # TeX
+       tectonic
+diff --git a/systems/man.nix b/systems/man.nix
+index ba8120b..5bdb86e 100644
+--- a/systems/man.nix
++++ b/systems/man.nix
+@@ -1,17 +1,8 @@
+-{
+-  pkgs,
+-  ...
+-}:
+-
+-let
+-  inherit (pkgs) stdenv;
+-in
+ {
+   documentation = {
+     enable = true;
+     man.enable = true;
+     info.enable = true;
+     doc.enable = true;
+-  }
+-  // (if stdenv.hostPlatform.isLinux then { dev.enable = true; } else { });
++  };
+ }
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..28deceb 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -5,13 +5,7 @@
+ }:
+ {
+   imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
++    ../commons.nix
+     ./t3code-themes.nix
+   ];
+ 
+@@ -243,6 +237,9 @@
+     hashedPassword = "$6$yM8t/1VCAl66Y7XD$dmvt7Xq6iGLU3uJ9lcpUvr/7PZxt7IzYsoZbm4s42pejndU4IAMW4YbP4JcQK5KxI5DzSwLjPFCYY/OETznnO1";
+   };
+ 
++  # Developer documentation, for which nix-darwin has no option
++  documentation.dev.enable = true;
++
+   environment.systemPackages = with pkgs; [
+     readline
+     tree
+@@ -287,7 +284,6 @@
+     };
+ 
+     neovim.enable = true;
+-    tmux.enable = true;
+ 
+     htop = {
+       enable = true;
+diff --git a/systems/shell.nix b/systems/shell.nix
+index 1c4fdc8..95adbe6 100644
+--- a/systems/shell.nix
++++ b/systems/shell.nix
+@@ -32,7 +32,7 @@ in
+     // (
+       if stdenv.hostPlatform.isLinux then
+         { promptInit = bashPrompt; }
+-      else if stdenv.isDarwin then
++      else if stdenv.hostPlatform.isDarwin then
+         { interactiveShellInit = bashPrompt; }
+       else
+         { }
+@@ -43,5 +43,7 @@ in
+       silent = true;
+       nix-direnv.enable = true;
+     };
++
++    tmux.enable = true;
+   };
+ }
