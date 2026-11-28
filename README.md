@@ -20,7 +20,9 @@ fail to evaluate.
 ## Series
 
 1. `router: correct the notes on testing in a VM`: comment in `flake.nix`
-   only.
+   only.  After review, the commit message splits two unrelated facts
+   into separate sentences, and the comment says that the vmWithDisko
+   command still needs `--impure`.
 2. `disko: move the bcachefs image builder workaround into the layout`:
    moves `disko.imageBuilder` from `machines/nixos/router.nix` into
    `disko/bcachefs-image-builder.nix`, which `disko/bcachefs.nix` imports,
@@ -43,7 +45,8 @@ of galago and router, the outputs that the image builder settings affect.
 | --- | --- | --- |
 | 46136443465 | Commits 1, 3, and 4 | Every derivation the same on GNU/Linux and macOS, router's `vmWithDisko` included; `packages.x86_64-linux.openwrt` evaluates, where the base stops at a hash mismatch of `mips_24kc-base-packages.adb`.  Lint counts unchanged |
 | 46136962216 | Commits 1 to 4 | Same as above, and router's `vmWithDisko` and `diskoImages` stay the same.  Galago's `vmWithDisko` and `diskoImages` change as intended: the kernel modules of the image builder become `linux-6.18.65` with `kernel-modules-with-bcachefs`, like router's, instead of `linux-7.4-rc4` alone |
-| 46137411623 | Final series, the four commits above | Same as 46136962216.  Galago's system changed in both base and candidate between runs, from the unpinned Emacs fetches, but stays the same between them.  `darwinConfigurations.lexi` the same, `darwinConfigurations.iris` failing in both, as on master.  nixfmt 1, deadnix 14, and statix 36 lines in both |
+| 46137411623 | First version of the series | Same as 46136962216.  Galago's system changed in both base and candidate between runs, from the unpinned Emacs fetches, but stays the same between them.  `darwinConfigurations.lexi` the same, `darwinConfigurations.iris` failing in both, as on master.  nixfmt 1, deadnix 14, and statix 36 lines in both |
+| 46160820377 | Final series, after review (commit 1 revised, commits 2 to 4 unchanged) | Same as 46137411623 for every target except `packages.x86_64-linux.openwrt`, which now fails in both base and candidate: see below.  Galago's `vmWithDisko` and `diskoImages` change as intended, every other GNU/Linux target and `darwinConfigurations.lexi` the same, `darwinConfigurations.iris` failing in both.  nixfmt 1, deadnix 14, and statix 36 lines in both |
 
 ## OpenWrt
 
@@ -57,3 +60,17 @@ day or two, and those of 22.03.7 and 23.05.6 unchanged since January.
 Updating the input fixes the evaluation until the feeds move again; pinning
 the input does not help, and neither does another profile of a maintained
 release.
+
+Between run 46137411623 and run 46160820377, the mips_24kc feeds of
+25.12.6 on downloads.openwrt.org changed again: indexes fetched at 10:36
+UTC on 28 November matched 8cae777, while those fetched at 15:43 UTC
+mismatch in the same six files, and the lantiq/xrx200 indexes are still
+unchanged.  In run 46160820377 both sides stop at
+`mips_24kc-base-packages.adb`, and both get
+`sha256-NqfPFsA+joCSz7nPwVR+58l0C1IqBMnVRiQ+9jpNTk0=`, the hash of the
+index fetched at 15:43 UTC.  The base expects the hash of 38bd2b4, the
+candidate that of 8cae777.  At 15:43 UTC, 8cae777 was still the newest
+revision of nix-openwrt-imagebuilder, whose daily updates land between
+18:00 and 20:00 UTC, so no revision of the input yet matched the feeds.
+This is the staleness that commit 3 describes, and it is why commit 4
+has to be redone right before building the image.
