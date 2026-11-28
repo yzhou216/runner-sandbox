@@ -42,11 +42,14 @@ jobs:
       # The OpenWrt Image Builder pins the hashes of the package indexes
       # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
       # updates them once a day, so packages.x86_64-linux.openwrt soon
-      # fails to evaluate with an older lock.  Building the image
-      # needs this update anyway; the run does not commit it.  The check
-      # can still fail on the OpenWrt package between a rebuild of OpenWrt
-      # and the next update of the Image Builder.
-      - name: Refresh the hashes of the OpenWrt packages
+      # fails to evaluate with an older lock.  The update takes the newest
+      # Image Builder code and its own inputs as well, not only the
+      # hashes, so the check does not test that input as committed, and
+      # two runs of one commit can differ.  Building the image needs this
+      # update anyway; the run does not commit it.  The check can still
+      # fail on the OpenWrt package between a rebuild of OpenWrt and the
+      # next update of the Image Builder.
+      - name: Update the OpenWrt Image Builder
         run: nix flake update openwrt-imagebuilder
 
       # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
@@ -81,11 +84,14 @@ jobs:
       # The OpenWrt Image Builder pins the hashes of the package indexes
       # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
       # updates them once a day, so packages.x86_64-linux.openwrt soon
-      # fails to evaluate with an older lock.  Building the image
-      # needs this update anyway; the run does not commit it.  The check
-      # can still fail on the OpenWrt package between a rebuild of OpenWrt
-      # and the next update of the Image Builder.
-      - name: Refresh the hashes of the OpenWrt packages
+      # fails to evaluate with an older lock.  The update takes the newest
+      # Image Builder code and its own inputs as well, not only the
+      # hashes, so the check does not test that input as committed, and
+      # two runs of one commit can differ.  Building the image needs this
+      # update anyway; the run does not commit it.  The check can still
+      # fail on the OpenWrt package between a rebuild of OpenWrt and the
+      # next update of the Image Builder.
+      - name: Update the OpenWrt Image Builder
         run: nix flake update openwrt-imagebuilder
       - name: Check the flake
         run: nix flake check --impure --all-systems --keep-going

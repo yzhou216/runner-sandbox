@@ -3,28 +3,31 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  2288c78 flake: format with nix fmt
-  1febbe9 flake: check the formatting of the nix files
-  ed9148d flake: check the darwin configurations
-  d43d33d workflows: run nix flake check on each push
-  c967361 workflows: refresh the openwrt hashes before the check
-  bad6bef workflows: build galago from flake.lock, and update it once a day
-  aeb5810 workflows: keep long galago builds from overlapping and being cut off
-  a45d80b workflows: substitute from the caches of flake.nix in the galago build
-  25b5a96 workflows: install upstream nix in the galago build
-  90548b4 workflows: pin the actions of the galago build to commits
+  0e48e1e flake: add nixfmt-tree as the formatter
+  797be54 flake: check the formatting of the nix files
+  2847fb7 flake: check the darwin configurations
+  0fadd3d workflows: run nix flake check on each push
+  9b3183e workflows: update the openwrt image builder before the check
+  0029854 workflows: build galago as locked on push, and with updated inputs daily
+  3811cf6 workflows: cancel a superseded galago build
+  64ed98e workflows: time out the galago build before the job limit
+  6f10ce5 workflows: substitute from the caches of flake.nix in the galago build
+  90f8c84 workflows: install upstream nix in the galago build
+  8d647f9 workflows: pin the actions of the galago build to commits
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
-index 7930cc5..0db2953 100644
+index 7930cc5..ddadd44 100644
 --- a/.github/workflows/build-galago.yml
 +++ b/.github/workflows/build-galago.yml
-@@ -1,34 +1,86 @@
+@@ -1,34 +1,89 @@
 +# Builds galago and pushes each path it builds to the yzhou216 Cachix
 +# cache.
 +#
 +# On a push to master, it builds the inputs that flake.lock pins, which
-+# is what `nixos-rebuild switch --flake .` deploys, so a failure there
-+# means that the committed configuration does not build.
++# is what `nixos-rebuild switch --flake . --impure` deploys, so a
++# failure there means that the committed configuration does not build.
++# Only the Emacs overlay and emacs-git, which systems/nixos/commons.nix
++# fetches unpinned, are not pinned.
 +#
 +# Once a day, and when dispatched with `update`, it runs
 +# `nix flake update` first, to find out whether galago builds with the
@@ -54,6 +57,7 @@ index 7930cc5..0db2953 100644
 +  cancel-in-progress: true
 +permissions:
 +  contents: read
++# Explicit shell adds -o pipefail, which `nix flake update | tee` needs
 +defaults:
 +  run:
 +    shell: bash
@@ -115,14 +119,15 @@ index 7930cc5..0db2953 100644
 +          path: flake.lock
 diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
 new file mode 100644
-index 0000000..b9216a2
+index 0000000..15885ab
 --- /dev/null
 +++ b/.github/workflows/check.yml
-@@ -0,0 +1,38 @@
-+# Runs `nix flake check` with the inputs that flake.lock pins, but for
-+# the hashes of the OpenWrt packages, on each push and pull request.  It
-+# evaluates every NixOS and nix-darwin configuration and package, and
-+# checks the formatting, in a few minutes, without building any system.
+@@ -0,0 +1,42 @@
++# Runs `nix flake check` on each push and pull request, with the inputs
++# that flake.lock pins, except openwrt-imagebuilder, which it updates
++# first.  It evaluates every NixOS and nix-darwin configuration and
++# package, and checks the formatting, in a few minutes, without building
++# any system.
 +name: check
 +on:
 +  push:
@@ -145,11 +150,14 @@ index 0000000..b9216a2
 +      # The OpenWrt Image Builder pins the hashes of the package indexes
 +      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
 +      # updates them once a day, so packages.x86_64-linux.openwrt soon
-+      # fails to evaluate with an older lock.  Building the image
-+      # needs this update anyway; the run does not commit it.  The check
-+      # can still fail on the OpenWrt package between a rebuild of OpenWrt
-+      # and the next update of the Image Builder.
-+      - name: Refresh the hashes of the OpenWrt packages
++      # fails to evaluate with an older lock.  The update takes the newest
++      # Image Builder code and its own inputs as well, not only the
++      # hashes, so the check does not test that input as committed, and
++      # two runs of one commit can differ.  Building the image needs this
++      # update anyway; the run does not commit it.  The check can still
++      # fail on the OpenWrt package between a rebuild of OpenWrt and the
++      # next update of the Image Builder.
++      - name: Update the OpenWrt Image Builder
 +        run: nix flake update openwrt-imagebuilder
 +
 +      # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
@@ -158,7 +166,7 @@ index 0000000..b9216a2
 +      - name: Check the flake
 +        run: nix flake check --impure --all-systems --keep-going
 diff --git a/flake.nix b/flake.nix
-index e74cecb..075ad0a 100644
+index e74cecb..ba49ed1 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -273,5 +273,37 @@
@@ -173,8 +181,8 @@ index e74cecb..075ad0a 100644
 +      ] (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
 +
 +      /*
-+        Checks that `nix flake check` builds, besides evaluating the
-+        NixOS configurations and the packages, which it does on its
++        `nix flake check` builds these checks, in addition to evaluating
++        the NixOS configurations and the packages, which it does on its
 +        own.
 +      */
 +      checks = {
