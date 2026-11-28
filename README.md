@@ -4,49 +4,37 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# flake-check: derivations of the flake before and after a change
+# flake-check: refactor of the outputs of flake.nix
 
-A harness for refactoring [yzhou216/flake](https://github.com/yzhou216/flake)
-without building it.  `.github/workflows/flake-check.yml` clones the flake
-from <https://gitlab.com/yiyuz/flake.git> at the commit in
-`flake-check/base`, applies `flake-check/flake.patch` to a second copy, and
-evaluates every attribute in `flake-check/targets` in both, at the same time
-so that the impure fetches of the flake resolve alike.  The results list, for
-each target, whether its derivation is the same, changed, or fails to
-evaluate, then the evaluation warnings and errors that only one side prints,
-the nixfmt, deadnix, and statix findings, and `nix-diff` of each changed
-derivation.
+This branch tested a refactor of the outputs section of
+[yzhou216/flake](https://github.com/yzhou216/flake) against its master at
+1dd2043, with the flake-check harness that this branch inherits from
+`flake/2026-11-28-refactor-harness`: `flake-check/flake.patch` holds the
+series under test, and the workflow evaluates every attribute in
+`flake-check/targets` before and after it, on `ubuntu-latest` and, for the
+Darwin configurations, on `macos-latest`.
 
-- The Darwin configurations are evaluated on `macos-latest`, the rest on
-  `ubuntu-latest`.
-- A commit message with `[no-darwin]` skips the macOS job, one with `[pure]`
-  evaluates the candidate without `--impure`, and one with `[build]` builds
-  what `flake-check/build` lists, after `nothing-but-nix` frees disk space.
-- If the patch adds flake inputs, the job runs `nix flake lock` on the
-  candidate and saves the new `flake.lock` as `flake.lock.new` in its
-  artifact.
+## Series
 
-## Use
+1. `flake: build galago and router with a shared mkNixos helper`
+2. `flake: build iris and lexi with a shared mkDarwin helper`, which takes
+   the user of nix-homebrew from `system.primaryUser`
+3. `openwrt: move the fritzbox 7412 configuration into machines/openwrt`
 
-Branch off this branch, commit changes in a clone of the flake on top of the
-base commit, and from a clone of this repository run:
+## Targets
 
-```sh
-flake-check/submit.sh <flake clone> "flake-check: <what the run tests>"
-flake-check/wait.sh <run id>    # again until it prints the results
-```
+This branch adds `packages.x86_64-linux.openwrt.config.files` to
+`flake-check/targets`.  The OpenWrt image itself fails to evaluate in both
+trees, at a hash mismatch in the package index of the image builder, so its
+derivation cannot be compared; the derivation of the files that the moved
+configuration puts in the image, reached through the `config` that the image
+builder passes through, evaluates without that index and can be.
 
-`submit.sh` writes the diff of the clone against the base to
-`flake-check/flake.patch`, commits and pushes it, and prints the run ID;
-`wait.sh` waits up to eight minutes per call, then prints `results.md` of
-each job and extracts the artifacts.
+## Runs
 
-## Baseline
+| Run | Tests | Outcome |
+| --- | --- | --- |
+| 46136057092 | The whole series | On GNU/Linux, every derivation is the same as in the base, `packages.x86_64-linux.openwrt.config.files` included, and `packages.x86_64-linux.openwrt` fails in both with the same hash mismatch.  On macOS, `darwinConfigurations.lexi` is the same and `darwinConfigurations.iris` fails in both with the same error.  The error and warning lines of every target match between base and candidate.  nixfmt still finds only `flake.nix` unformatted, at the long `fetchPrCommit` lines that the series leaves alone; deadnix prints 14 lines and statix 36, as in the base |
 
-The flake's master at 1dd2043, with no patch:
-
-| Run | Outcome |
-| --- | --- |
-| 46133564425 | All GNU/Linux targets evaluate, in 4 minutes, except `packages.x86_64-linux.openwrt`, which stops at a hash mismatch in the package index of the OpenWrt image builder; on macOS, in 3 minutes, `darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.  nixfmt finds `flake.nix` unformatted; deadnix prints 14 lines and statix 36 |
-| 46134021458 | Same, after the macOS job became optional |
-| 46134384028 | `[pure]` check of the base itself |
+The baseline, the base with no patch, is run 46133564425 on
+`flake/2026-11-28-refactor-harness`.
