@@ -24,7 +24,9 @@ evaluates the targets in `flake-check/targets` in the base and with
 3. `flake: define the darwin systems with one function`: iris and lexi share
    one local function, and nix-homebrew takes its user from
    `system.primaryUser`.
-4. `darwin_setup: read and pass the password verbatim`: shellcheck quoting.
+4. `darwin_setup: read and pass the password verbatim`: reads the password
+   raw with an empty `IFS` and passes it to sudo with `printf`, so that
+   blanks, tabs, backslashes, glob characters and a leading `-` survive.
 5. `darwin_setup: switch to the iris configuration as root`: the script
    switched to `.#m1`, which no longer exists, and without root, which
    nix-darwin requires.
@@ -42,8 +44,11 @@ evaluates the targets in `flake-check/targets` in the base and with
 
 | Run | Tested | Outcome |
 | --- | --- | --- |
-| 46136516691 | The series above, before a commit subject was reworded | `darwinConfigurations.iris` evaluates (base error), `darwinConfigurations.lexi` and every GNU/Linux target are the same as in the base, and `packages.x86_64-linux.openwrt` fails in both, as in the baseline.  The `stdenv.isDarwin` warning is gone; the `'vam'` warning remains, from nix-darwin's `programs.vim` module.  `nix flake lock` left `flake.lock` unchanged.  deadnix fell from 14 lines to 8 and statix from 36 to 29; nixfmt still reports only `flake.nix`, for lines outside the series |
-| 46136930960 | The final series, the same tree as above | Same as 46136516691 |
+| 46136516691 | The first version of the series, before a commit subject was reworded | `darwinConfigurations.iris` evaluates (base error), `darwinConfigurations.lexi` and every GNU/Linux target are the same as in the base, and `packages.x86_64-linux.openwrt` fails in both, as in the baseline.  The `stdenv.isDarwin` warning is gone; the `'vam'` warning remains, from nix-darwin's `programs.vim` module.  `nix flake lock` left `flake.lock` unchanged.  deadnix fell from 14 lines to 8 and statix from 36 to 29; nixfmt still reports only `flake.nix`, for lines outside the series |
+| 46136930960 | The first version of the series, the same tree as above | Same as 46136516691 |
+| 46160248457 | The series after review, with the password commit revised to use an empty `IFS` and `printf` | Same as 46136516691: iris `pp8chlw858z3`, lexi `iskkgcvkzcy9`, and every GNU/Linux derivation unchanged |
+| 46160635519 | Commit 1 alone (`darwin: accept the module arguments in iris`) | iris evaluates to `pp8chlw858z3`, the same derivation as with the whole series, so commits 2 to 9 leave iris unchanged.  lexi and every GNU/Linux target are the same as in the base.  Lint counts are unchanged from the base |
+| 46161115239 | The final series above, the same tree as 46160248457 | Same as 46160248457.  `nix flake lock` left `flake.lock` unchanged |
 
 The baseline, master with no patch, is run 46133564425 of the harness
 branch: iris fails, lexi evaluates, and Darwin warns about `'vam'` and
