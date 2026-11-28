@@ -11,7 +11,7 @@ use crate::{
         App, Message,
         update::{
             editing::{Clipboard, Register},
-            tests::{after, history::cue, output_rows::at, show},
+            tests::{after, history::cue, output_rows::at, sequence, show},
         },
     },
 };
@@ -144,22 +144,35 @@ fn a_cut_output_pasted_in_another_show_is_a_copy_there() {
     assert!(pasted.workspace.sends(cue).is_empty());
 }
 
+/// Returns the state after the keys, which go through the dispatch that
+/// drops the notices, where [`typed`] does not
+fn pressed(app: App, keys: &str) -> App {
+    let presses = sequence(keys).expect("keys in the tests are valid");
+    after(
+        app,
+        presses.into_iter().map(|press| Message::Typed {
+            press,
+            repeat: false,
+        }),
+    )
+}
+
 #[test]
 fn a_copy_notice_does_not_cross_between_the_cues_and_the_outputs() {
     // Outputs have a register of their own, so a notice of a copy in one no
     // longer fits the other
     let outputs = after(show(cue(2)), [Message::ShowOutputs, Message::Copy(1)]);
     assert!(outputs.notices.clipped.is_some());
-    let cues = after(outputs, [Message::StepList(-1)]);
+    let cues = pressed(outputs, "h");
     assert!(!cues.outputs_shown);
     assert!(cues.notices.clipped.is_none());
     let copied = after(show(cue(2)), [Message::Copy(1)]);
     assert!(copied.notices.clipped.is_some());
     // Cue lists share a register, so the notice stays from one to the next
-    let preshow = after(copied, [Message::StepList(1)]);
+    let preshow = pressed(copied, "l");
     assert!(!preshow.outputs_shown);
     assert!(preshow.notices.clipped.is_some());
-    let outputs = after(preshow, [Message::StepList(1)]);
+    let outputs = pressed(preshow, "l");
     assert!(outputs.outputs_shown);
     assert!(outputs.notices.clipped.is_none());
 }
