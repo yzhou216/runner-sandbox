@@ -1,0 +1,209 @@
+// SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Tests of the clock of a run following its sound, on the mock backend of
+//! kira, which plays ten milliseconds of sound each time a test lets it
+
+use std::{thread, time::Duration};
+
+use kira::{AudioManager, backend::mock::MockBackend, sound::streaming::StreamingSoundData};
+use tempfile::TempDir;
+
+use super::{mock_manager, saved, silence};
+use crate::back::{
+    Command, Cue, CueId, Kind, Media, Workspace,
+    audio::sound::{
+        mixer::Mixer,
+        voice::{Target, Voice, clipped},
+    },
+    workspace::tests::{GO, fresh, loaded},
+};
+
+/// Longest that a test lets the thread of a sound decode it, which takes
+/// far less
+pub(super) const DECODING: Duration = Duration::from_millis(300);
+
+/// Time that the sound moves on each time a test lets the backend play
+const BUFFER: f64 = 0.01;
+
+pub(super) fn video() -> Cue {
+    Cue::new(CueId(1), "1", Kind::Video, "Movie")
+        .file("silence.wav")
+        .build()
+}
+
+pub(super) fn audio() -> Cue {
+    Cue::new(CueId(1), "1", Kind::Audio, "Music")
+        .file("silence.wav")
+        .build()
+}
+
+/// Returns a directory with a file of `seconds` of silence, and the
+/// workspace in which GO has fired `cue`, which plays that file
+fn fired(cue: Cue, seconds: f32) -> (TempDir, Workspace) {
+    fired_promising(cue, seconds, seconds)
+}
+
+/// Returns what [`fired`] does, for a file whose header promises `promised`
+/// seconds of sound where it holds `seconds`, as a file cut short does
+pub(super) fn fired_promising(cue: Cue, seconds: f32, promised: f32) -> (TempDir, Workspace) {
+    // Header and 16 bits of sound a frame, as silence makes them
+    let kept = 44 + (seconds * 8000.0) as usize * 2;
+    let whole = silence(promised);
+    let (directory, _) = saved("silence.wav", &whole[..kept.min(whole.len())]);
+    let media = Media::Loaded {
+        duration: 10.0,
+        sound: Some(promised),
+        ahead: 0.0,
+    };
+    let workspace = fresh(vec![cue])
+        .directory(directory.path())
+        .apply(loaded(1, "silence.wav", media))
+        .apply(GO);
+    (directory, workspace)
+}
+
+/// Plays the sound of the cue that GO fired in `workspace`, from the file in
+/// `directory`, on the mock backend of kira, and returns the manager that
+/// plays it, with the voice, once the thread of the sound has decoded it
+pub(super) fn sounding(
+    directory: &TempDir,
+    workspace: &Workspace,
+) -> (AudioManager<MockBackend>, Voice) {
+    let mut manager = mock_manager(8000, 80);
+    let active = workspace.active_of(CueId(1)).expect("the cue runs");
+    let clip = active.sound().expect("the cue has sound");
+    let data = StreamingSoundData::from_file(directory.path().join("silence.wav"))
+        .expect("the sound opens");
+    let sound = manager
+        .play(clipped(data, clip, 0.0, 0.0))
+        .expect("the sound plays");
+    let voice = Voice::of(sound, active);
+    thread::sleep(DECODING);
+    (manager, voice)
+}
+
+/// Plays the sound of the cue made by `cue` from a file of `seconds` of
+/// sound, and returns how many seconds the run has played after each of the
+/// `ticks` by which the clock moves on while the sound moves on ten
+/// milliseconds and the run hears it, with whether the sound was heard
+fn played(cue: Cue, seconds: f32, ticks: &[f64]) -> Vec<(f64, bool)> {
+    played_while(cue, seconds, ticks, |_| true)
+}
+
+/// Plays as [`played`] does, but the sound moves on only at the ticks,
+/// counted from zero, at which `plays` holds, as on a device that stalls
+fn played_while(
+    cue: Cue,
+    seconds: f32,
+    ticks: &[f64],
+    plays: impl Fn(usize) -> bool,
+) -> Vec<(f64, bool)> {
+    let (directory, workspace) = fired(cue, seconds);
+    let (mut manager, voice) = sounding(&directory, &workspace);
+    ticks
+        .iter()
+        .enumerate()
+        .scan(workspace, |workspace, (index, &tick)| {
+            let ticked = std::mem::take(workspace).apply(Command::Tick(tick));
+            if plays(index) {
+                let backend = manager.backend_mut();
+                backend.on_start_processing();
+                backend.process();
+            }
+            let heard = voice.heard(ticked.active_of(CueId(1)).expect("the cue runs"), |_| true);
+            *workspace = heard.clone().into_iter().fold(ticked, Workspace::apply);
+            let played = workspace
+                .active_of(CueId(1))
+                .expect("the cue runs")
+                .played();
+            Some((played, heard.is_some()))
+        })
+        .collect()
+}
+
+#[test]
+fn clock_of_run_follows_its_sound_for_a_video_or_audio_cue() {
+    // The sound is a buffer behind the clock, which holds from the second
+    // sync on, since the position of the sound is where it was as the last
+    // buffer began
+    [("video", video()), ("audio", audio())]
+        .into_iter()
+        .for_each(|(kind, cue)| {
+            let (last, heard) = played(cue, 2.0, &[BUFFER; 60])[59];
+            assert!(heard, "{kind}");
+            assert!((last - 0.59).abs() < 1e-3, "{kind}: {last}");
+        });
+}
+
+#[test]
+fn clock_of_run_follows_a_sound_that_loops_across_its_passes() {
+    let looping = Cue {
+        start: 0.01.into(),
+        end: 0.09.into(),
+        looping: true,
+        ..video()
+    };
+    let played = played(looping, 0.1, &[BUFFER; 40]);
+    let (last, _) = played[39];
+    assert!((last - 0.39).abs() < 1e-3, "{last}");
+}
+
+#[test]
+fn clock_of_run_keeps_going_once_its_sound_has_ended() {
+    let played = played(video(), 0.1, &[BUFFER; 14]);
+    assert!(played[..8].iter().all(|(_, heard)| *heard));
+    assert!(played[12..].iter().all(|(_, heard)| !*heard));
+}
+
+#[test]
+fn clock_of_run_waits_while_its_sound_stalls() {
+    // Half a second in which the device takes no sound, as one that has
+    // just opened can, which the clock waits through instead of running
+    // ahead, so that the run cannot end before its sound
+    let played = played_while(audio(), 2.0, &[BUFFER; 100], |tick| {
+        !(20..70).contains(&tick)
+    });
+    let (last, _) = played[99];
+    assert!((last - 0.49).abs() < 0.02, "{last}");
+}
+
+/// Returns a target on the mixer of the device `key`, with its left sent to
+/// the first channel
+pub(super) fn target<'a>(key: &str, mixer: &'a mut Mixer) -> Target<'a> {
+    Target {
+        key: Some(key.to_owned()),
+        mixer,
+        gains: Box::new([[1.0, 0.0]; 2]),
+    }
+}
+
+/// Opens the sound of the audio cue on the mixers of `devices`, by their
+/// keys, as [`Voice::open`] does, from a file of two seconds of sound
+pub(super) fn opened(devices: Vec<(&str, &mut Mixer)>) -> Result<Voice, String> {
+    let (directory, workspace) = fired(audio(), 2.0);
+    let file = directory.path().join("silence.wav");
+    let active = workspace.active_of(CueId(1)).expect("the cue runs");
+    let clip = active.sound().expect("the cue has sound");
+    let targets = devices
+        .into_iter()
+        .map(|(key, mixer)| target(key, mixer))
+        .collect();
+    Voice::open(targets, &file, active, clip)
+}
+
+#[test]
+fn run_that_cannot_start_on_a_later_device_stops_its_sound_on_the_earlier_one() {
+    let (mut first, mut mix) = Mixer::bench(2, 2, 8000, 16);
+    let (mut full, _) = Mixer::bench(2, 2, 8000, 0);
+    assert!(opened(vec![("a", &mut first), ("b", &mut full)]).is_err());
+    mix.render(&mut [0.0_f32; 512]);
+    assert_eq!(mix.sounds(), 0, "nothing keeps the sound on the first");
+    let (mut second, _) = Mixer::bench(2, 2, 8000, 16);
+    let voice =
+        opened(vec![("a", &mut first), ("b", &mut second)]).expect("both devices take the sound");
+    mix.render(&mut [0.0_f32; 512]);
+    assert_eq!(mix.sounds(), 1);
+    drop(voice);
+}
