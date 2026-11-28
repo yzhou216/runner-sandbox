@@ -4,49 +4,47 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# flake-check: derivations of the flake before and after a change
+# flake-check: the nix-darwin side of the flake
 
-A harness for refactoring [yzhou216/flake](https://github.com/yzhou216/flake)
-without building it.  `.github/workflows/flake-check.yml` clones the flake
-from <https://gitlab.com/yiyuz/flake.git> at the commit in
-`flake-check/base`, applies `flake-check/flake.patch` to a second copy, and
-evaluates every attribute in `flake-check/targets` in both, at the same time
-so that the impure fetches of the flake resolve alike.  The results list, for
-each target, whether its derivation is the same, changed, or fails to
-evaluate, then the evaluation warnings and errors that only one side prints,
-the nixfmt, deadnix, and statix findings, and `nix-diff` of each changed
-derivation.
+This branch tested a series of commits on the nix-darwin side of
+[yzhou216/flake](https://github.com/yzhou216/flake), on top of master at
+1dd2043, with the harness of `flake/2026-11-28-refactor-harness`: each run
+evaluates the targets in `flake-check/targets` in the base and with
+`flake-check/flake.patch` applied, the Darwin configurations on
+`macos-latest` and the rest on `ubuntu-latest`.  The patch in
+`flake-check/flake.patch` is the final series.
 
-- The Darwin configurations are evaluated on `macos-latest`, the rest on
-  `ubuntu-latest`.
-- A commit message with `[no-darwin]` skips the macOS job, one with `[pure]`
-  evaluates the candidate without `--impure`, and one with `[build]` builds
-  what `flake-check/build` lists, after `nothing-but-nix` frees disk space.
-- If the patch adds flake inputs, the job runs `nix flake lock` on the
-  candidate and saves the new `flake.lock` as `flake.lock.new` in its
-  artifact.
+## Series
 
-## Use
+1. `darwin: accept the module arguments in iris`: `machines/darwin/iris.nix`
+   started with `{ }:`, which the module system cannot call, so
+   `darwinConfigurations.iris` failed to evaluate.
+2. `shell: test the host platform for darwin`: replaces the deprecated
+   `stdenv.isDarwin` in `systems/shell.nix`.
+3. `flake: define the darwin systems with one function`: iris and lexi share
+   one local function, and nix-homebrew takes its user from
+   `system.primaryUser`.
+4. `darwin_setup: read and pass the password verbatim`: shellcheck quoting.
+5. `darwin_setup: switch to the iris configuration as root`: the script
+   switched to `.#m1`, which no longer exists, and without root, which
+   nix-darwin requires.
+6. `shell: enable tmux once for nixos and darwin`: one definition in
+   `systems/shell.nix` instead of one per platform module.
+7. `flake: stop binding the homebrew taps in the outputs`: unused arguments
+   that deadnix reports.
+8. `darwin: take no module arguments in the state version`: the empty
+   pattern that statix reports.
+9. `flake: fetch nix-darwin and nix-homebrew from their current owners`:
+   new owners in `flake.nix` and `flake.lock`, at the same revisions and NAR
+   hashes.
 
-Branch off this branch, commit changes in a clone of the flake on top of the
-base commit, and from a clone of this repository run:
+## Runs
 
-```sh
-flake-check/submit.sh <flake clone> "flake-check: <what the run tests>"
-flake-check/wait.sh <run id>    # again until it prints the results
-```
+| Run | Tested | Outcome |
+| --- | --- | --- |
+| 46136516691 | The series above, before a commit subject was reworded | `darwinConfigurations.iris` evaluates (base error), `darwinConfigurations.lexi` and every GNU/Linux target are the same as in the base, and `packages.x86_64-linux.openwrt` fails in both, as in the baseline.  The `stdenv.isDarwin` warning is gone; the `'vam'` warning remains, from nix-darwin's `programs.vim` module.  `nix flake lock` left `flake.lock` unchanged.  deadnix fell from 14 lines to 8 and statix from 36 to 29; nixfmt still reports only `flake.nix`, for lines outside the series |
+| 46136930960 | The final series, the same tree as above | Same as 46136516691 |
 
-`submit.sh` writes the diff of the clone against the base to
-`flake-check/flake.patch`, commits and pushes it, and prints the run ID;
-`wait.sh` waits up to eight minutes per call, then prints `results.md` of
-each job and extracts the artifacts.
-
-## Baseline
-
-The flake's master at 1dd2043, with no patch:
-
-| Run | Outcome |
-| --- | --- |
-| 46133564425 | All GNU/Linux targets evaluate, in 4 minutes, except `packages.x86_64-linux.openwrt`, which stops at a hash mismatch in the package index of the OpenWrt image builder; on macOS, in 3 minutes, `darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.  nixfmt finds `flake.nix` unformatted; deadnix prints 14 lines and statix 36 |
-| 46134021458 | Same, after the macOS job became optional |
-| 46134384028 | `[pure]` check of the base itself |
+The baseline, master with no patch, is run 46133564425 of the harness
+branch: iris fails, lexi evaluates, and Darwin warns about `'vam'` and
+`stdenv.isDarwin`.
