@@ -4,49 +4,48 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# flake-check: derivations of the flake before and after a change
+# flake-check: the modules that NixOS and Darwin share
 
-A harness for refactoring [yzhou216/flake](https://github.com/yzhou216/flake)
-without building it.  `.github/workflows/flake-check.yml` clones the flake
-from <https://gitlab.com/yiyuz/flake.git> at the commit in
-`flake-check/base`, applies `flake-check/flake.patch` to a second copy, and
-evaluates every attribute in `flake-check/targets` in both, at the same time
-so that the impure fetches of the flake resolve alike.  The results list, for
-each target, whether its derivation is the same, changed, or fails to
-evaluate, then the evaluation warnings and errors that only one side prints,
-the nixfmt, deadnix, and statix findings, and `nix-diff` of each changed
-derivation.
+This branch tests a refactor of the shared modules under `systems/` of
+[yzhou216/flake](https://github.com/yzhou216/flake) (`nix.nix`,
+`nixpkgs.nix`, `shell.nix`, `dev.nix`, `editors.nix`, `vc.nix`, `man.nix`)
+and of how `systems/nixos/commons.nix` and `systems/darwin/default.nix`
+import them.  It branches off `flake/2026-11-28-refactor-harness`; the
+harness is described there.  Every run compares the flake's master at
+1dd2043 with the series in `flake-check/flake.patch`, on `ubuntu-latest`
+and, for the Darwin configurations, on `macos-latest`.
 
-- The Darwin configurations are evaluated on `macos-latest`, the rest on
-  `ubuntu-latest`.
-- A commit message with `[no-darwin]` skips the macOS job, one with `[pure]`
-  evaluates the candidate without `--impure`, and one with `[build]` builds
-  what `flake-check/build` lists, after `nothing-but-nix` frees disk space.
-- If the patch adds flake inputs, the job runs `nix flake lock` on the
-  candidate and saves the new `flake.lock` as `flake.lock.new` in its
-  artifact.
+## Series
 
-## Use
+1. `systems: import the shared modules through one module`: a new
+   `systems/commons.nix` imports the seven shared modules, and both
+   platform modules import it instead of listing the seven each.
+2. `shell: enable tmux for nixos and darwin alike`: `programs.tmux.enable`
+   moves from both platform modules into `systems/shell.nix`.
+3. `shell: check for darwin through stdenv.hostPlatform`: drops the
+   deprecated `stdenv.isDarwin`.
+4. `man: set the nixos-only developer documentation in commons`:
+   `documentation.dev.enable`, which nix-darwin lacks, moves from the
+   platform check in `systems/man.nix` to `systems/nixos/commons.nix`.
+5. `darwin: drop nix-init, which dev.nix installs`: removes a repeated
+   package.
 
-Branch off this branch, commit changes in a clone of the flake on top of the
-base commit, and from a clone of this repository run:
+## Harness change
 
-```sh
-flake-check/submit.sh <flake clone> "flake-check: <what the run tests>"
-flake-check/wait.sh <run id>    # again until it prints the results
-```
+`flake-check/run.sh` ran `nix-diff` only in the GNU/Linux job.  On this
+branch it also runs in the macOS job, so that a changed Darwin
+configuration comes with its `nix-diff`.
 
-`submit.sh` writes the diff of the clone against the base to
-`flake-check/flake.patch`, commits and pushes it, and prints the run ID;
-`wait.sh` waits up to eight minutes per call, then prints `results.md` of
-each job and extracts the artifacts.
+## Runs
 
-## Baseline
+| Run | Tested | Outcome |
+| --- | --- | --- |
+| 46136196704 | Series 1 to 5 | Every GNU/Linux target the same; `darwinConfigurations.lexi.system` changed; the Darwin warning about `stdenv.isDarwin` gone.  No `nix-diff` on macOS yet |
+| 46136658012 | Series 1 to 4 | Every target the same on both platforms, `lexi` included; the `stdenv.isDarwin` warning gone.  So the first four commits leave every derivation as it was |
+| 46136681397 | Series 1 to 5, with `nix-diff` on macOS | `lexi` changed: in the `system-path` and `system-applications` environments, the only difference is one fewer `nix-init-0.3.7` entry in `chosenOutputs` (86 characters of the JSON); `etc` and `darwin-system` change only through them |
+| 46137143959 | Final series 1 to 5 | Same as 46136681397: GNU/Linux all the same, `lexi` changed to `a64ir8dbwz8s` by the removed `nix-init` entry only, `iris` fails in both as on master |
 
-The flake's master at 1dd2043, with no patch:
-
-| Run | Outcome |
-| --- | --- |
-| 46133564425 | All GNU/Linux targets evaluate, in 4 minutes, except `packages.x86_64-linux.openwrt`, which stops at a hash mismatch in the package index of the OpenWrt image builder; on macOS, in 3 minutes, `darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.  nixfmt finds `flake.nix` unformatted; deadnix prints 14 lines and statix 36 |
-| 46134021458 | Same, after the macOS job became optional |
-| 46134384028 | `[pure]` check of the base itself |
+In every run, `packages.x86_64-linux.openwrt` failed in both trees on the
+hash mismatch of the OpenWrt package index, as on master, and nixfmt (1
+line, `flake.nix`), deadnix (14 lines), and statix (36 lines) reported the
+same counts as on master.
