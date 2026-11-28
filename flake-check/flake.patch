@@ -6,12 +6,12 @@ Changes to github.com/yzhou216/flake under test, as a diff against
   d2da2d9 darwin: accept the module arguments in iris
   ea5bce8 shell: test the host platform for darwin
   b466b5b flake: define the darwin systems with one function
-  a26877d darwin_setup: read and pass the password verbatim
-  ead3056 darwin_setup: switch to the iris configuration as root
-  93c891b shell: enable tmux once for nixos and darwin
-  af46e20 flake: stop binding the homebrew taps in the outputs
-  a775801 darwin: take no module arguments in the state version
-  42dcd61 flake: fetch nix-darwin and nix-homebrew from their current owners
+  79da6cd darwin_setup: read and pass the password verbatim
+  bdd1370 darwin_setup: switch to the iris configuration as root
+  a5a3e96 shell: enable tmux once for nixos and darwin
+  668a2e9 flake: stop binding the homebrew taps in the outputs
+  44ab235 darwin: take no module arguments in the state version
+  8c6b795 flake: fetch nix-darwin and nix-homebrew from their current owners
 
 diff --git a/flake.lock b/flake.lock
 index b3f4d32..f09c879 100644
@@ -191,7 +191,7 @@ index 46339ec..44b37a7 100644
       This value determines the nix-darwin release from which the
       default settings for stateful data, like file locations and
 diff --git a/scripts/darwin_setup.sh b/scripts/darwin_setup.sh
-index 4647980..a27c2e1 100755
+index 4647980..5c70d92 100755
 --- a/scripts/darwin_setup.sh
 +++ b/scripts/darwin_setup.sh
 @@ -5,27 +5,27 @@ echo "STOP! Did you grant Full Disk Access for Terminal in System Settings?
@@ -199,12 +199,12 @@ index 4647980..a27c2e1 100755
  
  echo -n Password: 
 -read -s password
-+read -rs password
++IFS= read -rs password
  echo
  
  # Change login shell to bash for iris
 -echo $password | sudo -S chsh -s /bin/bash iris
-+echo "$password" | sudo -S chsh -s /bin/bash iris
++printf '%s\n' "$password" | sudo -S chsh -s /bin/bash iris
  
  if csrutil status | grep 'enabled'; then
    echo 'Disable SIP before executing! Aborting...'
@@ -213,12 +213,12 @@ index 4647980..a27c2e1 100755
 -  read -p "Press return to poweroff"
 -  echo $password | sudo -S shutdown -h now
 +  read -rp "Press return to poweroff"
-+  echo "$password" | sudo -S shutdown -h now
++  printf '%s\n' "$password" | sudo -S shutdown -h now
  fi
  
  # yabai: enable non-Apple-signed arm64e binaries for Apple Silicon
 -echo $password | sudo -S nvram boot-args=-arm64e_preview_abi
-+echo "$password" | sudo -S nvram boot-args=-arm64e_preview_abi
++printf '%s\n' "$password" | sudo -S nvram boot-args=-arm64e_preview_abi
  
 -# nix-darwin
 +# nix-darwin, whose activation must run as root
