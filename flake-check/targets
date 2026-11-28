@@ -18,3 +18,5 @@ darwinConfigurations.lexi.system
 nixosConfigurations.galago.config.systemd.units.'"NetworkManager.service"'.unit
 nixosConfigurations.galago.config.systemd.units.'"dhcpcd.service"'.unit
 nixosConfigurations.galago.config.systemd.units.'"iwd.service"'.unit
+# NetworkManager is on in the installer, so its iwd backend setting acts there.
+nixosConfigurations.bcachefs-iso.config.systemd.units.'"NetworkManager.service"'.unit
