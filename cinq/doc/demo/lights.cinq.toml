@@ -1,0 +1,90 @@
+[[instrument]]
+id = 1
+name = "Front"
+address = 1
+
+[[instrument]]
+id = 2
+name = "Back"
+address = 2
+
+[[instrument]]
+id = 3
+name = "Lightning"
+universe = 2
+address = 1
+
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "light"
+name = "Preset"
+duration = 0.0
+
+[list.cue.lights]
+1 = 30.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "light"
+name = "Stage up"
+duration = 3.0
+
+[list.cue.lights]
+1 = 70.0
+2 = 40.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "light"
+name = "Lightning"
+duration = 0.0
+post_wait = 0.1
+advance = "continue"
+
+[list.cue.lights]
+3 = 100.0
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "light"
+name = "Lightning out"
+duration = 0.5
+advance = "continue"
+
+[list.cue.lights]
+3 = 0.0
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "audio"
+name = "Thunder"
+file = "sounds/thunder.wav"
+level = -6.0
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "network"
+name = "Tell another program"
+destination = "udp://127.0.0.1:9000"
+message = '/storm/thunder "Act 1" 3'
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "light"
+name = "Blackout"
+duration = 5.0
+
+[list.cue.lights]
+1 = 0.0
+2 = 0.0
+3 = 0.0
