@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
+        shell: bash
         working-directory: flake
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,6 +51,7 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
+        shell: bash
         working-directory: flake
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,16 +71,23 @@ jobs:
       - name: Check the flake
         run: nix flake check --impure --all-systems --keep-going
 
-  # build-galago.yml, as a scheduled run that updates the inputs
+  # build-galago.yml, as a push to master would run it and as the
+  # scheduled run that updates the inputs would
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        update: ["false", "true"]
+    name: build (update ${{ matrix.update }})
     runs-on: ubuntu-latest
     timeout-minutes: 360
     defaults:
       run:
+        shell: bash
         working-directory: flake
     env:
       # Changed: no schedule or dispatch triggers a sandbox branch
-      UPDATE: "true"
+      UPDATE: ${{ matrix.update }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,10 +117,9 @@ jobs:
             echo '```'
           } >>"$GITHUB_STEP_SUMMARY"
 
-      # Changed: lists what the build would build and fetch instead of
-      # building galago, which takes hours, and builds the hosts file of
-      # galago, a derivation that only builds locally, to exercise
-      # build-dir
+      # Changed: counts what the build would build and fetch instead of
+      # building galago, which takes hours, and builds a derivation that
+      # no cache has, to show that builds run in build-dir
       - name: Build galago
         timeout-minutes: 330
         run: |
@@ -120,14 +128,19 @@ jobs:
             --keep-going \
             --no-link \
             --dry-run \
-            ".#nixosConfigurations.galago.config.system.build.toplevel" 2>&1 | tail -n 60
-          nix build \
-            --impure \
-            --keep-going \
-            --no-link \
-            --print-build-logs \
-            ".#nixosConfigurations.galago.config.environment.etc.hosts.source"
+            ".#nixosConfigurations.galago.config.system.build.toplevel" 2>&1 |
+            tee dry-run.log | grep -E 'will be (built|fetched)'
+          sed -n '/will be built/,/will be fetched/p' dry-run.log | head -n 80
           nix config show build-dir
+          nix build --no-link --impure --expr "derivation {
+            name = \"build-dir-$RANDOM\";
+            system = builtins.currentSystem;
+            builder = \"/bin/sh\";
+            args = [ \"-c\" \"sleep 20; echo > \$out\" ];
+          }" &
+          sleep 10
+          ls -la /nix/build
+          wait
 
       # Changed: the path is inside the flake's directory here
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -135,3 +148,10 @@ jobs:
         with:
           name: flake.lock
           path: flake/flake.lock
+
+      # Not in build-galago.yml: keeps the list of what the build would build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dry-run-update-${{ matrix.update }}
+          path: flake/dry-run.log
