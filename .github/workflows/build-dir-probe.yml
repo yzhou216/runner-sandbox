@@ -41,15 +41,15 @@ jobs:
           systemctl cat nix-daemon.service 2>/dev/null | grep -v '^#' || true
           sudo systemctl show nix-daemon.service -p Environment 2>/dev/null || true
           df -h / /nix /tmp
-      - name: Find the directory of a running build
+      # Without the sandbox, the builder sees the build directory under
+      # its real path instead of /build
+      - name: Find the directory of a build
         run: |
-          nix build --no-link --impure --expr "derivation {
-            name = \"build-dir-probe-$RANDOM\";
-            system = builtins.currentSystem;
-            builder = \"/bin/sh\";
-            args = [ \"-c\" \"sleep 40; echo > \$out\" ];
-          }" &
-          sleep 20
-          sudo find / /nix -xdev -maxdepth 6 -type d -name '*build-dir-probe*' 2>/dev/null || true
-          sudo ls -la /nix/build /nix/var/nix/builds /tmp 2>&1 | head -40
-          wait
+          out=$(nix build --no-link --print-out-paths --option sandbox false \
+            --impure --expr "derivation {
+              name = \"build-dir-probe-$RANDOM\";
+              system = builtins.currentSystem;
+              builder = \"/bin/sh\";
+              args = [ \"-c\" \"pwd > \$out\" ];
+            }")
+          echo "the build ran in $(cat "$out")"
