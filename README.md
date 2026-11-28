@@ -4,22 +4,24 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# cinq FINAL on GNU/Linux, eight checks
+# cinq line-cutting round on GNU/Linux, eight checks, OLD and NEW
 
-Branch `cinq/2026-11-24-linux-final`, a rerun of `cinq/2026-11-24-linux-checks` with only the cinq commit changed to
-`ab9fada06db75110f94d58cd471a965a55448af9` (`verify-drop-cua-regroup`).  Run **45520333765**, green first time on
-`ubuntu-latest` (x86_64) and `ubuntu-24.04-arm` (aarch64), no rerun.  The script never fails on a bad check, so standard
-error files and screenshots were read for every check on x86_64 and a sample on aarch64.
+Branch `cinq/2026-11-27-linux-loc`, a rerun of `cinq/2026-11-24-linux-final` with a matrix over the build.  OLD is
+`e304bd4e581af53fa32c5ae9a598c2d655130e61` (master), NEW is `efa362c0f5193bc3bd73bbc4494284fa6c6429ce`.  Run
+**46111216048**, green first time on `ubuntu-latest` (x86_64) and `ubuntu-24.04-arm` (aarch64), no rerun.  The script
+never fails on a bad check, so `steps.txt` was diffed between OLD and NEW per arch and screenshots were read.
 
-All eight checks pass on both arches, as in the earlier branch.  Nothing differs.
+**No difference between OLD and NEW.**  Diffs of `steps.txt` are only temporary directory names.  Screenshots that are
+not byte-identical differ in timers (`0:04.6 left` against `0:04.5 left`) and were checked by eye on x86_64.  Stderr
+output is identical in words.
 
-| # | Check | x86_64 | aarch64 | Evidence |
-| --- | --- | --- | --- | --- |
-| 1 | Silent start | pass | pass | `1-demo.err`, `1-empty.err` 0 bytes |
-| 2 | `keymap = "cua"` | pass | pass | stderr at `config.toml:1:10`, sidebar warning, `o` added cue 4 |
-| 3 | Hint mode | pass | pass | labels shown, status bar `Type a label`, Backspace after `a` stays in the mode |
-| 4 | OSC | pass | pass | `/go` fired cue 1; cue 99 message; held port: warning `address in use; retrying`, stderr `(os error 98)` |
-| 5 | File watching | pass | pass | `BROKEN`, `file not found`; restored, warnings 0 |
-| 6 | Paste | pass | pass | `Pasted cue 4`, copy shows `0:08.0` |
-| 7 | Errors in words | pass | pass | `Cannot save: permission denied` in status bar and sidebar; stderr keeps `(os error N)` |
-| 8 | Closed port | pass | pass | `SEND FAILED`, `Connection refused (os error 111)` |
+| # | Check | x86_64 OLD | x86_64 NEW | aarch64 OLD | aarch64 NEW |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Silent start | pass | pass | pass | pass |
+| 2 | `keymap = "cua"` | pass | pass | pass | pass |
+| 3 | Hint mode | pass | pass | pass | pass |
+| 4 | OSC (`/go`, cue 99, port held) | pass | pass | pass | pass |
+| 5 | File watching | pass | pass | pass | pass |
+| 6 | Paste | pass | pass | pass | pass |
+| 7 | Errors in words | pass | pass | pass | pass |
+| 8 | Closed port | pass | pass | pass | pass |
