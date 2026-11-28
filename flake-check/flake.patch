@@ -7,22 +7,61 @@ Changes to github.com/yzhou216/flake under test, as a diff against
   861a07c commons: merge the definitions of the t3code environment
   dbf1b17 commons: move the t3code service into t3code.nix
   6a13656 commons: move the emacs overlays into emacs.nix
+  1b69ee1 commons: drop commented-out settings of the configuration.nix template
+  34f53b1 commons: drop settings that nixos sets by default
+  4d74c9f commons: drop the networkmanager settings, which nothing enables
+  235aba4 commons: move networking, openssh, and tailscale into network.nix
 
 diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
-index 0c3dfa3..f771e05 100644
+index 0c3dfa3..3be3f58 100644
 --- a/systems/nixos/commons.nix
 +++ b/systems/nixos/commons.nix
-@@ -12,7 +12,8 @@
+@@ -12,7 +12,9 @@
      ../vc.nix
      ../editors.nix
      ../man.nix
 -    ./t3code-themes.nix
 +    ./emacs.nix
++    ./network.nix
 +    ./t3code.nix
    ];
  
    # Bootloader
-@@ -66,37 +67,9 @@
+@@ -26,33 +28,6 @@
+ 
+   zramSwap.enable = true;
+ 
+-  networking = {
+-    # Use iwd as the IEEE 802.11 backend for NetworkManager
+-    networkmanager.wifi.backend = "iwd";
+-    wireless.iwd = {
+-      enable = true;
+-      settings = {
+-        General.AddressRandomization = "once";
+-        IPv6.Enabled = true;
+-        Settings.AutoConnect = true;
+-      };
+-    };
+-
+-    # Use nftables as the backend instead of iptables
+-    nftables.enable = true;
+-    firewall = {
+-      enable = true;
+-      package = pkgs.nftables;
+-      # Open ports in the firewall
+-      #allowedTCPPorts = [ ... ];
+-      #allowedUDPPorts = [ ... ];
+-    };
+-
+-    # Network proxy
+-    #proxy.default = "http://user:password@proxy:port/";
+-    #proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+-  };
+-
+   # Internationalisation properties.
+   i18n = {
+     defaultLocale = "en_US.UTF-8";
+@@ -66,37 +41,9 @@
        "LC_PAPER"
        "LC_TELEPHONE"
        "LC_TIME"
@@ -61,10 +100,30 @@ index 0c3dfa3..f771e05 100644
    virtualisation.podman = {
      enable = true;
      dockerSocket.enable = true;
-@@ -148,14 +121,6 @@
-       ];
+@@ -127,9 +74,6 @@
+     # Common UNIX Printing System
+     printing.enable = true;
+ 
+-    # OpenSSH daemon
+-    openssh.enable = true;
+-
+     # Touchpad support (enabled default in most desktopManager)
+     libinput.enable = true;
+ 
+@@ -138,24 +82,6 @@
+       gc.enable = true;
      };
  
+-    tailscale = {
+-      enable = true;
+-      useRoutingFeatures = "both";
+-      extraSetFlags = [
+-        "--exit-node-allow-lan-access=true"
+-        "--operator=yiyu"
+-        "--ssh"
+-      ];
+-    };
+-
 -    # Web GUI for LLM programming agents, reachable over the network
 -    t3code = {
 -      enable = true;
@@ -76,7 +135,7 @@ index 0c3dfa3..f771e05 100644
      # BitTorrent daemon with an HTTP API and web UI on localhost:3030
      rqbit = {
        enable = true;
-@@ -183,19 +148,6 @@
+@@ -183,30 +109,13 @@
      mode = "0755";
    };
  
@@ -94,8 +153,40 @@ index 0c3dfa3..f771e05 100644
 -  };
 -
    hardware = {
-     bluetooth = {
+-    bluetooth = {
+-      enable = true;
+-      powerOnBoot = true;
+-    };
++    bluetooth.enable = true;
+     acpilight.enable = true;
+   };
+ 
+   security = {
+     # Use sudo-rs and doas instead of sudo
+-    sudo.enable = false;
+     sudo-rs = {
        enable = true;
+       extraConfig = ''
+@@ -235,7 +144,6 @@
+     extraGroups = [
+       "wheel"
+       "video"
+-      "networkmanager"
+       "podman"
+     ];
+ 
+@@ -304,11 +212,5 @@
+     };
+ 
+     nix-index.enable = true;
+-
+-    /*
+-      Some programs need SUID wrappers, can be configured further or
+-      are started in user sessions.
+-    */
+-    #mtr.enable = true;
+   };
+ }
 diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
 new file mode 100644
 index 0000000..704f06d
@@ -130,6 +221,42 @@ index 0000000..704f06d
 +      );
 +    })
 +  ];
++}
+diff --git a/systems/nixos/network.nix b/systems/nixos/network.nix
+new file mode 100644
+index 0000000..33959a0
+--- /dev/null
++++ b/systems/nixos/network.nix
+@@ -0,0 +1,30 @@
++{
++  networking = {
++    wireless.iwd = {
++      enable = true;
++      settings = {
++        General.AddressRandomization = "once";
++        IPv6.Enabled = true;
++        Settings.AutoConnect = true;
++      };
++    };
++
++    # Use nftables as the backend instead of iptables
++    nftables.enable = true;
++  };
++
++  services = {
++    # OpenSSH daemon
++    openssh.enable = true;
++
++    tailscale = {
++      enable = true;
++      useRoutingFeatures = "both";
++      extraSetFlags = [
++        "--exit-node-allow-lan-access=true"
++        "--operator=yiyu"
++        "--ssh"
++      ];
++    };
++  };
 +}
 diff --git a/systems/nixos/t3code.nix b/systems/nixos/t3code.nix
 new file mode 100644
