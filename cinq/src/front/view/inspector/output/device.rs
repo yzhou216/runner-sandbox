@@ -50,10 +50,9 @@ pub(super) fn view<'a>(app: &'a App, output: &'a Output) -> Element<'a, Message>
     )
     .placeholder(placeholder)
     // Sidebar tells in color which device the default stands for
-    .on_highlight(move |row| Message::DefaultHighlighted(row.is_some() && row == default_row));
-    let list = list
-        .placeholder_color(missing.then_some(theme::PALETTE.warning))
-        .on_open(Message::ListAudioDevices);
+    .on_highlight(move |row| Message::DefaultHighlighted(row.is_some() && row == default_row))
+    .placeholder_color(missing.then_some(theme::PALETTE.warning))
+    .on_open(Message::ListAudioDevices);
     keep_keys(list, keymap)
 }
 
