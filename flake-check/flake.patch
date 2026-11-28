@@ -5,7 +5,6 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 
   be75793 flake: move the nixpkgs patching into patched.nix
   b45268f patched: list the commits of each pull request as data
-  3454121 patched: give systems the version of nixpkgs
 
 diff --git a/flake.nix b/flake.nix
 index e74cecb..8610e4a 100644
@@ -77,10 +76,10 @@ index e74cecb..8610e4a 100644
        nixosConfigurations = {
 diff --git a/patched.nix b/patched.nix
 new file mode 100644
-index 0000000..2192ca3
+index 0000000..9277533
 --- /dev/null
 +++ b/patched.nix
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,114 @@
 +/*
 +  Flake inputs with commits from open pull requests applied on top.
 +  Each commit is pinned so that pushes to a pull request do not
@@ -184,10 +183,7 @@ index 0000000..2192ca3
 +    args:
 +    import "${nixpkgs-patched}/nixos/lib/eval-config.nix" (
 +      {
-+        # Version and revision of nixpkgs, as `nixpkgs.lib.nixosSystem` has
-+        lib = (import "${nixpkgs-patched}/lib").extend (
-+          import "${nixpkgs-patched}/lib/flake-version-info.nix" nixpkgs
-+        );
++        lib = import "${nixpkgs-patched}/lib";
 +        system = null;
 +        # Errors in inline modules name the file of the caller, not this one
 +        modulesLocation = (builtins.unsafeGetAttrPos "modules" args).file or null;
