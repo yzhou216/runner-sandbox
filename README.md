@@ -61,3 +61,24 @@ Branch `cinq/2026-11-24-audio-final` of yzhou216/runner-sandbox; run 45520340417
 | 8 | last send cleared | status "Changed cue 8 to play nowhere", silent 0.1 s | same |
 
 Differences: none.  Every number and message matches.  Only wobble: Stop on the house sink reads last sound 0.1 s, silent from 0.2 s, against 0.1 s before; the same 0.2 s measuring accuracy covers it.
+
+## Rerun on OLD e304bd4e5 and NEW efa362c0f, run 46111297065
+
+
+| # | Check | OLD | NEW |
+|---|-------|-----|-----|
+| 1 | -6 dB cue, default device | house -12.0, booth silent | same |
+| 2 | sends House 0, Booth -10 | -12.0 / -22.0 | same |
+| 3 | fade to -20 over 3 s | -18 to -26, booth -28 to -36, flat at +3.0 s | same; steps differ by at most 0.2 dB (-24.0 vs -23.8 at +2.0 s) |
+| 4 | loop, devamp | loop -9, ending -17, silent +10.0 s, mark +7.3 s | same |
+| 5 | Stop | house silent 0.2 s, booth 0.0 s | house 0.1 s, booth 0.1 s |
+| 5 | Panic | house 1.1 s, booth 1.0 s | house 0.9 s, booth 1.0 s |
+| 6 | -12 typed while playing | -12 to -18, -22 to -28 | same |
+| 7 | booth device gone | house -6.0, booth silent, cue 9 OUTPUT FAILED, "Booth (cannot open)" at 7 s | same at 7 s |
+| 8 | last send cleared | house 0.2 s, booth 0.1 s | house 0.1 s, booth 0.2 s |
+
+Differences (all within the 0.1 to 0.2 s measuring accuracy except one):
+- Stop, Panic, and check 8 timings move by 0.1 to 0.2 s in both directions; no trend.
+- Check 3 fade steps differ by up to 0.2 dB, the same shape and end point.
+- Check 7 at 3 s: OLD screenshot still shows cue 9 playing with Booth normal; NEW already shows OUTPUT FAILED and "Booth (stopped)".  By 7 s both match.  Likely detection timing of the dead device, one run each, not proven.
+- Nothing else: devices.tsv, sink-input list, and cinq.log shape are identical.
