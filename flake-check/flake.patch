@@ -4,9 +4,8 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
   8512cc3 commons: pin emacs-overlay as a flake input
-  187d135 commons: pin emacs master as a flake input
-  78526b5 flake: drop --impure from the build commands
-  5797d5e relock: drop emacs-src from flake.lock
+  e385f5d commons: pin emacs master as a flake input
+  d914b93 flake: drop --impure from the build commands
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
 index 7930cc5..eb466f5 100644
@@ -30,10 +29,10 @@ index 7930cc5..eb466f5 100644
              --no-link \
              ".#nixosConfigurations.galago.config.system.build.toplevel"
 diff --git a/flake.lock b/flake.lock
-index b3f4d32..e7406a1 100644
+index b3f4d32..fd25cb0 100644
 --- a/flake.lock
 +++ b/flake.lock
-@@ -79,6 +79,27 @@
+@@ -79,6 +79,44 @@
          "type": "github"
        }
      },
@@ -58,10 +57,27 @@ index b3f4d32..e7406a1 100644
 +        "type": "github"
 +      }
 +    },
++    "emacs-src": {
++      "flake": false,
++      "locked": {
++        "lastModified": 1795861319,
++        "narHash": "sha256-zOw0pJALCp5cG08LvxIDqgYrsZT3deF2Ty/PkNLAXJs=",
++        "owner": "emacsmirror",
++        "repo": "emacs",
++        "rev": "f55a12f0b7976772b1744dc8c0150e5c013f40b2",
++        "type": "github"
++      },
++      "original": {
++        "owner": "emacsmirror",
++        "ref": "master",
++        "repo": "emacs",
++        "type": "github"
++      }
++    },
      "flake-compat": {
        "flake": false,
        "locked": {
-@@ -305,6 +326,22 @@
+@@ -305,6 +343,22 @@
          "type": "github"
        }
      },
@@ -84,11 +100,12 @@ index b3f4d32..e7406a1 100644
      "nixpkgs_2": {
        "locked": {
          "lastModified": 1761236834,
-@@ -409,6 +446,7 @@
+@@ -409,6 +463,8 @@
        "inputs": {
          "darwin": "darwin",
          "disko": "disko",
 +        "emacs-overlay": "emacs-overlay",
++        "emacs-src": "emacs-src",
          "homebrew-bundle": "homebrew-bundle",
          "homebrew-cask": "homebrew-cask",
          "homebrew-core": "homebrew-core",
