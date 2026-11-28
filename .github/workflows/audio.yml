@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 
-# Plays cinq of commit ab9fada06db7 through eight audio checks with audio/record.sh
+# Plays cinq of an OLD and a NEW commit through eight audio checks with audio/record.sh
 # in a headless sway session with a PulseAudio server of its own, records the
 # sound of each output, and measures its levels with audio/report.sh
 on: push
@@ -13,6 +13,14 @@ defaults:
     shell: bash
 jobs:
   audio:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: old
+            sha: e304bd4e581af53fa32c5ae9a598c2d655130e61
+          - build: new
+            sha: efa362c0f5193bc3bd73bbc4494284fa6c6429ce
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -28,7 +36,7 @@ jobs:
             extra-trusted-public-keys = yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
       - name: Build cinq and the tools of the session
         run: |
-          nix build --out-link result-cinq github:yzhou216/cinq/ab9fada06db75110f94d58cd471a965a55448af9#cinq
+          nix build --out-link result-cinq github:yzhou216/cinq/${{ matrix.sha }}#cinq
           nix build --out-link tools nixpkgs#sway-unwrapped nixpkgs#wtype nixpkgs#grim \
             nixpkgs#pulseaudio nixpkgs#ffmpeg-headless nixpkgs#gawk nixpkgs#imagemagick
           nix build --out-link alsa-plugins nixpkgs#alsa-plugins
@@ -47,8 +55,21 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@main
         with:
-          name: audio
+          name: audio-${{ matrix.build }}
           path: |
             out
             logs
           if-no-files-found: ignore
+  compare:
+    needs: audio
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@main
+        with:
+          pattern: audio-*
+      - name: Diff the reports of OLD and NEW
+        run: |
+          ls -R audio-old audio-new | head -40
+          diff -u audio-old/out/report.txt audio-new/out/report.txt || true
+          diff -u audio-old/out/devices.tsv audio-new/out/devices.tsv || true
