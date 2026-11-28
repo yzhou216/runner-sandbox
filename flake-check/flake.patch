@@ -3,10 +3,10 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  fb19afd router: correct the notes on testing in a VM
-  72bea69 disko: load bcachefs in the image builder of every machine
-  24a4542 openwrt: explain the hash mismatches of the package feeds
-  319f9a0 flake: update openwrt-imagebuilder for fresh feed hashes
+  57ae32a router: correct the notes on testing in a VM
+  9953ef9 disko: move the bcachefs image builder workaround into the layout
+  9ac597a openwrt: explain the hash mismatches of the package feeds
+  15947f9 flake: update openwrt-imagebuilder for fresh feed hashes
 
 diff --git a/disko/bcachefs-image-builder.nix b/disko/bcachefs-image-builder.nix
 new file mode 100644
@@ -76,7 +76,7 @@ index b3f4d32..fe58fd5 100644
        },
        "original": {
 diff --git a/flake.nix b/flake.nix
-index e74cecb..5335cf1 100644
+index e74cecb..bab16cc 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -149,16 +149,16 @@
@@ -97,7 +97,7 @@ index e74cecb..5335cf1 100644
 +          no swap, and no mounted subvolumes).  The configuration
 +          also fails pure evaluation, because
 +          `systems/nixos/commons.nix` fetches the emacs overlay and
-+          the Emacs source without pinned hashes.  Instead, build a
++          the Emacs source without pinning them.  Instead, build a
            VM backed by a real disko image, which boots the actual
 -          bcachefs/swap layout:
 +          bcachefs and swap layout:
