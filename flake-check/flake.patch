@@ -4,7 +4,20 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
   3f0821e shell: use stdenv.hostPlatform.isDarwin instead of stdenv.isDarwin
+  3c5f5d1 darwin: drop the no_quarantine cask argument
 
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index ce65330..8a47c2e 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -161,7 +161,6 @@
+ 
+   homebrew = {
+     enable = true;
+-    caskArgs.no_quarantine = true;
+     global.brewfile = true;
+     masApps = { };
+     casks = [
 diff --git a/systems/shell.nix b/systems/shell.nix
 index 1c4fdc8..297c450 100644
 --- a/systems/shell.nix
