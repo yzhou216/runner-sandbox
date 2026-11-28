@@ -6,9 +6,12 @@
 # Darwin configurations are evaluated on a macOS runner as well.
 nixosConfigurations.galago.config.system.build.toplevel
 nixosConfigurations.galago.config.system.build.diskoScript
+nixosConfigurations.galago.config.system.build.vmWithDisko
+nixosConfigurations.galago.config.system.build.diskoImages
 nixosConfigurations.router.config.system.build.toplevel
 nixosConfigurations.router.config.system.build.diskoScript
 nixosConfigurations.router.config.system.build.vmWithDisko
+nixosConfigurations.router.config.system.build.diskoImages
 nixosConfigurations.bcachefs-iso.config.system.build.toplevel
 packages.x86_64-linux.bcachefs-iso
 packages.x86_64-linux.openwrt

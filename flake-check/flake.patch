@@ -4,9 +4,58 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
   fb19afd router: correct the notes on testing in a VM
-  69d29f6 openwrt: explain the hash mismatches of the package feeds
-  54e8a32 flake: update openwrt-imagebuilder for fresh feed hashes
+  72bea69 disko: load bcachefs in the image builder of every machine
+  24a4542 openwrt: explain the hash mismatches of the package feeds
+  319f9a0 flake: update openwrt-imagebuilder for fresh feed hashes
 
+diff --git a/disko/bcachefs-image-builder.nix b/disko/bcachefs-image-builder.nix
+new file mode 100644
+index 0000000..42fdad1
+--- /dev/null
++++ b/disko/bcachefs-image-builder.nix
+@@ -0,0 +1,30 @@
++{ pkgs, lib, ... }:
++{
++  /*
++    The disko image-builder VM builds its initrd from in-tree kernel
++    modules only, but nixpkgs ships bcachefs as an out-of-tree module
++    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
++    tree and regenerate modules.dep so the builder's initrd can find
++    it.
++  */
++  disko.imageBuilder = {
++    extraRootModules = [ "bcachefs" ];
++    kernelPackages = pkgs.linuxPackages // {
++      kernel = pkgs.linuxPackages.kernel // {
++        modules = pkgs.buildEnv {
++          name = "kernel-modules-with-bcachefs";
++          paths = with pkgs.linuxPackages; [
++            kernel.modules
++            bcachefs
++          ];
++
++          postBuild = ''
++            version=$(cd $out/lib/modules && ls -d *)
++            ${lib.getExe' pkgs.kmod "depmod"} \
++              --basedir "$out" --all "$version"
++          '';
++        };
++      };
++    };
++  };
++}
+diff --git a/disko/bcachefs.nix b/disko/bcachefs.nix
+index 97549d2..5b1f3c9 100644
+--- a/disko/bcachefs.nix
++++ b/disko/bcachefs.nix
+@@ -1,5 +1,7 @@
+ { lib, ... }:
+ {
++  imports = [ ./bcachefs-image-builder.nix ];
++
+   disko.devices = {
+     disk.disk1 = {
+       device = lib.mkDefault "/dev/nvme0n1";
 diff --git a/flake.lock b/flake.lock
 index b3f4d32..fe58fd5 100644
 --- a/flake.lock
@@ -70,3 +119,46 @@ index e74cecb..5335cf1 100644
            profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
            config = profiles.identifyProfile "avm_fritz7412" // {
              # Packages to include in the image instead of installing them later
+diff --git a/machines/nixos/router.nix b/machines/nixos/router.nix
+index 2d03f38..6f13f94 100644
+--- a/machines/nixos/router.nix
++++ b/machines/nixos/router.nix
+@@ -1,4 +1,4 @@
+-{ pkgs, lib, ... }:
++{ ... }:
+ {
+   imports = [
+     ./state-version.nix
+@@ -8,32 +8,4 @@
+ 
+   services.dnsmasq.enable = true;
+   networking.hostName = "router";
+-
+-  /*
+-    The disko image-builder VM builds its initrd from in-tree kernel
+-    modules only, but nixpkgs ships bcachefs as an out-of-tree module
+-    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
+-    tree and regenerate modules.dep so the builder's initrd can find
+-    it.
+-  */
+-  disko.imageBuilder = {
+-    extraRootModules = [ "bcachefs" ];
+-    kernelPackages = pkgs.linuxPackages // {
+-      kernel = pkgs.linuxPackages.kernel // {
+-        modules = pkgs.buildEnv {
+-          name = "kernel-modules-with-bcachefs";
+-          paths = with pkgs.linuxPackages; [
+-            kernel.modules
+-            bcachefs
+-          ];
+-
+-          postBuild = ''
+-            version=$(cd $out/lib/modules && ls -d *)
+-            ${lib.getExe' pkgs.kmod "depmod"} \
+-              --basedir "$out" --all "$version"
+-          '';
+-        };
+-      };
+-    };
+-  };
+ }
