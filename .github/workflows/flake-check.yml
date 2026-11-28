@@ -26,14 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - mode: linux
-            os: ubuntu-latest
-          - mode: darwin
-            os: macos-latest
+        mode: ${{ fromJSON(contains(github.event.head_commit.message, '[no-darwin]') && '["linux"]' || '["linux", "darwin"]') }}
     name: evaluate (${{ matrix.mode }})
-    if: matrix.mode == 'linux' || !contains(github.event.head_commit.message, '[no-darwin]')
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.mode == 'darwin' && 'macos-latest' || 'ubuntu-latest' }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@main
