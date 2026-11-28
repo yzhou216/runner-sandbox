@@ -8,10 +8,10 @@ Changes to github.com/yzhou216/flake under test, as a diff against
   b466b5b flake: define the darwin systems with one function
   a26877d darwin_setup: read and pass the password verbatim
   ead3056 darwin_setup: switch to the iris configuration as root
-  840a81c shell: enable tmux on every system
-  435aa72 flake: stop binding the homebrew taps in the outputs
-  2915a9f darwin: take no module arguments in the state version
-  c3c7207 flake: fetch nix-darwin and nix-homebrew from their current owners
+  93c891b shell: enable tmux once for nixos and darwin
+  af46e20 flake: stop binding the homebrew taps in the outputs
+  a775801 darwin: take no module arguments in the state version
+  42dcd61 flake: fetch nix-darwin and nix-homebrew from their current owners
 
 diff --git a/flake.lock b/flake.lock
 index b3f4d32..f09c879 100644
