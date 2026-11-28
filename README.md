@@ -4,49 +4,50 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# flake-check: derivations of the flake before and after a change
+# flake-check: evaluation warnings and deprecations
 
-A harness for refactoring [yzhou216/flake](https://github.com/yzhou216/flake)
-without building it.  `.github/workflows/flake-check.yml` clones the flake
-from <https://gitlab.com/yiyuz/flake.git> at the commit in
-`flake-check/base`, applies `flake-check/flake.patch` to a second copy, and
-evaluates every attribute in `flake-check/targets` in both, at the same time
-so that the impure fetches of the flake resolve alike.  The results list, for
-each target, whether its derivation is the same, changed, or fails to
-evaluate, then the evaluation warnings and errors that only one side prints,
-the nixfmt, deadnix, and statix findings, and `nix-diff` of each changed
-derivation.
+This branch tested a series on [yzhou216/flake](https://github.com/yzhou216/flake)
+that removes the evaluation warnings and deprecations which come from the
+flake itself, with the harness of `flake/2026-11-28-refactor-harness`
+(see that branch for how `flake-check/submit.sh` and `flake-check/wait.sh`
+work).  The base is the flake's master at 1dd2043.
 
-- The Darwin configurations are evaluated on `macos-latest`, the rest on
-  `ubuntu-latest`.
-- A commit message with `[no-darwin]` skips the macOS job, one with `[pure]`
-  evaluates the candidate without `--impure`, and one with `[build]` builds
-  what `flake-check/build` lists, after `nothing-but-nix` frees disk space.
-- If the patch adds flake inputs, the job runs `nix flake lock` on the
-  candidate and saves the new `flake.lock` as `flake.lock.new` in its
-  artifact.
+## Series
 
-## Use
+1. `shell: use stdenv.hostPlatform.isDarwin instead of stdenv.isDarwin`
+   (`systems/shell.nix`).  It removes the warning
+   `stdenv.isDarwin is deprecated` from the Darwin configurations and
+   leaves every derivation the same.
+2. `darwin: drop the no_quarantine cask argument`
+   (`systems/darwin/default.nix`).  Homebrew removed `--no-quarantine`,
+   and the Homebrew that nix-homebrew pins (7.0.15) rejects it, so
+   `brew bundle` would fail to install new casks.  It changes
+   `darwinConfigurations.*.system`: nix-diff shows only the Brewfile losing
+   its `cask_args no_quarantine: true` section, and the derivations that
+   refer to the Brewfile (`set-environment` through `HOMEBREW_BUNDLE_FILE`,
+   then `etc`).
 
-Branch off this branch, commit changes in a clone of the flake on top of the
-base commit, and from a clone of this repository run:
+## Harness changes on this branch
 
-```sh
-flake-check/submit.sh <flake clone> "flake-check: <what the run tests>"
-flake-check/wait.sh <run id>    # again until it prints the results
-```
+- `flake-check/run.sh` runs nix-diff on macOS as well, not only on
+  GNU/Linux, so that the change to the Darwin configurations can be
+  explained.
+- `flake-check/targets` adds `vmWithDisko` of galago and router, which
+  `flake.nix` documents as the way to test router in a VM.
 
-`submit.sh` writes the diff of the clone against the base to
-`flake-check/flake.patch`, commits and pushes it, and prints the run ID;
-`wait.sh` waits up to eight minutes per call, then prints `results.md` of
-each job and extracts the artifacts.
+## Runs
 
-## Baseline
+| Run | Tested | Outcome |
+| --- | --- | --- |
+| 46136068296 | Both commits, plus a temporary commit (not in the series) that gives `machines/darwin/iris.nix` the arguments `{ ... }` instead of `{ }` | iris evaluates with it, so `{ }` is why iris fails on master.  The only warning left on either Darwin configuration is `'vam' attribute is deprecated`, which comes from the vim module of nix-darwin.  GNU/Linux: all same |
+| 46136507794 | Commit 1 alone | Every derivation the same on both platforms; the `stdenv.isDarwin` warning is gone |
+| 46136526143 | The series | GNU/Linux: all same.  macOS: lexi changed only in the Brewfile, per nix-diff; iris fails in both, as on master.  The openwrt target failed in both at a different package index of the image builder, which changes upstream |
+| 46136924177 | The series, with the `vmWithDisko` targets | Same as the run before; both `vmWithDisko` targets evaluate, with the same derivations and no warnings.  This is the last run, and it tests exactly the final series |
 
-The flake's master at 1dd2043, with no patch:
+## Warnings left
 
-| Run | Outcome |
-| --- | --- |
-| 46133564425 | All GNU/Linux targets evaluate, in 4 minutes, except `packages.x86_64-linux.openwrt`, which stops at a hash mismatch in the package index of the OpenWrt image builder; on macOS, in 3 minutes, `darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.  nixfmt finds `flake.nix` unformatted; deadnix prints 14 lines and statix 36 |
-| 46134021458 | Same, after the macOS job became optional |
-| 46134384028 | `[pure]` check of the base itself |
+- `'vam' attribute is deprecated`, from `programs.vim` of nix-darwin, which
+  still passes `vimrcConfig.vam` to `vim-full.customize`
+  ([nix-darwin/nix-darwin#832](https://github.com/nix-darwin/nix-darwin/pull/832)
+  is open).
+- The GNU/Linux configurations print no evaluation warnings.
