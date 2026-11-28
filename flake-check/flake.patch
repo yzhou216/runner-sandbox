@@ -7,6 +7,7 @@ Changes to github.com/yzhou216/flake under test, as a diff against
   ecb9527 shell: enable tmux for nixos and darwin alike
   6fe13ba shell: check for darwin through stdenv.hostPlatform
   0402206 man: set the nixos-only developer documentation in commons
+  b787dd6 darwin: drop nix-init, which dev.nix installs
 
 diff --git a/systems/commons.nix b/systems/commons.nix
 new file mode 100644
@@ -27,7 +28,7 @@ index 0000000..689997b
 +  ];
 +}
 diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
-index ce65330..164a50e 100644
+index ce65330..a19200a 100644
 --- a/systems/darwin/default.nix
 +++ b/systems/darwin/default.nix
 @@ -4,17 +4,7 @@
@@ -49,6 +50,14 @@ index ce65330..164a50e 100644
  
    environment = {
      shells = with pkgs; [ bash ];
+@@ -43,7 +33,6 @@
+       # NixOS
+       nixos-anywhere
+       #nixos-facter
+-      nix-init
+ 
+       # TeX
+       tectonic
 diff --git a/systems/man.nix b/systems/man.nix
 index ba8120b..5bdb86e 100644
 --- a/systems/man.nix
