@@ -122,6 +122,23 @@ disko's master with the patch, and without its fix.
 The change is proposed as
 [nix-community/disko#1316](https://github.com/nix-community/disko/pull/1316).
 
+## disko's bcachefs device without a label
+
+The label of a bcachefs device in disko defaults to `""`, but disko passes
+`--label=` to `bcachefs format` even then, which bcachefs-tools 1.39.7
+rejects with `error creating disk path: Invalid argument (os error 22)`.
+`disko-bcachefs-label/disko.patch` passes `--label` only when a label is
+set, and drops the label of `vde1` from the bcachefs example of disko.
+`.github/workflows/disko-bcachefs-label.yml` runs the bcachefs test of disko
+on its master with the patch, and without its fix.
+
+| Run | Commit | Outcome |
+| --- | --- | --- |
+| 46122091391 | 6c3f195 | Passed with the fix, where sysfs reports the label of `vde1` as `none`; failed without it, when formatting `vde1` |
+
+The change is proposed as
+[nix-community/disko#1317](https://github.com/nix-community/disko/pull/1317).
+
 ## Notes
 
 - The serial console takes input in chunks of 8 bytes, the trigger level of
