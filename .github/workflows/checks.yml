@@ -11,7 +11,6 @@ defaults:
   run:
     shell: bash
 env:
-  SHA: ab9fada06db75110f94d58cd471a965a55448af9
   HINT_LABEL: sd
 jobs:
   linux:
@@ -19,8 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm]
-    name: linux (${{ matrix.os }})
+        build: [old, new]
+    name: linux (${{ matrix.os }}, ${{ matrix.build }})
     runs-on: ${{ matrix.os }}
+    env:
+      SHA: ${{ matrix.build == 'old' && 'e304bd4e581af53fa32c5ae9a598c2d655130e61' || 'efa362c0f5193bc3bd73bbc4494284fa6c6429ce' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -47,5 +49,5 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: out-${{ matrix.os }}
+          name: out-${{ matrix.os }}-${{ matrix.build }}
           path: out
