@@ -21,8 +21,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fix: [with, without]
-    name: bcachefs test, ${{ matrix.fix }} the fix
+        # Twice with the fix, since the unlock units of NixOS race at boot
+        include:
+          - fix: with
+            attempt: 1
+          - fix: with
+            attempt: 2
+          - fix: without
+            attempt: 1
+    name: bcachefs test, ${{ matrix.fix }} the fix, ${{ matrix.attempt }}
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
