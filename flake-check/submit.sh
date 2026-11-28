@@ -27,7 +27,11 @@ base=$(grep -v '^#' "$here/base" | tr -d '[:space:]')
 } >"$here/flake.patch"
 git -C "$here/.." add flake-check
 git -C "$here/.." commit --quiet -m "$msg"
-git -C "$here/.." push --quiet -u origin HEAD 2>&1 | grep -v '^remote:' || true
+# GitHub sometimes rejects a push with "(failed)" and accepts it again
+for _ in 1 2 3 4 5; do
+  git -C "$here/.." push --quiet -u origin HEAD 2>/dev/null && break
+  sleep 10
+done
 sha=$(git -C "$here/.." rev-parse HEAD)
 for _ in $(seq 60); do
   run=$(gh run list -R "$repo" -c "$sha" --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
