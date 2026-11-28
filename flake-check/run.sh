@@ -162,27 +162,31 @@ if [ "$mode" = linux ]; then
     echo '```'
     echo
     echo "Full deadnix and statix output is in cand.deadnix and cand.statix of the results artifact."
-    changed=()
-    for t in "${targets[@]}"; do
-      b=$(cat "$out/base/$t.drv")
-      c=$(cat "$out/cand/$t.drv")
-      if [ "$b" != ERROR ] && [ "$c" != ERROR ] && [ "$b" != "$c" ]; then
-        changed+=("$t")
-        nix run --quiet nixpkgs#nix-diff -- --color never "$b" "$c" >"$out/cand/$t.nix-diff" 2>&1 || true
-      fi
-    done
-    if [ "${#changed[@]}" -gt 0 ]; then
-      echo
-      echo "### nix-diff of changed targets"
-      for t in "${changed[@]}"; do
-        echo
-        echo "<details><summary>$t</summary>"
-        echo
-        echo '```'
-        head -n 80 "$out/cand/$t.nix-diff"
-        echo '```'
-        echo "</details>"
-      done
-    fi
   } >>"$r"
 fi
+
+# nix-diff of changed derivations, on both platforms
+{
+  changed=()
+  for t in "${targets[@]}"; do
+    b=$(cat "$out/base/$t.drv")
+    c=$(cat "$out/cand/$t.drv")
+    if [ "$b" != ERROR ] && [ "$c" != ERROR ] && [ "$b" != "$c" ]; then
+      changed+=("$t")
+      nix run --quiet nixpkgs#nix-diff -- --color never "$b" "$c" >"$out/cand/$t.nix-diff" 2>&1 || true
+    fi
+  done
+  if [ "${#changed[@]}" -gt 0 ]; then
+    echo
+    echo "### nix-diff of changed targets"
+    for t in "${changed[@]}"; do
+      echo
+      echo "<details><summary>$t</summary>"
+      echo
+      echo '```'
+      head -n 80 "$out/cand/$t.nix-diff"
+      echo '```'
+      echo "</details>"
+    done
+  fi
+} >>"$r"
