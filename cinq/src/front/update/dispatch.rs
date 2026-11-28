@@ -31,7 +31,7 @@ pub(super) fn passive(message: &Message) -> bool {
             | Message::OscIgnored(_)
             | Message::OscListening
             | Message::LinkOpened(_)
-            | Message::AudioDevicesListed(_)
+            | Message::AudioDevicesListed(..)
             | Message::AudioDeviceKept(_)
             | Message::Saved(_)
             | Message::SearchSettled

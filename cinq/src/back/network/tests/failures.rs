@@ -111,3 +111,27 @@ fn problem_comes_with_the_value_that_names_its_destination() {
     assert_eq!(problems.len(), 1);
     assert_eq!(problems[0].0, 4);
 }
+
+#[test]
+fn messages_to_a_thread_that_has_gone_are_not_left_counted() {
+    let (sender, gone) = std::sync::mpsc::channel();
+    drop(gone);
+    let network = Network {
+        sender,
+        shared: Default::default(),
+    };
+    network.send(message(Destination::Udp("127.0.0.1:9".to_owned()), 1));
+    assert_eq!(network.shared.pending.load(Ordering::Relaxed), 0);
+    assert_eq!(network.checks(), None);
+}
+
+#[test]
+fn message_to_a_worker_that_has_gone_is_not_left_counted() {
+    let (queue, gone) = std::sync::mpsc::channel();
+    drop(gone);
+    let shared = crate::back::network::Shared::default();
+    shared.pending.store(1, Ordering::Relaxed);
+    let outgoing = message(Destination::Udp("127.0.0.1:9".to_owned()), 1).remove(0);
+    crate::back::network::hand(&queue, (Instant::now(), outgoing), &shared);
+    assert_eq!(shared.pending.load(Ordering::Relaxed), 0);
+}

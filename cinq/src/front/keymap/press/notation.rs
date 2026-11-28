@@ -95,18 +95,26 @@ pub fn shown(presses: &[Press]) -> String {
 
 /// Splits the modifiers that a press holds off its key, as in `Control+d`.
 /// A `+` with nothing after it is the key itself.
+/// The modifiers are taken in a loop, since a token may repeat one without
+/// end.
 fn modifiers(token: &str) -> Result<(Vec<NamedKey>, &str), String> {
-    match token.split_once('+') {
-        Some((name, key)) if !key.is_empty() => match name.parse::<NamedKey>() {
-            Ok(modifier) if HELD.contains(&modifier) => {
-                let (held, key) = modifiers(key)?;
-                Ok(([vec![modifier], held].concat(), key))
-            }
-            Ok(_) => Err(format!(
-                "`{token}` holds `{name}`, but only Control, Alt, and Shift can be held"
-            )),
-            Err(_) => Ok((Vec::new(), token)),
-        },
-        _ => Ok((Vec::new(), token)),
+    let mut held = Vec::new();
+    let mut rest = token;
+    loop {
+        match rest.split_once('+') {
+            Some((name, key)) if !key.is_empty() => match name.parse::<NamedKey>() {
+                Ok(modifier) if HELD.contains(&modifier) => {
+                    held.push(modifier);
+                    rest = key;
+                }
+                Ok(_) => {
+                    return Err(format!(
+                        "`{rest}` holds `{name}`, but only Control, Alt, and Shift can be held"
+                    ));
+                }
+                Err(_) => return Ok((held, rest)),
+            },
+            _ => return Ok((held, rest)),
+        }
     }
 }

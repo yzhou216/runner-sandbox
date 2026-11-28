@@ -215,3 +215,15 @@ fn cues_reached_take_the_smaller_delay_that_a_later_round_gives_them() {
         .collect();
     assert_eq!(reached, [(1, 0.0), (2, 0.0), (5, 0.0), (3, 0.0)]);
 }
+
+#[test]
+fn cues_ahead_follow_a_chain_of_thousands_of_start_cues() {
+    // Each start cue fires the next, as a show file may chain them
+    let cues = (1..=3000)
+        .map(|id| start_cue(id, id + 1))
+        .chain([audio(3001)])
+        .collect();
+    let ahead = ahead(&workspace(cues));
+    assert_eq!(ahead.len(), 3001);
+    assert!(ahead.iter().all(|&(_, delay)| delay == 0.0));
+}

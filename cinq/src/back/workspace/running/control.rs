@@ -24,6 +24,9 @@ const RELEASE_NOTICE: f64 = 0.5;
 /// reached the end of the pass
 const MARGIN: f64 = 0.15;
 
+/// Cues, each with the seconds until it fires
+type Fired<'a> = Vec<(&'a Cue, f32)>;
+
 impl Workspace {
     /// Carries out a start cue.  A target that is paused resumes together
     /// with the cues that it would start, and nothing else fires.  Any other
@@ -106,9 +109,27 @@ impl Workspace {
     /// target is paused fires nothing, since it resumes the target.  A cue
     /// that a later round reaches sooner than an earlier one did takes the
     /// sooner delay and keeps its place, so that start cues that start each
-    /// other end the search, as delays only fall.
+    /// other end the search, as delays only fall.  The rounds go in a loop
+    /// and each expands only the cues that the round before added or sped
+    /// up, so that a chain of any length takes no more stack and each start
+    /// cue is expanded once for each delay that it has.
     pub fn reached<'a>(&'a self, fired: Vec<(&'a Cue, f32)>) -> Vec<(&'a Cue, f32)> {
-        let found: Vec<(&Cue, f32)> = fired
+        iter::successors(Some((fired.clone(), fired)), |(fired, news)| {
+            self.reached_once(fired, news)
+        })
+        .last()
+        .map(|(fired, _)| fired)
+        .unwrap_or_default()
+    }
+
+    /// Returns `fired` with the cues that the start cues among `news` reach,
+    /// and those cues alone, or none once they reach nothing new or sooner
+    fn reached_once<'a>(
+        &'a self,
+        fired: &[(&'a Cue, f32)],
+        news: &[(&'a Cue, f32)],
+    ) -> Option<(Fired<'a>, Fired<'a>)> {
+        let found: Vec<(&Cue, f32)> = news
             .iter()
             .filter(|(cue, _)| cue.kind == Kind::Start)
             .filter_map(|&(cue, delay)| Some((self.target(cue)?, delay + cue.pre_wait.value())))
@@ -137,7 +158,7 @@ impl Workspace {
             })
             .collect();
         if started.is_empty() {
-            return fired;
+            return None;
         }
         let sooner = |cue: &Cue| started.iter().find(|(other, _)| other.id == cue.id);
         let kept = fired
@@ -147,7 +168,8 @@ impl Workspace {
             .iter()
             .filter(|(cue, _)| fired.iter().all(|(old, _)| old.id != cue.id))
             .copied();
-        self.reached(kept.chain(added).collect())
+        let all = kept.chain(added).collect();
+        Some((all, started))
     }
 
     /// Returns the cues that may fire without the operator, through the

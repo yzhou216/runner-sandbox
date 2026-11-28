@@ -8,7 +8,7 @@
 use iced::Task;
 
 use super::{
-    super::{device, edit_config, open_link, open_tutorial},
+    super::{edit_config, open_link, open_tutorial},
     App, Message,
 };
 
@@ -25,7 +25,7 @@ impl App {
             Message::OpenLink(target) => self.opening(move || open_link(&target)),
             Message::EditConfig(file) => self.opening(move || edit_config(&file)),
             Message::OpenTutorial => self.opening(open_tutorial),
-            Message::ListAudioDevices => self.with_task(|_| device::listing()),
+            Message::ListAudioDevices => self.list_devices(),
             Message::ChooseAudioDevice(device) => self.chose_audio_device(device),
             message => (self.settled_by(message), Task::none()),
         }

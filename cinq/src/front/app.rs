@@ -46,6 +46,9 @@ pub(super) struct App {
     pub(super) network_checks: Option<Duration>,
     /// ID and name of each audio device, as they were listed last
     pub(super) audio_devices: Vec<(String, String)>,
+    /// Number of the latest asking for the audio devices, whose answer alone
+    /// applies, since the answers come in any order
+    pub(super) device_serial: u64,
     /// Rows that a half page moves in the cue list, once a count has set them
     pub(super) scroll: Option<usize>,
     /// What the latest measures of the cue list and the help page found

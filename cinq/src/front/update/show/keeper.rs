@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
+    time::Duration,
 };
 
 use itertools::{Either, Itertools};
@@ -19,6 +20,9 @@ use super::{
     file::{kept_file, remove, write},
     named, read,
 };
+
+/// Longest that closing the window waits for the thread of the keeper
+const CLOSING: Duration = Duration::from_secs(5);
 
 /// The keeper decides at once what to write and what to remove, and leaves
 /// the writing to a thread of its own, so that a slow disk never holds up
@@ -123,21 +127,36 @@ impl Keeper {
         let _ = self.jobs.send(Job::After(Box::new(then)));
     }
 
-    /// Waits for the thread to make every change sent to it so far
+    /// Waits for the thread to make every change sent to it so far, which only
+    /// the tests need, since closing the window must not wait without end
+    #[cfg(test)]
     pub(super) fn settled(&self) {
+        let _ = self.settling().recv();
+    }
+
+    /// Waits for the thread to make every change sent to it so far, for
+    /// `limit` at most, and returns whether it did
+    pub(super) fn settled_within(&self, limit: Duration) -> bool {
+        self.settling().recv_timeout(limit).is_ok()
+    }
+
+    /// Returns the receiver that hears once the thread has made every change
+    /// sent so far
+    fn settling(&self) -> mpsc::Receiver<()> {
         let (done, settled) = mpsc::channel();
         self.after(move || {
             let _ = done.send(());
         });
-        let _ = settled.recv();
+        settled
     }
 }
 
 impl Drop for Keeper {
     /// Waits for the thread to make every change sent to it, so that
-    /// closing the window loses none
+    /// closing the window loses none, for [`CLOSING`] at most, since a disk
+    /// that hangs must not keep the process alive after its window has gone
     fn drop(&mut self) {
-        self.settled();
+        self.settled_within(CLOSING);
     }
 }
 

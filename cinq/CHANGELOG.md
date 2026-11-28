@@ -347,6 +347,33 @@ Major changes and improvements in each release of cinq, newest first.
 - A network cue whose message waited more than a second says `message not
   sent: more than a second late`.  Before, it said `message not sent: dropped
   rather than sent more than a second late`.
+- A chain of thousands of cues that continue or follow one another no longer
+  aborts cinq when the first of them is stopped, restarted, paused, or
+  resumed.
+- A chain of thousands of start cues, each firing the next, no longer aborts
+  cinq or slows every update to a crawl.
+- A key binding in `config.toml` with thousands of `Control+` prefixes no
+  longer aborts cinq as it is read.
+- A video file whose last pictures show before the pictures that decode ahead
+  of them no longer makes cinq keep every decoded picture in memory.  The cue
+  says that its picture cannot be decoded once more than 32 pictures wait.
+- A warning on standard error writes the control characters of a file name or
+  a network destination from a show file, such as an escape, as `\u{1b}`.
+  Before, it sent them to the terminal, which carried them out.
+- A host that sends OSC datagrams that are no command at a high rate, as a
+  program that streams feedback to the wrong port does, no longer makes the
+  window run an update for each one, which could delay GO and Panic.  The
+  sidebar now takes the line of such a datagram at most once a second.
+- Opening an audio device list while the sound server is slow no longer lets an
+  older listing that ends last replace a newer one, which dropped a device just
+  plugged in from the list.
+- Closing the window no longer keeps cinq running for good when the disk that
+  holds the unsaved changes hangs.  It waits for them to be written for five
+  seconds at most.
+- A light output that cannot open its socket when cinq starts, as when no
+  descriptor is free for a moment, now tries again every two seconds and sends
+  once it succeeds.  Before, it gave up for the rest of the session and showed
+  `Light output: not sent` in the sidebar.
 
 ## v0.1.7
 

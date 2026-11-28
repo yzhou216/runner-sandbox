@@ -265,8 +265,8 @@ _tutorial.pdf_
 	address, until a thousand different lines have gone out, after which one
 	last line says that further warnings go unreported and nothing more is
 	written.
-	The sidebar lists the latest of them, with the address that it came from, as
-	one entry among the warnings, as in _OSC from 192.168.1.5: no cue is numbered
+	The sidebar lists a recent one, taken at most once a second, with the address
+	that it came from, as one entry among the warnings, as in _OSC from 192.168.1.5: no cue is numbered
 	"99"_, until a command acts or the setting changes.
 	A start of a cue that cannot play reads as _OSC from 192.168.1.5: cue 4
 	cannot play: no destination as host:port_.

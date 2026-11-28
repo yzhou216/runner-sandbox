@@ -11,6 +11,7 @@
 //! sender and address, until [`warn`] has written so many lines that it
 //! ends them, so that a flood does not fill the terminal or the memory.
 
+mod notes;
 #[cfg(test)]
 mod tests;
 
@@ -18,7 +19,7 @@ use std::{
     io,
     net::{IpAddr, SocketAddr, UdpSocket},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use iced::futures::{Stream, channel::mpsc};
@@ -28,6 +29,7 @@ use super::{
     remote::{Reading, Remote},
 };
 use crate::warn;
+use notes::Notes;
 
 /// Longest that the thread waits for a datagram before it looks whether
 /// the stream has gone, which frees the port for the next setting
@@ -64,9 +66,10 @@ pub enum Heard {
 }
 
 /// Returns the commands that arrive at `address`, or one failure when the
-/// address cannot be bound.  The channel has no bound, since the interface
-/// takes commands as fast as they come and a dropped GO would be worse than
-/// the memory of a flood.
+/// address cannot be bound.  The channel has no bound for commands, since the
+/// interface takes them as fast as they come and a dropped GO would be worse
+/// than the memory of a flood.  What was no command goes on at most once a
+/// second, since the sidebar keeps one line of it.
 pub fn listen(address: SocketAddr) -> impl Stream<Item = Heard> {
     let (sender, receiver) = mpsc::unbounded();
     thread::spawn(move || serve(address, &sender));
@@ -149,10 +152,12 @@ fn tell(sender: &mpsc::UnboundedSender<Heard>, heard: Heard) {
 
 fn receive(socket: &UdpSocket, sender: &mpsc::UnboundedSender<Heard>) {
     let mut buffer = vec![0; DATAGRAM];
+    let notes = Notes::default();
     while !sender.is_closed() {
         match socket.recv_from(&mut buffer) {
             Ok((length, from)) => commands(&buffer[..length], from.ip())
                 .into_iter()
+                .filter(|heard| notes.allow(heard, Instant::now()))
                 .for_each(|heard| tell(sender, heard)),
             // Error that returns at once would spin the loop
             Err(error) if pauses(&error) => thread::sleep(LOOK),

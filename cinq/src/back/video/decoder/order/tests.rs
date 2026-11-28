@@ -51,3 +51,15 @@ fn picture_that_fails_to_decode_costs_no_other_picture_its_time() {
     let (sent, _) = sent(&[2]);
     assert_eq!(sent, named(&[0, 2, 3, 4, 5, 6, 7]));
 }
+
+#[test]
+fn pictures_wait_for_a_sample_that_shows_before_them_however_late_it_decodes() {
+    // The last of 100 samples shows first, so that no picture goes out
+    // before it decodes
+    let shows = (0..100).map(|place| if place == 99 { -1.0 } else { f64::from(place) });
+    let (order, sent) = (0..99).fold((Order::new(shows), 0), |(order, sent), place| {
+        let (due, order) = order.decoded(place, Some(()));
+        (order, sent + due.len())
+    });
+    assert_eq!((order.waiting(), sent), (99, 0));
+}

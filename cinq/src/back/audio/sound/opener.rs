@@ -124,6 +124,12 @@ impl Opener {
             .is_some_and(|since| since.elapsed() >= self.patience)
     }
 
+    /// Returns how many threads of devices are running
+    #[cfg(test)]
+    pub(in crate::back::audio) fn lanes(&self) -> usize {
+        self.lanes.len()
+    }
+
     /// Returns whether any device is being opened, or asked about
     pub(in crate::back::audio) fn busy(&self) -> bool {
         !self.opening.is_empty() || !self.probing.is_empty()
@@ -142,6 +148,19 @@ impl Opener {
                 }
             })
             .collect()
+    }
+
+    /// Lets go of the thread of each device that `needs` leave out and that
+    /// has no open or look under way, which ends it once the streams that it
+    /// holds have closed, so that a device that an output named once leaves
+    /// no thread for the rest of the session
+    pub(in crate::back::audio) fn retain(&mut self, needs: &[Need]) {
+        let (opening, probing) = (&self.opening, &self.probing);
+        self.lanes.retain(|key, _| {
+            needs.iter().any(|need| need.key == *key)
+                || opening.contains_key(key)
+                || probing.contains(key)
+        });
     }
 
     fn lane(&mut self, key: &Key) -> &Sender<Job> {

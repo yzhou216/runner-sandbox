@@ -23,6 +23,7 @@
 //! as they do for any source that has gone quiet.
 
 mod artnet;
+mod binding;
 mod leaving;
 mod listing;
 mod reports;
@@ -73,7 +74,7 @@ impl Lights {
     pub fn sync(&mut self, workspace: &Workspace) {
         let universes = workspace.universes();
         if universes != self.sent {
-            // Thread has gone only where it could not open a socket
+            // Thread has gone only after a panic there
             let _ = self.sender.send(universes.clone());
             self.sent = universes;
         }

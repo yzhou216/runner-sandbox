@@ -7,7 +7,7 @@
 
 use std::{
     io,
-    net::{Ipv4Addr, UdpSocket},
+    net::UdpSocket,
     sync::mpsc::{self, RecvTimeoutError},
     time::{Duration, Instant},
 };
@@ -15,8 +15,13 @@ use std::{
 use uuid::Uuid;
 
 use super::{
-    Interface, Universe, Universes, artnet, leaving::Leaving, listing::Listing, reports::Reporter,
-    sacn, status::Round,
+    Interface, Universe, Universes, artnet,
+    binding::{self, bound},
+    leaving::Leaving,
+    listing::Listing,
+    reports::Reporter,
+    sacn,
+    status::Round,
 };
 use crate::{
     back::{TICK, patch::DARK},
@@ -95,18 +100,12 @@ impl Frame<'_> {
 /// workspace.  Each change in whether any light gets out goes to `reports`,
 /// and once to standard error.
 pub(super) fn send(levels: &mpsc::Receiver<Universes>, reports: &Reporter) {
-    let opened = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))
-        .and_then(|socket| socket.set_broadcast(true).map(|()| socket));
-    let socket = match opened {
-        Ok(socket) => socket,
-        Err(error) => {
-            tell(reports, Some(format!("not sent: {}", warn::words(&error))));
-            return;
-        }
+    let Some((socket, first)) = bound(levels, reports, binding::open, binding::RETRY) else {
+        return;
     };
     // Random for each run, so that receivers tell sources apart
     let cid = Uuid::new_v4();
-    let mut latest = Universes::new();
+    let mut latest = first;
     let mut leaving = Leaving::default();
     let mut listing = Listing::new();
     let mut announced = None::<Instant>;
@@ -179,7 +178,7 @@ fn report(reports: &Reporter, round: &Round, before: Option<String>) -> Option<S
 
 /// Hands the sidebar what changed in whether light gets out, and standard
 /// error the problem, once
-fn tell(reports: &Reporter, problem: Option<String>) {
+pub(super) fn tell(reports: &Reporter, problem: Option<String>) {
     if let Some(words) = &problem {
         warn::once(&format!("light output: {words}"));
     }

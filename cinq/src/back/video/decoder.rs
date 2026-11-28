@@ -56,6 +56,11 @@ pub(super) use turn::Turn;
 /// few enough to keep memory small, as a picture of 1080p takes 8 MB
 const AHEAD: usize = 2;
 
+/// Most pictures that may wait for earlier shows.  H.264 holds back at most
+/// 16, so that a file that needs more is damaged, and keeping them all would
+/// take memory without end.
+const REORDER: usize = 32;
+
 /// Why the picture of a file that holds H.264 cannot play, when the decoder
 /// decodes none of it
 pub(super) const UNDECODABLE: &str = "its picture cannot be decoded";
@@ -147,6 +152,9 @@ fn decoded(
             }
             let picture = picture(&mut decoder, &units);
             let (due, order) = order.decoded(index - from, picture);
+            if order.waiting() > REORDER {
+                return Err(Stop::Failed(UNDECODABLE.to_owned()));
+            }
             Ok((order, send(due, sent)?))
         })
         .map(|(_, sent)| sent)

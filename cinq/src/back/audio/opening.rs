@@ -81,6 +81,9 @@ impl Audio {
                     }
                 }
             });
+        // After the answers, since a device that was let go while it opened
+        // is idle only once they have come
+        self.opener.retain(&needs);
     }
 
     /// Opens again each device that is absent or has stopped, once every

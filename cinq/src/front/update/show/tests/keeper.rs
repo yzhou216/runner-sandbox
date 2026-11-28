@@ -5,6 +5,8 @@
 //! Tests of the keeper of unsaved changes, which keeps them in the state
 //! directory until they are gone
 
+use std::time::Duration;
+
 use super::*;
 
 #[test]
@@ -133,4 +135,13 @@ fn reading_kept_changes_waits_for_the_newest_change_sent_before_the_asking() {
     let answer = reader.asked(file);
     drop(release);
     assert_eq!(answer.recv(), Ok(Ok(Some(later.show.text))));
+}
+
+#[test]
+fn waiting_for_a_thread_that_a_slow_disk_holds_ends_at_the_limit() {
+    let (keeper, _directory) = keeper();
+    let release = stalled(&keeper);
+    assert!(!keeper.settled_within(Duration::from_millis(50)));
+    drop(release);
+    assert!(keeper.settled_within(Duration::from_secs(10)));
 }

@@ -212,8 +212,8 @@ pub enum Message {
     /// Asks for the audio devices afresh, as their list opens
     ListAudioDevices,
     /// ID and name of each audio device that sound can play on, or why they
-    /// could not be listed
-    AudioDevicesListed(Result<Vec<(String, String)>, String>),
+    /// could not be listed, for the asking of that number
+    AudioDevicesListed(u64, Result<Vec<(String, String)>, String>),
     /// Plays the sound on the audio device of an ID, or on the default
     /// device without one, and keeps the choice in the configuration file
     ChooseAudioDevice(Option<String>),

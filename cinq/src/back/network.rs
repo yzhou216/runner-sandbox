@@ -85,8 +85,13 @@ impl Network {
                 .into_iter()
                 .map(|message| (handed, message))
                 .collect();
-            // Fails only once the thread has gone, which a panic there causes
-            let _ = self.sender.send(stamped);
+            // Fails only once the thread has gone, which a panic there causes,
+            // and then no worker will take the count back
+            if let Err(gone) = self.sender.send(stamped) {
+                self.shared
+                    .pending
+                    .fetch_sub(gone.0.len(), Ordering::Relaxed);
+            }
         }
     }
 
@@ -179,11 +184,18 @@ fn dispatch(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Sh
             let queue = workers
                 .remove(&destination)
                 .map_or_else(|| started(&destination, shared), |(_, queue)| queue);
-            // Fails only once the worker has gone, which a panic there causes
-            let _ = queue.send((handed, outgoing));
+            hand(&queue, (handed, outgoing), shared);
             workers.insert(destination, (Instant::now(), queue));
         }
         workers.retain(|_, (used, _)| used.elapsed() <= PATIENCE);
+    }
+}
+
+/// Gives the worker its message, or takes the count of it back where the
+/// worker has gone, which a panic there causes, since nothing else would
+fn hand(queue: &Queue, message: (Instant, Outgoing), shared: &Shared) {
+    if queue.send(message).is_err() {
+        shared.pending.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

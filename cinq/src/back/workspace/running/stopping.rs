@@ -50,13 +50,23 @@ impl Workspace {
     }
 
     /// Returns the runs that the run `run` would start, directly or
-    /// through other runs that have yet to start
+    /// through other runs that have yet to start, a step of the chain at a
+    /// time, so that a chain of any length takes no more stack
     pub(super) fn followers(&self, run: u32) -> Vec<u32> {
-        self.active
-            .iter()
-            .filter(|next| next.after == Some(run) && next.waiting())
-            .flat_map(|next| iter::once(next.run).chain(self.followers(next.run)))
-            .collect()
+        iter::successors(Some(vec![run]), |started| {
+            let next: Vec<u32> = self
+                .active
+                .iter()
+                .filter(|next| {
+                    next.waiting() && next.after.is_some_and(|after| started.contains(&after))
+                })
+                .map(|next| next.run)
+                .collect();
+            Some(next).filter(|next| !next.is_empty())
+        })
+        .skip(1)
+        .flatten()
+        .collect()
     }
 
     /// Ends the run of a cue and leaves the rest of its chain to play, as GO

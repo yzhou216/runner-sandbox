@@ -44,7 +44,19 @@ impl Warnings {
     /// its line, unless it was given before or [`LIMIT`] lines went out, in
     /// which case the first warning past it gives the line that ends them
     fn warned(self, warning: &str) -> (Self, String) {
-        let line = format!("cinq: {warning}\n");
+        // Text of a show file or the network may hold control characters,
+        // which a terminal would carry out, as the escape that resets it
+        let plain: String = warning
+            .chars()
+            .map(|c| {
+                if c.is_control() {
+                    c.escape_default().to_string()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect();
+        let line = format!("cinq: {plain}\n");
         if self.silenced || self.given.contains(&line) {
             (self, String::new())
         } else if self.given.len() >= LIMIT {

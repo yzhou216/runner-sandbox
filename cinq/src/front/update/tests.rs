@@ -14,6 +14,7 @@ mod collapsed_expanding;
 mod collapsed_search;
 mod collapsed_standby;
 mod counts;
+mod devices;
 mod field_runs;
 mod grouping;
 mod help_page;

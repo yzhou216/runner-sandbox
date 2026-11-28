@@ -500,6 +500,8 @@ send of a round fails, the sidebar lists a warning, such as _Light output: no
 network interface_ or _Light output: not sent: network unreachable_, and
 counts it, and standard error says it once.
 The warning goes once a round of sending gets a packet out.
+A socket that cannot be opened is tried again every two seconds, and the warning
+goes once it opens.
 
 # NETWORK
 
@@ -767,6 +769,8 @@ or share keep their changes apart.
 
 Closing the window, opening another show, or a crash leaves the kept changes
 in place.
+Closing the window first waits for the changes to be written, for five seconds at
+most, so that a disk that hangs cannot keep *cinq* running.
 The next time that the show opens, they come back as one change, which undo
 takes back to the show as saved.
 Saving the show, or taking back each of its changes, removes them.

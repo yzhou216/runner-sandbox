@@ -6,11 +6,11 @@
 
 use std::sync::Arc;
 
-use mp4_atom::{Matrix, Tkhd, Trak};
+use mp4_atom::{Ctts, CttsEntry, Matrix, Stbl, Tkhd, Trak};
 
 use super::{
     assert_pictures,
-    boxes::retracked,
+    boxes::{retracked, revised},
     clip, decoded,
     decoder::{self, Sent, UNDECODABLE},
     from_at,
@@ -118,4 +118,28 @@ fn pictures_of_a_track_whose_matrix_turns_it_come_upright() {
             .collect();
         assert_eq!(sizes, [size; 3]);
     });
+}
+
+#[test]
+fn track_that_holds_back_more_pictures_than_h264_does_fails_to_play() {
+    // The last sample shows before all the others, so that none can go out
+    // before it decodes
+    let entry = |sample_count, sample_offset| CttsEntry {
+        sample_count,
+        sample_offset,
+    };
+    let ctts = Ctts {
+        entries: vec![entry(39, 0), entry(1, -100_000)],
+    };
+    let bytes = revised(&movie_bytes(40, 40, &[]), &|stbl| Stbl {
+        ctts: Some(ctts.clone()),
+        ..stbl
+    });
+    let (_directory, path) = saved(&bytes);
+    let sent = sent(&path, clip(0.0, 1.0, false), 0);
+    assert!(
+        matches!(sent.as_slice(), [Sent::Failed(reason)] if reason == UNDECODABLE),
+        "{} sent",
+        sent.len()
+    );
 }

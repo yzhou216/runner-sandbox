@@ -8,12 +8,16 @@ use std::{
     io,
     net::{Ipv4Addr, SocketAddr, UdpSocket},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use iced::futures::{FutureExt, Stream, StreamExt};
 
-use super::{Heard, MESSAGES, Remote, commands, listen, pauses, reason};
+use super::{
+    Heard, MESSAGES, Remote, commands, listen,
+    notes::{NOTE, Notes},
+    pauses, reason,
+};
 use crate::back::osc::{self, tests::bundle};
 
 const LOOPBACK: Ipv4Addr = Ipv4Addr::LOCALHOST;
@@ -195,4 +199,56 @@ fn unknown_address_is_cut_at_sixty_four_characters_and_escaped_in_its_note() {
         note(&escape),
         format!("OSC from {from}: unknown address {:?}", "/\u{1b}[2J")
     );
+}
+
+#[test]
+fn notes_of_what_was_no_command_pass_once_a_second_and_commands_always() {
+    let notes = Notes::default();
+    let now = Instant::now();
+    let ignored = Heard::Ignored("OSC: not an OSC packet".into());
+    let command = Heard::Command(LOOPBACK.into(), Remote::Go);
+    assert!(notes.allow(&ignored, now));
+    assert!(!notes.allow(&ignored, now));
+    assert!(notes.allow(&command, now));
+    assert!(!notes.allow(&ignored, now + NOTE - Duration::from_millis(1)));
+    assert!(notes.allow(&ignored, now + NOTE));
+    assert!(!notes.allow(&ignored, now + NOTE));
+}
+
+#[test]
+fn flood_of_junk_gives_the_stream_one_note_and_still_the_command_after_it() {
+    let address = free();
+    let go = osc::packet("/go").unwrap();
+    let mut stream = Box::pin(listen(address));
+    let sender = UdpSocket::bind((LOOPBACK, 0)).unwrap();
+    // Junk until the thread has bound the socket and the first note comes
+    let first = (0..100)
+        .find_map(|_| {
+            sender.send_to(b"junk", address).unwrap();
+            thread::sleep(Duration::from_millis(50));
+            stream.next().now_or_never().flatten()
+        })
+        .expect("a note within five seconds");
+    assert!(matches!(first, Heard::Ignored(_)));
+    (0..50).for_each(|_| {
+        sender.send_to(b"junk", address).unwrap();
+    });
+    sender.send_to(&go, address).unwrap();
+    let heard = (0..100)
+        .scan(false, |done, _| {
+            thread::sleep(Duration::from_millis(50));
+            let batch =
+                std::iter::from_fn(|| stream.next().now_or_never().flatten()).collect::<Vec<_>>();
+            let before = *done;
+            *done = batch.iter().any(|one| matches!(one, Heard::Command(..)));
+            (!before).then_some(batch)
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    assert!(heard.iter().any(|one| matches!(one, Heard::Command(..))));
+    let notes = heard
+        .iter()
+        .filter(|one| matches!(one, Heard::Ignored(_)))
+        .count();
+    assert!(notes <= 1, "{notes} notes of fifty datagrams");
 }

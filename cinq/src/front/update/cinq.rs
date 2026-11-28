@@ -50,7 +50,7 @@ impl Cinq {
         let opening = show::open(show, reader);
         (
             cinq,
-            Task::batch([opened.discard(), opening, device::listing()]),
+            Task::batch([opened.discard(), opening, device::listing(0)]),
         )
     }
 

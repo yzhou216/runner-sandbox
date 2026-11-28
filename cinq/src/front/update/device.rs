@@ -19,14 +19,34 @@ use crate::{
 
 /// Lists the audio devices on a thread of its own, since a sound server
 /// can keep the listing waiting
-pub(super) fn listing() -> Task<Message> {
-    on_own_thread(audio_devices).map(Message::AudioDevicesListed)
+pub(super) fn listing(serial: u64) -> Task<Message> {
+    on_own_thread(audio_devices).map(move |listed| Message::AudioDevicesListed(serial, listed))
 }
 
 impl App {
+    /// Asks for the devices afresh, which supersedes every asking before,
+    /// since each opening of a list asks and the answers of a slow sound
+    /// server come in any order.
+    pub(super) fn list_devices(self) -> (Self, Task<Message>) {
+        let serial = self.device_serial + 1;
+        Self {
+            device_serial: serial,
+            ..self
+        }
+        .with_task(|_| listing(serial))
+    }
+
     /// A listing that fails keeps the devices listed before, since the
-    /// output tells its own problems with the device it plays on.
-    pub(super) fn with_audio_devices(self, listed: Result<Vec<(String, String)>, String>) -> Self {
+    /// output tells its own problems with the device it plays on.  The answer
+    /// to an asking that a later one has superseded changes nothing.
+    pub(super) fn with_audio_devices(
+        self,
+        serial: u64,
+        listed: Result<Vec<(String, String)>, String>,
+    ) -> Self {
+        if serial != self.device_serial {
+            return self;
+        }
         Self {
             audio_devices: listed.unwrap_or(self.audio_devices),
             ..self

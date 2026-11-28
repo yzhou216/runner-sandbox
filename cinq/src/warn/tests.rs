@@ -88,3 +88,11 @@ fn error_of_the_system_without_a_kind_reads_as_its_message_without_the_number() 
         );
     });
 }
+
+#[test]
+fn warning_comes_out_with_control_characters_written_out() {
+    let (warnings, line) = Warnings::default().warned("a\u{1b}c\u{9b}\n\td");
+    assert_eq!(line, "cinq: a\\u{1b}c\\u{9b}\\n\\td\n");
+    let (_, plain) = warnings.warned("caf\u{e9}: a-b");
+    assert_eq!(plain, "cinq: caf\u{e9}: a-b\n");
+}

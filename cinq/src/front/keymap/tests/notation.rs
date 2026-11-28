@@ -126,3 +126,9 @@ fn alt_with_a_letter_is_that_letter_where_the_system_makes_another_character_of_
         one("Control+Alt+a")
     );
 }
+
+#[test]
+fn notation_reads_a_key_with_a_modifier_repeated_thousands_of_times() {
+    let text = format!("{}a", "Control+".repeat(200_000));
+    assert_eq!(keys(&text), keys("Control+a"));
+}

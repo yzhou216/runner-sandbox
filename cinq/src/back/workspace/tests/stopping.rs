@@ -118,3 +118,16 @@ fn firing_a_cue_that_runs_again_schedules_its_chain_afresh_once() {
     let stopped = workspace.apply(Command::Stop(CueId(2)));
     assert_eq!(running(&stopped), [1]);
 }
+
+#[test]
+fn stopping_a_cue_cancels_a_chain_of_thousands_of_cues() {
+    let cues = (1..=4000)
+        .map(|id| continuing_after(id, 2.0))
+        .chain([audio(4001)])
+        .collect();
+    let stopped = workspace(cues)
+        .apply(GO)
+        .apply(Command::Tick(1.0))
+        .apply(Command::Stop(CueId(1)));
+    assert!(stopped.active().is_empty());
+}

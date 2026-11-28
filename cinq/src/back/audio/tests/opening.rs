@@ -201,3 +201,16 @@ fn pasting_an_output_on_a_device_that_cannot_play_does_not_try_it_again() {
         Some(Err(Fault::Unplayable(_)))
     ));
 }
+
+#[test]
+fn thread_of_a_device_that_the_outputs_no_longer_need_is_let_go() {
+    let mut audio = Audio::open(None);
+    audio.opener = Opener::with(Fake::default());
+    audio.sync(show(Channels::MAIN, Channels::Stereo(0, 1)), READY_AHEAD);
+    settle(&mut audio);
+    assert_eq!(audio.opener.lanes(), 2);
+    // The default show plays on the default device alone
+    audio.sync(Workspace::default(), READY_AHEAD);
+    settle(&mut audio);
+    assert_eq!(audio.opener.lanes(), 1);
+}

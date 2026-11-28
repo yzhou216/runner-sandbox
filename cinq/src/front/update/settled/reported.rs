@@ -35,7 +35,7 @@ impl App {
                 problems: self.problems.with_link(result.err()),
                 ..self
             },
-            Message::AudioDevicesListed(listed) => self.with_audio_devices(listed),
+            Message::AudioDevicesListed(serial, listed) => self.with_audio_devices(serial, listed),
             Message::AudioDeviceKept(kept) => Self {
                 problems: self.problems.with_device(kept.err()),
                 ..self

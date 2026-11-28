@@ -47,6 +47,12 @@ impl<T> Order<T> {
         }
     }
 
+    /// Returns how many decoded pictures wait for samples that show before
+    /// them
+    pub(super) fn waiting(&self) -> usize {
+        self.held.len()
+    }
+
     /// Returns the pictures that go out once the sample at `place` in the
     /// order of decoding has decoded to `picture`, or to none, each with
     /// the time it shows and in the order they show, along with the order
