@@ -105,3 +105,16 @@ fn holding_the_key_of_help_leaves_the_page_as_it_is() {
             assert!(helping(App::default()).typed(press(key), true).0.help);
         });
 }
+
+#[test]
+fn holding_the_key_of_open_or_save_opens_one_file_dialog() {
+    ["Control+l", "Control+s", "Control+S"]
+        .into_iter()
+        .for_each(|keys| {
+            let key = sequence(keys)
+                .expect("keys in the tests are valid")
+                .remove(0);
+            assert!(App::default().typed(key, false).1.units() > 0, "{keys}");
+            assert_eq!(App::default().typed(key, true).1.units(), 0, "{keys}");
+        });
+}

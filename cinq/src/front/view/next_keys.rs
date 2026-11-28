@@ -64,6 +64,8 @@ fn listed(app: &App) -> Vec<(String, String)> {
     app.config
         .keymap
         .continuations(&app.keys)
+        // Keys that show mode or the stage window refuse are not taught, as in the status bar
+        .filter(|&(_, action, operator)| app.refusal(operator.unwrap_or(action)).is_none())
         .chunk_by(|&(_, action, operator)| (action, operator))
         .into_iter()
         .map(|((action, operator), group)| {

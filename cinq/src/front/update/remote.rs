@@ -25,9 +25,9 @@ impl App {
     /// click does, and acts in show mode, while a field has the keyboard,
     /// and over the help page, as GO and Panic do, since none of the
     /// commands edits the show.  A command that moves the selection or the
-    /// list in view takes the keyboard out of a text field, as going back does,
-    /// so that what is typed next cannot edit another cue.  A cue number that
-    /// no cue has, and a start of a cue that cannot play, do nothing to the
+    /// list in view takes the keyboard out of a text field and closes the
+    /// search line, as going back does, so that what is typed next cannot
+    /// edit another cue.  A cue number that no cue has, and a start of a cue that cannot play, do nothing to the
     /// show, and to the keys typed halfway, and tell where they came from and
     /// what they named, on standard error once and in the sidebar until a
     /// later command acts.
@@ -46,7 +46,7 @@ impl App {
         if (app.selected, app.list) == here {
             (app, task)
         } else {
-            (app, Task::batch([task, unfocus()]))
+            (app.without_search(), Task::batch([task, unfocus()]))
         }
     }
 

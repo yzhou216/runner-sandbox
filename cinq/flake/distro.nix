@@ -22,14 +22,17 @@
       # libraries in place of the Nix store's
       portable =
         let
-          directory = if pkgs.stdenv.hostPlatform.isx86_64 then "lib64" else "lib";
-          loader = "/${directory}/${baseNameOf pkgs.stdenv.cc.bintools.dynamicLinker}";
+          inherit (pkgs.stdenv.hostPlatform) isPower64 isx86_64;
+          directory = if isx86_64 || isPower64 then "lib64" else "lib";
         in
         pkgs.runCommand "${crate.name}-portable" { nativeBuildInputs = [ pkgs.patchelf ]; } ''
           mkdir -p "$out/usr"
           cp -r ${config.packages.cinq}/{bin,share} "$out/usr"
           chmod -R u+w "$out/usr"
-          patchelf --set-interpreter ${loader} --remove-rpath "$out/usr/bin/cinq"
+          # Name of the loader from the program, since Nixpkgs gives it as a
+          # glob on armv6l, armv7l, powerpc64le, and riscv64
+          loader=$(basename "$(patchelf --print-interpreter "$out/usr/bin/cinq")")
+          patchelf --set-interpreter "/${directory}/$loader" --remove-rpath "$out/usr/bin/cinq"
           cp -r --no-preserve=mode ${config.packages.doc}/share "$out/usr"
         '';
       # Package that depends on the unwinder of GCC, which Rust's standard
@@ -194,10 +197,10 @@
     in
     {
       packages =
-        lib.optionalAttrs pkgs.stdenvNoCC.hostPlatform.isLinux (
+        lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (
           lib.genAttrs [ "deb" "rpm" "archlinux" ] nfpm
         )
-        // lib.optionalAttrs (pkgs.stdenvNoCC.hostPlatform.isLinux || system == "aarch64-darwin") {
+        // lib.optionalAttrs (pkgs.stdenv.hostPlatform.isLinux || system == "aarch64-darwin") {
           darwin-pkg = darwinPkg;
         };
     };

@@ -7,7 +7,10 @@
 use iced::keyboard::{Key, Modifiers};
 
 use super::listed;
-use crate::front::{App, keymap::Press};
+use crate::{
+    back::Command,
+    front::{App, keymap::Press},
+};
 
 fn after(keys: &[&str]) -> App {
     App {
@@ -98,5 +101,26 @@ fn the_doubled_line_counts_the_rows_that_the_count_takes() {
     assert_eq!(
         line(&["1", "d"]).as_deref(),
         Some("Cut the selected cue to the clipboard")
+    );
+}
+
+#[test]
+fn show_mode_teaches_no_key_that_it_refuses() {
+    let locked = |keys: &[&str]| {
+        let app = after(keys);
+        App {
+            workspace: app.workspace.apply(Command::ShowMode(true)),
+            ..app
+        }
+    };
+    let lines = listed(&locked(&["d"]));
+    let names = |text: &str| lines.iter().any(|(_, shown)| shown.contains(text));
+    assert!(!names("Cut") && !names("Delete"));
+    // Copy acts in show mode, so that its keys stay
+    let copying = listed(&locked(&["y"]));
+    assert!(
+        copying
+            .iter()
+            .any(|(keys, shown)| keys == "y" && shown.starts_with("Copy"))
     );
 }

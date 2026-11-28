@@ -374,6 +374,24 @@ Major changes and improvements in each release of cinq, newest first.
   descriptor is free for a moment, now tries again every two seconds and sends
   once it succeeds.  Before, it gave up for the rest of the session and showed
   `Light output: not sent` in the sidebar.
+- The deb, rpm, and Arch packages that Nix builds for riscv64, armv6l, armv7l,
+  and powerpc64le start cinq.  Before, they named the loader of the program
+  with a `*` in it, which no system has, and the packages for powerpc64le
+  looked for the loader in `/lib` rather than `/lib64`.
+- Moving between the cue lists and the outputs no longer leaves the notice of a
+  copy in the status bar, whose paste key acts on the other register.
+  Before, it kept saying `Copied the output House R | p: paste` over a cue
+  list, where `p` pasted an older cue or found the clipboard empty.
+- An OSC command that moves the selection, such as `/go` from the standby cue,
+  closes the search line as it takes the keyboard out of it.  Before, the line
+  stayed drawn with no field to type in, until a click or Control+c closed it.
+- Holding the key of open, save, or save as opens one file dialog, as holding
+  the key of help opens one page.  Before, each repeat of the held key started
+  another request to the file chooser.
+- The box of keys that can follow those typed halfway no longer lists keys that
+  show mode or the stage window refuse, as `d` with its motions in show mode,
+  which the status bar already left unhinted.  Before, the box taught them and
+  the next key answered `Leave show mode to edit`.
 
 ## v0.1.7
 

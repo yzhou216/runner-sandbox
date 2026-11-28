@@ -10,6 +10,7 @@ jobs:
   update:
     name: lock files updated
     runs-on: ubuntu-latest
+    timeout-minutes: 120 # The wait below never ends when a dispatched run does not start
     steps:
       - uses: actions/checkout@main
       - uses: cachix/install-nix-action@master

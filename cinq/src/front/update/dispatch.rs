@@ -139,10 +139,17 @@ impl App {
         };
         let shown = app.shown_list();
         let (app, task) = app.handled(message);
-        let task = if app.shown_list() == shown {
-            task
+        let (app, task) = if app.shown_list() == shown {
+            (app, task)
         } else {
-            task.chain(reveal_current_list())
+            // Cues and outputs have registers of their own, so a copy notice no longer fits
+            let clipped = app
+                .notices
+                .clipped
+                .clone()
+                .filter(|_| app.outputs_shown == shown.1);
+            let notices = app.notices.with_clipped(clipped);
+            (Self { notices, ..app }, task.chain(reveal_current_list()))
         };
         let app = Self {
             problems: app.problems.with_link_while(app.help),

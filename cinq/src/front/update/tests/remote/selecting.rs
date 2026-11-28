@@ -85,3 +85,15 @@ fn cue_number_that_no_cue_has_leaves_typed_keys_be_and_hint_mode_only_for_a_new_
     let dropped = remote(typing(playable(None), "2"), Remote::Pause);
     assert!(dropped.keys.is_empty());
 }
+
+#[test]
+fn command_that_moves_the_selection_closes_the_search_line_it_unfocuses() {
+    let searching = |id| super::search::opening(playable(Some(CueId(id))), false);
+    let moved = remote(searching(1), Remote::Go);
+    assert_eq!(moved.selected, Some(CueId(2)));
+    assert!(moved.search.is_none());
+    // Selection that stays leaves the line open
+    let kept = remote(searching(5), Remote::Go);
+    assert_eq!(kept.selected, Some(CueId(5)));
+    assert!(kept.search.is_some());
+}

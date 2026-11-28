@@ -6,7 +6,6 @@
 {
   perSystem =
     {
-      config,
       lib,
       pkgs,
       system,
@@ -17,16 +16,21 @@
       ...
     }:
     let
+      # cinq for the system of `nixpkgs`, so that the Nixpkgs of another
+      # system cross-builds the same package
+      callCinq =
+        nixpkgs:
+        nixpkgs.callPackage ./cinq.nix {
+          inherit
+            crate
+            sourceDateEpoch
+            installBundle
+            signBundle
+            ;
+        };
       # Bound here rather than read back from the packages, whose names
       # depend on whether the demo and the tutorial built from them evaluate
-      cinq = pkgs.callPackage ./cinq.nix {
-        inherit
-          crate
-          sourceDateEpoch
-          installBundle
-          signBundle
-          ;
-      };
+      cinq = callCinq pkgs;
       demo = pkgs.callPackage ./demo.nix { inherit crate; };
       doc = pkgs.callPackage ./doc.nix {
         inherit
@@ -39,11 +43,12 @@
       evaluates = drv: (builtins.tryEval drv.drvPath).success;
     in
     {
+      _module.args = { inherit callCinq; };
       packages = {
-        default = config.packages.cinq;
+        default = cinq;
         # Named after the system that it runs on, as the builds for other
         # systems are, so that each system's name gives cinq for it
-        ${system} = config.packages.cinq;
+        ${system} = cinq;
 
         inherit cinq;
       }

@@ -255,9 +255,9 @@ _tutorial.pdf_
 	help page, as GO and Panic do, and each leaves hint mode as a click does,
 	apart from one that does nothing, as below, which leaves it only when the
 	sidebar gains the line for it, and changes nothing else.
-	A command that moves the selection or the cue list in view also takes the
-	keyboard out of the field, so that what is typed next cannot edit another
-	cue.
+	A command that moves the selection or the cue list in view also closes the
+	search line and takes the keyboard out of the field, so that what is typed
+	next cannot edit another cue.
 	None of them changes the show, and none can be undone.
 	A packet that is not OSC, an address that is not listed, a number that no
 	cue has, and a start of a cue that cannot play, as one with no file or no
@@ -488,6 +488,8 @@ shows the keys typed so far, while a box above it lists the keys that can come
 next and what each of them does, naming outputs instead of cues while the
 outputs show.  A count typed before or after an operator shows in what a
 motion does, as *the selected cue and the next 6* for *2 d 3 j*.
+The box leaves out the keys that show mode or the stage window would refuse, as
+the status bar does.
 The help page, which lists each action once, names cues and outputs together.
 A key that completes or continues no sequence is dropped together with the
 keys typed so far, as Vim beeps and drops them, so that a key mistyped halfway,
@@ -567,7 +569,8 @@ file, and the status bar says so, as in *Cut cue 2, which stopped*.
 Undo brings the cue back and does not start it again.
 After a copy or a cut the status bar hints the key to paste until a key does
 more than move the selection or switch lists, so that a paste into the other
-list keeps its hint.
+list keeps its hint, and until the view crosses between the cue lists and the
+outputs, which keep registers apart.
 A paste into another show drops the sends to outputs that have no namesake
 there and the targets outside the cues pasted, and the status bar says how
 many, as in *Pasted 3 cues, dropped 2 sends*, with the key of undo.
@@ -585,9 +588,10 @@ are held with it, unless the other of the two is bound to the key with those
 very modifiers.
 Holding either key down acts only once, so that holding the key of Panic does
 not cut a panic short.
-So does holding a key of *fullscreen*, *hint*, or *help*, which would otherwise
-toggle the stage window, the labels, or the help page back and forth, while
-every other key repeats as it is held.
+So does holding a key of *fullscreen*, *hint*, *help*, *open*, *save*, or
+*save_as*, which would otherwise toggle the stage window, the labels, or the
+help page back and forth, or open a file dialog on every repeat, while every
+other key repeats as it is held.
 
 # SEARCHING
 

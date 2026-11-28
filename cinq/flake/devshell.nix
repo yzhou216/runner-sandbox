@@ -24,7 +24,7 @@
           rust-analyzer
         ]);
 
-        env = lib.optionalAttrs pkgs.stdenvNoCC.hostPlatform.isLinux {
+        env = lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           LD_LIBRARY_PATH = lib.makeLibraryPath config.packages.cinq.runtimeLibs;
         };
       };
