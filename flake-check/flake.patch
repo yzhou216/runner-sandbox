@@ -4,35 +4,12 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
   6e86b5e commons: pin emacs-overlay as a flake input
-  5ca9dc9 commons: pin emacs master as a flake input
-  d740b2b flake: drop --impure from the build commands
 
-diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
-index 7930cc5..eb466f5 100644
---- a/.github/workflows/build-galago.yml
-+++ b/.github/workflows/build-galago.yml
-@@ -20,15 +20,12 @@ jobs:
-       - name: Update flake.lock
-         run: nix flake update
- 
--      # Same target as `nixos-rebuild switch --flake . --impure`;
--      # `--impure` is needed because the Emacs overlay uses a bare
--      # `builtins.fetchTarball`.
-+      # Same target as `nixos-rebuild switch --flake .`;
-       # `--keep-going` builds the rest if one package fails, and
-       # cachix's daemon pushes each successful path as it builds.
-       - name: Build galago
-         run: |
-           nix build \
--            --impure \
-             --keep-going \
-             --no-link \
-             ".#nixosConfigurations.galago.config.system.build.toplevel"
 diff --git a/flake.lock b/flake.lock
-index b3f4d32..0b4296d 100644
+index b3f4d32..e7406a1 100644
 --- a/flake.lock
 +++ b/flake.lock
-@@ -79,6 +79,44 @@
+@@ -79,6 +79,27 @@
          "type": "github"
        }
      },
@@ -57,27 +34,10 @@ index b3f4d32..0b4296d 100644
 +        "type": "github"
 +      }
 +    },
-+    "emacs-src": {
-+      "flake": false,
-+      "locked": {
-+        "lastModified": 1795795059,
-+        "narHash": "sha256-UtUJpw9W1NI1cHpoDkdPc0dV48DlOimRmRwvLWSKdvU=",
-+        "owner": "emacsmirror",
-+        "repo": "emacs",
-+        "rev": "eb8c188750ea1bd50dd91e3ada949b3e155dc95e",
-+        "type": "github"
-+      },
-+      "original": {
-+        "owner": "emacsmirror",
-+        "ref": "master",
-+        "repo": "emacs",
-+        "type": "github"
-+      }
-+    },
      "flake-compat": {
        "flake": false,
        "locked": {
-@@ -305,6 +343,22 @@
+@@ -305,6 +326,22 @@
          "type": "github"
        }
      },
@@ -100,20 +60,19 @@ index b3f4d32..0b4296d 100644
      "nixpkgs_2": {
        "locked": {
          "lastModified": 1761236834,
-@@ -409,6 +463,8 @@
+@@ -409,6 +446,7 @@
        "inputs": {
          "darwin": "darwin",
          "disko": "disko",
 +        "emacs-overlay": "emacs-overlay",
-+        "emacs-src": "emacs-src",
          "homebrew-bundle": "homebrew-bundle",
          "homebrew-cask": "homebrew-cask",
          "homebrew-core": "homebrew-core",
 diff --git a/flake.nix b/flake.nix
-index e74cecb..fafc50a 100644
+index e74cecb..6bee0bd 100644
 --- a/flake.nix
 +++ b/flake.nix
-@@ -29,6 +29,17 @@
+@@ -29,6 +29,11 @@
  
      openwrt-imagebuilder.url = "github:astro/nix-openwrt-imagebuilder";
  
@@ -122,34 +81,11 @@ index e74cecb..fafc50a 100644
 +      inputs.nixpkgs.follows = "nixpkgs";
 +    };
 +
-+    # Emacs master, built as emacs-git by systems/nixos/commons.nix
-+    emacs-src = {
-+      url = "github:emacsmirror/emacs?ref=master";
-+      flake = false;
-+    };
-+
      darwin = {
        url = "github:lnl7/nix-darwin";
        inputs.nixpkgs.follows = "nixpkgs";
-@@ -153,13 +164,10 @@
-           .#router` won't work, since it builds the stock
-           `system.build.vm`, which boots an empty overlay root and
-           ignores the disko layout entirely (no bcachefs partitions,
--          no swap, and no mounted subvolumes).  It also fails pure
--          evaluation, because importing
--          `../../systems/nixos/commons.nix` pulls in the emacs-overlay
--          `fetchTarball` without a pinned `sha256`.  Instead, build a
--          VM backed by a real disko image, which boots the actual
-+          no swap, and no mounted subvolumes).  Instead, build a VM
-+          backed by a real disko image, which boots the actual
-           bcachefs/swap layout:
--          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
-+          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko`
-         */
-         router = nixosSystem-patched {
-           system = "x86_64-linux";
 diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
-index 0c3dfa3..113b600 100644
+index 0c3dfa3..3d9f5e7 100644
 --- a/systems/nixos/commons.nix
 +++ b/systems/nixos/commons.nix
 @@ -1,6 +1,7 @@
@@ -160,7 +96,7 @@ index 0c3dfa3..113b600 100644
    ...
  }:
  {
-@@ -70,19 +71,12 @@
+@@ -70,11 +71,7 @@
    };
  
    nixpkgs.overlays = [
@@ -173,12 +109,3 @@ index 0c3dfa3..113b600 100644
  
      (final: prev: {
        emacs-git = prev.emacs-git.overrideAttrs (
-         _: prevAttrs: {
--          src = builtins.fetchGit {
--            url = "https://github.com/emacsmirror/emacs.git";
--            ref = "master";
--          };
-+          src = inputs.emacs-src;
- 
-           # Keep RET from being refilled away by `refill-mode' in Org
-           patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
