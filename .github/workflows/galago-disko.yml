@@ -12,7 +12,6 @@ defaults:
     shell: bash
 env:
   FLAKE_BASE: 7f2b444fc34ffc4b5c37a046c3c9509848095350
-  DISKO_BASE: 6747342da148f6cb28c8405a70fe00455a0ba027
 jobs:
   install:
     runs-on: ubuntu-latest
@@ -39,19 +38,11 @@ jobs:
         run: |
           git config --global user.name runner
           git config --global user.email runner@localhost
-          git clone --quiet https://github.com/nix-community/disko "$RUNNER_TEMP/disko"
-          cd "$RUNNER_TEMP/disko"
-          git fetch --quiet origin pull/1277/head
-          git checkout --quiet "$DISKO_BASE"
-          git apply --index "$GITHUB_WORKSPACE/galago-disko/disko.patch"
-          git commit --quiet -m "galago-disko: fix under test"
-          disko="git+file://$PWD?rev=$(git rev-parse HEAD)"
           git clone --quiet https://github.com/yzhou216/flake "$RUNNER_TEMP/flake"
           cd "$RUNNER_TEMP/flake"
           git checkout --quiet "$FLAKE_BASE"
           git apply --index "$GITHUB_WORKSPACE/galago-disko/flake.patch"
-          nix flake lock --override-input disko "$disko"
-          git commit --quiet --all -m "galago-disko: changes under test"
+          git commit --quiet -m "galago-disko: changes under test"
           echo "FLAKE=git+file://$PWD?rev=$(git rev-parse HEAD)" >>"$GITHUB_ENV"
       - name: Build the installer, galago, and its disko script
         run: galago-disko/test.sh build
