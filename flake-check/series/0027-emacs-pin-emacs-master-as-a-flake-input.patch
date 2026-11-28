@@ -1,7 +1,7 @@
-From e385f5d0a08f9fcaeaa5e53f89a60211207057d9 Mon Sep 17 00:00:00 2001
+From fb344c16b48174cb7f1f20ffd82bad325547ebcc Mon Sep 17 00:00:00 2001
 From: Yiyu Zhou <yiyu@yiyuzhou.io>
 Date: Sat, 28 Nov 2026 02:36:17 -0800
-Subject: [PATCH 2/3] commons: pin emacs master as a flake input
+Subject: [PATCH 27/47] emacs: pin emacs master as a flake input
 
 builtins.fetchGit with a ref and no rev resolved the master branch of
 Emacs at evaluation time, which is impure, and cloned its whole history
@@ -13,13 +13,13 @@ Emacs sets no export-ignore, export-subst, text, or eol attributes in
 .gitattributes, so the tarball that GitHub serves holds the same tree
 as the checkout, and the source of emacs-git keeps its store path.
 ---
- flake.lock                | 18 ++++++++++++++++++
- flake.nix                 |  6 ++++++
- systems/nixos/commons.nix |  5 +----
+ flake.lock              | 18 ++++++++++++++++++
+ flake.nix               |  6 ++++++
+ systems/nixos/emacs.nix |  5 +----
  3 files changed, 25 insertions(+), 4 deletions(-)
 
 diff --git a/flake.lock b/flake.lock
-index e7406a1..fd25cb0 100644
+index 3a02c42..13b03c1 100644
 --- a/flake.lock
 +++ b/flake.lock
 @@ -100,6 +100,23 @@
@@ -55,27 +55,27 @@ index e7406a1..fd25cb0 100644
          "homebrew-cask": "homebrew-cask",
          "homebrew-core": "homebrew-core",
 diff --git a/flake.nix b/flake.nix
-index 6bee0bd..76a78a5 100644
+index 577a4e9..3429545 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -34,6 +34,12 @@
        inputs.nixpkgs.follows = "nixpkgs";
      };
  
-+    # Emacs master, built as emacs-git by systems/nixos/commons.nix
++    # Emacs master, built as emacs-git by systems/nixos/emacs.nix
 +    emacs-src = {
 +      url = "github:emacsmirror/emacs?ref=master";
 +      flake = false;
 +    };
 +
      darwin = {
-       url = "github:lnl7/nix-darwin";
+       url = "github:nix-darwin/nix-darwin";
        inputs.nixpkgs.follows = "nixpkgs";
-diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
-index 3d9f5e7..113b600 100644
---- a/systems/nixos/commons.nix
-+++ b/systems/nixos/commons.nix
-@@ -76,10 +76,7 @@
+diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
+index efa2336..90dea23 100644
+--- a/systems/nixos/emacs.nix
++++ b/systems/nixos/emacs.nix
+@@ -6,10 +6,7 @@
      (final: prev: {
        emacs-git = prev.emacs-git.overrideAttrs (
          _: prevAttrs: {

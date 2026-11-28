@@ -1,0 +1,33 @@
+From 9452c8e93db3529902b2e596d5710d4203dab5b2 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:27 -0800
+Subject: [PATCH 13/47] scripts: match only the sip status line in
+ darwin_setup.sh
+
+After `csrutil enable --without fs --without debug --without nvram`, as
+the script tells the user to run, `csrutil status` reports "unknown
+(Custom Configuration)" and lists the protections that stay on, such
+as "Kext Signing: enabled".  Matching any "enabled" thus aborts and
+powers the machine off even once SIP is set up as yabai needs.  Match
+the status line instead, which says "status: enabled." only while SIP
+is fully on.
+---
+ scripts/darwin_setup.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/darwin_setup.sh b/scripts/darwin_setup.sh
+index ae83ff4..6872372 100755
+--- a/scripts/darwin_setup.sh
++++ b/scripts/darwin_setup.sh
+@@ -11,7 +11,7 @@ echo
+ # Change login shell to bash for iris
+ echo $password | sudo -S chsh -s /bin/bash iris
+ 
+-if csrutil status | grep 'enabled'; then
++if csrutil status | grep 'status: enabled'; then
+   echo 'Disable SIP before executing! Aborting...'
+   printf "\nBoot in to recovery and run\
+ 	  \n$ csrutil enable --without fs --without debug --without nvram\n\n"
+-- 
+2.56.1
+

@@ -1,0 +1,116 @@
+From 5c980ce6331ba9577ea6951cf8b30947e0b65896 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:42:19 -0800
+Subject: [PATCH 25/47] commons: move networking, openssh, and tailscale into
+ network.nix
+
+Gather the settings for how both systems join networks and are reached
+over them in network.nix, which commons.nix imports: iwd, the nftables
+firewall, the OpenSSH daemon, and Tailscale.
+---
+ systems/nixos/commons.nix | 29 +----------------------------
+ systems/nixos/network.nix | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 28 deletions(-)
+ create mode 100644 systems/nixos/network.nix
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 27d7c4e..1db0b01 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -7,6 +7,7 @@
+   imports = [
+     ../shared.nix
+     ./emacs.nix
++    ./network.nix
+     ./t3code.nix
+   ];
+ 
+@@ -21,21 +22,6 @@
+ 
+   zramSwap.enable = true;
+ 
+-  networking = {
+-    # Wi-Fi through iwd on its own, with dhcpcd for the addresses
+-    wireless.iwd = {
+-      enable = true;
+-      settings = {
+-        General.AddressRandomization = "once";
+-        IPv6.Enabled = true;
+-        Settings.AutoConnect = true;
+-      };
+-    };
+-
+-    # Use nftables as the backend instead of iptables
+-    nftables.enable = true;
+-  };
+-
+   # Internationalisation properties.
+   i18n = {
+     defaultLocale = "en_US.UTF-8";
+@@ -82,9 +68,6 @@
+     # Common UNIX Printing System
+     printing.enable = true;
+ 
+-    # OpenSSH daemon
+-    openssh.enable = true;
+-
+     # Touchpad support (enabled default in most desktopManager)
+     libinput.enable = true;
+ 
+@@ -93,16 +76,6 @@
+       gc.enable = true;
+     };
+ 
+-    tailscale = {
+-      enable = true;
+-      useRoutingFeatures = "both";
+-      extraSetFlags = [
+-        "--exit-node-allow-lan-access=true"
+-        "--operator=yiyu"
+-        "--ssh"
+-      ];
+-    };
+-
+     # BitTorrent daemon with an HTTP API and web UI on localhost:3030
+     rqbit = {
+       enable = true;
+diff --git a/systems/nixos/network.nix b/systems/nixos/network.nix
+new file mode 100644
+index 0000000..2cce018
+--- /dev/null
++++ b/systems/nixos/network.nix
+@@ -0,0 +1,31 @@
++{
++  networking = {
++    # Wi-Fi through iwd on its own, with dhcpcd for the addresses
++    wireless.iwd = {
++      enable = true;
++      settings = {
++        General.AddressRandomization = "once";
++        IPv6.Enabled = true;
++        Settings.AutoConnect = true;
++      };
++    };
++
++    # Use nftables as the backend instead of iptables
++    nftables.enable = true;
++  };
++
++  services = {
++    # OpenSSH daemon
++    openssh.enable = true;
++
++    tailscale = {
++      enable = true;
++      useRoutingFeatures = "both";
++      extraSetFlags = [
++        "--exit-node-allow-lan-access=true"
++        "--operator=yiyu"
++        "--ssh"
++      ];
++    };
++  };
++}
+-- 
+2.56.1
+

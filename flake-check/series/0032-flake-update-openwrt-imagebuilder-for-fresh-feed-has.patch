@@ -1,0 +1,39 @@
+From 78762bbe85368a118e8cbb24cb6df485d07fbc5c Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:42:19 -0800
+Subject: [PATCH 32/47] flake: update openwrt-imagebuilder for fresh feed
+ hashes
+
+The hashes of the OpenWrt package feeds that the locked revision of 26
+November records no longer match downloads.openwrt.org, so the image
+fails to evaluate.  Those of 27 November match every index that the
+FRITZ!Box 7412 image fetches, as of 28 November.  The update changes
+nothing but the hash files under cache/ of nix-openwrt-imagebuilder.
+The feeds will move on again within a day or two, so update the input
+again right before building the image.
+---
+ flake.lock | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/flake.lock b/flake.lock
+index 13b03c1..3f58fe2 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -446,11 +446,11 @@
+         "systems": "systems_3"
+       },
+       "locked": {
+-        "lastModified": 1795717388,
+-        "narHash": "sha256-34lUY49gZBkt12Z0rHXojjtCVOT4qU7lUCBXY8gLeUk=",
++        "lastModified": 1795802588,
++        "narHash": "sha256-uH0RyyISSH6sfmB5+z3slSUgr0drEjjyFBX1H0seOT8=",
+         "owner": "astro",
+         "repo": "nix-openwrt-imagebuilder",
+-        "rev": "38bd2b4115b107d44efb34e57333e803a446514b",
++        "rev": "8cae777c4a3bfd9333c524b2c12223b931635f3b",
+         "type": "github"
+       },
+       "original": {
+-- 
+2.56.1
+

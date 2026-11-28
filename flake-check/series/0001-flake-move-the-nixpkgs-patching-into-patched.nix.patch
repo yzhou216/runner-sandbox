@@ -1,0 +1,172 @@
+From 2330fc2123836849ee4a73529922439d655e2ae2 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:40:25 -0800
+Subject: [PATCH 01/47] flake: move the nixpkgs patching into patched.nix
+
+The patched nixpkgs and nixosSystem-patched are temporary plumbing that
+grows with every open pull request, and the hotfix branch adds a
+similar block for disko.  Moving them into a file of their own keeps
+flake.nix to the inputs and the outputs, and the file can go as a whole
+once every pull request is merged.  The code moves unchanged, apart
+from nixfmt splitting the long fetchPrCommit lines.
+
+eval-config.nix gives inline modules the file that defines the
+`modules` argument as their location in error messages, which would
+become patched.nix.  Pass the file of the caller's `modules` as
+modulesLocation instead, so that errors keep naming flake.nix.
+---
+ flake.nix   | 57 +----------------------------------------
+ patched.nix | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 74 insertions(+), 56 deletions(-)
+ create mode 100644 patched.nix
+
+diff --git a/flake.nix b/flake.nix
+index e74cecb..8610e4a 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -71,62 +71,7 @@
+       ...
+     }@inputs:
+     let
+-      /*
+-        Nixpkgs master with commits from open pull requests applied on
+-        top.  Each commit is pinned so that pushes to a pull request do
+-        not invalidate the hashes.  Evaluating a system from the
+-        patched tree imports from a derivation, so the patched source
+-        is built before evaluation.
+-
+-        TODO: remove the patches of each pull request once it is
+-        merged, and go back to `nixpkgs.lib.nixosSystem` once none are
+-        left.
+-      */
+-      nixpkgs-patched =
+-        let
+-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+-          fetchPrCommit =
+-            pr: rev: hash:
+-            pkgs.fetchpatch {
+-              url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
+-              inherit hash;
+-            };
+-        in
+-        pkgs.applyPatches {
+-          name = "nixpkgs-patched";
+-          src = nixpkgs;
+-          patches = [
+-            # https://github.com/NixOS/nixpkgs/pull/550395
+-            # nixos/river: init
+-            (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca" "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=")
+-            # kwm: init at 0.3.0
+-            (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34" "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=")
+-            # nixos/kwm: init
+-            (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b" "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=")
+-            # kwim: init at 0.2.0
+-            (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e" "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=")
+-
+-            # https://github.com/NixOS/nixpkgs/pull/566470
+-            # maintainers: add jakob1379
+-            (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e" "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=")
+-            # nixos/t3code: init
+-            (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310" "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=")
+-          ];
+-        };
+-
+-      # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
+-      nixosSystem-patched =
+-        args:
+-        import "${nixpkgs-patched}/nixos/lib/eval-config.nix" (
+-          {
+-            lib = import "${nixpkgs-patched}/lib";
+-            system = null;
+-          }
+-          // args
+-          // {
+-            modules = args.modules ++ [ { config.nixpkgs.flake.source = nixpkgs-patched.outPath; } ];
+-          }
+-        );
++      inherit (import ./patched.nix inputs) nixosSystem-patched;
+     in
+     {
+       nixosConfigurations = {
+diff --git a/patched.nix b/patched.nix
+new file mode 100644
+index 0000000..0a9d2fa
+--- /dev/null
++++ b/patched.nix
+@@ -0,0 +1,73 @@
++{ nixpkgs, ... }:
++rec {
++  /*
++    Nixpkgs master with commits from open pull requests applied on
++    top.  Each commit is pinned so that pushes to a pull request do
++    not invalidate the hashes.  Evaluating a system from the
++    patched tree imports from a derivation, so the patched source
++    is built before evaluation.
++
++    TODO: remove the patches of each pull request once it is
++    merged, and go back to `nixpkgs.lib.nixosSystem` once none are
++    left.
++  */
++  nixpkgs-patched =
++    let
++      pkgs = nixpkgs.legacyPackages.x86_64-linux;
++      fetchPrCommit =
++        pr: rev: hash:
++        pkgs.fetchpatch {
++          url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
++          inherit hash;
++        };
++    in
++    pkgs.applyPatches {
++      name = "nixpkgs-patched";
++      src = nixpkgs;
++      patches = [
++        # https://github.com/NixOS/nixpkgs/pull/550395
++        # nixos/river: init
++        (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca"
++          "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4="
++        )
++        # kwm: init at 0.3.0
++        (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34"
++          "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U="
++        )
++        # nixos/kwm: init
++        (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b"
++          "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g="
++        )
++        # kwim: init at 0.2.0
++        (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e"
++          "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44="
++        )
++
++        # https://github.com/NixOS/nixpkgs/pull/566470
++        # maintainers: add jakob1379
++        (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e"
++          "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg="
++        )
++        # nixos/t3code: init
++        (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310"
++          "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0="
++        )
++      ];
++    };
++
++  # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
++  nixosSystem-patched =
++    args:
++    import "${nixpkgs-patched}/nixos/lib/eval-config.nix" (
++      {
++        lib = import "${nixpkgs-patched}/lib";
++        system = null;
++        # Errors in inline modules name the file of the caller, not this one
++        modulesLocation = (builtins.unsafeGetAttrPos "modules" args).file or null;
++      }
++      // args
++      // {
++        modules = args.modules ++ [ { config.nixpkgs.flake.source = nixpkgs-patched.outPath; } ];
++      }
++    );
++}
+-- 
+2.56.1
+

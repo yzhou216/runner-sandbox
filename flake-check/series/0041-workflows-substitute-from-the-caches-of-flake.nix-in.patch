@@ -1,0 +1,30 @@
+From e692da4f2d83c27f790bb4728b76a4b1797890ab Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:48:59 -0800
+Subject: [PATCH 41/47] workflows: substitute from the caches of flake.nix in
+ the galago build
+
+Nix ignored the substituters and trusted keys of the nixConfig of
+flake.nix, with a warning, since the build did not accept the flake's
+configuration, so nix-community.cachix.org was never asked for a path.
+Accept it, as nix.nix does on the machines themselves.
+---
+ .github/workflows/build-galago.yml | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 92d61f9..42f0d9f 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -47,6 +47,8 @@ jobs:
+       - uses: DeterminateSystems/nix-installer-action@main
+         with:
+           extra-conf: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
+             build-dir = /nix/build
+       - uses: cachix/cachix-action@master
+         with:
+-- 
+2.56.1
+

@@ -1,0 +1,49 @@
+From e4f516597d8810806d117c4c5fd34918187aca8b Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:41:18 -0800
+Subject: [PATCH 23/47] commons: drop settings that nixos sets by default
+
+NixOS enables the firewall by default, picks nftables as its package
+once networking.nftables.enable is set, powers on the Bluetooth
+controller at boot by default, and disables sudo by default once sudo-rs
+is enabled.  Setting them again changes nothing.
+---
+ systems/nixos/commons.nix | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index f6a3427..7d50315 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -35,10 +35,6 @@
+ 
+     # Use nftables as the backend instead of iptables
+     nftables.enable = true;
+-    firewall = {
+-      enable = true;
+-      package = pkgs.nftables;
+-    };
+   };
+ 
+   # Internationalisation properties.
+@@ -136,16 +132,12 @@
+   };
+ 
+   hardware = {
+-    bluetooth = {
+-      enable = true;
+-      powerOnBoot = true;
+-    };
++    bluetooth.enable = true;
+     acpilight.enable = true;
+   };
+ 
+   security = {
+     # Use sudo-rs and doas instead of sudo
+-    sudo.enable = false;
+     sudo-rs = {
+       enable = true;
+       extraConfig = ''
+-- 
+2.56.1
+

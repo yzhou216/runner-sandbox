@@ -1,0 +1,28 @@
+From 028a3a648300bbcd88f2e9bc5b388f6522d5b2e0 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:36:54 -0800
+Subject: [PATCH 08/47] shell: use stdenv.hostPlatform.isDarwin instead of
+ stdenv.isDarwin
+
+Nixpkgs deprecated stdenv.isDarwin, and evaluating a Darwin
+configuration warned about it.  The value is the same.
+---
+ systems/shell.nix | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/systems/shell.nix b/systems/shell.nix
+index 1c4fdc8..297c450 100644
+--- a/systems/shell.nix
++++ b/systems/shell.nix
+@@ -32,7 +32,7 @@ in
+     // (
+       if stdenv.hostPlatform.isLinux then
+         { promptInit = bashPrompt; }
+-      else if stdenv.isDarwin then
++      else if stdenv.hostPlatform.isDarwin then
+         { interactiveShellInit = bashPrompt; }
+       else
+         { }
+-- 
+2.56.1
+

@@ -1,0 +1,33 @@
+From b70d9ac8e3d13a7433177b23ba54490322ebe3c1 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:15 -0800
+Subject: [PATCH 11/47] lexi: explain why the nixbld group id is set
+
+The comment called the setting temporary, but lexi cannot drop it: its
+nixbld group has GID 350, nix-darwin defaults to 30000 at state version
+4, and the activation check aborts when the two differ.  Say so, so that
+the setting is not removed by mistake.
+---
+ machines/darwin/lexi.nix | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/machines/darwin/lexi.nix b/machines/darwin/lexi.nix
+index 872bbaf..f70c18c 100644
+--- a/machines/darwin/lexi.nix
++++ b/machines/darwin/lexi.nix
+@@ -1,6 +1,11 @@
+ { ... }:
+ {
+-  ids.gids.nixbld = 350; # temp
++  /*
++    The Nix installer of this machine created the nixbld group with GID
++    350, while nix-darwin expects 30000 at state version 4 and refuses
++    to activate when they differ.
++  */
++  ids.gids.nixbld = 350;
+ 
+   imports = [
+     ./state-version.nix
+-- 
+2.56.1
+

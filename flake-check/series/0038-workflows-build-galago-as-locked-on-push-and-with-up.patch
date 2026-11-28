@@ -1,0 +1,106 @@
+From 8d5a0914469d94cc4b921851143ade03bc6c6bb9 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:45:33 -0800
+Subject: [PATCH 38/47] workflows: build galago as locked on push, and with
+ updated inputs daily
+
+The galago build ran `nix flake update` every hour and threw the new
+flake.lock away, so it never built the configuration as committed, and
+no run left a lock to take.  It has failed on every run since October
+31, each time on a change in the latest inputs: nixpkgs refused to
+evaluate gtk+ 2 and then dropped brave-origin, the bcachefs module did
+not build against Linux 7.4-rc1 to rc3 of linuxPackages_testing,
+emacs-git from the unpinned overlay failed on a patch that upstream had
+applied, and from November 23 the kernel failed on the xhci patch then
+in commons.nix, which Linux 7.4-rc4 contains.  Since cache.nixos.org
+does not have nixpkgs master yet, the runs also built Electron and the
+kernel from source for hours, and some hit the limit of six hours.
+
+Build flake.lock as committed on each push to master instead, and
+update the inputs only once a day, or when dispatched with `update`.
+That run lists the updated inputs in its summary and keeps its
+flake.lock as an artifact, so that a lock which built, and whose paths
+are in Cachix, can be committed deliberately; the run itself never
+commits it.  A dry run of galago with the committed lock lists a few
+dozen derivations to build, such as emacs-git and the bcachefs module,
+and fetches the rest.
+
+The new upload step pins its action to a commit, as check.yml does.
+---
+ .github/workflows/build-galago.yml | 49 ++++++++++++++++++++++++++++--
+ 1 file changed, 46 insertions(+), 3 deletions(-)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index eb466f5..3732b0a 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -1,8 +1,38 @@
++# Builds galago and pushes each path it builds to the yzhou216 Cachix
++# cache.
++#
++# On a push to master, it builds the inputs that flake.lock pins, which
++# is what `nixos-rebuild switch --flake .` deploys, so a failure there
++# means that the committed configuration does not build.
++#
++# Once a day, and when dispatched with `update`, it runs
++# `nix flake update` first, to find out whether galago builds with the
++# latest inputs and to fill the cache before the next update.  A
++# failure there is breakage upstream that updating would bring in.  The
++# job summary lists the inputs that changed, and the run keeps the
++# updated flake.lock as an artifact; to commit the inputs that the run
++# built, fetch it with
++# `gh run download <run> -R yzhou216/flake -n flake.lock`.
++name: build galago
+ on:
++  push:
++    branches: [master]
+   schedule:
+-    - cron: "0 */1 * * *"
++    - cron: "17 3 * * *"
+   workflow_dispatch:
+-
++    inputs:
++      update:
++        description: Update the flake inputs before building
++        type: boolean
++        default: true
++permissions:
++  contents: read
++# Explicit shell adds -o pipefail, which `nix flake update | tee` needs
++defaults:
++  run:
++    shell: bash
++env:
++  UPDATE: ${{ github.event_name == 'schedule' || inputs.update }}
+ jobs:
+   build:
+     runs-on: ubuntu-latest
+@@ -18,7 +48,14 @@ jobs:
+           name: yzhou216
+           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+       - name: Update flake.lock
+-        run: nix flake update
++        if: env.UPDATE == 'true'
++        run: |
++          nix flake update 2>&1 | tee update.log
++          {
++            echo '```'
++            cat update.log
++            echo '```'
++          } >>"$GITHUB_STEP_SUMMARY"
+ 
+       # Same target as `nixos-rebuild switch --flake .`;
+       # `--keep-going` builds the rest if one package fails, and
+@@ -29,3 +66,9 @@ jobs:
+             --keep-going \
+             --no-link \
+             ".#nixosConfigurations.galago.config.system.build.toplevel"
++
++      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
++        if: always() && env.UPDATE == 'true'
++        with:
++          name: flake.lock
++          path: flake.lock
+-- 
+2.56.1
+

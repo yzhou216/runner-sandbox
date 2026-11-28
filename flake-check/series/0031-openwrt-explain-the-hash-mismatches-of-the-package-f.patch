@@ -1,0 +1,41 @@
+From e5ef46b837c8ff2207b684b898ddb492c9e07652 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:42:02 -0800
+Subject: [PATCH 31/47] openwrt: explain the hash mismatches of the package
+ feeds
+
+Evaluating the image stops at a hash mismatch in the package index of
+the mips_24kc base feed, whose hash the locked openwrt-imagebuilder
+recorded on 26 November.  The package feeds of OpenWrt 25.12 and 24.10
+change every day or two, as the history of the hashes in
+nix-openwrt-imagebuilder shows, while those of 22.03 and 23.05, no
+longer maintained, have not changed since January.  Upstream refreshes
+the hashes daily, so the remedy is to update the input, not to pin it
+or to pick another profile, which fetches the feeds of a maintained
+release all the same.
+---
+ flake.nix | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/flake.nix b/flake.nix
+index 32d03d5..76ebb34 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -178,6 +178,14 @@
+       packages.x86_64-linux.openwrt =
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++          /*
++            The openwrt-imagebuilder input pins the hashes of the
++            OpenWrt package feeds, which change every day or two while
++            a release is maintained.  Upstream refreshes the hashes
++            daily, so when evaluation stops at a hash mismatch, update
++            the input with `nix flake update openwrt-imagebuilder`.
++          */
+           profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
+         in
+         openwrt-imagebuilder.lib.build (
+-- 
+2.56.1
+

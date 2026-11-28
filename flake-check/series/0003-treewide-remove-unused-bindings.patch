@@ -1,0 +1,46 @@
+From 060745e9fe29bb84d74de6dec2107a4cbdc8c709 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:37:24 -0800
+Subject: [PATCH 03/47] treewide: remove unused bindings
+
+deadnix finds four bindings that nothing reads:
+
+- the homebrew-core, homebrew-cask, and homebrew-bundle arguments of
+  outputs, as the taps read these inputs through `inputs` instead;
+- the locale argument of the function that sets every LC_* category to
+  en_US.UTF-8.
+---
+ flake.nix                 | 3 ---
+ systems/nixos/commons.nix | 2 +-
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/flake.nix b/flake.nix
+index 8610e4a..8481cd5 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -64,9 +64,6 @@
+       openwrt-imagebuilder,
+       darwin,
+       nix-homebrew,
+-      homebrew-bundle,
+-      homebrew-core,
+-      homebrew-cask,
+       mac-app-util,
+       ...
+     }@inputs:
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..2e3a398 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -66,7 +66,7 @@
+       "LC_PAPER"
+       "LC_TELEPHONE"
+       "LC_TIME"
+-    ] (locale: "en_US.UTF-8");
++    ] (_: "en_US.UTF-8");
+   };
+ 
+   nixpkgs.overlays = [
+-- 
+2.56.1
+

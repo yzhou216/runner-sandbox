@@ -1,0 +1,74 @@
+From 2fec04d7d4bea7bb255427d0aa9a4a2de93d9a7d Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:20 -0800
+Subject: [PATCH 10/47] flake: fetch nix-darwin and nix-homebrew from their
+ current owners
+
+LnL7/nix-darwin moved to nix-darwin/nix-darwin, and
+zhaofengli-wip/nix-homebrew to zhaofengli/nix-homebrew, so both inputs
+were fetched through GitHub's redirects from the old names.  Use the
+current names.  flake.lock keeps the same revisions and NAR hashes, with
+only the owners changed, so that the inputs and the systems built from
+them stay the same.
+---
+ flake.lock | 8 ++++----
+ flake.nix  | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/flake.lock b/flake.lock
+index b3f4d32..f09c879 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -47,13 +47,13 @@
+       "locked": {
+         "lastModified": 1795747999,
+         "narHash": "sha256-VTPsIOYem/zQCO1QF3cpa4pLg2EoexjX5R1u3fs3L4k=",
+-        "owner": "lnl7",
++        "owner": "nix-darwin",
+         "repo": "nix-darwin",
+         "rev": "594c680c429be020d7130cc2b17d43c4760d17c7",
+         "type": "github"
+       },
+       "original": {
+-        "owner": "lnl7",
++        "owner": "nix-darwin",
+         "repo": "nix-darwin",
+         "type": "github"
+       }
+@@ -248,13 +248,13 @@
+       "locked": {
+         "lastModified": 1795755327,
+         "narHash": "sha256-qpfNQ5tFivEE9t7CsQcir3FTCr6zYji53YS9pm3AzyA=",
+-        "owner": "zhaofengli-wip",
++        "owner": "zhaofengli",
+         "repo": "nix-homebrew",
+         "rev": "b279e781fbfede43b2b20e7278cf3c5312ca3301",
+         "type": "github"
+       },
+       "original": {
+-        "owner": "zhaofengli-wip",
++        "owner": "zhaofengli",
+         "repo": "nix-homebrew",
+         "type": "github"
+       }
+diff --git a/flake.nix b/flake.nix
+index f439af7..d528f26 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -30,11 +30,11 @@
+     openwrt-imagebuilder.url = "github:astro/nix-openwrt-imagebuilder";
+ 
+     darwin = {
+-      url = "github:lnl7/nix-darwin";
++      url = "github:nix-darwin/nix-darwin";
+       inputs.nixpkgs.follows = "nixpkgs";
+     };
+ 
+-    nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
++    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+ 
+     homebrew-core = {
+       url = "github:homebrew/homebrew-core";
+-- 
+2.56.1
+

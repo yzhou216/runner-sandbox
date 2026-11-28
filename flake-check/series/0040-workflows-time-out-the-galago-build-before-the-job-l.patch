@@ -1,0 +1,43 @@
+From 8d6c156eee4300cfae216133e1598e7aaa946bdb Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 08:00:06 -0800
+Subject: [PATCH 40/47] workflows: time out the galago build before the job
+ limit
+
+A galago build takes hours when the cache lacks the kernel or Electron,
+and runs that reached the limit of six hours were cancelled in the
+middle of the build, so the steps after it never ran.  Time the build
+step out half an hour before the job, so that they still run: the
+upload of the updated flake.lock, and cachix pushing the paths still
+queued.  The timeout of the job is the default of GitHub; setting it
+only names the limit that the step must stay within.
+---
+ .github/workflows/build-galago.yml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 931ea7e..92d61f9 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -40,6 +40,7 @@ env:
+ jobs:
+   build:
+     runs-on: ubuntu-latest
++    timeout-minutes: 360
+     steps:
+       - uses: actions/checkout@main
+       - uses: wimpysworld/nothing-but-nix@main
+@@ -64,7 +65,10 @@ jobs:
+       # Same target as `nixos-rebuild switch --flake .`;
+       # `--keep-going` builds the rest if one package fails, and
+       # cachix's daemon pushes each successful path as it builds.
++      # The step times out before the job does, which leaves cachix
++      # time to push the paths still queued.
+       - name: Build galago
++        timeout-minutes: 330
+         run: |
+           nix build \
+             --keep-going \
+-- 
+2.56.1
+

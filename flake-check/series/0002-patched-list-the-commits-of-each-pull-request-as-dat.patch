@@ -1,0 +1,182 @@
+From 9690b0b557c55106fcb203120704c65f5577c472 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:41:21 -0800
+Subject: [PATCH 02/47] patched: list the commits of each pull request as data
+
+fetchPrCommit has taken the number of the pull request without using it
+since a218e78 ("flake: fetch nixpkgs patches from commit URLs"), and
+deadnix reports it.  List each pull request with its URL and its
+commits instead, and take the repository of the commit URLs from the
+URL of the pull request, so that each pull request is written once and
+used.
+
+Each commit is an attribute set of its revision and the hash of its
+patch, and passes any other attribute on to fetchpatch, so that a patch
+that needs `includes` fits the same list.  applyPullRequests takes the
+name and the source tree, so that another input, such as disko, can be
+patched with one more call next to nixpkgs-patched.  fetchpatch and
+applyPatches get the same arguments as before, so every derivation
+stays the same.
+---
+ patched.nix | 143 +++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 92 insertions(+), 51 deletions(-)
+
+diff --git a/patched.nix b/patched.nix
+index 0a9d2fa..9277533 100644
+--- a/patched.nix
++++ b/patched.nix
+@@ -1,59 +1,100 @@
++/*
++  Flake inputs with commits from open pull requests applied on top.
++  Each commit is pinned so that pushes to a pull request do not
++  invalidate the hashes.
++
++  TODO: remove each pull request once it is merged, and this file once
++  none are left.
++*/
+ { nixpkgs, ... }:
++let
++  inherit (nixpkgs) lib;
++  pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++  /*
++    Fetch the patch of a commit of the GitHub pull request `pr` from
++    the commit URL in the repository of the pull request.  Attributes
++    of the commit other than `rev` are passed on to fetchpatch.
++  */
++  fetchPrCommit =
++    pr:
++    { rev, ... }@commit:
++    let
++      repo = lib.head (lib.splitString "/pull/" pr.url);
++    in
++    pkgs.fetchpatch ({ url = "${repo}/commit/${rev}.patch"; } // removeAttrs commit [ "rev" ]);
++
++  /*
++    Apply the commits of `pullRequests` on top of the source tree `src`.
++    Each pull request has its URL and its commits in the order they
++    apply, each with its revision and the hash of its patch.
++  */
++  applyPullRequests =
++    {
++      name,
++      src,
++      pullRequests,
++    }:
++    pkgs.applyPatches {
++      inherit name src;
++      patches = lib.concatMap (pr: map (fetchPrCommit pr) pr.commits) pullRequests;
++    };
++in
+ rec {
+   /*
+-    Nixpkgs master with commits from open pull requests applied on
+-    top.  Each commit is pinned so that pushes to a pull request do
+-    not invalidate the hashes.  Evaluating a system from the
+-    patched tree imports from a derivation, so the patched source
+-    is built before evaluation.
++    Nixpkgs master with the commits below applied.  Evaluating a
++    system from the patched tree imports from a derivation, so the
++    patched source is built before evaluation.
+ 
+-    TODO: remove the patches of each pull request once it is
+-    merged, and go back to `nixpkgs.lib.nixosSystem` once none are
+-    left.
++    TODO: go back to `nixpkgs.lib.nixosSystem` once no pull requests
++    are left.
+   */
+-  nixpkgs-patched =
+-    let
+-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+-      fetchPrCommit =
+-        pr: rev: hash:
+-        pkgs.fetchpatch {
+-          url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
+-          inherit hash;
+-        };
+-    in
+-    pkgs.applyPatches {
+-      name = "nixpkgs-patched";
+-      src = nixpkgs;
+-      patches = [
+-        # https://github.com/NixOS/nixpkgs/pull/550395
+-        # nixos/river: init
+-        (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca"
+-          "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4="
+-        )
+-        # kwm: init at 0.3.0
+-        (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34"
+-          "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U="
+-        )
+-        # nixos/kwm: init
+-        (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b"
+-          "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g="
+-        )
+-        # kwim: init at 0.2.0
+-        (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e"
+-          "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44="
+-        )
+-
+-        # https://github.com/NixOS/nixpkgs/pull/566470
+-        # maintainers: add jakob1379
+-        (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e"
+-          "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg="
+-        )
+-        # nixos/t3code: init
+-        (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310"
+-          "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0="
+-        )
+-      ];
+-    };
++  nixpkgs-patched = applyPullRequests {
++    name = "nixpkgs-patched";
++    src = nixpkgs;
++    pullRequests = [
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/550395";
++        commits = [
++          # nixos/river: init
++          {
++            rev = "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca";
++            hash = "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=";
++          }
++          # kwm: init at 0.3.0
++          {
++            rev = "c08b9ab09a451370fecb4c9fb066524f5c302b34";
++            hash = "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=";
++          }
++          # nixos/kwm: init
++          {
++            rev = "95213484d31f167321bcf01af375f77c57fa538b";
++            hash = "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=";
++          }
++          # kwim: init at 0.2.0
++          {
++            rev = "a6846d48060dd112964e2ee55935692f8838bf5e";
++            hash = "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=";
++          }
++        ];
++      }
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/566470";
++        commits = [
++          # maintainers: add jakob1379
++          {
++            rev = "094265f353ac97584592b65fdcade927cd628c4e";
++            hash = "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=";
++          }
++          # nixos/t3code: init
++          {
++            rev = "c73e1fccfdf1e52182d9693b645587e3f4c27310";
++            hash = "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=";
++          }
++        ];
++      }
++    ];
++  };
+ 
+   # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
+   nixosSystem-patched =
+-- 
+2.56.1
+

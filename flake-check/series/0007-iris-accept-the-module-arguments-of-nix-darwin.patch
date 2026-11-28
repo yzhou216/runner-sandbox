@@ -1,0 +1,27 @@
+From 6b5c776f7d183947847c677644c2e3465a18eff8 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:42:27 -0800
+Subject: [PATCH 07/47] iris: accept the module arguments of nix-darwin
+
+The module of iris is a function of an empty attribute set without an
+ellipsis, but the module system calls every module with config, lib,
+pkgs, and the other module arguments.  The call fails, so
+darwinConfigurations.iris does not evaluate.  Take the arguments with
+an ellipsis, as lexi does.
+---
+ machines/darwin/iris.nix | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/machines/darwin/iris.nix b/machines/darwin/iris.nix
+index 6452831..df64c2c 100644
+--- a/machines/darwin/iris.nix
++++ b/machines/darwin/iris.nix
+@@ -1,4 +1,4 @@
+-{ }:
++{ ... }:
+ {
+   imports = [
+     ./state-version.nix
+-- 
+2.56.1
+

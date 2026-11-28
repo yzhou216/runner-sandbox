@@ -1,0 +1,53 @@
+From aaa6e9b33305ededf531208700aefad244e8b1e1 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 03:01:35 -0800
+Subject: [PATCH 47/47] t3code: export the themes with the modus themes of
+ emacs 31
+
+router keeps the default Emacs, 31.1, which bundles Modus themes 5.2.
+The export script calls modus-themes-retrieve-palette-value, which only
+Modus themes 5.3, in the emacs-git of galago, exports.  On router, the
+build of t3code-modus-themes therefore stops with "Symbol's function
+definition is void: modus-themes-retrieve-palette-value", and the build
+of the system stops with it.
+
+Fall back to the private modus-themes--retrieve-palette-value, which
+Modus themes 5.2 define, when the public function is missing.  With
+Modus themes 5.3 the script takes the same path as before and writes the
+same files.
+---
+ systems/nixos/t3code-themes.el | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/systems/nixos/t3code-themes.el b/systems/nixos/t3code-themes.el
+index 88a647a..b4f864e 100644
+--- a/systems/nixos/t3code-themes.el
++++ b/systems/nixos/t3code-themes.el
+@@ -95,6 +95,15 @@
+   "Return the default palette of THEME without user overrides."
+   (symbol-value (plist-get (get theme 'theme-properties) :modus-core-palette)))
+ 
++;; Modus themes 5.3 export the function that looks up a color.  Modus
++;; themes 5.2, which Emacs 31 bundles, keep it private, so fall back to
++;; the private name.
++(defun t3code-themes-palette-value (color palette)
++  "Return the value of COLOR in PALETTE, following named references."
++  (if (fboundp 'modus-themes-retrieve-palette-value)
++      (modus-themes-retrieve-palette-value color palette)
++    (modus-themes--retrieve-palette-value color palette)))
++
+ (defun t3code-themes-file (theme name)
+   "Return the t3code theme file for Modus THEME, displayed as NAME."
+   (let ((palette (t3code-themes-palette theme)))
+@@ -104,7 +113,7 @@
+       (colors . ,(mapcar
+                   (lambda (role)
+                     (cons (car role)
+-                          (modus-themes-retrieve-palette-value (cdr role) palette)))
++                          (t3code-themes-palette-value (cdr role) palette)))
+                   t3code-themes-roles)))))
+ 
+ (let ((dir (file-name-as-directory (car command-line-args-left))))
+-- 
+2.56.1
+

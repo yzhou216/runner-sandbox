@@ -1,0 +1,92 @@
+From 5fd123df288b60443beccfa3060a86f76d806adf Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:35:59 -0800
+Subject: [PATCH 04/47] flake: build galago and router with a shared mkNixos
+ helper
+
+The two configurations repeated the same modules and the same check
+for the nixos-facter report, apart from the machine name.  Take the
+name as the only argument, so that a change to the shared modules,
+such as swapping the disko module, is made once.
+---
+ flake.nix | 44 ++++++++++++++++++++------------------------
+ 1 file changed, 20 insertions(+), 24 deletions(-)
+
+diff --git a/flake.nix b/flake.nix
+index 8481cd5..6c90c5a 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -69,10 +69,15 @@
+     }@inputs:
+     let
+       inherit (import ./patched.nix inputs) nixosSystem-patched;
+-    in
+-    {
+-      nixosConfigurations = {
+-        galago = nixosSystem-patched {
++
++      /*
++        NixOS system of the machine in machines/nixos/<name>.nix, with
++        the hardware report that nixos-facter wrote for it in
++        machines/nixos/facter/<name>.json.
++      */
++      mkNixos =
++        name:
++        nixosSystem-patched {
+           system = "x86_64-linux";
+           specialArgs = { inherit inputs; };
+           modules = [
+@@ -80,15 +85,22 @@
+             nixos-facter-modules.nixosModules.facter
+             {
+               config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/galago.json then
+-                  ./machines/nixos/facter/galago.json
++                let
++                  report = ./machines/nixos/facter/${name}.json;
++                in
++                if builtins.pathExists report then
++                  report
+                 else
+                   throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+             }
+             disko.nixosModules.disko
+-            ./machines/nixos/galago.nix
++            ./machines/nixos/${name}.nix
+           ];
+         };
++    in
++    {
++      nixosConfigurations = {
++        galago = mkNixos "galago";
+ 
+         /*
+           When testing out in an VM, `$ nixos-rebuild build-vm --flake
+@@ -103,23 +115,7 @@
+           bcachefs/swap layout:
+           `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
+         */
+-        router = nixosSystem-patched {
+-          system = "x86_64-linux";
+-          specialArgs = { inherit inputs; };
+-          modules = [
+-            nix-flatpak.nixosModules.nix-flatpak
+-            nixos-facter-modules.nixosModules.facter
+-            {
+-              config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/router.json then
+-                  ./machines/nixos/facter/router.json
+-                else
+-                  throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+-            }
+-            disko.nixosModules.disko
+-            ./machines/nixos/router.nix
+-          ];
+-        };
++        router = mkNixos "router";
+ 
+         # nix build .#nixosConfigurations.bcachefs-iso.config.system.build.isoImage
+         bcachefs-iso = nixpkgs.lib.nixosSystem {
+-- 
+2.56.1
+

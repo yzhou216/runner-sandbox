@@ -1,0 +1,77 @@
+From 977569beac3bd8d351dfd7ec4f01272ccd6d7da4 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:37:52 -0800
+Subject: [PATCH 16/47] systems: import the shared modules through one module
+
+systems/nixos/commons.nix and systems/darwin/default.nix each listed
+the same seven modules under systems/, so a new shared module had to
+be added to both lists.  Gather them in systems/shared.nix, which both
+import.
+---
+ systems/darwin/default.nix | 10 +---------
+ systems/nixos/commons.nix  |  8 +-------
+ systems/shared.nix         | 12 ++++++++++++
+ 3 files changed, 14 insertions(+), 16 deletions(-)
+ create mode 100644 systems/shared.nix
+
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index ce65330..b37ca6c 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -4,15 +4,7 @@
+   ...
+ }:
+ {
+-  imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
+-  ];
++  imports = [ ../shared.nix ];
+ 
+   programs.tmux.enable = true;
+ 
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 2e3a398..c35e81c 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -5,13 +5,7 @@
+ }:
+ {
+   imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
++    ../shared.nix
+     ./t3code-themes.nix
+   ];
+ 
+diff --git a/systems/shared.nix b/systems/shared.nix
+new file mode 100644
+index 0000000..689997b
+--- /dev/null
++++ b/systems/shared.nix
+@@ -0,0 +1,12 @@
++# Modules that NixOS and Darwin share
++{
++  imports = [
++    ./nix.nix
++    ./nixpkgs.nix
++    ./shell.nix
++    ./dev.nix
++    ./vc.nix
++    ./editors.nix
++    ./man.nix
++  ];
++}
+-- 
+2.56.1
+

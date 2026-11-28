@@ -1,0 +1,55 @@
+From 128435b659bc0e1b62444109f53a7e3c1d119859 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:39:06 -0800
+Subject: [PATCH 18/47] man: move the nixos-only dev documentation to nixos
+ commons
+
+documentation.dev.enable exists only in NixOS, so the shared man.nix
+set it behind a check of the platform.  Set it in
+systems/nixos/commons.nix instead, which leaves man.nix with the
+options that both NixOS and nix-darwin have.
+---
+ systems/man.nix           | 11 +----------
+ systems/nixos/commons.nix |  3 +++
+ 2 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/systems/man.nix b/systems/man.nix
+index ba8120b..5bdb86e 100644
+--- a/systems/man.nix
++++ b/systems/man.nix
+@@ -1,17 +1,8 @@
+-{
+-  pkgs,
+-  ...
+-}:
+-
+-let
+-  inherit (pkgs) stdenv;
+-in
+ {
+   documentation = {
+     enable = true;
+     man.enable = true;
+     info.enable = true;
+     doc.enable = true;
+-  }
+-  // (if stdenv.hostPlatform.isLinux then { dev.enable = true; } else { });
++  };
+ }
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 2b7f902..12a0b46 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -237,6 +237,9 @@
+     hashedPassword = "$6$yM8t/1VCAl66Y7XD$dmvt7Xq6iGLU3uJ9lcpUvr/7PZxt7IzYsoZbm4s42pejndU4IAMW4YbP4JcQK5KxI5DzSwLjPFCYY/OETznnO1";
+   };
+ 
++  # Developer documentation, for which nix-darwin has no option
++  documentation.dev.enable = true;
++
+   environment.systemPackages = with pkgs; [
+     readline
+     tree
+-- 
+2.56.1
+

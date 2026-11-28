@@ -1,0 +1,53 @@
+From c431751f2539662da05eb9be960224e327d78fbc Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:38:31 -0800
+Subject: [PATCH 17/47] shell: enable tmux for nixos and darwin alike
+
+Both systems/nixos/commons.nix and systems/darwin/default.nix enabled
+tmux.  Enable it once in the shared shell module.
+---
+ systems/darwin/default.nix | 2 --
+ systems/nixos/commons.nix  | 1 -
+ systems/shell.nix          | 2 ++
+ 3 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index b37ca6c..b30153a 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -6,8 +6,6 @@
+ {
+   imports = [ ../shared.nix ];
+ 
+-  programs.tmux.enable = true;
+-
+   environment = {
+     shells = with pkgs; [ bash ];
+     systemPackages = with pkgs; [
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index c35e81c..2b7f902 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -281,7 +281,6 @@
+     };
+ 
+     neovim.enable = true;
+-    tmux.enable = true;
+ 
+     htop = {
+       enable = true;
+diff --git a/systems/shell.nix b/systems/shell.nix
+index 297c450..95adbe6 100644
+--- a/systems/shell.nix
++++ b/systems/shell.nix
+@@ -43,5 +43,7 @@ in
+       silent = true;
+       nix-direnv.enable = true;
+     };
++
++    tmux.enable = true;
+   };
+ }
+-- 
+2.56.1
+

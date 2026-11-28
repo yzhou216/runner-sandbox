@@ -1,0 +1,39 @@
+From 75c7443bd210fdfa5d8e1a79904fef58ad333c6f Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:49:10 -0800
+Subject: [PATCH 42/47] workflows: install upstream nix in the galago build
+
+DeterminateSystems/nix-installer-action downloads the latest Determinate
+Nix Installer at run time, even when the action itself is pinned, and by
+default it installs Determinate Nix, logs in to FlakeHub, and sends
+diagnostics to Determinate Systems.  This job holds CACHIX_AUTH_TOKEN,
+so what it runs should change only with a commit here.  Install
+upstream Nix with cachix/install-nix-action instead, as check.yml does,
+which fixes the version of Nix through the commit that it is pinned to.
+
+The machines run Lix, so neither installer matches them, and derivations
+do not depend on the installer.  Builds still run under /nix/build, the
+volume that nothing-but-nix makes, as they did with Determinate Nix.
+---
+ .github/workflows/build-galago.yml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 42f0d9f..fdfb073 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -44,9 +44,9 @@ jobs:
+     steps:
+       - uses: actions/checkout@main
+       - uses: wimpysworld/nothing-but-nix@main
+-      - uses: DeterminateSystems/nix-installer-action@main
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+         with:
+-          extra-conf: |
++          extra_nix_config: |
+             # Substitute from the caches that the nixConfig of flake.nix names
+             accept-flake-config = true
+             build-dir = /nix/build
+-- 
+2.56.1
+

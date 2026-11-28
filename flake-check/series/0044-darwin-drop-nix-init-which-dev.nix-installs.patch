@@ -1,0 +1,28 @@
+From b111222f5ee071f0032058fce385335d52d18c39 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:39:15 -0800
+Subject: [PATCH 44/47] darwin: drop nix-init, which dev.nix installs
+
+The Darwin package list repeated nix-init from the shared dev.nix.
+Without the repetition, the system-path and system-applications
+environments of nix-darwin lose their second nix-init entry and nothing
+else, so their derivations change but install the same packages.
+---
+ systems/darwin/default.nix | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index b30153a..cfc274e 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -33,7 +33,6 @@
+       # NixOS
+       nixos-anywhere
+       #nixos-facter
+-      nix-init
+ 
+       # TeX
+       tectonic
+-- 
+2.56.1
+

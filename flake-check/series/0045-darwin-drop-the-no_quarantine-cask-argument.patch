@@ -1,0 +1,34 @@
+From 662568cfcfda48b6ef186c774df4f4e4ab043588 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:37:22 -0800
+Subject: [PATCH 45/47] darwin: drop the no_quarantine cask argument
+
+Homebrew deprecated the --no-quarantine switch, which bypasses
+Gatekeeper, and has since removed it
+(https://github.com/Homebrew/brew/issues/20755).  The Homebrew that
+nix-homebrew pins, 7.0.15, rejects it as an invalid option, so brew
+bundle fails to install a cask that is not installed yet.  Installed
+casks are unaffected, because brew bundle does not pass cask arguments
+when it upgrades them.  Without the argument, new casks are quarantined
+like any other download, and macOS checks them on their first launch.
+Homebrew has stopped supporting casks that fail Gatekeeper, so this
+should not block any cask it ships.
+---
+ systems/darwin/default.nix | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index cfc274e..08ff754 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -150,7 +150,6 @@
+ 
+   homebrew = {
+     enable = true;
+-    caskArgs.no_quarantine = true;
+     global.brewfile = true;
+     masApps = { };
+     casks = [
+-- 
+2.56.1
+

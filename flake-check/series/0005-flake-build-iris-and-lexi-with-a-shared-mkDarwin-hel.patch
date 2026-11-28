@@ -1,0 +1,121 @@
+From f11808934491bcf8d4cfa4de2fea21b9398ea8cb Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:36:38 -0800
+Subject: [PATCH 05/47] flake: build iris and lexi with a shared mkDarwin
+ helper
+
+The two configurations repeated the whole nix-homebrew block apart
+from the user, which each machine already names as its
+system.primaryUser.  Take the user from that option instead, so that
+the name is written once and the helper needs only the machine name.
+---
+ flake.nix | 86 ++++++++++++++++++++++++-------------------------------
+ 1 file changed, 37 insertions(+), 49 deletions(-)
+
+diff --git a/flake.nix b/flake.nix
+index 6c90c5a..7680b37 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -97,6 +97,41 @@
+             ./machines/nixos/${name}.nix
+           ];
+         };
++
++      /*
++        Darwin system of the machine in machines/darwin/<name>.nix, with
++        Homebrew and its taps managed by nix-homebrew for the primary
++        user that the machine sets.
++      */
++      mkDarwin =
++        name:
++        darwin.lib.darwinSystem {
++          system = "aarch64-darwin";
++          modules = [
++            mac-app-util.darwinModules.default
++            nix-homebrew.darwinModules.nix-homebrew
++            (
++              { config, ... }:
++              {
++                nix-homebrew = {
++                  enable = true;
++                  enableRosetta = true;
++                  user = config.system.primaryUser;
++                  taps = {
++                    "homebrew/homebrew-core" = inputs.homebrew-core;
++                    "homebrew/homebrew-cask" = inputs.homebrew-cask;
++                    "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
++                  };
++
++                  # Enable fully-declarative tap management
++                  # Taps can no longer be added imperatively with `brew tap`
++                  mutableTaps = false;
++                };
++              }
++            )
++            ./machines/darwin/${name}.nix
++          ];
++        };
+     in
+     {
+       nixosConfigurations = {
+@@ -161,55 +196,8 @@
+         openwrt-imagebuilder.lib.build config;
+ 
+       darwinConfigurations = {
+-        iris = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "iris";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
+-
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/iris.nix
+-          ];
+-        };
+-
+-        lexi = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "lexi";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
+-
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/lexi.nix
+-          ];
+-        };
++        iris = mkDarwin "iris";
++        lexi = mkDarwin "lexi";
+       };
+     };
+ }
+-- 
+2.56.1
+

@@ -1,0 +1,46 @@
+From 02cc2540038655b353df18d23640745b1fbdefea Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:42:46 -0800
+Subject: [PATCH 34/47] flake: check the formatting of the nix files
+
+Add a check that runs `nixfmt --check` on every Nix file of the flake,
+with the same nixfmt as `nix fmt`, so that `nix flake check` fails on
+a file that `nix fmt` would change.  It is defined for x86_64-linux
+only: evaluating the NixOS configurations imports nixpkgs-patched, an
+x86_64-linux derivation, so `nix flake check` needs that platform
+anyway.
+---
+ flake.nix | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/flake.nix b/flake.nix
+index 181c416..3087b8e 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -202,5 +202,23 @@
+         "x86_64-linux"
+         "aarch64-darwin"
+       ] (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
++
++      /*
++        `nix flake check` builds these checks, in addition to evaluating
++        the NixOS configurations and the packages, which it does on its
++        own.
++      */
++      checks = {
++        # Fails on each Nix file that `nix fmt` would change
++        x86_64-linux.nixfmt =
++          let
++            pkgs = nixpkgs.legacyPackages.x86_64-linux;
++          in
++          pkgs.runCommand "nixfmt-check" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
++            cd ${self}
++            find . -name '*.nix' -exec nixfmt --check {} +
++            touch $out
++          '';
++      };
+     };
+ }
+-- 
+2.56.1
+

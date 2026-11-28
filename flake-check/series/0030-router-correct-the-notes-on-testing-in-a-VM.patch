@@ -1,0 +1,36 @@
+From 127bb08ab0f162ddf5ab095fad1be8b11e7c40b5 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:41:16 -0800
+Subject: [PATCH 30/47] router: correct the notes on testing in a VM
+
+The stock VM of `nixos-rebuild build-vm` boots a blank disk image as its
+root, not an overlay.  Say so, and fix the grammar.
+---
+ flake.nix | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/flake.nix b/flake.nix
+index 80cd082..32d03d5 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -149,13 +149,13 @@
+         galago = mkNixos "galago";
+ 
+         /*
+-          When testing out in an VM, `$ nixos-rebuild build-vm --flake
+-          .#router` won't work, since it builds the stock
+-          `system.build.vm`, which boots an empty overlay root and
++          When testing in a VM, `$ nixos-rebuild build-vm --flake
++          .#router` does not work, since it builds the stock
++          `system.build.vm`, which boots a blank root disk image and
+           ignores the disko layout entirely (no bcachefs partitions,
+           no swap, and no mounted subvolumes).  Instead, build a VM
+           backed by a real disko image, which boots the actual
+-          bcachefs/swap layout:
++          bcachefs and swap layout:
+           `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko`
+         */
+         router = mkNixos "router";
+-- 
+2.56.1
+

@@ -1,0 +1,99 @@
+From 55d147be203ab7398364bdc28cfc32fab8e6be98 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:40:42 -0800
+Subject: [PATCH 21/47] commons: move the emacs overlays into emacs.nix
+
+The overlays that build Emacs from emacsmirror with a local patch are a
+concern of their own.  Move them unchanged into emacs.nix, next to the
+patch, and import it from commons.nix.
+---
+ systems/nixos/commons.nix | 29 +----------------------------
+ systems/nixos/emacs.nix   | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+), 28 deletions(-)
+ create mode 100644 systems/nixos/emacs.nix
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index e898848..7442ea8 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -6,6 +6,7 @@
+ {
+   imports = [
+     ../shared.nix
++    ./emacs.nix
+     ./t3code.nix
+   ];
+ 
+@@ -63,34 +64,6 @@
+     ] (_: "en_US.UTF-8");
+   };
+ 
+-  nixpkgs.overlays = [
+-    (import (
+-      builtins.fetchTarball {
+-        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
+-      }
+-    ))
+-
+-    (final: prev: {
+-      emacs-git = prev.emacs-git.overrideAttrs (
+-        _: prevAttrs: {
+-          src = builtins.fetchGit {
+-            url = "https://github.com/emacsmirror/emacs.git";
+-            ref = "master";
+-          };
+-
+-          # Keep RET from being refilled away by `refill-mode' in Org
+-          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
+-        }
+-      );
+-
+-      emacs-unstable = prev.emacs-unstable.overrideAttrs (
+-        _: _: {
+-          src = final.emacs-git.src;
+-        }
+-      );
+-    })
+-  ];
+-
+   virtualisation.podman = {
+     enable = true;
+     dockerSocket.enable = true;
+diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
+new file mode 100644
+index 0000000..704f06d
+--- /dev/null
++++ b/systems/nixos/emacs.nix
+@@ -0,0 +1,29 @@
++{
++  nixpkgs.overlays = [
++    (import (
++      builtins.fetchTarball {
++        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
++      }
++    ))
++
++    (final: prev: {
++      emacs-git = prev.emacs-git.overrideAttrs (
++        _: prevAttrs: {
++          src = builtins.fetchGit {
++            url = "https://github.com/emacsmirror/emacs.git";
++            ref = "master";
++          };
++
++          # Keep RET from being refilled away by `refill-mode' in Org
++          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
++        }
++      );
++
++      emacs-unstable = prev.emacs-unstable.overrideAttrs (
++        _: _: {
++          src = final.emacs-git.src;
++        }
++      );
++    })
++  ];
++}
+-- 
+2.56.1
+

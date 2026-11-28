@@ -1,0 +1,41 @@
+From 510d529506eb976796e014f847a0050f9b91ce24 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:39:56 -0800
+Subject: [PATCH 19/47] commons: merge the definitions of the t3code
+ environment
+
+The environment of the t3code service is defined twice, once for the
+ssh command and once for the retry mode of Claude Code, which statix
+reports as repeated keys.  Define it once.
+---
+ systems/nixos/commons.nix | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 12a0b46..a4516e2 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -177,14 +177,13 @@
+     mode = "0755";
+   };
+ 
+-  # Passphrase-less SSH key for t3code, which fetches at boot before login and
+-  # so must not prompt through gpg-agent while the GNOME keyring is locked
+-  systemd.services.t3code.environment.GIT_SSH_COMMAND =
+-    "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
+-
+-  # Unattended retry mode of Claude Code, in which t3code sessions wait out a
+-  # usage limit until it resets instead of failing the turn
+   systemd.services.t3code.environment = {
++    # Passphrase-less SSH key for t3code, which fetches at boot before login
++    # and so must not prompt through gpg-agent while the GNOME keyring is locked
++    GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
++
++    # Unattended retry mode of Claude Code, in which t3code sessions wait out a
++    # usage limit until it resets instead of failing the turn
+     CLAUDE_CODE_RETRY_WATCHDOG = "1";
+     # Cover the 5-hour window, but keep a weekly limit from stalling for days
+     CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
+-- 
+2.56.1
+

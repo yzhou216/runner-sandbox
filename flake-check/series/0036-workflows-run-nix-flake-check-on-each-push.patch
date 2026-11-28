@@ -1,0 +1,56 @@
+From 0f9dc26b62d88699b4e26e6505806e16d24fcdb0 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:44:20 -0800
+Subject: [PATCH 36/47] workflows: run nix flake check on each push
+
+Nothing evaluated the flake as committed: the only workflow builds
+galago after updating every input, which takes hours and fails on
+upstream breakage.  Run `nix flake check` on each push and pull request
+instead, with the inputs that flake.lock pins.  It evaluates the NixOS
+and nix-darwin configurations and the packages, and checks the
+formatting, in a few minutes and without secrets, so it runs on pull
+requests from forks too.
+
+Pin the actions to commits, so that a push to an action cannot change
+what runs here.
+---
+ .github/workflows/check.yml | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+ create mode 100644 .github/workflows/check.yml
+
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+new file mode 100644
+index 0000000..9716669
+--- /dev/null
++++ b/.github/workflows/check.yml
+@@ -0,0 +1,27 @@
++# Runs `nix flake check` with the inputs that flake.lock pins, on each
++# push and pull request.  It evaluates every NixOS and nix-darwin
++# configuration and package, and checks the formatting, in a few
++# minutes, without building any system.
++name: check
++on:
++  push:
++  pull_request:
++  workflow_dispatch:
++permissions:
++  contents: read
++jobs:
++  check:
++    runs-on: ubuntu-latest
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
++        with:
++          extra_nix_config: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
++
++      # --all-systems evaluates the checks of aarch64-darwin, which are
++      # the nix-darwin configurations.
++      - name: Check the flake
++        run: nix flake check --all-systems --keep-going
+-- 
+2.56.1
+

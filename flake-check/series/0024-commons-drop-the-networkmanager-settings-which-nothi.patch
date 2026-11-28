@@ -1,0 +1,39 @@
+From cefb8bc70a665168df148f3874c787c14bb676b7 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:41:50 -0800
+Subject: [PATCH 24/47] commons: drop the networkmanager settings, which
+ nothing enables
+
+Neither galago nor router enables NetworkManager, so its Wi-Fi backend
+has no effect, and its group, which only its module creates, does not
+exist.  iwd runs on its own through networking.wireless.iwd.enable.
+A comment in their place says how Wi-Fi works.
+---
+ systems/nixos/commons.nix | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 7d50315..27d7c4e 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -22,8 +22,7 @@
+   zramSwap.enable = true;
+ 
+   networking = {
+-    # Use iwd as the IEEE 802.11 backend for NetworkManager
+-    networkmanager.wifi.backend = "iwd";
++    # Wi-Fi through iwd on its own, with dhcpcd for the addresses
+     wireless.iwd = {
+       enable = true;
+       settings = {
+@@ -166,7 +165,6 @@
+     extraGroups = [
+       "wheel"
+       "video"
+-      "networkmanager"
+       "podman"
+     ];
+ 
+-- 
+2.56.1
+

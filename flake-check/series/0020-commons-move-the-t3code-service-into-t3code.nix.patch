@@ -1,0 +1,95 @@
+From b73c04ae0a8238e7787af9bbe4cd23f82312753e Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:40:28 -0800
+Subject: [PATCH 20/47] commons: move the t3code service into t3code.nix
+
+The settings of the t3code service sit apart in commons.nix, the
+service among the other services and its environment further down,
+while its themes have a module of their own.  Gather the service and
+its environment in t3code.nix, which imports t3code-themes.nix, and
+import t3code.nix from commons.nix in its place.
+---
+ systems/nixos/commons.nix | 22 +---------------------
+ systems/nixos/t3code.nix  | 23 +++++++++++++++++++++++
+ 2 files changed, 24 insertions(+), 21 deletions(-)
+ create mode 100644 systems/nixos/t3code.nix
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index a4516e2..e898848 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -6,7 +6,7 @@
+ {
+   imports = [
+     ../shared.nix
+-    ./t3code-themes.nix
++    ./t3code.nix
+   ];
+ 
+   # Bootloader
+@@ -142,14 +142,6 @@
+       ];
+     };
+ 
+-    # Web GUI for LLM programming agents, reachable over the network
+-    t3code = {
+-      enable = true;
+-      user = "yiyu";
+-      host = "0.0.0.0";
+-      openFirewall = true;
+-    };
+-
+     # BitTorrent daemon with an HTTP API and web UI on localhost:3030
+     rqbit = {
+       enable = true;
+@@ -177,18 +169,6 @@
+     mode = "0755";
+   };
+ 
+-  systemd.services.t3code.environment = {
+-    # Passphrase-less SSH key for t3code, which fetches at boot before login
+-    # and so must not prompt through gpg-agent while the GNOME keyring is locked
+-    GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
+-
+-    # Unattended retry mode of Claude Code, in which t3code sessions wait out a
+-    # usage limit until it resets instead of failing the turn
+-    CLAUDE_CODE_RETRY_WATCHDOG = "1";
+-    # Cover the 5-hour window, but keep a weekly limit from stalling for days
+-    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
+-  };
+-
+   hardware = {
+     bluetooth = {
+       enable = true;
+diff --git a/systems/nixos/t3code.nix b/systems/nixos/t3code.nix
+new file mode 100644
+index 0000000..e0b4fad
+--- /dev/null
++++ b/systems/nixos/t3code.nix
+@@ -0,0 +1,23 @@
++{
++  imports = [ ./t3code-themes.nix ];
++
++  # Web GUI for LLM programming agents, reachable over the network
++  services.t3code = {
++    enable = true;
++    user = "yiyu";
++    host = "0.0.0.0";
++    openFirewall = true;
++  };
++
++  systemd.services.t3code.environment = {
++    # Passphrase-less SSH key for t3code, which fetches at boot before login
++    # and so must not prompt through gpg-agent while the GNOME keyring is locked
++    GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
++
++    # Unattended retry mode of Claude Code, in which t3code sessions wait out a
++    # usage limit until it resets instead of failing the turn
++    CLAUDE_CODE_RETRY_WATCHDOG = "1";
++    # Cover the 5-hour window, but keep a weekly limit from stalling for days
++    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
++  };
++}
+-- 
+2.56.1
+

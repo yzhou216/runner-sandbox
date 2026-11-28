@@ -1,0 +1,39 @@
+From 0292a50d78c78ac6aa5b199e0b31392960d6010b Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:15 -0800
+Subject: [PATCH 35/47] flake: check the darwin configurations
+
+`nix flake check` does not know the darwinConfigurations output, so
+nothing checked that iris and lexi still evaluate.  Expose the system of
+each as a check of aarch64-darwin: on a Mac, `nix flake check` builds
+them, and on GNU/Linux, `nix flake check --all-systems` evaluates them
+without building anything.
+
+Evaluated on GNU/Linux, iris and lexi give the same derivations as on
+macOS.
+---
+ flake.nix | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/flake.nix b/flake.nix
+index 3087b8e..e315dba 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -219,6 +219,14 @@
+             find . -name '*.nix' -exec nixfmt --check {} +
+             touch $out
+           '';
++
++        /*
++          Each nix-darwin configuration is a check too, since
++          `nix flake check` ignores `darwinConfigurations`.  It builds
++          them on aarch64-darwin, and evaluates them on other
++          platforms with `--all-systems`.
++        */
++        aarch64-darwin = builtins.mapAttrs (_: host: host.system) self.darwinConfigurations;
+       };
+     };
+ }
+-- 
+2.56.1
+

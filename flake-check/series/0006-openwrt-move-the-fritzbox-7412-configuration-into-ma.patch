@@ -1,0 +1,86 @@
+From 2903ebd0da13c3205b89229b4fd199fde3727944 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:37:19 -0800
+Subject: [PATCH 06/47] openwrt: move the fritzbox 7412 configuration into
+ machines/openwrt
+
+Keep the image configuration beside the other machines rather than
+inline in flake.nix, as cbfac54 did for the bcachefs installer, so
+that flake.nix only wires each machine to its builder.  The
+configuration is unchanged apart from its indentation.
+---
+ flake.nix                          | 25 +++----------------------
+ machines/openwrt/fritzbox-7412.nix | 24 ++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 22 deletions(-)
+ create mode 100644 machines/openwrt/fritzbox-7412.nix
+
+diff --git a/flake.nix b/flake.nix
+index 7680b37..f439af7 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -171,29 +171,10 @@
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
+           profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
+-          config = profiles.identifyProfile "avm_fritz7412" // {
+-            # Packages to include in the image instead of installing them later
+-            packages = [ "tcpdump" ];
+-
+-            disabledServices = [ "dnsmasq" ];
+-
+-            /*
+-              Files to include in the image.  UCI configuration is set
+-              with a uci-defaults script, as the OpenWrt Image Builder
+-              documentation recommends.
+-            */
+-            files = pkgs.runCommand "image-files" { } ''
+-              mkdir -p $out/etc/uci-defaults
+-              cat > $out/etc/uci-defaults/99-custom <<EOF
+-              uci -q batch << EOI
+-              set system.@system[0].hostname='testap'
+-              commit
+-              EOI
+-              EOF
+-            '';
+-          };
+         in
+-        openwrt-imagebuilder.lib.build config;
++        openwrt-imagebuilder.lib.build (
++          import ./machines/openwrt/fritzbox-7412.nix { inherit pkgs profiles; }
++        );
+ 
+       darwinConfigurations = {
+         iris = mkDarwin "iris";
+diff --git a/machines/openwrt/fritzbox-7412.nix b/machines/openwrt/fritzbox-7412.nix
+new file mode 100644
+index 0000000..9b02460
+--- /dev/null
++++ b/machines/openwrt/fritzbox-7412.nix
+@@ -0,0 +1,24 @@
++# OpenWrt Image Builder configuration of the AVM FRITZ!Box 7412
++{ pkgs, profiles }:
++profiles.identifyProfile "avm_fritz7412"
++// {
++  # Packages to include in the image instead of installing them later
++  packages = [ "tcpdump" ];
++
++  disabledServices = [ "dnsmasq" ];
++
++  /*
++    Files to include in the image.  UCI configuration is set with a
++    uci-defaults script, as the OpenWrt Image Builder documentation
++    recommends.
++  */
++  files = pkgs.runCommand "image-files" { } ''
++    mkdir -p $out/etc/uci-defaults
++    cat > $out/etc/uci-defaults/99-custom <<EOF
++    uci -q batch << EOI
++    set system.@system[0].hostname='testap'
++    commit
++    EOI
++    EOF
++  '';
++}
+-- 
+2.56.1
+

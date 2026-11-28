@@ -1,7 +1,7 @@
-From 8512cc30fd2c6daa0e825fa1a17e2134042b3dc6 Mon Sep 17 00:00:00 2001
+From 0a6f5179304db258bf78ff665a61305961227ec1 Mon Sep 17 00:00:00 2001
 From: Yiyu Zhou <yiyu@yiyuzhou.io>
 Date: Sat, 28 Nov 2026 02:36:01 -0800
-Subject: [PATCH 1/3] commons: pin emacs-overlay as a flake input
+Subject: [PATCH 26/47] emacs: pin emacs-overlay as a flake input
 
 builtins.fetchTarball without a sha256 fetched the master branch of
 emacs-overlay at evaluation time, which is impure, so galago and router
@@ -14,13 +14,13 @@ that default.nix of the tarball returned.  Its nixpkgs input follows
 ours, like those of disko and nix-darwin, since only the overlay is
 used.
 ---
- flake.lock                | 38 ++++++++++++++++++++++++++++++++++++++
- flake.nix                 |  5 +++++
- systems/nixos/commons.nix |  7 ++-----
+ flake.lock              | 38 ++++++++++++++++++++++++++++++++++++++
+ flake.nix               |  5 +++++
+ systems/nixos/emacs.nix |  7 ++-----
  3 files changed, 45 insertions(+), 5 deletions(-)
 
 diff --git a/flake.lock b/flake.lock
-index b3f4d32..e7406a1 100644
+index f09c879..3a02c42 100644
 --- a/flake.lock
 +++ b/flake.lock
 @@ -79,6 +79,27 @@
@@ -83,7 +83,7 @@ index b3f4d32..e7406a1 100644
          "homebrew-cask": "homebrew-cask",
          "homebrew-core": "homebrew-core",
 diff --git a/flake.nix b/flake.nix
-index e74cecb..6bee0bd 100644
+index d528f26..577a4e9 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -29,6 +29,11 @@
@@ -96,23 +96,15 @@ index e74cecb..6bee0bd 100644
 +    };
 +
      darwin = {
-       url = "github:lnl7/nix-darwin";
+       url = "github:nix-darwin/nix-darwin";
        inputs.nixpkgs.follows = "nixpkgs";
-diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
-index 0c3dfa3..3d9f5e7 100644
---- a/systems/nixos/commons.nix
-+++ b/systems/nixos/commons.nix
-@@ -1,6 +1,7 @@
+diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
+index 704f06d..efa2336 100644
+--- a/systems/nixos/emacs.nix
++++ b/systems/nixos/emacs.nix
+@@ -1,10 +1,7 @@
++{ inputs, ... }:
  {
-   pkgs,
-   lib,
-+  inputs,
-   ...
- }:
- {
-@@ -70,11 +71,7 @@
-   };
- 
    nixpkgs.overlays = [
 -    (import (
 -      builtins.fetchTarball {

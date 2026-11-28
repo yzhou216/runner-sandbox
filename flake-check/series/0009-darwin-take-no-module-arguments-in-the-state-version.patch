@@ -1,0 +1,25 @@
+From 860ca92f37ad8ecce4a94c4a6705f757738bbe7e Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:08 -0800
+Subject: [PATCH 09/47] darwin: take no module arguments in the state version
+
+state-version.nix uses none of its module arguments, and statix reports
+its empty pattern.  Take the argument as _.
+---
+ machines/darwin/state-version.nix | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/machines/darwin/state-version.nix b/machines/darwin/state-version.nix
+index 46339ec..44b37a7 100644
+--- a/machines/darwin/state-version.nix
++++ b/machines/darwin/state-version.nix
+@@ -1,5 +1,4 @@
+-{ ... }:
+-{
++_: {
+   /*
+      This value determines the nix-darwin release from which the
+      default settings for stateful data, like file locations and
+-- 
+2.56.1
+

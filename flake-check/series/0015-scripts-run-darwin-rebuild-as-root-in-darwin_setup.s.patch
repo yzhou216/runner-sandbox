@@ -1,0 +1,32 @@
+From 8bf8e5aa20bdfbcb62ee2763ac09117dd6323cef Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:59 -0800
+Subject: [PATCH 15/47] scripts: run darwin-rebuild as root in darwin_setup.sh
+
+nix-darwin now activates only as root: `darwin-rebuild switch` run as
+another user stops with "system activation must now be run as root".
+The configurations set system.primaryUser, which belongs to that
+model, so the script fails at its last step.  Refresh the credentials
+of sudo with the password, then run darwin-rebuild through sudo with
+the terminal as its input.
+---
+ scripts/darwin_setup.sh | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/scripts/darwin_setup.sh b/scripts/darwin_setup.sh
+index da9ce40..a24c33d 100755
+--- a/scripts/darwin_setup.sh
++++ b/scripts/darwin_setup.sh
+@@ -24,7 +24,8 @@ printf '%s\n' "$password" | sudo -S nvram boot-args=-arm64e_preview_abi
+ 
+ # nix-darwin
+ build_flake () {
+-  nix run --extra-experimental-features "nix-command flakes" \
++  printf '%s\n' "$password" | sudo -S -v
++  sudo nix run --extra-experimental-features "nix-command flakes" \
+ 	  nix-darwin -- switch --flake .#iris
+ }
+ 
+-- 
+2.56.1
+

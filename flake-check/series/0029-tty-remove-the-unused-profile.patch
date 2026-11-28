@@ -1,0 +1,28 @@
+From 417af641b934f5a3481bc1c3872d9b7ff3eced4d Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:39:46 -0800
+Subject: [PATCH 29/47] tty: remove the unused profile
+
+No configuration imports systems/nixos/tty.nix, and none has since it
+was added in 2025: router, the one machine without a graphical session,
+imports commons.nix directly.  Its only setting, emacs-git-nox as the
+package of the Emacs daemon, has therefore never taken effect.
+---
+ systems/nixos/tty.nix | 5 -----
+ 1 file changed, 5 deletions(-)
+ delete mode 100644 systems/nixos/tty.nix
+
+diff --git a/systems/nixos/tty.nix b/systems/nixos/tty.nix
+deleted file mode 100644
+index 8359da7..0000000
+--- a/systems/nixos/tty.nix
++++ /dev/null
+@@ -1,5 +0,0 @@
+-{ pkgs, ... }:
+-{
+-  imports = [ ./commons.nix ];
+-  services.emacs.package = pkgs.emacs-git-nox;
+-}
+-- 
+2.56.1
+

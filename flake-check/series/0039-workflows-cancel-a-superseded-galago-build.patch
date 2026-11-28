@@ -1,0 +1,34 @@
+From 368b4c9f7375a7035aac444c47391b58535bb260 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 07:59:58 -0800
+Subject: [PATCH 39/47] workflows: cancel a superseded galago build
+
+A galago build takes hours when the cache lacks the kernel or Electron.
+Nothing kept two runs from building at once, as the hourly runs did and
+pushes to master in quick succession would.  Let a newer run cancel the
+one of the same kind in progress, since the paths that the older run
+built are in Cachix already.  A push build and an update build build
+different inputs, so they are of different kinds and do not cancel
+each other.
+---
+ .github/workflows/build-galago.yml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 3732b0a..931ea7e 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -25,6 +25,10 @@ on:
+         description: Update the flake inputs before building
+         type: boolean
+         default: true
++# Newer run of the same kind cancels the one in progress
++concurrency:
++  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || inputs.update) && 'update' || 'locked' }}
++  cancel-in-progress: true
+ permissions:
+   contents: read
+ # Explicit shell adds -o pipefail, which `nix flake update | tee` needs
+-- 
+2.56.1
+

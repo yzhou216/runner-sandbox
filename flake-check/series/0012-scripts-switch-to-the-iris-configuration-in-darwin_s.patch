@@ -1,0 +1,29 @@
+From 5896b3df81072dfa8fe6cf62fb168cbddad45edd Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:43:20 -0800
+Subject: [PATCH 12/47] scripts: switch to the iris configuration in
+ darwin_setup.sh
+
+ac671e5 renamed darwinConfigurations.m1 to iris, but the setup script,
+which sets up the login shell of iris, still switches to .#m1, which
+the flake no longer provides.
+---
+ scripts/darwin_setup.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/darwin_setup.sh b/scripts/darwin_setup.sh
+index 4647980..ae83ff4 100755
+--- a/scripts/darwin_setup.sh
++++ b/scripts/darwin_setup.sh
+@@ -25,7 +25,7 @@ echo $password | sudo -S nvram boot-args=-arm64e_preview_abi
+ # nix-darwin
+ build_flake () {
+   nix run --extra-experimental-features "nix-command flakes" \
+-	  nix-darwin -- switch --flake .#m1
++	  nix-darwin -- switch --flake .#iris
+ }
+ 
+ # Run twice to ensure
+-- 
+2.56.1
+

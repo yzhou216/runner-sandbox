@@ -1,0 +1,118 @@
+From 7545189fba985138d939247416bad8ee5594c196 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:49:01 -0800
+Subject: [PATCH 46/47] disko: move the bcachefs image builder workaround into
+ the layout
+
+Only router added the out-of-tree bcachefs module to the kernel of the
+disko image builder, although galago uses the same layout, so building
+vmWithDisko or diskoImages for galago would fail to mount the bcachefs
+filesystem that it formats.  Move the workaround from router.nix into a
+module that disko/bcachefs.nix imports, so that every machine on the
+layout, and any layout built on top of it, gets it.
+
+The derivations of router stay the same, as do the system and the disko
+script of galago.  The image builder of galago now boots the kernel of
+pkgs.linuxPackages with the bcachefs module, like that of router,
+instead of the 7.4 release candidate of the system without it.
+---
+ disko/bcachefs-image-builder.nix | 30 ++++++++++++++++++++++++++++++
+ disko/bcachefs.nix               |  2 ++
+ machines/nixos/router.nix        | 30 +-----------------------------
+ 3 files changed, 33 insertions(+), 29 deletions(-)
+ create mode 100644 disko/bcachefs-image-builder.nix
+
+diff --git a/disko/bcachefs-image-builder.nix b/disko/bcachefs-image-builder.nix
+new file mode 100644
+index 0000000..42fdad1
+--- /dev/null
++++ b/disko/bcachefs-image-builder.nix
+@@ -0,0 +1,30 @@
++{ pkgs, lib, ... }:
++{
++  /*
++    The disko image-builder VM builds its initrd from in-tree kernel
++    modules only, but nixpkgs ships bcachefs as an out-of-tree module
++    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
++    tree and regenerate modules.dep so the builder's initrd can find
++    it.
++  */
++  disko.imageBuilder = {
++    extraRootModules = [ "bcachefs" ];
++    kernelPackages = pkgs.linuxPackages // {
++      kernel = pkgs.linuxPackages.kernel // {
++        modules = pkgs.buildEnv {
++          name = "kernel-modules-with-bcachefs";
++          paths = with pkgs.linuxPackages; [
++            kernel.modules
++            bcachefs
++          ];
++
++          postBuild = ''
++            version=$(cd $out/lib/modules && ls -d *)
++            ${lib.getExe' pkgs.kmod "depmod"} \
++              --basedir "$out" --all "$version"
++          '';
++        };
++      };
++    };
++  };
++}
+diff --git a/disko/bcachefs.nix b/disko/bcachefs.nix
+index 97549d2..5b1f3c9 100644
+--- a/disko/bcachefs.nix
++++ b/disko/bcachefs.nix
+@@ -1,5 +1,7 @@
+ { lib, ... }:
+ {
++  imports = [ ./bcachefs-image-builder.nix ];
++
+   disko.devices = {
+     disk.disk1 = {
+       device = lib.mkDefault "/dev/nvme0n1";
+diff --git a/machines/nixos/router.nix b/machines/nixos/router.nix
+index 2d03f38..6f13f94 100644
+--- a/machines/nixos/router.nix
++++ b/machines/nixos/router.nix
+@@ -1,4 +1,4 @@
+-{ pkgs, lib, ... }:
++{ ... }:
+ {
+   imports = [
+     ./state-version.nix
+@@ -8,32 +8,4 @@
+ 
+   services.dnsmasq.enable = true;
+   networking.hostName = "router";
+-
+-  /*
+-    The disko image-builder VM builds its initrd from in-tree kernel
+-    modules only, but nixpkgs ships bcachefs as an out-of-tree module
+-    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
+-    tree and regenerate modules.dep so the builder's initrd can find
+-    it.
+-  */
+-  disko.imageBuilder = {
+-    extraRootModules = [ "bcachefs" ];
+-    kernelPackages = pkgs.linuxPackages // {
+-      kernel = pkgs.linuxPackages.kernel // {
+-        modules = pkgs.buildEnv {
+-          name = "kernel-modules-with-bcachefs";
+-          paths = with pkgs.linuxPackages; [
+-            kernel.modules
+-            bcachefs
+-          ];
+-
+-          postBuild = ''
+-            version=$(cd $out/lib/modules && ls -d *)
+-            ${lib.getExe' pkgs.kmod "depmod"} \
+-              --basedir "$out" --all "$version"
+-          '';
+-        };
+-      };
+-    };
+-  };
+ }
+-- 
+2.56.1
+
