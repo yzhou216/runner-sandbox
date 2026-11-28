@@ -5,7 +5,8 @@
 # Compares the derivations of github.com/yzhou216/flake at the commit in
 # flake-check/base with those after flake-check/flake.patch, on GNU/Linux
 # and, for the Darwin configurations, on macOS, and builds what
-# flake-check/build lists.
+# flake-check/build lists.  A commit message with [build] runs the builds,
+# and one with [no-darwin] skips the macOS job.
 name: flake check
 on:
   push:
@@ -17,6 +18,7 @@ defaults:
     shell: bash
 env:
   NIX_CONFIG: |
+    accept-flake-config = true
     extra-substituters = https://nix-community.cachix.org https://yzhou216.cachix.org
     extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= yzhou216.cachix.org-1:O7nGwQnLGGBGE8zYFMipVzPVN956FcV57y9SqwEP+O8=
 jobs:
@@ -30,6 +32,7 @@ jobs:
           - mode: darwin
             os: macos-latest
     name: evaluate (${{ matrix.mode }})
+    if: matrix.mode == 'linux' || !contains(github.event.head_commit.message, '[no-darwin]')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     steps:
@@ -54,6 +57,7 @@ jobs:
           name: results-${{ matrix.mode }}
           path: results.tar
   build:
+    if: contains(github.event.head_commit.message, '[build]')
     runs-on: ubuntu-latest
     timeout-minutes: 330
     steps:
