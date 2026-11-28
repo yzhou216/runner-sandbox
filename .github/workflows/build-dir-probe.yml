@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Finds where the Nix daemon puts the directory of a build when
+# nothing-but-nix has run and nix.conf sets build-dir = /nix/build, with
+# either installer that build-galago.yml of the flake has used.
+name: build-dir probe
+on:
+  push:
+    paths:
+      - .github/workflows/build-dir-probe.yml
+defaults:
+  run:
+    shell: bash
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        installer: [install-nix-action, nix-installer-action]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: wimpysworld/nothing-but-nix@b2574ec1cf1462bee0a34de0fb6ff11ad3c43cb2 # v12
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+        if: matrix.installer == 'install-nix-action'
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            build-dir = /nix/build
+      - uses: DeterminateSystems/nix-installer-action@main
+        if: matrix.installer == 'nix-installer-action'
+        with:
+          extra-conf: |
+            build-dir = /nix/build
+      - name: Show the configuration
+        run: |
+          nix --version
+          cat /etc/nix/nix.conf
+          systemctl cat nix-daemon.service 2>/dev/null | grep -v '^#' || true
+          sudo systemctl show nix-daemon.service -p Environment 2>/dev/null || true
+          df -h / /nix /tmp
+      - name: Find the directory of a running build
+        run: |
+          nix build --no-link --impure --expr "derivation {
+            name = \"build-dir-probe-$RANDOM\";
+            system = builtins.currentSystem;
+            builder = \"/bin/sh\";
+            args = [ \"-c\" \"sleep 40; echo > \$out\" ];
+          }" &
+          sleep 20
+          sudo find / /nix -xdev -maxdepth 6 -type d -name '*build-dir-probe*' 2>/dev/null || true
+          sudo ls -la /nix/build /nix/var/nix/builds /tmp 2>&1 | head -40
+          wait
