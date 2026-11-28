@@ -41,9 +41,11 @@ jobs:
 
       # The OpenWrt Image Builder pins the hashes of the package indexes
       # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
-      # updates them every day, so packages.x86_64-linux.openwrt fails to
-      # evaluate once the lock is a day or two old.  Building the image
-      # needs this update anyway; the run does not commit it.
+      # updates them once a day, so packages.x86_64-linux.openwrt soon
+      # fails to evaluate with an older lock.  Building the image
+      # needs this update anyway; the run does not commit it.  The check
+      # can still fail on the OpenWrt package between a rebuild of OpenWrt
+      # and the next update of the Image Builder.
       - name: Refresh the hashes of the OpenWrt packages
         run: nix flake update openwrt-imagebuilder
 
@@ -78,9 +80,11 @@ jobs:
         run: sandbox/flake-ci/fixups.sh flake
       # The OpenWrt Image Builder pins the hashes of the package indexes
       # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
-      # updates them every day, so packages.x86_64-linux.openwrt fails to
-      # evaluate once the lock is a day or two old.  Building the image
-      # needs this update anyway; the run does not commit it.
+      # updates them once a day, so packages.x86_64-linux.openwrt soon
+      # fails to evaluate with an older lock.  Building the image
+      # needs this update anyway; the run does not commit it.  The check
+      # can still fail on the OpenWrt package between a rebuild of OpenWrt
+      # and the next update of the Image Builder.
       - name: Refresh the hashes of the OpenWrt packages
         run: nix flake update openwrt-imagebuilder
       - name: Check the flake

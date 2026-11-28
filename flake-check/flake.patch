@@ -5,14 +5,14 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 
   2288c78 flake: format with nix fmt
   1febbe9 flake: check the formatting of the nix files
-  bc8c183 flake: check the darwin configurations
-  8d199e1 workflows: run nix flake check on each push
-  8bdb23d workflows: refresh the openwrt hashes before the check
-  3f975a0 workflows: build galago from flake.lock, and update it once a day
-  a84c46a workflows: keep long galago builds from overlapping and being cut off
-  b59066a workflows: substitute from the caches of flake.nix in the galago build
-  1fb258a workflows: install upstream nix in the galago build
-  d9d4190 workflows: pin the actions of the galago build to commits
+  ed9148d flake: check the darwin configurations
+  d43d33d workflows: run nix flake check on each push
+  c967361 workflows: refresh the openwrt hashes before the check
+  bad6bef workflows: build galago from flake.lock, and update it once a day
+  aeb5810 workflows: keep long galago builds from overlapping and being cut off
+  a45d80b workflows: substitute from the caches of flake.nix in the galago build
+  25b5a96 workflows: install upstream nix in the galago build
+  90548b4 workflows: pin the actions of the galago build to commits
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
 index 7930cc5..0db2953 100644
@@ -115,10 +115,10 @@ index 7930cc5..0db2953 100644
 +          path: flake.lock
 diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
 new file mode 100644
-index 0000000..5fdb9de
+index 0000000..b9216a2
 --- /dev/null
 +++ b/.github/workflows/check.yml
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,38 @@
 +# Runs `nix flake check` with the inputs that flake.lock pins, but for
 +# the hashes of the OpenWrt packages, on each push and pull request.  It
 +# evaluates every NixOS and nix-darwin configuration and package, and
@@ -144,9 +144,11 @@ index 0000000..5fdb9de
 +
 +      # The OpenWrt Image Builder pins the hashes of the package indexes
 +      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
-+      # updates them every day, so packages.x86_64-linux.openwrt fails to
-+      # evaluate once the lock is a day or two old.  Building the image
-+      # needs this update anyway; the run does not commit it.
++      # updates them once a day, so packages.x86_64-linux.openwrt soon
++      # fails to evaluate with an older lock.  Building the image
++      # needs this update anyway; the run does not commit it.  The check
++      # can still fail on the OpenWrt package between a rebuild of OpenWrt
++      # and the next update of the Image Builder.
 +      - name: Refresh the hashes of the OpenWrt packages
 +        run: nix flake update openwrt-imagebuilder
 +
