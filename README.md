@@ -4,49 +4,36 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# flake-check: derivations of the flake before and after a change
+# flake-check: cleanup of the graphical and text-only NixOS profiles
 
-A harness for refactoring [yzhou216/flake](https://github.com/yzhou216/flake)
-without building it.  `.github/workflows/flake-check.yml` clones the flake
-from <https://gitlab.com/yiyuz/flake.git> at the commit in
-`flake-check/base`, applies `flake-check/flake.patch` to a second copy, and
-evaluates every attribute in `flake-check/targets` in both, at the same time
-so that the impure fetches of the flake resolve alike.  The results list, for
-each target, whether its derivation is the same, changed, or fails to
-evaluate, then the evaluation warnings and errors that only one side prints,
-the nixfmt, deadnix, and statix findings, and `nix-diff` of each changed
-derivation.
+This branch records the flake-check runs for a cleanup of
+`systems/nixos/graphic.nix`, `systems/nixos/t3code-themes.nix` with
+`systems/nixos/t3code-themes.el`, and `systems/nixos/tty.nix` in
+[yzhou216/flake](https://github.com/yzhou216/flake), on top of master at
+1dd2043.  The harness itself is described on the
+`flake/2026-11-28-refactor-harness` branch; `flake-check/flake.patch` holds
+the series under test.
 
-- The Darwin configurations are evaluated on `macos-latest`, the rest on
-  `ubuntu-latest`.
-- A commit message with `[no-darwin]` skips the macOS job, one with `[pure]`
-  evaluates the candidate without `--impure`, and one with `[build]` builds
-  what `flake-check/build` lists, after `nothing-but-nix` frees disk space.
-- If the patch adds flake inputs, the job runs `nix flake lock` on the
-  candidate and saves the new `flake.lock` as `flake.lock.new` in its
-  artifact.
+## Series
 
-## Use
+| Commit | Change | Derivations |
+| --- | --- | --- |
+| 801472d | `tty: remove the unused profile` | All the same |
 
-Branch off this branch, commit changes in a clone of the flake on top of the
-base commit, and from a clone of this repository run:
+`systems/nixos/tty.nix` has never been imported by any configuration in the
+history of the flake; router imports `commons.nix` directly.  The graphical
+profile and the t3code theme module were reviewed as well, and left
+unchanged, since nothing in them was dead, deprecated, or redundant without
+also changing a derivation.
 
-```sh
-flake-check/submit.sh <flake clone> "flake-check: <what the run tests>"
-flake-check/wait.sh <run id>    # again until it prints the results
-```
+## Runs
 
-`submit.sh` writes the diff of the clone against the base to
-`flake-check/flake.patch`, commits and pushes it, and prints the run ID;
-`wait.sh` waits up to eight minutes per call, then prints `results.md` of
-each job and extracts the artifacts.
+| Run | Tested | Outcome |
+| --- | --- | --- |
+| 46136242485 | 801472d, `[no-darwin]` | On ubuntu-latest every GNU/Linux target is the same as the base (galago and router toplevel and diskoScript, bcachefs-iso toplevel and ISO image); `packages.x86_64-linux.openwrt` fails in both with the known hash mismatch of the OpenWrt package index.  No evaluation warning or error appears on one side only.  nixfmt, deadnix, and statix counts are unchanged at 1, 14, and 36 lines.  The macOS job was skipped, as no Darwin configuration imports the removed file |
 
 ## Baseline
 
-The flake's master at 1dd2043, with no patch:
-
-| Run | Outcome |
-| --- | --- |
-| 46133564425 | All GNU/Linux targets evaluate, in 4 minutes, except `packages.x86_64-linux.openwrt`, which stops at a hash mismatch in the package index of the OpenWrt image builder; on macOS, in 3 minutes, `darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.  nixfmt finds `flake.nix` unformatted; deadnix prints 14 lines and statix 36 |
-| 46134021458 | Same, after the macOS job became optional |
-| 46134384028 | `[pure]` check of the base itself |
+The flake's master at 1dd2043 with no patch, run 46133564425: all GNU/Linux
+targets evaluate except `packages.x86_64-linux.openwrt`; on macOS
+`darwinConfigurations.lexi` evaluates and `darwinConfigurations.iris` fails.
