@@ -13,3 +13,7 @@ packages.x86_64-linux.bcachefs-iso
 packages.x86_64-linux.openwrt
 darwinConfigurations.iris.system
 darwinConfigurations.lexi.system
+# Probes of the bug-hunt branch: a unit evaluates only if its service is on
+nixosConfigurations.galago.config.systemd.units."NetworkManager.service".unit
+nixosConfigurations.galago.config.systemd.units."dhcpcd.service".unit
+nixosConfigurations.galago.config.systemd.units."iwd.service".unit
