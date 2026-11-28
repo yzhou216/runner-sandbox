@@ -23,7 +23,7 @@ pub(super) fn ipv4_address(address: &str) -> io::Result<SocketAddr> {
 /// as `failed to lookup address information: Name or service not known`,
 /// runs past the sidebar and adds nothing that the operator can act on,
 /// while an address that cannot be read keeps its own
-fn unfound(error: io::Error) -> io::Error {
+pub(super) fn unfound(error: io::Error) -> io::Error {
     match error.kind() {
         ErrorKind::InvalidInput => error,
         kind => io::Error::new(kind, "cannot find the host"),

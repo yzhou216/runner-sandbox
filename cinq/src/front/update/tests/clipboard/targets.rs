@@ -17,11 +17,7 @@ fn fading() -> App {
 
 /// Returns the identity and target of each cue of the first list
 fn targets(app: &App) -> Vec<(u32, Option<u32>)> {
-    app.workspace.lists()[0]
-        .cues
-        .iter()
-        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
-        .collect()
+    crate::back::targets(&app.workspace)
 }
 
 #[test]

@@ -48,10 +48,12 @@ pub use patch::{Instrument, InstrumentId, PatchEdit, parse_address};
 pub use video::{PICTURE_FILES, Picture, VIDEO_FILES, Video};
 pub use workspace::{Active, Change, Command, Phase, Place, Turn, Unlit, Workspace};
 
-/// Cues and workspaces that the tests of the front end build as those of
-/// the back end do
+/// Cues and workspaces that the tests of the front end build, and the
+/// readings that they take of them, as those of the back end do
 #[cfg(test)]
-pub(crate) use workspace::tests::{audio, fresh, group, loaded, memo, silent, sound, video};
+pub(crate) use workspace::tests::{
+    audio, fresh, group, ids, loaded, memo, silent, sound, targets, video,
+};
 
 /// Interval of the playback clock while any cue is running, which the front
 /// end keeps and the sound output glides by

@@ -7,7 +7,11 @@
 use super::{Column, DEVICE_ROOM, device_room, fitting};
 use crate::{
     back::{Command, Device, Fault, OutputEdit, OutputId, fresh},
-    front::{App, Problems, fixtures::app_of, view::char_width},
+    front::{
+        App, Problems,
+        fixtures::{app_of, in_one_run, wide},
+        view::char_width,
+    },
 };
 
 /// Returns an app whose Main has a long name and a state that tells that
@@ -32,13 +36,6 @@ fn on_device(name: &str) -> App {
         name: name.to_owned(),
     };
     app_of(fresh(Vec::new()).apply(Command::EditOutput(OutputId(1), OutputEdit::Device(device))))
-}
-
-/// Returns the pixels of `columns` columns of text.  The tests size the
-/// table in columns, since the monospace font that a build finds, and so the
-/// width of a column, differs from one system to another.
-fn wide(columns: f32) -> f32 {
-    columns * char_width()
 }
 
 /// Returns whether the table of `room` columns keeps the New cues column
@@ -69,23 +66,12 @@ fn the_new_cues_column_shows_in_a_wide_table_and_goes_from_a_narrow_one() {
     assert!(!shows_new_cues(&app(), 69.0));
 }
 
-/// Returns the rooms in columns from `first` to 200 where `fits` holds, which
-/// are one run, so that a column does not come and go as the window grows
-fn in_one_run(first: u32, fits: impl Fn(f32) -> bool) -> Vec<f32> {
-    let kept: Vec<f32> = (first..200)
-        .map(|room| room as f32)
-        .filter(|&room| fits(room))
-        .collect();
-    assert!(kept.windows(2).all(|pair| pair[1] == pair[0] + 1.0));
-    kept
-}
-
 #[test]
 fn new_cues_stays_only_while_the_device_shows_on_one_line() {
     // Device name of 23 columns, which a table narrower than the whole of its
     // columns wraps
     let app = on_device("Dante Virtual Soundcard");
-    let kept = in_one_run(40, |room| shows_new_cues(&app, room));
+    let kept = in_one_run(40..200, |room| shows_new_cues(&app, room));
     assert!(!kept.is_empty(), "a wide table keeps the column");
     assert!(shows_new_cues(&app, 199.0) && !shows_new_cues(&app, 40.0));
     let narrowest = kept[0];
@@ -112,7 +98,7 @@ fn the_state_and_channels_columns_go_last_so_that_a_narrow_window_keeps_the_devi
     [Column::State, Column::Channels]
         .into_iter()
         .for_each(|column| {
-            in_one_run(30, |room| shows(&app, column, room));
+            in_one_run(30..200, |room| shows(&app, column, room));
             assert!(!shows(&app, column, 30.0) && shows(&app, column, 199.0));
         });
     // State goes before Channels does

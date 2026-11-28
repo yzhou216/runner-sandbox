@@ -74,3 +74,16 @@ fn line_of_a_command_that_did_nothing_goes_with_the_address() {
     let moved = after(told, [reconfigured("127.0.0.1:53001")]);
     assert!(moved.problems.osc_ignored.is_none());
 }
+
+#[test]
+fn number_that_no_cue_has_is_cut_short_in_the_line_that_tells_so() {
+    let long = "9".repeat(100);
+    let app = remote(playable(None), Remote::Start(long.clone()));
+    assert_eq!(
+        app.problems.osc_ignored,
+        Some(format!(
+            "OSC from 192.168.1.5: no cue is numbered {:?}",
+            &long[..64]
+        ))
+    );
+}

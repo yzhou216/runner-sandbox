@@ -41,8 +41,8 @@ pub(super) struct App {
     /// Way to read the unsaved changes kept for shows, if the platform has
     /// a directory to keep them in
     pub(super) reader: Option<Reader>,
-    /// Interval at which to look for news of the network and light output,
-    /// while either has any
+    /// Interval at which to look for news of the network output, and of the
+    /// audio devices, while either has any
     pub(super) network_checks: Option<Duration>,
     /// ID and name of each audio device, as they were listed last
     pub(super) audio_devices: Vec<(String, String)>,

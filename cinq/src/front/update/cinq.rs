@@ -98,7 +98,12 @@ impl Cinq {
             stage: app.stage.with_pictures(&workspace, pictures).with_due(due),
             // Checks first: once they stop, the problems read after them are
             // final
-            network_checks: self.network.checks(),
+            network_checks: self
+                .network
+                .checks()
+                .into_iter()
+                .chain(self.audio.checks())
+                .min(),
             problems: Problems {
                 audio: self.audio.problems(),
                 light: self.lights.problem().map(str::to_owned),

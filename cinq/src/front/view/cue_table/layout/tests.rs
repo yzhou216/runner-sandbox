@@ -5,7 +5,7 @@
 //! Tests of the rows that the cue list shows
 
 use super::Layout;
-use crate::back::{Cue, CueId, CueList, Kind};
+use crate::back::{Cue, CueId, CueList, Kind, memo};
 
 /// Returns a list of the memo 1, the collapsed group 2 that holds the memos 3
 /// and 4 and the group 5, which holds the memo 6, and the memo 7, with standby
@@ -75,9 +75,6 @@ fn the_row_of_standby_reads_next_and_so_does_that_of_the_collapsed_group_that_ho
 fn only_a_list_that_holds_a_group_leaves_a_gutter_for_the_mark() {
     let grouped = list(1);
     assert_eq!(Layout::of(&grouped).gutter(), super::INDENT);
-    let plain = CueList::new(
-        "Main",
-        vec![Cue::new(CueId(1), "1", Kind::Memo, "Note").build()],
-    );
+    let plain = CueList::new("Main", vec![memo(1)]);
     assert_eq!(Layout::of(&plain).gutter(), 0);
 }

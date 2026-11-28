@@ -28,8 +28,24 @@ fn udp_messages_go_out_as_one_datagram_each_also_to_a_host_name() {
 
 #[test]
 fn a_host_that_cannot_be_found_is_told_in_few_words() {
-    let error = ipv4_address("no-such-host.invalid:9000").unwrap_err();
-    assert_eq!(error.to_string(), "cannot find the host");
+    // The words of the resolver, as getaddrinfo fails, are replaced, and no
+    // lookup runs here since the outcome would depend on the system resolver
+    let failed = |kind| {
+        unfound(std::io::Error::new(
+            kind,
+            "failed to lookup address information",
+        ))
+    };
+    assert_eq!(failed(ErrorKind::Other).to_string(), "cannot find the host");
+    assert_eq!(
+        failed(ErrorKind::NotFound).to_string(),
+        "cannot find the host"
+    );
+    // An address that cannot be read keeps its own words
+    assert_eq!(
+        failed(ErrorKind::InvalidInput).kind(),
+        ErrorKind::InvalidInput
+    );
     let error = ipv4_address("no port").unwrap_err();
     assert_eq!(error.kind(), ErrorKind::InvalidInput);
 }

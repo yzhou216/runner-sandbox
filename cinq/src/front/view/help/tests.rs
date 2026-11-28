@@ -6,8 +6,8 @@
 
 use super::{bound, counts, first_steps, names_fit};
 use crate::front::{
+    fixtures::{in_one_run, wide},
     keymap::{Action, Keymap, declared, desk},
-    view::char_width,
 };
 
 #[test]
@@ -62,16 +62,11 @@ fn the_count_paragraph_names_the_outputs_that_a_count_acts_on() {
 
 #[test]
 fn the_names_in_the_configuration_file_give_way_in_a_window_too_narrow_for_them() {
-    let wide = |columns: f32| columns * char_width();
     [Keymap::default(), desk("")].iter().for_each(|keymap| {
         assert!(names_fit(keymap, wide(160.0)), "{}", keymap.name());
         assert!(!names_fit(keymap, wide(60.0)), "{}", keymap.name());
         // Every width from the narrowest that keeps the names keeps them
-        let kept: Vec<f32> = (60..160)
-            .map(|room| room as f32)
-            .filter(|&room| names_fit(keymap, wide(room)))
-            .collect();
-        assert!(kept.windows(2).all(|pair| pair[1] == pair[0] + 1.0));
+        in_one_run(60..160, |room| names_fit(keymap, wide(room)));
     });
 }
 

@@ -65,9 +65,11 @@ fn message_that_waited_past_its_second_is_dropped_rather_than_sent_late() {
     settled(&network);
     let problems = network.problems(&named(&destinations));
     assert_eq!(problems.len(), 2);
-    assert!(problems.iter().all(|(_, problem)| {
-        problem.ends_with(": dropped rather than sent more than a second late")
-    }));
+    assert!(
+        problems
+            .iter()
+            .all(|(_, problem)| { problem.ends_with(": more than a second late") })
+    );
     assert!(socket.recv(&mut [0; 16]).is_err());
     listener.set_nonblocking(true).unwrap();
     assert!(

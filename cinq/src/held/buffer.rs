@@ -43,8 +43,9 @@ impl Buffer {
     /// the bytes dropped, when any were, and then the bytes kept
     pub(super) fn written(self) -> Vec<u8> {
         let notice = (self.dropped > 0).then(|| {
+            let bytes = if self.dropped == 1 { "byte" } else { "bytes" };
             format!(
-                "cinq: {} bytes of output from while the problems showed were dropped\n",
+                "cinq: {} {bytes} of output written while the problems showed were dropped\n",
                 self.dropped
             )
         });

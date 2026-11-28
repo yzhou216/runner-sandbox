@@ -120,3 +120,14 @@ fn picture_whose_header_declares_more_pixels_than_memory_holds_cannot_show() {
         "the pass fails without a picture"
     );
 }
+
+#[test]
+fn picture_of_the_most_pixels_that_fit_in_512_mebibytes_of_rgba_shows_and_one_row_more_cannot() {
+    let (_directory, path) = slide(Rgba([0, 0, 0, 255]));
+    let png = fs::read(&path).expect("the picture can be read");
+    // 128 Mi pixels, which the manual calls 134 million
+    fs::write(&path, declared(&png, 16384, 8192)).expect("the picture can be written");
+    assert_eq!(probe_still(&path), Ok(()));
+    fs::write(&path, declared(&png, 16384, 8193)).expect("the picture can be written");
+    assert_eq!(probe_still(&path), Err(TOO_LARGE.to_owned()));
+}

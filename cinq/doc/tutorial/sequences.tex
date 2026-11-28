@@ -122,9 +122,9 @@ start cue resumes the fade cue.  Neither moves the cue on standby.
 A GoTo cue does move it.  Its target can be any cue, and when GO fires the
 GoTo cue, the target goes on standby, so that the next GO fires it, and
 nothing else happens.  Use one at the end of a list to put its first cue on
-standby again.  Before GO, the chain line of the transport names what such a cue
-does, as in \texttt{13 (GoTo 2)}.  While a GoTo cue that has fired waits out its
-pre-wait, the line leads with the time in which standby moves, as in
+standby again.  Before GO, the chain line of the transport names what such a
+cue does, as in \texttt{13 (GoTo 2)}.  While a GoTo cue that has fired waits
+out its pre-wait, the line leads with the time in which standby moves, as in
 \texttt{Standby moves to 5 in 2.9s}.
 
 \section{Loop sections and devamp cues}
@@ -208,33 +208,32 @@ A cue moves in and out of a group with the keys for indent and outdent.  Select
 the thunder cue, choose \ui{Memo} in the \ui{New cue} list, and press
 \ui{Add cue}\@.  The memo joins the group.  Press \key{<<} to move it out of
 the group, to just below it, and press \key{>>} to move it back into the group
-above it.  Both
-move a cue together with the cues that it holds, and both take a number
-and the motions of \key{d} and \key{y}, so that \key{3>>} indents three cues.
+above it.  Both move a cue together with the cues that it holds, and both take
+a number and the motions of \key{d} and \key{y}, so that \key{3>>} indents
+three cues.
 
 A group collapses into one row, which hides the cues that it holds, as a closed
 fold does in Vim.  Select the group and press \key{zc}, and the row of the
-group gains a \texttt{+} before its name,
-while an open group has a \texttt{-} before its name.  Its \texttt{Target}
-column says how many cues the group holds, as in \texttt{2 cues}, or its name
-ends in the count, as in \texttt{(2 cues)}, where the list is too narrow for
-that column.
-\key{zo} opens it again, \key{za} does either, and \key{zM} and \key{zR}
-collapse and open every group.  A click on the \texttt{+} or the \texttt{-}
-does the same, and so does its hint label.  A collapsed group fires, stops, and pauses its cues as an open
-one does, and keys that count rows, such as \key{3j}, count it as one row.  A
-search, a jump, and GO that move the selection to a hidden cue open the groups
-around it, so that the selection never goes out of sight, but a search that is
-cancelled closes them again.  When standby lies in a collapsed group, the
-\texttt{State} column of the group reads \texttt{NEXT}\@, and switching to the
-list selects the group.  When a cue that a collapsed group hides has a problem,
-such as \texttt{NO FILE}, the \texttt{State} column of the group reads it, so
-that no broken cue lies out of sight.  While the group itself does not run,
-the column also counts the cues that the group hides and that run, as
-\texttt{3 running}, and those that are paused, as \texttt{1 paused}, so that no
-cue that plays lies out of sight.  Collapsing is a way to look at
-the list, so undo leaves it alone, show mode allows it, and the show file keeps
-it.
+group gains a \texttt{+} before its name, while an open group has a
+\texttt{-} before its name.  Its \texttt{Target} column says how many cues the
+group holds, as in \texttt{2 cues}, or its name ends in the count, as in
+\texttt{(2 cues)}, where the list is too narrow for that column.  \key{zo}
+opens it again, \key{za} does either, and \key{zM} and \key{zR} collapse and
+open every group.  A click on the \texttt{+} or the \texttt{-} flips the group,
+and so does its hint label.  A collapsed group fires, stops, and pauses its
+cues as an open one does, and keys that count rows, such as \key{3j}, count it
+as one row.  A search, a jump, and GO that move the selection to a hidden cue
+open the groups around it, so that the selection never goes out of sight, but
+a search that is cancelled closes them again.  When standby lies in a
+collapsed group, the \texttt{State} column of the group reads \texttt{NEXT},
+and switching to the list selects the group.  When a cue that a collapsed
+group hides has a problem, such as \texttt{NO FILE}, the \texttt{State} column
+of the group reads it, so that no broken cue lies out of sight.  While the
+group itself does not run, the column also counts the cues that the group
+hides and that run, as \texttt{3 running}, and those that are paused, as
+\texttt{1 paused}, so that no cue that plays lies out of sight.  Collapsing is
+a way to look at the list, so undo leaves it alone, show mode allows it, and
+the show file keeps it.
 
 A group goes on by its own \ui{Then} setting, to the cue below everything that
 it holds: auto-continue fires that cue after the group's post-wait, and
@@ -242,8 +241,9 @@ auto-follow fires it once the last cue in the group ends, which a looping
 cue never does.  A stop cue, a pause cue, a start cue, and a GoTo cue can name
 a group and act on it as a whole, and a stop cue stops every cue in it.  A fade
 cue or a devamp cue cannot, since a fade needs a sound or picture and a devamp
-cue an audio or video cue.  Moving, cutting, copying, and deleting a group takes
-it together with every cue that it holds, and undo brings them back together.
+cue an audio or video cue.  Moving, cutting, copying, and deleting a group
+takes it together with every cue that it holds, and undo brings them back
+together.
 
 \section*{Exercise}
 

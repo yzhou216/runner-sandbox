@@ -26,14 +26,18 @@ mod sound;
 #[cfg(test)]
 pub(super) mod tests;
 
-use std::{collections::HashMap, path::Path, time::Instant};
+use std::{
+    collections::HashMap,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use itertools::Itertools;
 use kira::sound::{FromFileError, streaming::StreamingSoundData};
 
 use super::{CueId, OutputId, Workspace, failure::unreadable};
-use devices::probes::Probes;
 pub use devices::{device::devices, fault::Fault};
+use devices::{fault::RETRY, probes::Probes};
 use patch::Patch;
 use sound::{
     mixer::{Mixer, Mixers},
@@ -124,6 +128,20 @@ impl Audio {
             .collect()
     }
 
+    /// Returns how often the interface should look again while a device is
+    /// being opened or asked about, or has failed in a way that is tried
+    /// again, since only a sync takes in what the threads of the devices
+    /// answer and tries a device again, and an idle interface runs none.
+    /// A device that is fine, or that cannot be tried again, asks for no
+    /// look.
+    pub fn checks(&self) -> Option<Duration> {
+        let failing = self.mixers.values().any(|mixer| match mixer {
+            Ok(mixer) => mixer.failure().is_some(),
+            Err(fault) => fault.retried(),
+        });
+        (failing || self.opener.busy()).then_some(RETRY)
+    }
+
     /// Makes the sound match the workspace, and returns the workspace with
     /// the files whose sound could not start.  The sounds that runs may
     /// start soon are made ready once those that start now have taken
@@ -206,12 +224,15 @@ pub(super) fn probe(file: &Path) -> Result<Probed, String> {
     })
 }
 
+/// Reason of a file that no decoder of sound reads
+pub(super) const NOT_SOUND: &str = "not a sound file that cinq can play";
+
 /// Tells why a file cannot be played, in words of cinq's own where the
 /// decoder fails, since its errors name the library and the stage, as
 /// `unsupported feature: core (probe)` does
 fn reason(error: FromFileError) -> String {
     match error {
         FromFileError::IoError(error) => unreadable(error),
-        _ => "not a sound file that cinq can play".to_owned(),
+        _ => NOT_SOUND.to_owned(),
     }
 }

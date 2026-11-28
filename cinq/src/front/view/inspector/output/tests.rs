@@ -77,6 +77,6 @@ fn a_missing_default_device_keeps_its_name_and_points_to_the_sidebar() {
     );
     assert_eq!(
         device::hint(&named, &main_of(&named)),
-        "Connect the device, or pick another"
+        "Connect the device, or choose another"
     );
 }

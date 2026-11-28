@@ -10,11 +10,7 @@ use crate::front::keymap::Action::{self, Copy, Cut, Delete, First, Last, Next, P
 
 /// Returns the identities of the cues of the first list in order
 pub(super) fn rows(app: &App) -> Vec<u32> {
-    app.workspace.lists()[0]
-        .cues
-        .iter()
-        .map(|cue| cue.id.0)
-        .collect()
+    crate::back::ids(&app.workspace)
 }
 
 pub(super) fn across(app: App, operator: Action, motion: Action, count: Option<usize>) -> App {

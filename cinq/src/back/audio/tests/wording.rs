@@ -8,14 +8,12 @@ use std::fs;
 
 use tempfile::TempDir;
 
-use super::{silence, silence_in};
+use super::{saved, silence, silence_in};
 use crate::back::audio::probe;
 
 /// Returns why the file that holds `bytes` cannot be played
 fn failing(bytes: &[u8]) -> String {
-    let directory = TempDir::new().expect("a temporary directory can be made");
-    let path = directory.path().join("sound.wav");
-    fs::write(&path, bytes).expect("the file can be written");
+    let (_directory, path) = saved("sound.wav", bytes);
     probe(&path).expect_err("the file cannot be played")
 }
 

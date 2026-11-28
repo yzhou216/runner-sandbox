@@ -19,7 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{Network, connection, deliver, ipv4_address, udp_socket};
+use super::{Network, address::unfound, connection, deliver, ipv4_address, udp_socket};
 use crate::back::osc::{Destination, Outgoing, framed};
 
 /// Longest that a test waits, which only a broken test reaches

@@ -163,7 +163,13 @@ fn dispatch(messages: &mpsc::Receiver<Vec<(Instant, Outgoing)>>, shared: &Arc<Sh
     // Each worker's queue by destination, with when it last took a message
     let mut workers = BTreeMap::<String, (Instant, Queue)>::new();
     loop {
-        let batch = match messages.recv_timeout(PATIENCE) {
+        // Without a worker to let go, only a message needs a wake
+        let received = if workers.is_empty() {
+            messages.recv().map_err(|_| RecvTimeoutError::Disconnected)
+        } else {
+            messages.recv_timeout(PATIENCE)
+        };
+        let batch = match received {
             Ok(batch) => batch,
             Err(RecvTimeoutError::Timeout) => Vec::new(),
             Err(RecvTimeoutError::Disconnected) => return,
@@ -251,10 +257,5 @@ fn time_left(handed: Instant) -> io::Result<Duration> {
     PATIENCE
         .checked_sub(handed.elapsed())
         .filter(|left| !left.is_zero())
-        .ok_or_else(|| {
-            io::Error::new(
-                ErrorKind::TimedOut,
-                "dropped rather than sent more than a second late",
-            )
-        })
+        .ok_or_else(|| io::Error::new(ErrorKind::TimedOut, "more than a second late"))
 }

@@ -37,12 +37,12 @@ fn osc_listen_fault(value: &DeValue) -> &'static str {
     match value {
         // Settings are read as written, so the space is the problem
         DeValue::String(text) if socket_address(text.trim()).is_some() => {
-            "osc_listen must be IP:port, with no space around it"
+            "osc_listen should be IP:port, with no space around it"
         }
         DeValue::String(text) if is_host_name(text.trim()) => {
-            "osc_listen must be IP:port, not a host name"
+            "osc_listen should be IP:port, not a host name"
         }
-        _ => "osc_listen must be IP:port, as 127.0.0.1:53000",
+        _ => "osc_listen should be IP:port, as 127.0.0.1:53000",
     }
 }
 

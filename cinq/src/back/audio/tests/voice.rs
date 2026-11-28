@@ -5,12 +5,12 @@
 //! Tests of the clock of a run following its sound, on the mock backend of
 //! kira, which plays ten milliseconds of sound each time a test lets it
 
-use std::{fs, thread, time::Duration};
+use std::{thread, time::Duration};
 
 use kira::{AudioManager, backend::mock::MockBackend, sound::streaming::StreamingSoundData};
 use tempfile::TempDir;
 
-use super::{mock_manager, silence};
+use super::{mock_manager, saved, silence};
 use crate::back::{
     Command, Cue, CueId, Kind, Media, Workspace,
     audio::sound::{
@@ -48,15 +48,10 @@ fn fired(cue: Cue, seconds: f32) -> (TempDir, Workspace) {
 /// Returns what [`fired`] does, for a file whose header promises `promised`
 /// seconds of sound where it holds `seconds`, as a file cut short does
 pub(super) fn fired_promising(cue: Cue, seconds: f32, promised: f32) -> (TempDir, Workspace) {
-    let directory = TempDir::new().expect("a temporary directory can be made");
     // Header and 16 bits of sound a frame, as silence makes them
     let kept = 44 + (seconds * 8000.0) as usize * 2;
     let whole = silence(promised);
-    fs::write(
-        directory.path().join("silence.wav"),
-        &whole[..kept.min(whole.len())],
-    )
-    .expect("the file can be written");
+    let (directory, _) = saved("silence.wav", &whole[..kept.min(whole.len())]);
     let media = Media::Loaded {
         duration: 10.0,
         sound: Some(promised),

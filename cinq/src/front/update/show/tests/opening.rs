@@ -184,12 +184,10 @@ fn a_fade_pasted_into_another_show_with_its_target_targets_the_copy() {
     let elsewhere = copied
         .opened(found(Some(CALM), Some(FADING), None))
         .with_pasted(|_| Place::End, 1);
-    let targets: Vec<_> = elsewhere.workspace.lists()[0]
-        .cues
-        .iter()
-        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
-        .collect();
-    assert_eq!(targets, [(1, None), (2, Some(1)), (3, None), (4, Some(3))]);
+    assert_eq!(
+        crate::back::targets(&elsewhere.workspace),
+        [(1, None), (2, Some(1)), (3, None), (4, Some(3))]
+    );
 }
 
 #[test]
@@ -215,6 +213,7 @@ fn directory_in_place_of_a_show_is_told_without_an_error_number() {
     // which makes it read as missing
     let directory = tempfile::tempdir().unwrap();
     let reason = crate::front::files::read(directory.path()).expect_err("a directory is no show");
+    assert!(!reason.is_empty(), "the reason says something");
     assert!(!reason.contains("os error"), "{reason}");
 }
 

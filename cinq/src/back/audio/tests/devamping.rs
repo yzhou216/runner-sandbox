@@ -10,12 +10,12 @@
 mod devamped;
 mod looping;
 
-use std::{fs, thread, time::Duration};
+use std::{thread, time::Duration};
 
 use kira::{AudioManager, backend::mock::MockBackend, sound::streaming::StreamingSoundData};
 use tempfile::TempDir;
 
-use super::{mock_manager, silence_at, voice::audio};
+use super::{mock_manager, saved, silence_at, voice::audio};
 use crate::back::{
     Active, Command, Cue, CueId, Workspace,
     audio::sound::voice::{Voice, clipped},
@@ -43,12 +43,7 @@ pub(super) fn vamp(
     (from, to): (f32, f32),
     pre_wait: f32,
 ) -> (TempDir, Workspace) {
-    let directory = TempDir::new().expect("a temporary directory can be made");
-    fs::write(
-        directory.path().join("silence.wav"),
-        silence_at(seconds, rate),
-    )
-    .expect("the file can be written");
+    let (directory, _) = saved("silence.wav", &silence_at(seconds, rate));
     let cue = Cue {
         pre_wait: pre_wait.into(),
         looping: true,

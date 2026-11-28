@@ -206,9 +206,9 @@ Each cue is a table in the array *cue* of its list:
 	A sound that stops while more than a second of its file remains, or a
 	sound that loops and stops at all, while its audio device plays on,
 	is such a failure, as a file cut short or one of more than two channels in
-	a format other than WAV, which *cinq* cannot decode, makes it: its cue reads *BROKEN* with the
-	reason _its sound stopped early_, and *cinq* says so once on standard
-	error.
+	a format other than WAV, which *cinq* cannot decode, makes it: its cue
+	reads *BROKEN* with the reason _its sound stopped early_, and *cinq* says
+	so once on standard error.
 	A device that stalls, a fade, a stop, a panic, or a devamp never
 	counts.
 
@@ -508,9 +508,9 @@ over, as the network cues of QLab do, so that a GO in *cinq* can fire a cue
 of a lighting console or of another program.
 It takes no time, and does nothing else.
 
-The *destination* of a network cue is _host:port_ for TCP, where *cinq* frames
-each packet with SLIP, as OSC 1.1 asks of streams, or _udp://host:port_ for
-UDP, with one packet in each datagram.
+The *destination* of a network cue is _host:port_, or _tcp://host:port_, for
+TCP, where *cinq* frames each packet with SLIP, as OSC 1.1 asks of streams, or
+_udp://host:port_ for UDP, with one packet in each datagram.
 The host is an IPv4 address, or a name that *cinq* reaches at its first IPv4
 address.
 It holds no colon, bracket, or slash, so that an IPv6 address and a URL read as
@@ -612,7 +612,10 @@ Where the loop ends with the cue, the run ends at the end of that pass.
 The pass that it leaves at is the first to end more than half a second after
 the devamp cue acts, since the sound needs that long to leave its loop at the
 end of a pass, neither a pass early nor a pass late.
-A loop shorter than about half a second can still go round once more than that.
+For a sound of a sample rate below 46.8 kHz that time is longer: the 16384
+frames that its decoder reads ahead of it, which are 0.37 seconds at 44.1 kHz,
+and 0.15 seconds more.
+A loop shorter than that time can still go round once more.
 A target that does not run is left alone, and a run that a devamp cue has let
 go on already keeps the pass that it leaves at.
 A target that is paused leaves at a pass end chosen from where it is paused,

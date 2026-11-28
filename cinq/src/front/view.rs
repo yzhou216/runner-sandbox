@@ -155,7 +155,7 @@ type Paragraph = <iced::Renderer as core_text::Renderer>::Paragraph;
 /// that a line of text is as wide as the columns that it takes, two for a
 /// wide character.  It is measured once, as the font stays the same while
 /// the program runs.
-fn char_width() -> f32 {
+pub(super) fn char_width() -> f32 {
     static WIDTH: LazyLock<f32> = LazyLock::new(|| {
         Paragraph::with_text(core_text::Text {
             content: "0",

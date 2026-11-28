@@ -21,7 +21,12 @@ mod starting;
 mod voice;
 mod wording;
 
-use std::{fs, path::Path, thread, time::Duration};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    thread,
+    time::Duration,
+};
 
 use kira::{
     AudioManager, AudioManagerSettings,
@@ -111,10 +116,18 @@ fn whole(path: &Path) -> Wanted {
     }
 }
 
-fn silent_file() -> (TempDir, Wanted) {
+/// Returns a temporary directory that holds `name`, a file of `bytes`, with
+/// the path of the file.  The directory goes when it drops, so that a test
+/// holds it in a binding such as `_directory`, and never in `_`.
+pub(in crate::back) fn saved(name: &str, bytes: &[u8]) -> (TempDir, PathBuf) {
     let directory = TempDir::new().expect("a temporary directory can be made");
-    let file = directory.path().join("silence.wav");
-    fs::write(&file, silence(0.1)).expect("the file can be written");
+    let path = directory.path().join(name);
+    fs::write(&path, bytes).expect("the file can be written");
+    (directory, path)
+}
+
+fn silent_file() -> (TempDir, Wanted) {
+    let (directory, file) = saved("silence.wav", &silence(0.1));
     (directory, whole(&file))
 }
 
@@ -150,12 +163,13 @@ fn made(
 }
 
 /// Waits until `done` holds, taking in the answers of the threads of the
-/// devices as a sync does
+/// devices as a sync does, and fails the test after five seconds
 fn until(audio: &mut Audio, done: impl Fn(&Audio) -> bool) {
     waiting(|| {
         audio.arrived();
         done(audio).then_some(())
-    });
+    })
+    .expect("the threads of the devices answered within five seconds");
 }
 
 /// Waits until the threads of the devices have answered every job

@@ -125,7 +125,6 @@ impl Opener {
     }
 
     /// Returns whether any device is being opened, or asked about
-    #[cfg(test)]
     pub(in crate::back::audio) fn busy(&self) -> bool {
         !self.opening.is_empty() || !self.probing.is_empty()
     }

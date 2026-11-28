@@ -166,13 +166,8 @@ fn a_target_among_the_cues_pasted_goes_to_their_copy_in_each_round() {
     let cues = copies(&shown, &[1, 2]);
     let twice = [cues.clone(), cues].concat();
     let pasted = shown.apply(paste(twice, Place::End));
-    let targets: Vec<_> = pasted.lists()[0]
-        .cues
-        .iter()
-        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
-        .collect();
     assert_eq!(
-        targets[4..],
+        targets(&pasted)[4..],
         [(5, Some(6)), (6, None), (7, Some(8)), (8, None)]
     );
 }

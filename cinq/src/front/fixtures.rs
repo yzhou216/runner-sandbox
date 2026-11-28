@@ -4,14 +4,34 @@
 
 //! Fixtures that the tests of several parts of the interface share
 
+use std::ops::Range;
+
 use iced::{
     Rectangle,
     advanced::widget::operation::{Focusable, Scrollable, TextInput},
     widget::operation::{AbsoluteOffset, RelativeOffset},
 };
 
-use super::App;
+use super::{App, view::char_width};
 use crate::back::{Command, Output, OutputId, Workspace, fresh};
+
+/// Returns the pixels of `columns` columns of text.  The tests size what they
+/// measure in columns, since the monospace font that a build finds, and so the
+/// width of a column, differs from one system to another.
+pub(super) fn wide(columns: f32) -> f32 {
+    columns * char_width()
+}
+
+/// Returns the rooms of `rooms` where `fits` holds, which are one run, so that
+/// a column does not come and go as the window grows
+pub(super) fn in_one_run(rooms: Range<u32>, fits: impl Fn(f32) -> bool) -> Vec<f32> {
+    let kept: Vec<f32> = rooms
+        .map(|room| room as f32)
+        .filter(|&room| fits(room))
+        .collect();
+    assert!(kept.windows(2).all(|pair| pair[1] == pair[0] + 1.0));
+    kept
+}
 
 /// Scrollable that tells where it was scrolled to
 #[derive(Default)]

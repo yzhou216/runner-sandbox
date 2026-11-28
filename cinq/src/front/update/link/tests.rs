@@ -42,8 +42,8 @@ fn data_directories_put_the_users_first_and_skip_relative_paths() {
 fn missing_tutorial_names_every_directory_searched() {
     let directories = ["a", "b", "c"].map(PathBuf::from);
     let missing = |count| not_found("tutorial.pdf", &directories[..count]);
-    assert_eq!(missing(0), "Cannot find tutorial.pdf");
-    assert_eq!(missing(1), "Cannot find tutorial.pdf in a");
-    assert_eq!(missing(2), "Cannot find tutorial.pdf in a or b");
-    assert_eq!(missing(3), "Cannot find tutorial.pdf in a, b, or c");
+    assert_eq!(missing(0), "cannot find tutorial.pdf");
+    assert_eq!(missing(1), "cannot find tutorial.pdf in a");
+    assert_eq!(missing(2), "cannot find tutorial.pdf in a or b");
+    assert_eq!(missing(3), "cannot find tutorial.pdf in a, b, or c");
 }

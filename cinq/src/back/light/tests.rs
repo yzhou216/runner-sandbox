@@ -8,13 +8,15 @@ use std::{
     cell::Cell,
     collections::BTreeMap,
     io,
+    sync::mpsc,
+    thread,
     time::{Duration, Instant},
 };
 
 use ::sacn::packet::{AcnRootLayerProtocol, E131RootLayerData};
 use uuid::Uuid;
 
-use super::{artnet, leaving::Leaving, listing::Listing, sacn, status::Round};
+use super::{Universes, artnet, leaving::Leaving, listing::Listing, sacn, sending, status::Round};
 
 // Port-Address follows the 8-byte ID, opcode, protocol version, sequence,
 // and physical port of an ArtDmx packet
@@ -187,4 +189,18 @@ fn a_problem_is_told_when_it_starts_and_when_it_ends_but_not_in_between() {
     assert_eq!(Round::Out.told(problem.as_deref()), Some(None));
     assert_eq!(Round::Out.told(None), None);
     assert_eq!(Round::Idle.told(problem.as_deref()), None);
+}
+
+#[test]
+fn sender_with_nothing_to_send_sleeps_until_the_patch_changes() {
+    let (sender, levels) = mpsc::channel();
+    let change = thread::spawn(move || {
+        // Longer than a refresh, which an idle sender must not wake for
+        thread::sleep(Duration::from_millis(1500));
+        sender.send(Universes::from([(1, [0; 512])]))
+    });
+    let (latest, leaving) = sending::receive(&levels, Universes::new(), Leaving::default())
+        .expect("the sender is still there");
+    assert_eq!((latest.len(), leaving.is_empty()), (1, true));
+    change.join().expect("the thread ends").expect("it sends");
 }

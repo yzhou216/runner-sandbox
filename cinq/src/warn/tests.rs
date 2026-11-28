@@ -67,17 +67,24 @@ fn error_of_the_system_without_a_kind_reads_as_its_message_without_the_number() 
     use rustix::io::Errno;
     // Neither of these has a kind of its own, and neither number is the
     // same on every system, so that only the shape of the words is checked
-    [Errno::NXIO, Errno::AFNOSUPPORT]
+    let errors: Vec<io::Error> = [Errno::NXIO, Errno::AFNOSUPPORT]
         .iter()
         .map(|errno| io::Error::from_raw_os_error(errno.raw_os_error()))
         .filter(|error| error.kind().to_string() == "uncategorized error")
-        .for_each(|error| {
-            let text = words(&error);
-            assert!(!text.contains("os error"), "{text}");
-            assert_ne!(text, "uncategorized error");
-            assert!(
-                text.starts_with(|letter: char| letter.is_lowercase()),
-                "{text}"
-            );
-        });
+        .collect();
+    // A later standard library may give both a kind, which would leave
+    // nothing to check and the rule untested
+    assert!(
+        !errors.is_empty(),
+        "no error without a kind is left to check"
+    );
+    errors.iter().for_each(|error| {
+        let text = words(error);
+        assert!(!text.contains("os error"), "{text}");
+        assert_ne!(text, "uncategorized error");
+        assert!(
+            text.starts_with(|letter: char| letter.is_lowercase()),
+            "{text}"
+        );
+    });
 }

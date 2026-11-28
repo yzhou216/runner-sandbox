@@ -42,10 +42,7 @@ A file that is not TOML, or that *cinq* cannot write, stays as it is, and an
 editor that has the file open may offer to load it again.
 
 The help page, which the key of *help* opens, names the keymap in use, opens
-with a short paragraph of first steps that names the keys of GO and Panic, of
-moving and standby, of adding, naming, and undoing, of reaching the File field,
-of Enter as the key that chooses a file, of hint mode, of closing the page, of
-opening the tutorial, and of saving the show,
+with a short paragraph of first steps that names the keys to try first,
 links to the tutorial, which the key of *standby* opens too,
 lists each action that the keymap binds to a key with its keys and, in a window
 wide enough, its name in the file, links to the file that the keys come from,
@@ -125,8 +122,9 @@ _tutorial.pdf_
 	color of the highlight, so that the output and the setting that decides its
 	device show as one.
 	It changes only the line of this setting, adds the line before the first
-	setting of the file, or takes the line out for the system default, and
-	leaves the rest as it is.
+	line of the file that is neither blank nor a comment, so that no table
+	takes it, or takes the line out for the system default, and leaves the
+	rest as it is.
 	A change moves those outputs as soon as the file is saved, and the sounds
 	that play go on from where they are on the new device.
 	Outputs that name a device of their own go on playing unbroken.
@@ -490,7 +488,7 @@ shows the keys typed so far, while a box above it lists the keys that can come
 next and what each of them does, naming outputs instead of cues while the
 outputs show.  A count typed before or after an operator shows in what a
 motion does, as *the selected cue and the next 6* for *2 d 3 j*.
-The help page, which lists each action once, names both.
+The help page, which lists each action once, names cues and outputs together.
 A key that completes or continues no sequence is dropped together with the
 keys typed so far, as Vim beeps and drops them, so that a key mistyped halfway,
 such as the *x* of *d x*, never starts a sequence of its own.
@@ -598,8 +596,8 @@ the status stood, which reads a slash and then the text typed, and the key of
 *search_backward*, which the vi keymap leaves unbound, opens it with a
 question mark for a search up the list.
 As the text changes, the selection moves to the first cue of the list on
-screen, from the cue after the selected one down, one of whose columns holds the
-text, in any case, and the list scrolls to it.
+screen, from the cue after the one selected when the line opened down, one of
+whose columns holds the text, in any case, and the list scrolls to it.
 A search looks at the number, type, name, target, action, and *Then* columns,
 with the text that the list shows in each, so that a search for *rumble* finds
 the cue of *rumble.ogg*, as a search of Vim finds the text of a whole line.
@@ -613,10 +611,10 @@ elsewhere or the search is cancelled, as the incremental search of Vim closes
 the folds that it opened.
 Enter, and the keys of the next and previous match, keep the groups of the
 match open.
-A search up the list begins at the cue before the selected one.
-The search wraps around the list and ends on the selected cue, as a search of
-Vim does from the start of a line, so that the selected cue is the match only
-when no other cue holds the text.
+A search up the list begins at the cue before that one.
+The search wraps around the list and ends on that cue, as a search of Vim does
+from the start of a line, so that it is the match only when no other cue holds
+the text.
 While the outputs show in place of the cue list, the search goes through the
 name, the device, the channels, and the new cues of the outputs, as the table
 shows them, in the same way, by the same rules, and never looks at the cues out
@@ -1100,8 +1098,6 @@ page.
 	On the help page, scroll down a line, or as many lines as the count.
 	While a menu is open, *Control+e* closes the menu instead, as in Vim's
 	popup menu.
-	The keys of *pick* and *close_menu* act only in a menu, so a key may be
-	bound to one of them and to a scroll without a clash.
 
 *scroll_up*
 	Scroll the cue list a row up, or as many rows as the count, as
@@ -1351,10 +1347,10 @@ page.
 	of *cancel* among them.
 	The keys of *go* and *panic* act as everywhere and leave it too, and so does
 	any press of a mouse button or turn of the wheel in the main window, any
-	change of the size of the window, any start or end of a cue in the Active list of the sidebar and
-	any warning there that comes or goes, which move the places below them, any
-	OSC command that acts, the opening of another show, and the stage window
-	taking the keyboard.
+	change of the size of the window, any start or end of a cue in the Active
+	list of the sidebar and any warning there that comes or goes, which move the
+	places below them, any OSC command that acts, the opening of another show,
+	and the stage window taking the keyboard.
 	The key of this action is a letter in the vi keymap, so that it types a letter
 	of a label while the mode is on.
 	The status bar hints this key where it acts, and the hint gives way right

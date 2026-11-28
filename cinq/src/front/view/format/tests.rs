@@ -13,7 +13,7 @@ mod targets;
 use super::{activity, chain, change, clipped, moving, paused, phase, target};
 use crate::back::{
     Advance, Command, Cue, CueId, CueList, Edit, InstrumentId, Kind, OutputId, PatchEdit, Place,
-    Sends, Workspace, fresh, loaded, memo, sound,
+    Sends, Workspace, fresh, group, loaded, memo, sound,
 };
 
 /// Returns what the latest change to `workspace` says of itself

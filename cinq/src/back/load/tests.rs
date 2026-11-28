@@ -10,10 +10,13 @@ mod watch;
 
 use std::{fs, path::Path};
 
-use super::{Load, load_files};
+use super::{Load, load_files, video_sound_reason};
 use crate::back::{
     Command, Cue, CueId, Kind, Media,
-    audio::tests::{silence, silence_at},
+    audio::{
+        NOT_SOUND,
+        tests::{silence, silence_at},
+    },
     silent,
     video::tests::movie::movie,
     workspace::tests::fresh,
@@ -88,4 +91,16 @@ fn sound_file_that_panics_the_decoder_fails_alone_and_the_others_load() {
     let found = found(cues, directory.path());
     assert_eq!(found[0], (1, Media::Failed("cannot be read".to_owned())));
     assert!(matches!(found[1], (2, Media::Loaded { .. })), "{found:?}");
+}
+
+#[test]
+fn sound_track_of_a_video_that_no_decoder_reads_is_blamed_on_its_format() {
+    assert_eq!(
+        video_sound_reason(NOT_SOUND),
+        "its sound is in a format that cinq cannot play"
+    );
+    assert_eq!(
+        video_sound_reason("file not found"),
+        "its sound cannot play: file not found"
+    );
 }

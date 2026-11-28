@@ -6,7 +6,7 @@
 //! what is made ready for it, and how far kira's decoder runs ahead of the
 //! sound, which is why the voice of a run waits to take away its loop
 
-use std::{fs, iter, thread, time::Duration};
+use std::{iter, thread, time::Duration};
 
 use kira::{
     AudioManager,
@@ -16,12 +16,11 @@ use kira::{
         streaming::{StreamingSoundData, StreamingSoundHandle},
     },
 };
-use tempfile::TempDir;
 
 use super::{
     collecting,
     devamping::{RATE, vamp},
-    mock_manager, silence_at, upcoming,
+    mock_manager, saved, silence_at, upcoming,
     voice::target,
     waiting as waiting_for,
 };
@@ -132,9 +131,7 @@ fn advanced(
 /// ahead as it runs.  Returns how many times the sound went back.
 fn wraps_after_taking_the_loop_away(frames: usize) -> usize {
     let mut manager = mock_manager(RATE, 120);
-    let directory = TempDir::new().expect("a temporary directory can be made");
-    let file = directory.path().join("silence.wav");
-    fs::write(&file, silence_at(4.0, RATE)).expect("the file can be written");
+    let (_directory, file) = saved("silence.wav", &silence_at(4.0, RATE));
     let mut sound = manager
         .play(
             StreamingSoundData::from_file(&file)

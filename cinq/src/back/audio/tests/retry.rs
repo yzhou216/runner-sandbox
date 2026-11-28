@@ -30,7 +30,8 @@ use crate::back::{
 /// Makes the sound of cue 1 ready in `audio`, waiting five seconds at most
 fn make_ready(audio: &mut Audio, wanted: &Wanted) {
     audio.preloader.want(vec![ask(wanted)]);
-    collecting(&mut audio.preloader, |preloader| preloader.ready(CueId(1)));
+    collecting(&mut audio.preloader, |preloader| preloader.ready(CueId(1)))
+        .expect("the sound is made ready within five seconds");
 }
 
 /// Returns audio on the show of Main on the device `a` and Sub on the
@@ -124,4 +125,15 @@ fn device_that_offers_no_more_is_looked_at_ever_more_seldom() {
     assert_eq!(looks(&mut audio, RETRY), 1);
     assert_eq!(looks(&mut audio, RETRY), 1, "its wait is four seconds now");
     assert_eq!(looks(&mut audio, 2 * RETRY), 2);
+}
+
+#[test]
+fn interface_looks_again_every_retry_while_a_device_has_failed_in_a_way_that_may_pass() {
+    let unplayable = || Fault::Unplayable("no samples that cinq plays".to_owned());
+    let (idle, _) = failed(Fake::default(), [unplayable(), unplayable()]);
+    assert_eq!(idle.checks(), None, "the show must mend it");
+    let (one, _) = failed(Fake::default(), [missing(), unplayable()]);
+    assert_eq!(one.checks(), Some(RETRY));
+    let (fine, ..) = open_on_both(Fake::default());
+    assert_eq!(fine.checks(), None, "every device is open");
 }

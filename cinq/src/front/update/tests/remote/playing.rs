@@ -82,8 +82,10 @@ fn pause_cue_resume_cue_and_stop_act_on_the_cue_of_that_number() {
 fn pause_and_resume_act_on_every_running_cue() {
     let app = after(playable(None), [Message::Go, Message::Go]);
     let held = remote(app, Remote::Pause);
+    assert_eq!(running(&held), [1, 2]);
     assert!(held.workspace.active().iter().all(|run| run.paused));
     let freed = remote(held, Remote::Resume);
+    assert_eq!(running(&freed), [1, 2]);
     assert!(freed.workspace.active().iter().all(|run| !run.paused));
 }
 

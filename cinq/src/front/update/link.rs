@@ -150,9 +150,9 @@ fn not_found(name: &str, directories: &[PathBuf]) -> String {
         .map(|directory| directory.display().to_string())
         .collect();
     match shown.as_slice() {
-        [] => format!("Cannot find {name}"),
-        [only] => format!("Cannot find {name} in {only}"),
-        [first, second] => format!("Cannot find {name} in {first} or {second}"),
-        [rest @ .., last] => format!("Cannot find {name} in {}, or {last}", rest.join(", ")),
+        [] => format!("cannot find {name}"),
+        [only] => format!("cannot find {name} in {only}"),
+        [first, second] => format!("cannot find {name} in {first} or {second}"),
+        [rest @ .., last] => format!("cannot find {name} in {}, or {last}", rest.join(", ")),
     }
 }

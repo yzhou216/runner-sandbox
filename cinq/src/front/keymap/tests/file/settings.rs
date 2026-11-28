@@ -87,9 +87,9 @@ fn file_gives_the_address_to_take_osc_commands_on() {
     let (_, _, listen, problems) = config::parse("");
     assert!(problems.is_empty(), "{problems:?}");
     assert_eq!(listen, None);
-    let message = "osc_listen must be IP:port, as 127.0.0.1:53000";
-    let host = "osc_listen must be IP:port, not a host name";
-    let space = "osc_listen must be IP:port, with no space around it";
+    let message = "osc_listen should be IP:port, as 127.0.0.1:53000";
+    let host = "osc_listen should be IP:port, not a host name";
+    let space = "osc_listen should be IP:port, with no space around it";
     let cases = [
         ("\" 127.0.0.1:53000\"", None, Some(space)),
         ("\"127.0.0.1:53000 \"", None, Some(space)),

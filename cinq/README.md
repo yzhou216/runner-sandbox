@@ -25,9 +25,10 @@ Minimal cue-based show controller, the
 - **Audio cues** in WAV, FLAC, Ogg Vorbis, MP3, or AAC, with start and end
   times, seamless loops of the whole clip or a section of it, and levels that
   change while they play.
-- **Video cues** in H.264 and MP4, with their sound, which cinq decodes
-  itself with rust_h264 rather than handing them to another player, and
-  **picture cues** in PNG or JPEG, which hold until something stops them.
+- **Video cues** in H.264 and MP4, with their sound, which cinq plays
+  itself, decoding the picture with rust_h264, rather than handing the file
+  to another player, and **picture cues** in PNG or JPEG, which hold until
+  something stops them.
   Both show on a stage window that each GO of one makes fullscreen.
   A fade that stops a picture or a video, and Panic, fade it out along with
   its sound, to black or to the picture that shows on under it.
@@ -66,7 +67,7 @@ Minimal cue-based show controller, the
 
 - pkg-config
 - ALSA
-- JACK, on GNU/Linux and the BSDs, for a build with its default features
+- JACK, on GNU/Linux alone, for a build with its default features
 - Wayland
 - libxkbcommon
 - D-Bus
@@ -86,33 +87,36 @@ alone, in the `bin` directory of Cargo, which needs no scdoc.
 A build lays out what cinq installs besides its program in the directory
 that `CINQ_SHARE_DIR` names, which is `target/share` in the repository, as
 the share directory of a prefix holds it: the manual pages, completions for
-bash, zsh, fish, and Nushell, and, for GNU/Linux and the BSDs, the desktop
-entry with its icon and the type of show files.  The Nix package installs it
-all.  Elsewhere, after `cargo build --release`, copy `target/release/cinq`
-into the `bin` directory of the prefix, which is often `/usr`, and what
-`target/share` holds into its `share` directory, then run
+bash, zsh, fish, and Nushell, and the desktop entry with its icon and the
+type of show files, which GNU/Linux and the BSDs use.  The Nix package
+installs it all.  Elsewhere, after `cargo build --release`, copy
+`target/release/cinq` into the `bin` directory of the prefix, which is often
+`/usr`, and what `target/share` holds into its `share` directory, then run
 `update-mime-database` with its `share/mime` directory.
 
 Builds for Darwin also lay out the app bundle, `cinq.app`, in
-`target/Applications`, with all but the program, which goes into its
-`Contents/MacOS`.  Each Nix package of cinq goes by the name of the system
-that it runs on, which names the native build too, as `.#x86_64-linux` does
-on x86_64 GNU/Linux.  On GNU/Linux, `nix build` cross-builds it for the
-other systems as well: `.#x86_64-linux`, `.#aarch64-linux`, and
-`.#riscv64-linux` for GNU/Linux, `.#x86_64-freebsd` and `.#aarch64-freebsd`
-for FreeBSD, `.#aarch64-darwin` for Apple silicon, and `.#x86_64-windows`
-and `.#aarch64-windows`, which build `cinq.exe`, for Windows.  There
-`.#deb`, `.#rpm`, and `.#archlinux` build packages for other distributions,
-which need a glibc as new as that of Nixpkgs.  On GNU/Linux and on Apple
-silicon, `.#darwin-pkg` builds an installer package for Darwin on Apple
-silicon.  It puts `cinq.app` in `/Applications` and the `cinq` command, the
-manual pages, the completions, and the tutorial with its demo in
-`/usr/local`.  The package is unsigned, so Darwin opens a copy that a
-browser downloaded only after Open Anyway in the Privacy & Security
-settings, while `sudo installer -pkg` installs it from a terminal.  The
-tutorial takes its screenshots in sway, which runs on GNU/Linux alone, so
-other systems build it on a GNU/Linux builder, such as the virtual machine
-of `nix.linux-builder` in nix-darwin.
+`target/Applications`, with its `Contents/MacOS` left empty for the program.
+
+Each Nix package of cinq goes by the name of the system that it runs on,
+which names the native build too, as `.#x86_64-linux` does on x86_64
+GNU/Linux.  On GNU/Linux, `nix build` cross-builds it for the other systems
+as well: `.#x86_64-linux`, `.#aarch64-linux`, and `.#riscv64-linux` for
+GNU/Linux, `.#x86_64-freebsd` and `.#aarch64-freebsd` for FreeBSD,
+`.#aarch64-darwin` for Apple silicon, and `.#x86_64-windows` and
+`.#aarch64-windows`, which build `cinq.exe`, for Windows.  There `.#deb`,
+`.#rpm`, and `.#archlinux` build packages for other distributions, with the
+tutorial and its demo.  They need a glibc as new as that of Nixpkgs.
+
+On GNU/Linux and on Apple silicon, `.#darwin-pkg` builds an installer
+package for Darwin on Apple silicon.  It puts `cinq.app` in `/Applications`
+and the `cinq` command, the manual pages, the completions, and the tutorial
+with its demo in `/usr/local`.  The package is unsigned, so Darwin opens a
+copy that a browser downloaded only after Open Anyway in the Privacy &
+Security settings, while `sudo installer -pkg` installs it from a terminal.
+
+The tutorial that these packages hold takes its screenshots in sway, which
+runs on GNU/Linux alone, so other systems build it on a GNU/Linux builder,
+such as the virtual machine of `nix.linux-builder` in nix-darwin.
 
 ## Configuration
 

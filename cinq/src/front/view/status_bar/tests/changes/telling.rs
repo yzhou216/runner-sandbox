@@ -116,6 +116,28 @@ fn the_notice_of_a_time_that_reads_as_no_time_tells_that_it_counts_as_zero() {
 }
 
 #[test]
+fn the_notice_of_an_end_or_a_loop_time_that_reads_as_no_time_tells_that_it_is_empty() {
+    let told = |edit: Edit| {
+        notice(&App {
+            workspace: rain().apply(Command::Edit(CueId(1), edit)),
+            ..App::default()
+        })
+    };
+    assert_eq!(
+        told(Edit::End("1:0:0:5".to_owned().into())).as_deref(),
+        Some("Changed the end of cue 1 to empty | u: undo")
+    );
+    assert_eq!(
+        told(Edit::LoopStart("1:0:0:5".to_owned().into())).as_deref(),
+        Some("Changed the loop start of cue 1 to empty | u: undo")
+    );
+    assert_eq!(
+        told(Edit::LoopEnd("1:0:0:5".to_owned().into())).as_deref(),
+        Some("Changed the loop end of cue 1 to empty | u: undo")
+    );
+}
+
+#[test]
 fn an_output_name_with_a_line_break_is_told_on_one_line() {
     let app = App {
         workspace: rain().apply(rename(1, "Side\nfill")),

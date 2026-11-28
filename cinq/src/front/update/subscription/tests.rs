@@ -4,10 +4,18 @@
 
 //! Tests of the events that the subscription turns into messages
 
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
+
 use iced::{Event, event::Status, mouse, window};
 
 use super::{clicked, in_window, side_pressed};
-use crate::front::Message;
+use crate::{
+    back::{Audio, Fault, Lights, Network, Video},
+    front::{App, Cinq, Message, update::Keeper},
+};
 
 #[test]
 fn only_the_back_and_forward_buttons_of_the_mouse_go_along() {
@@ -53,4 +61,34 @@ fn clicks_and_wheel_turns_in_the_stage_window_are_left_out() {
     ));
     assert!(heard(pressed, stage).is_none());
     assert!(heard(wheeled, stage).is_none());
+}
+
+#[test]
+fn subscription_asks_for_a_look_while_an_audio_device_has_failed() {
+    let (lights, light_reports) = Lights::open();
+    let mut cinq = Cinq {
+        app: App::default(),
+        // No audio host is named cinq, so this device is never there
+        audio: Audio::open(Some("cinq:none")),
+        video: Video::default(),
+        lights,
+        light_reports,
+        network: Network::open(),
+        keeper: Keeper::new(None),
+    };
+    let idle = cinq.subscription().units();
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while !matches!(
+        cinq.app.problems.audio.first(),
+        Some((_, Fault::Missing(_)))
+    ) {
+        assert!(Instant::now() < deadline, "the device has not answered");
+        let _ = cinq.update(Message::NetworkChecked);
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        cinq.subscription().units(),
+        idle + 1,
+        "a timer, while the device is tried again"
+    );
 }

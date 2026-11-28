@@ -12,7 +12,8 @@ fn written(buffer: Buffer) -> String {
 
 /// Returns the line that tells how many bytes were dropped
 fn notice(dropped: usize) -> String {
-    format!("cinq: {dropped} bytes of output from while the problems showed were dropped")
+    let bytes = if dropped == 1 { "byte" } else { "bytes" };
+    format!("cinq: {dropped} {bytes} of output written while the problems showed were dropped")
 }
 
 /// Returns the notice line of a buffer that dropped bytes, and what it kept
@@ -41,6 +42,15 @@ fn buffer_keeps_the_newest_bytes_and_counts_the_dropped() {
     assert!(
         kept.starts_with('a') && kept.ends_with("abcdef"),
         "{kept:?}"
+    );
+}
+
+#[test]
+fn a_single_dropped_byte_is_told_in_the_singular() {
+    let (line, _) = noticed(Buffer::new().pushed(&vec![b'a'; CAP + 1]));
+    assert_eq!(
+        line,
+        "cinq: 1 byte of output written while the problems showed were dropped"
     );
 }
 
@@ -86,6 +96,7 @@ mod redirect {
     /// [`write()`] between [`hold`] and [`release`] must come out only at
     /// [`release`], and what is written to [`terminal`] at once
     #[test]
+    #[ignore = "body of a child process that output_to_descriptors_waits_for_the_release starts"]
     fn child() {
         if env::var_os(CHILD).is_none() {
             return;
@@ -110,7 +121,12 @@ mod redirect {
     #[test]
     fn output_to_descriptors_waits_for_the_release() {
         let output = Command::new(env::current_exe().expect("the test binary has a path"))
-            .args(["--exact", "held::tests::redirect::child", "--nocapture"])
+            .args([
+                "--exact",
+                "held::tests::redirect::child",
+                "--ignored",
+                "--nocapture",
+            ])
             .env(CHILD, "1")
             .stdin(Stdio::null())
             .output()

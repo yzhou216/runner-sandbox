@@ -12,7 +12,7 @@ use crate::{
     front::{
         App,
         app::{Held, Keyboard},
-        fixtures::app_of,
+        fixtures::{app_of, in_one_run},
         view::{char_width, widget::focus::State},
     },
 };
@@ -78,20 +78,9 @@ fn the_keyboard_stays_at_the_place_of_a_removed_button_for_the_row_that_slides_i
     assert_eq!(held(&mut tree), [false, true, false]);
 }
 
-/// Returns the rooms from 0 to 2000 pixels where `fits` holds, which are one
-/// run, so that the column does not come and go as the window grows
-fn in_one_run(fits: impl Fn(f32) -> bool) -> Vec<f32> {
-    let kept: Vec<f32> = (0..2000)
-        .map(|room| room as f32)
-        .filter(|&room| fits(room))
-        .collect();
-    assert!(kept.windows(2).all(|pair| pair[1] == pair[0] + 1.0));
-    kept
-}
-
 #[test]
 fn the_now_column_gives_way_to_a_name_that_would_keep_too_little_room() {
-    let kept = in_one_run(now_fits);
+    let kept = in_one_run(0..2000, now_fits);
     assert!(!now_fits(0.0) && now_fits(WIDE));
     // The name keeps its room beside the column, with nothing else to give
     assert!(kept[0] > NAME_ROOM * char_width());
@@ -99,10 +88,10 @@ fn the_now_column_gives_way_to_a_name_that_would_keep_too_little_room() {
 
 #[test]
 fn the_now_column_of_the_levels_gives_way_where_the_patch_keeps_it_and_no_sooner() {
-    let kept = in_one_run(levels_now_fits);
+    let kept = in_one_run(0..2000, levels_now_fits);
     assert!(!levels_now_fits(0.0) && levels_now_fits(WIDE));
     // One column fewer than the patch, which has the Remove button too
-    assert!(kept[0] < in_one_run(now_fits)[0]);
+    assert!(kept[0] < in_one_run(0..2000, now_fits)[0]);
 }
 
 #[test]

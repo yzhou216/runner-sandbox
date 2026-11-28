@@ -115,7 +115,7 @@ fn read((path, kind): &(PathBuf, Kind)) -> Media {
             let sound = sound
                 .then(|| audio::probe(path))
                 .transpose()
-                .map_err(|reason| format!("its sound cannot play: {reason}"))?;
+                .map_err(|reason| video_sound_reason(&reason))?;
             Ok((duration, sound))
         }),
         Kind::Picture => video::probe_still(path).map(|()| (0.0, None)),
@@ -128,5 +128,15 @@ fn read((path, kind): &(PathBuf, Kind)) -> Media {
             ahead: sound.map_or(0.0, |probed| probed.ahead),
         },
         Err(reason) => Media::Failed(reason),
+    }
+}
+
+/// Tells why the sound track of a video file cannot play.  A video that
+/// opened is no file of the wrong kind, so the reason of a file that no
+/// decoder of sound reads gets words that blame the track.
+fn video_sound_reason(reason: &str) -> String {
+    match reason {
+        audio::NOT_SOUND => "its sound is in a format that cinq cannot play".to_owned(),
+        _ => format!("its sound cannot play: {reason}"),
     }
 }

@@ -17,8 +17,8 @@ Major changes and improvements in each release of cinq, newest first.
   problem `cinq no longer ships the cua keymap, so vi stands in for it`, and
   the keymap starts from the keys of `vi`, so that GO and Panic keep working.
 - Choosing an audio device in the sidebar keeps a `config.toml` that starts
-  with a byte order mark, as Notepad writes, readable, where the new setting
-  went before the mark and the file no longer opened.
+  with a byte order mark, as Notepad writes it, readable.  Before, the new
+  setting went before the mark and the file no longer opened.
 - Choosing an audio device leaves `config.toml` as it is when `audio_device` is
   a table there, as `[audio_device]` or `audio_device.a = 1` makes it, and says
   `config.toml cannot keep the audio device: audio_device is a table, not an
@@ -59,13 +59,13 @@ Major changes and improvements in each release of cinq, newest first.
 - Hint mode no longer lets two labels cover each other where a button at the
   left edge of the window is close to the next control, as Standby selected is
   to Show mode in a window 800 pixels wide.  Before, the label of the button
-  lay on the label of the check box and neither could be read.  Now it lies at
-  the left edge of the window.
+  lay on the label of the check box and neither could be read.  Now the label
+  of the button lies at the left edge of the window.
 - Hint mode no longer lets labels cover each other where several controls lie
   near the left edge of the window.  Before, two labels that both moved to the
-  edge lay on each other, and one could cover a label that lay left of its
-  control nearer to the edge than its own width.  Now each takes the room that
-  the labels before it left.
+  edge lay on each other, and a label at the edge could cover one that lay
+  left of its control near that edge.  Now each takes the room that the labels
+  before it left.
 - Undo and redo of an edit of the light patch tell which instrument they
   changed, as in `Undid: added instrument 4`, `Undid: renamed instrument
   Front to Key`, and `Undid: changed the address of instrument Back to 2/12`.
@@ -129,9 +129,10 @@ Major changes and improvements in each release of cinq, newest first.
   leaves the status bar as it was, so that the hint to paste what a copy or
   cut took stays.  Before, the key dropped the hint although nothing happened.
 - A key sequence typed halfway, as the `d` that waits for its motion, is
-  dropped when another window or program takes the keyboard from the main
-  window, as a click drops it.  Before, a `j` typed after the keyboard came
-  back completed the `d` and cut two cues.
+  dropped when a window takes the keyboard, as the stage window does and as
+  the main window does when another program gives it back, and as a click
+  drops it.  Before, a `j` typed after the keyboard came back completed the
+  `d` and cut two cues.
 - A keymap of your own that no setting chooses is checked for problems as the
   one in use is: an action it names that does not exist, a key that cannot be
   read, or a `from` that names no keymap.  A value under `[keymaps]` that is
@@ -267,8 +268,8 @@ Major changes and improvements in each release of cinq, newest first.
   started again on both devices, which cut it.
 - A sound that starts again while its cue plays, as when an edit of the sends
   moves it to another audio device, plays on from where its cue is, even when
-  the selection has gone back to that cue.  Before, it started from the
-  beginning of the file and drew the clock of the cue back with it.
+  standby has gone back to that cue.  Before, it started from the beginning
+  of the file and drew the clock of the cue back with it.
 - Choosing another audio device for the outputs on the default device in
   `config.toml` leaves the sound playing on outputs that name their own
   devices.  Before, every device closed and every sound stopped, and the
@@ -313,6 +314,39 @@ Major changes and improvements in each release of cinq, newest first.
 - A TCP destination that sends data back without pause no longer holds its
   messages.  Before, cinq read what the destination had sent for as long as
   more arrived, so that a message to it waited behind that reading for good.
+- An audio device that is not there, or that has stopped, is tried again every
+  two seconds while the show idles, as cinq-show(5) says.  Before, the window
+  looked at the devices only when something else woke it, so that a Dante
+  Virtual Soundcard that started later still showed `Not found, retrying`, and
+  the first GO after it came played late on it.  The window wakes only while a
+  device is being opened or has to be tried again.
+- The thread that sends messages to the network and the thread that sends light
+  no longer wake every second while the show idles, and the light thread reads
+  no list of network interfaces then, so that a large show idles nearer to zero.
+- The notice of an end, loop start, or loop end that reads as no time, as
+  `1:0:0:5` does, says `to empty`, as the header of the inspector does.
+  Before, it said `to zero`, though such a time plays to the end of the file or
+  the bound of the clip.
+- The line on standard error for a missing tutorial starts with a lower case
+  letter, as every other line of cinq does: `cinq: cannot find tutorial.pdf in
+  ...`.  Before, it began with `Cannot find`.
+- The problems of an `osc_listen` that is no address say `should be IP:port`,
+  as the problems of every other setting say `should be`.  Before, they said
+  `must be`.
+- A video whose sound track no decoder reads, as one in AC-3 or Opus, reads
+  `its sound is in a format that cinq cannot play`.  Before, it read `its
+  sound cannot play: not a sound file that cinq can play`, which denied that
+  the file was a sound file, though cinq had opened the video.
+- The notice of output that cinq dropped while the problems of `config.toml`
+  showed reads `cinq: 1 byte of output written while ...` for one byte, and
+  `N bytes of output written while ...` for more.  Before, it read `1 bytes`
+  and `output from while`.
+- The help of an output whose device is not there says `Connect the device, or
+  choose another`, as the sidebar says that the user chooses a device.  Before,
+  it said `pick another`.
+- A network cue whose message waited more than a second says `message not
+  sent: more than a second late`.  Before, it said `message not sent: dropped
+  rather than sent more than a second late`.
 
 ## v0.1.7
 

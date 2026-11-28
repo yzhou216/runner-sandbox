@@ -6,7 +6,7 @@
 
 use super::{flip, mark};
 use crate::{
-    back::{Cue, CueId, Kind},
+    back::{Cue, CueId, Kind, memo},
     front::Message,
 };
 
@@ -37,6 +37,5 @@ fn a_click_on_the_mark_of_a_group_flips_that_group() {
 
 #[test]
 fn a_cue_that_is_no_group_has_no_mark_to_click() {
-    let memo = Cue::new(CueId(8), "8", Kind::Memo, "Note").build();
-    assert!(flip(&memo).is_none());
+    assert!(flip(&memo(8)).is_none());
 }

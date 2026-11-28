@@ -8,7 +8,9 @@ use super::{
     super::{Column, columns::states::state},
     texts,
 };
-use crate::back::{Advance, Command, Cue, CueId, Edit, Kind, Workspace, fresh, loaded, sound};
+use crate::back::{
+    Advance, Command, Cue, CueId, Edit, Kind, Workspace, fresh, group, loaded, sound,
+};
 
 /// Returns a list of a looping audio cue, a group that holds an audio cue of
 /// ten seconds after a pre-wait of one, and a group that holds nothing
@@ -22,7 +24,6 @@ fn grouped(depth: u8) -> Workspace {
             .post_wait(2.0)
             .build()
     };
-    let group = |id: u32| Cue::new(CueId(id), id.to_string(), Kind::Group, "Group").build();
     let workspace = fresh(vec![group(1), ten(2), group(3)]);
     workspace.apply(loaded(2, "rain.ogg", sound(10.0)))
 }
@@ -55,12 +56,11 @@ fn a_cue_in_a_group_shows_no_post_wait_and_no_then_setting() {
 
 #[test]
 fn a_start_cue_in_the_group_that_it_starts_reads_in_target() {
-    let group = Cue::new(CueId(1), "1", Kind::Group, "Group").build();
     let start = Cue::new(CueId(2), "2", Kind::Start, "Start")
         .target(CueId(1))
         .depth(1)
         .build();
-    let workspace = fresh(vec![group, start]);
+    let workspace = fresh(vec![group(1), start]);
     let list = &workspace.lists()[0];
     let (state, _) = state(&workspace, &list.cues[1], None, false);
     assert_eq!(state, "IN TARGET");

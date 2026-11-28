@@ -145,11 +145,21 @@ pub(super) fn move_standby(id: u32) -> Command {
     move_standby_in(0, id)
 }
 
-pub(super) fn ids(workspace: &Workspace) -> Vec<u32> {
+/// Returns the identities of the cues of the first list in order
+pub(crate) fn ids(workspace: &Workspace) -> Vec<u32> {
     workspace.lists()[0]
         .cues
         .iter()
         .map(|cue| cue.id.0)
+        .collect()
+}
+
+/// Returns the identity and target of each cue of the first list
+pub(crate) fn targets(workspace: &Workspace) -> Vec<(u32, Option<u32>)> {
+    workspace.lists()[0]
+        .cues
+        .iter()
+        .map(|cue| (cue.id.0, cue.target.map(|target| target.0)))
         .collect()
 }
 

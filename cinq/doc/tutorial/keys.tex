@@ -82,9 +82,9 @@ bar names the keys that pick and close it, and \key{PageDown}, \key{PageUp},
 
 \section{Key sequences}
 
-Some actions take more than one key, such as \key{gg},
-which selects the first cue.  The keys of a sequence are typed one after
-another with no \key{Space} between them, since \key{Space} is GO.
+Some actions take more than one key, such as \key{gg}, which selects the first
+cue.  The keys of a sequence are typed one after another with no \key{Space}
+between them, since \key{Space} is GO.
 
 \begin{enumerate}
 \item Press \key{g}.  The status bar shows the keys typed so far, and a box
@@ -109,11 +109,11 @@ last cue.  A number before the operator, before the motion, or both
 multiplies, so that \key{2d3j} cuts seven cues.  A key that does not
 continue the sequence cancels it and does nothing: cinq drops the keys typed
 so far without a sound or a message, so that a mistyped \key{dx} cuts nothing
-and the status bar goes back to its usual hints.  The keys for GO
-and Panic act immediately, even in the middle of a sequence.  \key{Control+c}
-cancels a sequence, as it does in Vim, and the status bar
-hints it while a sequence waits or a text field has the keyboard, so that no one
-reaches for \key{Escape}, which is Panic.
+and the status bar goes back to its usual hints.  The keys for GO and Panic
+act immediately, even in the middle of a sequence.  \key{Control+c} cancels a
+sequence, as it does in Vim, and the status bar hints it while a sequence
+waits or a text field has the keyboard, so that no one reaches for
+\key{Escape}, which is Panic.
 
 \section{Searching the cues}
 
@@ -123,20 +123,20 @@ A long cue list is easier to search than to scroll.
 \item Press the search key, \key{/}.  A search line opens at the left of
   the status bar.
 \item Type part of what the list shows of a cue, such as its name, its number,
-  or the file that it plays.  The selection moves to the first
-  cue after the selection that holds the text, in any case, and the list
-  scrolls to it.  The search wraps around the list and ends on the selection,
-  so that the selection is the match only when no other cue holds the text.
-  When no cue holds the text, the line says so and the selection goes back to
-  where the search began.
+  or the file that it plays.  The selection moves to the first cue after the
+  selection that holds the text, in any case, and the list scrolls to it.  The
+  search wraps around the list and ends on the selection, so that the
+  selection is the match only when no other cue holds the text.  When no cue
+  holds the text, the line says so and the selection goes back to where the
+  search began.
 \item While typing, \key{Control+w} deletes the word before the caret and
   \key{Control+u} everything before it, as in any text field, and
   \key{ArrowUp} and \key{ArrowDown} recall earlier searches that start with
   the text.
 \item Press \key{Enter} to accept the search.  \key{Control+c} and
-  \key{Escape}, which is also Panic, close the line and put the
-  selection back, and any click in the main window closes it and leaves the
-  selection where it is.
+  \key{Escape}, which is also Panic, close the line and put the selection
+  back, and any click in the main window closes it and leaves the selection
+  where it is.
 \item Press \key{n} for the next match in the direction of the search, wrapping
   around at the end of the list, and \key{N} for the next match in the other
   direction.  \key{Enter} on an empty line repeats the last search.
@@ -159,14 +159,14 @@ place for you, as Vimium does in a browser.
 \item Type the letters of one label.  The labels that the letters do not begin
   disappear, and \key{Backspace} takes a letter back.  When the letters are
   whole, cinq acts as a click on that place would: it presses the button,
-  flips the check box, shows the tab or the cue list, or gives the text field or
-  the drop-down list the keyboard, where \key{Enter} opens the menu.
-\item To leave without choosing, press \key{Control+c}, or
-  \key{Backspace} where no letter is typed, or click in the main window.  A letter that begins no label is
-  ignored, so that a slip never runs the next letters as commands.  GO and
-  Panic act as ever and leave too, and so does a cue that starts or ends in the
-  Active list of the sidebar, since the labels would no longer lie on their
-  places.
+  flips the check box, shows the tab or the cue list, or gives the text field
+  or the drop-down list the keyboard, where \key{Enter} opens the menu.
+\item To leave without choosing, press \key{Control+c}, or \key{Backspace}
+  where no letter is typed, or click in the main window.  A letter that begins
+  no label is ignored, so that a slip never runs the next letters as commands.
+  GO and Panic act as ever and leave too, and so does a cue that starts or ends
+  in the Active list of the sidebar, since the labels would no longer lie on
+  their places.
 \end{enumerate}
 
 The help page takes labels on its links.  The rows of the cue list have their
@@ -174,12 +174,12 @@ own keys.  GO and Panic have no label, as their keys act from everywhere.
 
 \section{Changing the keys}
 
-The configuration file, \texttt{config.toml}, binds actions to other keys.  It
-can also declare keymaps of its own, since cinq ships only vi.  The help page
-links to it, and following the link creates the file if it does not exist.
-cinq rereads the file whenever it changes, so edits take effect as soon as the
-file is saved.  The manual page \texttt{cinq(5)} describes every setting, lists
-the keys of the vi keymap, and tells how to declare a keymap of one's own.
+The configuration file, \texttt{config.toml}, binds actions to other keys and
+declares keymaps of its own.  The help page links to it, and following the link
+creates the file if it does not exist.  cinq rereads the file whenever it
+changes, so edits take effect as soon as the file is saved.  The manual page
+\texttt{cinq(5)} describes every setting, lists the keys of the vi keymap, and
+shows how to declare a keymap of one's own.
 
 \section*{Exercise}
 

@@ -81,7 +81,7 @@ pub enum Problem<'a> {
     #[strum(to_string = "no target cue")]
     NoTarget,
     /// Control cue names a cue that it cannot act on, such as itself, or a
-    /// group for a fade or a devamp
+    /// group for a fade.  A devamp on a group is [`Problem::NotAudioOrVideo`].
     #[strum(to_string = "cannot act on its target cue")]
     WrongTarget,
     /// Devamp cue targets a cue that is no audio or video cue, such as a

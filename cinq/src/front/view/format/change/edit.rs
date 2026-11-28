@@ -8,16 +8,18 @@ use crate::back::Edit;
 
 /// Describes the edit `redo` of the cue numbered `cue`
 pub(super) fn edited(cue: &str, redo: &Edit) -> String {
-    // Refused time stays in the field and counts as zero
+    // Refused time stays in the field and counts as zero, except an end or a
+    // loop time, which reads as empty
     let unread = match redo {
-        Edit::Start(time)
-        | Edit::End(time)
-        | Edit::LoopStart(time)
-        | Edit::LoopEnd(time)
-        | Edit::PreWait(time)
-        | Edit::Duration(time)
-        | Edit::PostWait(time) => !time.is_valid(),
-        _ => false,
+        Edit::Start(time) | Edit::PreWait(time) | Edit::Duration(time) | Edit::PostWait(time)
+            if !time.is_valid() =>
+        {
+            Some("zero")
+        }
+        Edit::End(time) | Edit::LoopStart(time) | Edit::LoopEnd(time) if !time.is_valid() => {
+            Some("empty")
+        }
+        _ => None,
     };
     let of = |part: &str| format!("changed the {part} of cue {cue}");
     let told = match redo {
@@ -45,9 +47,8 @@ pub(super) fn edited(cue: &str, redo: &Edit) -> String {
         Edit::Destination(_) => of("destination"),
         Edit::Message(_) => of("message"),
     };
-    if unread {
-        format!("{told} to zero")
-    } else {
-        told
+    match unread {
+        Some(reading) => format!("{told} to {reading}"),
+        None => told,
     }
 }

@@ -176,3 +176,23 @@ fn release_of_a_button_that_sends_a_wide_zero_gives_no_command() {
     let pressed = commands(&wide(b",d\0\0", 1_f64.to_be_bytes()), from);
     assert_eq!(pressed, [Heard::Command(from, Remote::Go)]);
 }
+
+#[test]
+fn unknown_address_is_cut_at_sixty_four_characters_and_escaped_in_its_note() {
+    let from = LOOPBACK.into();
+    let note = |datagram: &[u8]| match commands(datagram, from).as_slice() {
+        [Heard::Ignored(line)] => line.clone(),
+        other => panic!("one note, not {other:?}"),
+    };
+    let long = format!("/{}", "a".repeat(100));
+    assert_eq!(
+        note(&osc::packet(&long).unwrap()),
+        format!("OSC from {from}: unknown address {:?}", &long[..64])
+    );
+    // Escape that would recolor or clear a terminal reads as text
+    let escape = [b"/\x1b[2J\0\0\0".as_slice(), b",\0\0\0"].concat();
+    assert_eq!(
+        note(&escape),
+        format!("OSC from {from}: unknown address {:?}", "/\u{1b}[2J")
+    );
+}

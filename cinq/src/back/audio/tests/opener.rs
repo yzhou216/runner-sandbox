@@ -107,7 +107,8 @@ fn noted(events: &Mutex<Vec<String>>, event: &str) {
             .iter()
             .any(|noted| noted == event)
             .then_some(())
-    });
+    })
+    .expect("the device noted the event within five seconds");
 }
 
 #[test]

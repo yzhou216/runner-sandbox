@@ -118,9 +118,12 @@ pub(super) fn send(levels: &mpsc::Receiver<Universes>, reports: &Reporter) {
             return;
         };
         (latest, leaving) = received;
-        listing = listing.at(Instant::now(), super::interfaces);
-        let interfaces = listing.items();
         let due = !latest.is_empty() || !leaving.is_empty();
+        // An idle round sends nothing, so it reads no list from the system
+        if due {
+            listing = listing.at(Instant::now(), super::interfaces);
+        }
+        let interfaces = listing.items();
         let frame = Frame {
             socket: &socket,
             interfaces,
@@ -140,13 +143,19 @@ pub(super) fn send(levels: &mpsc::Receiver<Universes>, reports: &Reporter) {
 /// Waits for the next change of the patch, or for the pace of the round to
 /// pass, and returns the universes and the leaving ones that the round
 /// starts with, or none once the sender is dropped
-fn receive(
+pub(super) fn receive(
     levels: &mpsc::Receiver<Universes>,
     latest: Universes,
     leaving: Leaving,
 ) -> Option<(Universes, Leaving)> {
     let wait = if leaving.is_empty() { REFRESH } else { TICK };
-    match levels.recv_timeout(wait) {
+    // With nothing to send or to end, only a change needs a wake
+    let received = if latest.is_empty() && leaving.is_empty() {
+        levels.recv().map_err(|_| RecvTimeoutError::Disconnected)
+    } else {
+        levels.recv_timeout(wait)
+    };
+    match received {
         Ok(universes) => {
             let leaving = leaving.changed(&latest, &universes);
             Some((universes, leaving))

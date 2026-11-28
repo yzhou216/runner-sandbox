@@ -21,18 +21,29 @@ fn watched(workspace: &Workspace) -> Vec<Watch> {
 }
 
 /// Returns whether the watch of the files that have been read wakes within
-/// a few intervals
+/// five seconds, which takes a few intervals unless the machine is busy
 fn wakes(workspace: &Workspace) -> bool {
     let every = Duration::from_millis(10);
     let mut woken = watch(watched(workspace), every).boxed();
+    (0..500).any(|_| {
+        thread::sleep(every);
+        woken.next().now_or_never().flatten().is_some()
+    })
+}
+
+/// Returns whether the watch of the files that have been read stays silent
+/// for twenty intervals
+fn stays_quiet(workspace: &Workspace) -> bool {
+    let every = Duration::from_millis(10);
+    let mut woken = watch(watched(workspace), every).boxed();
     thread::sleep(every * 20);
-    woken.next().now_or_never().flatten().is_some()
+    woken.next().now_or_never().flatten().is_none()
 }
 
 #[test]
 fn files_that_stay_as_they_were_never_wake_the_watch() {
     let directory = directory();
-    assert!(!wakes(&read(&directory, &["good.wav", "fake.wav"])));
+    assert!(stays_quiet(&read(&directory, &["good.wav", "fake.wav"])));
 }
 
 #[test]
@@ -52,7 +63,7 @@ fn file_that_goes_wakes_the_watch_once_and_wakes_it_again_when_it_comes_back() {
     fs::remove_file(&path).expect("the file can be removed");
     assert!(wakes(&workspace));
     let gone = looked_at(workspace);
-    assert!(!wakes(&gone));
+    assert!(stays_quiet(&gone));
     fs::write(&path, kept).expect("the file can be written");
     assert!(wakes(&gone));
 }

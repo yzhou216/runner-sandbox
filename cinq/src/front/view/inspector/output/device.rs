@@ -76,6 +76,6 @@ pub(super) fn hint(app: &App, output: &Output) -> &'static str {
     match (missing(app, output), &output.device) {
         (false, _) => "",
         (true, Device::Default) => "Connect it, or choose another Default device in the sidebar",
-        (true, _) => "Connect the device, or pick another",
+        (true, _) => "Connect the device, or choose another",
     }
 }

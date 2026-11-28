@@ -70,10 +70,9 @@ fn a_file_typed_into_an_unnamed_cue_is_told_by_a_short_notice() {
 #[test]
 fn a_move_is_told_to_enter_or_leave_a_group_only_where_the_depth_changes() {
     let within = |cue: Cue| Cue { depth: 1, ..cue };
-    let group = Cue::new(CueId(2), "2", Kind::Group, "Group").build();
     let shown = fresh(vec![
         memo(1),
-        group,
+        group(2),
         within(memo(3)),
         within(memo(4)),
         memo(5),
@@ -113,8 +112,11 @@ fn clearing_the_last_send_of_a_cue_is_told_as_playing_nowhere() {
 
 #[test]
 fn a_cue_added_below_a_group_or_one_of_its_cues_is_told_to_be_in_a_group() {
-    let group = Cue::new(CueId(1), "1", Kind::Group, "Group").build();
-    let held = Cue::new(CueId(2), "2", Kind::Memo, "Note").depth(1).build();
+    let group = group(1);
+    let held = Cue {
+        depth: 1,
+        ..memo(2)
+    };
     let after = |cues: Vec<Cue>, at: CueId, count| {
         told(&fresh(cues).apply(Command::Add {
             list: 0,
