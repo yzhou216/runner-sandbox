@@ -1,0 +1,87 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+SPDX-License-Identifier: MIT
+
+The change proposed to github.com/nix-community/disko, on top of its
+master at 44761d4, under the license of that repository.
+
+From e3d15a59209e6e6f2d820cdc44329e91d5db549d Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Fri, 27 Nov 2026 23:37:13 -0800
+Subject: [PATCH] lib/types/bcachefs: format devices without a label
+
+The label of a bcachefs device defaults to "", but disko passes
+`--label=` to `bcachefs format` even then, which bcachefs-tools 1.39.7
+rejects:
+
+  error creating disk path: Invalid argument (os error 22)
+
+so a device left without a label cannot be formatted.  Pass `--label`
+only when a label is set, and drop the label of vde1 from the bcachefs
+example, so that the test covers a device without one.
+
+Assisted-by: LLM
+---
+ example/bcachefs.nix   | 1 -
+ lib/types/bcachefs.nix | 5 +++--
+ tests/bcachefs.nix     | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/example/bcachefs.nix b/example/bcachefs.nix
+index 023822b..6005cfc 100644
+--- a/example/bcachefs.nix
++++ b/example/bcachefs.nix
+@@ -87,7 +87,6 @@
+               content = {
+                 type = "bcachefs";
+                 filesystem = "relies_on_external_subvolume";
+-                label = "group_a.vde1";
+               };
+             };
+           };
+diff --git a/lib/types/bcachefs.nix b/lib/types/bcachefs.nix
+index a1e00a1..de8281c 100644
+--- a/lib/types/bcachefs.nix
++++ b/lib/types/bcachefs.nix
+@@ -33,7 +33,7 @@
+       description = "Extra arguments passed to the bcachefs format command.";
+       example = [ "--discard" ];
+     };
+-    # This value is passed to the `--label` option for the device corresponding to this one in the invocation of the `bcachefs format` command
++    # This value, unless empty, is passed to the `--label` option for the device corresponding to this one in the invocation of the `bcachefs format` command
+     # in the bcachefs_filesystem type defined in bcachefs_filesystem.nix used to format the bcachefs filesystem that this device is a part of.
+     label = lib.mkOption {
+       type = lib.types.str;
+@@ -41,6 +41,7 @@
+       description = ''
+         Label to use for this device.
+         This value is passed as the `--label` argument to the `bcachefs format` command when formatting the device.
++        If it is empty, the device is formatted without a label.
+       '';
+       example = "group_a.sda2";
+     };
+@@ -66,7 +67,7 @@
+       default = ''
+         # Write device arguments to temporary directory for bcachefs_filesystem.
+         {
+-          printf '%s\n' '--label=${config.label}';
++          ${lib.optionalString (config.label != "") ''printf '%s\n' '--label=${config.label}';''}
+           ${lib.concatMapStrings (args: ''printf '%s\n' '${args}';'') config.extraFormatArgs}
+           printf '%s\n' '${config.device}';
+         } >> "$disko_devices_dir/bcachefs-${lib.escapeShellArg config.filesystem}";
+diff --git a/tests/bcachefs.nix b/tests/bcachefs.nix
+index b671551..ae416e5 100644
+--- a/tests/bcachefs.nix
++++ b/tests/bcachefs.nix
+@@ -71,7 +71,7 @@ diskoLib.testLib.makeDiskoTest {
+     expected_multi = {"group_a.vdb2", "group_a.vdc1", "group_b.vdd1"}
+     assert multi_labels == expected_multi, f"Expected {expected_multi}, got {multi_labels}"
+     single_labels = set(machine.succeed(f"cat {single_sysfs}/dev-*/label").split())
+-    assert single_labels == {"group_a.vde1"}, f"Expected {{'group_a.vde1'}}, got {single_labels}"
++    assert single_labels == {"none"}, f"Expected no label, got {single_labels}"
+ 
+     # Verify format arguments via sysfs options.
+     multi_comp = machine.succeed(f"cat {multi_sysfs}/options/compression").strip()
+-- 
+2.56.1
+
