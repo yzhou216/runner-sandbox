@@ -48,6 +48,7 @@ jobs:
       - if: always()
         run: command grep -v '\.drv$' drv-after.txt || true
   loader:
+    if: false # Ran in run 46136774712
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -68,6 +69,7 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
       - run: ./loader.sh ${{ matrix.system }} ${{ matrix.same }}
   packages:
+    if: false # Ran in run 46136774712
     strategy:
       fail-fast: false
       matrix:

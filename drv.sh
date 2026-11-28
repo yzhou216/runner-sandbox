@@ -14,7 +14,8 @@ scrub() { sed -E 's#/nix/store/[a-z0-9]{32}-#/nix/store/HASH-#g; s#cinq-(before|
 export flake
 one() {
   kind=$1 system=$2 output=$3
-  value=$(nix eval --raw "$flake#$kind.$system${output:+.$output}.drvPath" 2>&1 | tail -n 1 | scrub)
+  value=$(nix eval --raw "$flake#$kind.$system${output:+.$output}.drvPath" 2>&1 | tail -n 1)
+  case $value in /nix/store/*.drv) ;; *) value=$(scrub <<< "$value") ;; esac
   echo "$kind $system ${output:--} $value"
 }
 export -f one scrub
