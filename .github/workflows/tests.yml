@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Runs cinq's own test suite (cargo test) natively on runners that cinq's CI
+# never runs it on, for the OLD and NEW builds of the 2026-11-27 line-cutting
+# round, from a git clone of each at its full SHA.
+name: Native tests
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  OLD: e304bd4e581af53fa32c5ae9a598c2d655130e61
+  NEW: efa362c0f5193bc3bd73bbc4494284fa6c6429ce
+  CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+  FONTCONFIG_FILE: /dev/null
+  CARGO_TERM_COLOR: never
+  CARGO_PROFILE_DEV_DEBUG: '0'
+jobs:
+  hosted:
+    name: ${{ matrix.os }} ${{ matrix.build }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm, macos-latest]
+        build: [OLD, NEW]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: dtolnay/rust-toolchain@stable
+      - run: |
+          sha=${{ matrix.build == 'OLD' && env.OLD || env.NEW }}
+          git clone -q https://github.com/yzhou216/cinq src
+          git -C src checkout -q "$sha"
+          git -C src rev-parse HEAD
+          rustc -V
+      - run: |
+          cd src
+          cargo test --locked --no-fail-fast 2>&1 | tee ../test.log || true
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-${{ matrix.os }}-${{ matrix.build }}
+          path: test.log
+          if-no-files-found: ignore
+  freebsd:
+    name: x86_64-freebsd ${{ matrix.build }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [OLD, NEW]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: vmactions/freebsd-vm@main
+        with:
+          release: '15.1'
+          arch: x86_64
+          mem: 8192
+          cpu: 4
+          envs: 'OLD NEW CINQ_SHARE_DIR FONTCONFIG_FILE CARGO_TERM_COLOR CARGO_PROFILE_DEV_DEBUG'
+          prepare: pkg install -y bash git rust pkgconf alsa-lib jackit
+          run: |
+            uname -a
+            sha=${{ matrix.build == 'OLD' && env.OLD || env.NEW }}
+            git clone -q https://github.com/yzhou216/cinq src
+            git -C src checkout -q "$sha"
+            git -C src rev-parse HEAD
+            rustc -V
+            cd src
+            cargo test --locked --no-fail-fast > "$OLDPWD/test.log" 2>&1 || true
+            tail -n 40 "$OLDPWD/test.log"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-x86_64-freebsd-${{ matrix.build }}
+          path: test.log
+          if-no-files-found: ignore
