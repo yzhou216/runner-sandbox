@@ -1,0 +1,72 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  fb19afd router: correct the notes on testing in a VM
+  69d29f6 openwrt: explain the hash mismatches of the package feeds
+  54e8a32 flake: update openwrt-imagebuilder for fresh feed hashes
+
+diff --git a/flake.lock b/flake.lock
+index b3f4d32..fe58fd5 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -392,11 +392,11 @@
+         "systems": "systems_3"
+       },
+       "locked": {
+-        "lastModified": 1795717388,
+-        "narHash": "sha256-34lUY49gZBkt12Z0rHXojjtCVOT4qU7lUCBXY8gLeUk=",
++        "lastModified": 1795802588,
++        "narHash": "sha256-uH0RyyISSH6sfmB5+z3slSUgr0drEjjyFBX1H0seOT8=",
+         "owner": "astro",
+         "repo": "nix-openwrt-imagebuilder",
+-        "rev": "38bd2b4115b107d44efb34e57333e803a446514b",
++        "rev": "8cae777c4a3bfd9333c524b2c12223b931635f3b",
+         "type": "github"
+       },
+       "original": {
+diff --git a/flake.nix b/flake.nix
+index e74cecb..5335cf1 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -149,16 +149,16 @@
+         };
+ 
+         /*
+-          When testing out in an VM, `$ nixos-rebuild build-vm --flake
+-          .#router` won't work, since it builds the stock
+-          `system.build.vm`, which boots an empty overlay root and
++          When testing in a VM, `$ nixos-rebuild build-vm --flake
++          .#router` does not work, since it builds the stock
++          `system.build.vm`, which boots a blank root disk image and
+           ignores the disko layout entirely (no bcachefs partitions,
+-          no swap, and no mounted subvolumes).  It also fails pure
+-          evaluation, because importing
+-          `../../systems/nixos/commons.nix` pulls in the emacs-overlay
+-          `fetchTarball` without a pinned `sha256`.  Instead, build a
++          no swap, and no mounted subvolumes).  The configuration
++          also fails pure evaluation, because
++          `systems/nixos/commons.nix` fetches the emacs overlay and
++          the Emacs source without pinned hashes.  Instead, build a
+           VM backed by a real disko image, which boots the actual
+-          bcachefs/swap layout:
++          bcachefs and swap layout:
+           `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
+         */
+         router = nixosSystem-patched {
+@@ -197,6 +197,14 @@
+       packages.x86_64-linux.openwrt =
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++          /*
++            The openwrt-imagebuilder input pins the hashes of the
++            OpenWrt package feeds, which change every day or two while
++            a release is maintained.  Upstream refreshes the hashes
++            daily, so when evaluation stops at a hash mismatch, update
++            the input with `nix flake update openwrt-imagebuilder`.
++          */
+           profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
+           config = profiles.identifyProfile "avm_fritz7412" // {
+             # Packages to include in the image instead of installing them later
