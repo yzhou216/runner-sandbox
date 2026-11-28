@@ -1,0 +1,128 @@
+[[list]]
+name = "Act 1"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "memo"
+name = "House open"
+advance = "continue"
+notes = "The preshow music plays while the audience comes in."
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "audio"
+name = "Preshow music"
+file = "sounds/preshow.ogg"
+loop = true
+level = -8.0
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "fade"
+name = "Preshow out"
+target = 2
+duration = 6.0
+post_wait = 4.0
+advance = "continue"
+level = -60.0
+stop_target = true
+
+[[list.cue]]
+id = 4
+number = "4"
+kind = "audio"
+name = "Distant thunder"
+file = "sounds/thunder.wav"
+post_wait = 1.5
+advance = "continue"
+level = -12.0
+
+[[list.cue]]
+id = 5
+number = "5"
+kind = "audio"
+name = "Rain"
+file = "sounds/rain.flac"
+loop = true
+level = -20.0
+
+[[list.cue]]
+id = 6
+number = "6"
+kind = "fade"
+name = "Rain up"
+target = 5
+duration = 8.0
+level = -6.0
+stop_target = false
+
+[[list.cue]]
+id = 7
+number = "7"
+kind = "audio"
+name = "Thunder crack"
+file = "sounds/thunder.wav"
+start = 0.2
+end = 3.5
+level = -2.0
+
+[[list.cue]]
+id = 8
+number = "8"
+kind = "fade"
+name = "Rain out"
+target = 5
+duration = 10.0
+level = -60.0
+stop_target = true
+
+[[list]]
+name = "Act 2"
+
+[[list.cue]]
+id = 9
+number = "9"
+kind = "picture"
+name = "Title card"
+file = "pictures/title.png"
+
+[[list.cue]]
+id = 10
+number = "10"
+kind = "video"
+name = "Opening film"
+file = "video/film.mp4"
+advance = "continue"
+level = -6.0
+
+[[list.cue]]
+id = 11
+number = "11"
+kind = "fade"
+name = "Title card out"
+target = 9
+duration = 1.0
+level = -60.0
+stop_target = true
+
+[[list]]
+name = "Effects"
+
+[[list.cue]]
+id = 12
+number = "E1"
+kind = "audio"
+name = "Doorbell"
+file = "sounds/bell.mp3"
+level = 0.0
+
+[[list.cue]]
+id = 13
+number = "E2"
+kind = "audio"
+name = "Knock"
+file = "sounds/knock.wav"
+level = 0.0
