@@ -3,10 +3,10 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  57ae32a router: correct the notes on testing in a VM
-  9953ef9 disko: move the bcachefs image builder workaround into the layout
-  9ac597a openwrt: explain the hash mismatches of the package feeds
-  15947f9 flake: update openwrt-imagebuilder for fresh feed hashes
+  c4bb984 router: correct the notes on testing in a VM
+  b916c66 disko: move the bcachefs image builder workaround into the layout
+  76c5b90 openwrt: explain the hash mismatches of the package feeds
+  79bcab8 flake: update openwrt-imagebuilder for fresh feed hashes
 
 diff --git a/disko/bcachefs-image-builder.nix b/disko/bcachefs-image-builder.nix
 new file mode 100644
@@ -76,7 +76,7 @@ index b3f4d32..fe58fd5 100644
        },
        "original": {
 diff --git a/flake.nix b/flake.nix
-index e74cecb..bab16cc 100644
+index e74cecb..ccce8b4 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -149,16 +149,16 @@
@@ -100,7 +100,7 @@ index e74cecb..bab16cc 100644
 +          the Emacs source without pinning them.  Instead, build a
            VM backed by a real disko image, which boots the actual
 -          bcachefs/swap layout:
-+          bcachefs and swap layout:
++          bcachefs and swap layout (still with --impure):
            `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
          */
          router = nixosSystem-patched {
