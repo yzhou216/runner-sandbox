@@ -16,7 +16,7 @@ every run since October 31, with CI that checks the flake as committed:
   configuration, which `nix flake check --all-systems` evaluates on
   GNU/Linux.
 - A new `check.yml` runs `nix flake check --impure --all-systems
-  --keep-going` on each push and pull request, after refreshing only the
+  --keep-going` on each push and pull request, after updating only the
   `openwrt-imagebuilder` input.
 - `build-galago.yml` builds `flake.lock` as committed on each push to
   master, and runs `nix flake update` only in a daily scheduled run, which
@@ -25,20 +25,29 @@ every run since October 31, with CI that checks the flake as committed:
   substituters of the flake's `nixConfig`, it installs upstream Nix like
   `check.yml`, and every action is pinned to a commit.
 
-The final series, from `flake-check/flake.patch`:
+The final series, from `flake-check/flake.patch`, revised after review:
 
 ```
-2288c78 flake: format with nix fmt
-1febbe9 flake: check the formatting of the nix files
-ed9148d flake: check the darwin configurations
-d43d33d workflows: run nix flake check on each push
-c967361 workflows: refresh the openwrt hashes before the check
-bad6bef workflows: build galago from flake.lock, and update it once a day
-aeb5810 workflows: keep long galago builds from overlapping and being cut off
-a45d80b workflows: substitute from the caches of flake.nix in the galago build
-25b5a96 workflows: install upstream nix in the galago build
-90548b4 workflows: pin the actions of the galago build to commits
+0e48e1e flake: add nixfmt-tree as the formatter
+797be54 flake: check the formatting of the nix files
+2847fb7 flake: check the darwin configurations
+0fadd3d workflows: run nix flake check on each push
+9b3183e workflows: update the openwrt image builder before the check
+0029854 workflows: build galago as locked on push, and with updated inputs daily
+3811cf6 workflows: cancel a superseded galago build
+64ed98e workflows: time out the galago build before the job limit
+6f10ce5 workflows: substitute from the caches of flake.nix in the galago build
+90f8c84 workflows: install upstream nix in the galago build
+8d647f9 workflows: pin the actions of the galago build to commits
 ```
+
+The review changed no step of either workflow and no expression of
+`flake.nix`.  It reworded subjects, bodies, and comments, renamed the
+OpenWrt step of `check.yml` to "Update the OpenWrt Image Builder", moved
+the pin of `actions/upload-artifact` into the commit that adds it,
+added a comment on the explicit `bash` shell, and split the concurrency
+group and the timeouts of the galago build into two commits.  The
+previous ten commits ended at 90548b4, with the same steps.
 
 ## How it was tested
 
@@ -69,8 +78,10 @@ a45d80b workflows: substitute from the caches of flake.nix in the galago build
 | 46137810220 | flake-ci with the build as push and as update: galago needs 73 and 70 derivations built, and 3575 and 3593 paths fetched.  The listing of `/nix/build` in this run proves nothing, since `sleep` is missing in the build sandbox |
 | 46160287616, 46160466233 | build-dir probe: the first is void for the same reason; the second shows that builds run in `/nix/build/nix-*` with both cachix/install-nix-action (Nix 2.36.0) and DeterminateSystems/nix-installer-action (Determinate Nix 3.24.3) |
 | 46160613893, 46160613830 | Series with the OpenWrt refresh in `check.yml`: harness all `same`; `check-fixed` now fails only on the OpenWrt index at 15:35 UTC, with the Image Builder of November 27 that passed at 10:52 UTC, so the refresh narrows but does not close that gap |
-| 46161308313 | Harness on the final series: every existing target `same` on GNU/Linux and macOS, lints unchanged (nixfmt 1, deadnix 14, statix 36 lines), and the new outputs evaluate, except iris |
-| 46161308622 | flake-ci on the final series: `check` fails on the three problems of the base; `check-fixed` fails only on the OpenWrt index; `build` succeeds as push (40 derivations to build, 3573 paths to fetch) and as update (45 to build), and builds run in `/nix/build` |
+| 46161308313 | Harness on the previous series: every existing target `same` on GNU/Linux and macOS, lints unchanged (nixfmt 1, deadnix 14, statix 36 lines), and the new outputs evaluate, except iris |
+| 46161308622 | flake-ci on the previous series: `check` fails on the three problems of the base; `check-fixed` fails only on the OpenWrt index; `build` succeeds as push (40 derivations to build, 3573 paths to fetch) and as update (45 to build), and builds run in `/nix/build` |
+| 46162892338 | Harness on the revised series, eleven commits: every existing target `same` on GNU/Linux and macOS (galago `379jfljdw04f`, router `n2i3xv4pyjrm`, bcachefs-iso `fq5vv6f2dhib`, lexi `iskkgcvkzcy9`), lints unchanged (nixfmt 1, deadnix 14, statix 36 lines), and the new outputs evaluate, except iris; openwrt fails in both on the mips_24kc index |
+| 46162892320 | flake-ci on the revised series, at 16:01 UTC: `check` fails on the same three problems of the base; `check-fixed` fails only on the mips_24kc index, with the Image Builder of November 27; `build` succeeds as push (40 derivations to build, 3573 paths to fetch) and as update (45 to build, 3805 to fetch), and builds run in `/nix/build` |
 
 ## Why build-galago.yml failed
 
