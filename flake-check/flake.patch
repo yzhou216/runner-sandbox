@@ -6,6 +6,7 @@ Changes to github.com/yzhou216/flake under test, as a diff against
   8512cc3 commons: pin emacs-overlay as a flake input
   187d135 commons: pin emacs master as a flake input
   78526b5 flake: drop --impure from the build commands
+  5797d5e relock: drop emacs-src from flake.lock
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
 index 7930cc5..eb466f5 100644
@@ -29,10 +30,10 @@ index 7930cc5..eb466f5 100644
              --no-link \
              ".#nixosConfigurations.galago.config.system.build.toplevel"
 diff --git a/flake.lock b/flake.lock
-index b3f4d32..0b4296d 100644
+index b3f4d32..e7406a1 100644
 --- a/flake.lock
 +++ b/flake.lock
-@@ -79,6 +79,44 @@
+@@ -79,6 +79,27 @@
          "type": "github"
        }
      },
@@ -57,27 +58,10 @@ index b3f4d32..0b4296d 100644
 +        "type": "github"
 +      }
 +    },
-+    "emacs-src": {
-+      "flake": false,
-+      "locked": {
-+        "lastModified": 1795795059,
-+        "narHash": "sha256-UtUJpw9W1NI1cHpoDkdPc0dV48DlOimRmRwvLWSKdvU=",
-+        "owner": "emacsmirror",
-+        "repo": "emacs",
-+        "rev": "eb8c188750ea1bd50dd91e3ada949b3e155dc95e",
-+        "type": "github"
-+      },
-+      "original": {
-+        "owner": "emacsmirror",
-+        "ref": "master",
-+        "repo": "emacs",
-+        "type": "github"
-+      }
-+    },
      "flake-compat": {
        "flake": false,
        "locked": {
-@@ -305,6 +343,22 @@
+@@ -305,6 +326,22 @@
          "type": "github"
        }
      },
@@ -100,12 +84,11 @@ index b3f4d32..0b4296d 100644
      "nixpkgs_2": {
        "locked": {
          "lastModified": 1761236834,
-@@ -409,6 +463,8 @@
+@@ -409,6 +446,7 @@
        "inputs": {
          "darwin": "darwin",
          "disko": "disko",
 +        "emacs-overlay": "emacs-overlay",
-+        "emacs-src": "emacs-src",
          "homebrew-bundle": "homebrew-bundle",
          "homebrew-cask": "homebrew-cask",
          "homebrew-core": "homebrew-core",
