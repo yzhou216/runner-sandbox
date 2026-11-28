@@ -8,7 +8,7 @@
 use iced::Task;
 
 use super::{
-    super::{device, edit_config, open_link, open_tutorial},
+    super::{edit_config, open_link, open_tutorial},
     App, Message,
 };
 

@@ -34,7 +34,7 @@ fn socket_that_fails_to_open_is_tried_again_and_the_failure_and_the_success_are_
     let (_, latest) = bound(&levels, &reporter, fails_then_binds(2), SHORT)
         .expect("the socket opens at the third try");
     assert_eq!(latest, universes, "the levels that came meanwhile are kept");
-    let told: Vec<_> = iter::from_fn(|| reports.try_next().ok().flatten()).collect();
+    let told: Vec<_> = iter::from_fn(|| reports.try_recv().ok()).collect();
     assert_eq!(
         told,
         [Some("not sent: no free descriptor".to_owned()), None],
@@ -47,7 +47,7 @@ fn socket_that_opens_at_once_tells_nothing() {
     let (_sender, levels) = mpsc::channel();
     let (reporter, mut reports) = reporting::unbounded();
     assert!(bound(&levels, &reporter, fails_then_binds(0), SHORT).is_some());
-    assert!(reports.try_next().is_err());
+    assert!(reports.try_recv().is_err());
 }
 
 #[test]

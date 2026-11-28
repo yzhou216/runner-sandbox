@@ -127,14 +127,16 @@ impl Keeper {
         let _ = self.jobs.send(Job::After(Box::new(then)));
     }
 
-    /// Waits for the thread to make every change sent to it so far
+    /// Waits for the thread to make every change sent to it so far, which only
+    /// the tests need, since closing the window must not wait without end
+    #[cfg(test)]
     pub(super) fn settled(&self) {
         let _ = self.settling().recv();
     }
 
     /// Waits for the thread to make every change sent to it so far, for
     /// `limit` at most, and returns whether it did
-    fn settled_within(&self, limit: Duration) -> bool {
+    pub(super) fn settled_within(&self, limit: Duration) -> bool {
         self.settling().recv_timeout(limit).is_ok()
     }
 
