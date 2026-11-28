@@ -19,6 +19,7 @@ packages.x86_64-linux.openwrt
 packages.x86_64-linux.openwrt.config.files
 formatter.x86_64-linux
 formatter.aarch64-darwin
+checks.x86_64-linux.nixfmt
 checks.aarch64-darwin.iris
 checks.aarch64-darwin.lexi
 darwinConfigurations.iris.system

@@ -1,0 +1,1429 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  2330fc2 flake: move the nixpkgs patching into patched.nix
+  9690b0b patched: list the commits of each pull request as data
+  060745e treewide: remove unused bindings
+  5fd123d flake: build galago and router with a shared mkNixos helper
+  f118089 flake: build iris and lexi with a shared mkDarwin helper
+  2903ebd openwrt: move the fritzbox 7412 configuration into machines/openwrt
+  6b5c776 iris: accept the module arguments of nix-darwin
+  028a3a6 shell: use stdenv.hostPlatform.isDarwin instead of stdenv.isDarwin
+  860ca92 darwin: take no module arguments in the state version
+  2fec04d flake: fetch nix-darwin and nix-homebrew from their current owners
+  b70d9ac lexi: explain why the nixbld group id is set
+  5896b3d scripts: switch to the iris configuration in darwin_setup.sh
+  9452c8e scripts: match only the sip status line in darwin_setup.sh
+  8d4e664 scripts: pass the password to sudo verbatim in darwin_setup.sh
+  8bf8e5a scripts: run darwin-rebuild as root in darwin_setup.sh
+  977569b systems: import the shared modules through one module
+  c431751 shell: enable tmux for nixos and darwin alike
+  128435b man: move the nixos-only dev documentation to nixos commons
+  510d529 commons: merge the definitions of the t3code environment
+  b73c04a commons: move the t3code service into t3code.nix
+  55d147b commons: move the emacs overlays into emacs.nix
+  e8a59bb commons: drop commented-out settings of the configuration.nix template
+  e4f5165 commons: drop settings that nixos sets by default
+  cefb8bc commons: drop the networkmanager settings, which nothing enables
+  5c980ce commons: move networking, openssh, and tailscale into network.nix
+  0a6f517 emacs: pin emacs-overlay as a flake input
+  fb344c1 emacs: pin emacs master as a flake input
+  4226058 flake: drop --impure from the build commands
+  417af64 tty: remove the unused profile
+  127bb08 router: correct the notes on testing in a VM
+  e5ef46b openwrt: explain the hash mismatches of the package feeds
+  78762bb flake: update openwrt-imagebuilder for fresh feed hashes
+  1b1b92f flake: add nixfmt-tree as the formatter
+  02cc254 flake: check the formatting of the nix files
+  0292a50 flake: check the darwin configurations
+  0f9dc26 workflows: run nix flake check on each push
+  35bbecf workflows: update the openwrt image builder before the check
+  8d5a091 workflows: build galago as locked on push, and with updated inputs daily
+  368b4c9 workflows: cancel a superseded galago build
+  8d6c156 workflows: time out the galago build before the job limit
+  e692da4 workflows: substitute from the caches of flake.nix in the galago build
+  75c7443 workflows: install upstream nix in the galago build
+  408c59b workflows: pin the actions of the galago build to commits
+  b111222 darwin: drop nix-init, which dev.nix installs
+  662568c darwin: drop the no_quarantine cask argument
+  7545189 disko: move the bcachefs image builder workaround into the layout
+  aaa6e9b t3code: export the themes with the modus themes of emacs 31
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 7930cc5..5610ef2 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -1,34 +1,84 @@
++# Builds galago and pushes each path it builds to the yzhou216 Cachix
++# cache.
++#
++# On a push to master, it builds the inputs that flake.lock pins, which
++# is what `nixos-rebuild switch --flake .` deploys, so a failure there
++# means that the committed configuration does not build.
++#
++# Once a day, and when dispatched with `update`, it runs
++# `nix flake update` first, to find out whether galago builds with the
++# latest inputs and to fill the cache before the next update.  A
++# failure there is breakage upstream that updating would bring in.  The
++# job summary lists the inputs that changed, and the run keeps the
++# updated flake.lock as an artifact; to commit the inputs that the run
++# built, fetch it with
++# `gh run download <run> -R yzhou216/flake -n flake.lock`.
++name: build galago
+ on:
++  push:
++    branches: [master]
+   schedule:
+-    - cron: "0 */1 * * *"
++    - cron: "17 3 * * *"
+   workflow_dispatch:
+-
++    inputs:
++      update:
++        description: Update the flake inputs before building
++        type: boolean
++        default: true
++# Newer run of the same kind cancels the one in progress
++concurrency:
++  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || inputs.update) && 'update' || 'locked' }}
++  cancel-in-progress: true
++permissions:
++  contents: read
++# Explicit shell adds -o pipefail, which `nix flake update | tee` needs
++defaults:
++  run:
++    shell: bash
++env:
++  UPDATE: ${{ github.event_name == 'schedule' || inputs.update }}
+ jobs:
+   build:
+     runs-on: ubuntu-latest
++    timeout-minutes: 360
+     steps:
+-      - uses: actions/checkout@main
+-      - uses: wimpysworld/nothing-but-nix@main
+-      - uses: DeterminateSystems/nix-installer-action@main
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - uses: wimpysworld/nothing-but-nix@b2574ec1cf1462bee0a34de0fb6ff11ad3c43cb2 # v12
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+         with:
+-          extra-conf: |
++          extra_nix_config: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
+             build-dir = /nix/build
+-      - uses: cachix/cachix-action@master
++      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+         with:
+           name: yzhou216
+           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+       - name: Update flake.lock
+-        run: nix flake update
++        if: env.UPDATE == 'true'
++        run: |
++          nix flake update 2>&1 | tee update.log
++          {
++            echo '```'
++            cat update.log
++            echo '```'
++          } >>"$GITHUB_STEP_SUMMARY"
+ 
+-      # Same target as `nixos-rebuild switch --flake . --impure`;
+-      # `--impure` is needed because the Emacs overlay uses a bare
+-      # `builtins.fetchTarball`.
++      # Same target as `nixos-rebuild switch --flake .`;
+       # `--keep-going` builds the rest if one package fails, and
+       # cachix's daemon pushes each successful path as it builds.
++      # The step times out before the job does, which leaves cachix
++      # time to push the paths still queued.
+       - name: Build galago
++        timeout-minutes: 330
+         run: |
+           nix build \
+-            --impure \
+             --keep-going \
+             --no-link \
+             ".#nixosConfigurations.galago.config.system.build.toplevel"
++
++      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
++        if: always() && env.UPDATE == 'true'
++        with:
++          name: flake.lock
++          path: flake.lock
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+new file mode 100644
+index 0000000..930ac56
+--- /dev/null
++++ b/.github/workflows/check.yml
+@@ -0,0 +1,41 @@
++# Runs `nix flake check` on each push and pull request, with the inputs
++# that flake.lock pins, except openwrt-imagebuilder, which it updates
++# first.  It evaluates every NixOS and nix-darwin configuration and
++# package, and checks the formatting, in a few minutes, without building
++# any system.
++name: check
++on:
++  push:
++  pull_request:
++  workflow_dispatch:
++permissions:
++  contents: read
++jobs:
++  check:
++    runs-on: ubuntu-latest
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
++        with:
++          extra_nix_config: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
++
++      # The OpenWrt Image Builder pins the hashes of the package indexes
++      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
++      # updates them once a day, so packages.x86_64-linux.openwrt soon
++      # fails to evaluate with an older lock.  The update takes the newest
++      # Image Builder code and its own inputs as well, not only the
++      # hashes, so the check does not test that input as committed, and
++      # two runs of one commit can differ.  Building the image needs this
++      # update anyway; the run does not commit it.  The check can still
++      # fail on the OpenWrt package between a rebuild of OpenWrt and the
++      # next update of the Image Builder.
++      - name: Update the OpenWrt Image Builder
++        run: nix flake update openwrt-imagebuilder
++
++      # --all-systems evaluates the checks of aarch64-darwin, which are
++      # the nix-darwin configurations.
++      - name: Check the flake
++        run: nix flake check --all-systems --keep-going
+diff --git a/disko/bcachefs-image-builder.nix b/disko/bcachefs-image-builder.nix
+new file mode 100644
+index 0000000..42fdad1
+--- /dev/null
++++ b/disko/bcachefs-image-builder.nix
+@@ -0,0 +1,30 @@
++{ pkgs, lib, ... }:
++{
++  /*
++    The disko image-builder VM builds its initrd from in-tree kernel
++    modules only, but nixpkgs ships bcachefs as an out-of-tree module
++    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
++    tree and regenerate modules.dep so the builder's initrd can find
++    it.
++  */
++  disko.imageBuilder = {
++    extraRootModules = [ "bcachefs" ];
++    kernelPackages = pkgs.linuxPackages // {
++      kernel = pkgs.linuxPackages.kernel // {
++        modules = pkgs.buildEnv {
++          name = "kernel-modules-with-bcachefs";
++          paths = with pkgs.linuxPackages; [
++            kernel.modules
++            bcachefs
++          ];
++
++          postBuild = ''
++            version=$(cd $out/lib/modules && ls -d *)
++            ${lib.getExe' pkgs.kmod "depmod"} \
++              --basedir "$out" --all "$version"
++          '';
++        };
++      };
++    };
++  };
++}
+diff --git a/disko/bcachefs.nix b/disko/bcachefs.nix
+index 97549d2..5b1f3c9 100644
+--- a/disko/bcachefs.nix
++++ b/disko/bcachefs.nix
+@@ -1,5 +1,7 @@
+ { lib, ... }:
+ {
++  imports = [ ./bcachefs-image-builder.nix ];
++
+   disko.devices = {
+     disk.disk1 = {
+       device = lib.mkDefault "/dev/nvme0n1";
+diff --git a/flake.lock b/flake.lock
+index b3f4d32..3f58fe2 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -47,13 +47,13 @@
+       "locked": {
+         "lastModified": 1795747999,
+         "narHash": "sha256-VTPsIOYem/zQCO1QF3cpa4pLg2EoexjX5R1u3fs3L4k=",
+-        "owner": "lnl7",
++        "owner": "nix-darwin",
+         "repo": "nix-darwin",
+         "rev": "594c680c429be020d7130cc2b17d43c4760d17c7",
+         "type": "github"
+       },
+       "original": {
+-        "owner": "lnl7",
++        "owner": "nix-darwin",
+         "repo": "nix-darwin",
+         "type": "github"
+       }
+@@ -79,6 +79,44 @@
+         "type": "github"
+       }
+     },
++    "emacs-overlay": {
++      "inputs": {
++        "nixpkgs": [
++          "nixpkgs"
++        ],
++        "nixpkgs-stable": "nixpkgs-stable"
++      },
++      "locked": {
++        "lastModified": 1795850262,
++        "narHash": "sha256-GvQQ+GXuLGWjpDxr9bP4D4QKksLutCa5F1g8JqTNPEQ=",
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "rev": "0a34f1e1afa9308f294859e7f9cf86b0908dce85",
++        "type": "github"
++      },
++      "original": {
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "type": "github"
++      }
++    },
++    "emacs-src": {
++      "flake": false,
++      "locked": {
++        "lastModified": 1795861319,
++        "narHash": "sha256-zOw0pJALCp5cG08LvxIDqgYrsZT3deF2Ty/PkNLAXJs=",
++        "owner": "emacsmirror",
++        "repo": "emacs",
++        "rev": "f55a12f0b7976772b1744dc8c0150e5c013f40b2",
++        "type": "github"
++      },
++      "original": {
++        "owner": "emacsmirror",
++        "ref": "master",
++        "repo": "emacs",
++        "type": "github"
++      }
++    },
+     "flake-compat": {
+       "flake": false,
+       "locked": {
+@@ -248,13 +286,13 @@
+       "locked": {
+         "lastModified": 1795755327,
+         "narHash": "sha256-qpfNQ5tFivEE9t7CsQcir3FTCr6zYji53YS9pm3AzyA=",
+-        "owner": "zhaofengli-wip",
++        "owner": "zhaofengli",
+         "repo": "nix-homebrew",
+         "rev": "b279e781fbfede43b2b20e7278cf3c5312ca3301",
+         "type": "github"
+       },
+       "original": {
+-        "owner": "zhaofengli-wip",
++        "owner": "zhaofengli",
+         "repo": "nix-homebrew",
+         "type": "github"
+       }
+@@ -305,6 +343,22 @@
+         "type": "github"
+       }
+     },
++    "nixpkgs-stable": {
++      "locked": {
++        "lastModified": 1795502373,
++        "narHash": "sha256-CiSQ3/bsP5gXG2SQzOgwhqwl9MkBRhQQqJd3YmpaYL4=",
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "5b31ff946309736077f0c4ee23bb85d0a0a1c181",
++        "type": "github"
++      },
++      "original": {
++        "owner": "NixOS",
++        "ref": "nixos-26.05",
++        "repo": "nixpkgs",
++        "type": "github"
++      }
++    },
+     "nixpkgs_2": {
+       "locked": {
+         "lastModified": 1761236834,
+@@ -392,11 +446,11 @@
+         "systems": "systems_3"
+       },
+       "locked": {
+-        "lastModified": 1795717388,
+-        "narHash": "sha256-34lUY49gZBkt12Z0rHXojjtCVOT4qU7lUCBXY8gLeUk=",
++        "lastModified": 1795802588,
++        "narHash": "sha256-uH0RyyISSH6sfmB5+z3slSUgr0drEjjyFBX1H0seOT8=",
+         "owner": "astro",
+         "repo": "nix-openwrt-imagebuilder",
+-        "rev": "38bd2b4115b107d44efb34e57333e803a446514b",
++        "rev": "8cae777c4a3bfd9333c524b2c12223b931635f3b",
+         "type": "github"
+       },
+       "original": {
+@@ -409,6 +463,8 @@
+       "inputs": {
+         "darwin": "darwin",
+         "disko": "disko",
++        "emacs-overlay": "emacs-overlay",
++        "emacs-src": "emacs-src",
+         "homebrew-bundle": "homebrew-bundle",
+         "homebrew-cask": "homebrew-cask",
+         "homebrew-core": "homebrew-core",
+diff --git a/flake.nix b/flake.nix
+index e74cecb..e315dba 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -29,12 +29,23 @@
+ 
+     openwrt-imagebuilder.url = "github:astro/nix-openwrt-imagebuilder";
+ 
+-    darwin = {
+-      url = "github:lnl7/nix-darwin";
++    emacs-overlay = {
++      url = "github:nix-community/emacs-overlay";
+       inputs.nixpkgs.follows = "nixpkgs";
+     };
+ 
+-    nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
++    # Emacs master, built as emacs-git by systems/nixos/emacs.nix
++    emacs-src = {
++      url = "github:emacsmirror/emacs?ref=master";
++      flake = false;
++    };
++
++    darwin = {
++      url = "github:nix-darwin/nix-darwin";
++      inputs.nixpkgs.follows = "nixpkgs";
++    };
++
++    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+ 
+     homebrew-core = {
+       url = "github:homebrew/homebrew-core";
+@@ -64,120 +75,90 @@
+       openwrt-imagebuilder,
+       darwin,
+       nix-homebrew,
+-      homebrew-bundle,
+-      homebrew-core,
+-      homebrew-cask,
+       mac-app-util,
+       ...
+     }@inputs:
+     let
++      inherit (import ./patched.nix inputs) nixosSystem-patched;
++
+       /*
+-        Nixpkgs master with commits from open pull requests applied on
+-        top.  Each commit is pinned so that pushes to a pull request do
+-        not invalidate the hashes.  Evaluating a system from the
+-        patched tree imports from a derivation, so the patched source
+-        is built before evaluation.
+-
+-        TODO: remove the patches of each pull request once it is
+-        merged, and go back to `nixpkgs.lib.nixosSystem` once none are
+-        left.
++        NixOS system of the machine in machines/nixos/<name>.nix, with
++        the hardware report that nixos-facter wrote for it in
++        machines/nixos/facter/<name>.json.
+       */
+-      nixpkgs-patched =
+-        let
+-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+-          fetchPrCommit =
+-            pr: rev: hash:
+-            pkgs.fetchpatch {
+-              url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
+-              inherit hash;
+-            };
+-        in
+-        pkgs.applyPatches {
+-          name = "nixpkgs-patched";
+-          src = nixpkgs;
+-          patches = [
+-            # https://github.com/NixOS/nixpkgs/pull/550395
+-            # nixos/river: init
+-            (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca" "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=")
+-            # kwm: init at 0.3.0
+-            (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34" "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=")
+-            # nixos/kwm: init
+-            (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b" "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=")
+-            # kwim: init at 0.2.0
+-            (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e" "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=")
+-
+-            # https://github.com/NixOS/nixpkgs/pull/566470
+-            # maintainers: add jakob1379
+-            (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e" "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=")
+-            # nixos/t3code: init
+-            (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310" "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=")
++      mkNixos =
++        name:
++        nixosSystem-patched {
++          system = "x86_64-linux";
++          specialArgs = { inherit inputs; };
++          modules = [
++            nix-flatpak.nixosModules.nix-flatpak
++            nixos-facter-modules.nixosModules.facter
++            {
++              config.facter.reportPath =
++                let
++                  report = ./machines/nixos/facter/${name}.json;
++                in
++                if builtins.pathExists report then
++                  report
++                else
++                  throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
++            }
++            disko.nixosModules.disko
++            ./machines/nixos/${name}.nix
+           ];
+         };
+ 
+-      # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
+-      nixosSystem-patched =
+-        args:
+-        import "${nixpkgs-patched}/nixos/lib/eval-config.nix" (
+-          {
+-            lib = import "${nixpkgs-patched}/lib";
+-            system = null;
+-          }
+-          // args
+-          // {
+-            modules = args.modules ++ [ { config.nixpkgs.flake.source = nixpkgs-patched.outPath; } ];
+-          }
+-        );
++      /*
++        Darwin system of the machine in machines/darwin/<name>.nix, with
++        Homebrew and its taps managed by nix-homebrew for the primary
++        user that the machine sets.
++      */
++      mkDarwin =
++        name:
++        darwin.lib.darwinSystem {
++          system = "aarch64-darwin";
++          modules = [
++            mac-app-util.darwinModules.default
++            nix-homebrew.darwinModules.nix-homebrew
++            (
++              { config, ... }:
++              {
++                nix-homebrew = {
++                  enable = true;
++                  enableRosetta = true;
++                  user = config.system.primaryUser;
++                  taps = {
++                    "homebrew/homebrew-core" = inputs.homebrew-core;
++                    "homebrew/homebrew-cask" = inputs.homebrew-cask;
++                    "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
++                  };
++
++                  # Enable fully-declarative tap management
++                  # Taps can no longer be added imperatively with `brew tap`
++                  mutableTaps = false;
++                };
++              }
++            )
++            ./machines/darwin/${name}.nix
++          ];
++        };
+     in
+     {
+       nixosConfigurations = {
+-        galago = nixosSystem-patched {
+-          system = "x86_64-linux";
+-          specialArgs = { inherit inputs; };
+-          modules = [
+-            nix-flatpak.nixosModules.nix-flatpak
+-            nixos-facter-modules.nixosModules.facter
+-            {
+-              config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/galago.json then
+-                  ./machines/nixos/facter/galago.json
+-                else
+-                  throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+-            }
+-            disko.nixosModules.disko
+-            ./machines/nixos/galago.nix
+-          ];
+-        };
++        galago = mkNixos "galago";
+ 
+         /*
+-          When testing out in an VM, `$ nixos-rebuild build-vm --flake
+-          .#router` won't work, since it builds the stock
+-          `system.build.vm`, which boots an empty overlay root and
++          When testing in a VM, `$ nixos-rebuild build-vm --flake
++          .#router` does not work, since it builds the stock
++          `system.build.vm`, which boots a blank root disk image and
+           ignores the disko layout entirely (no bcachefs partitions,
+-          no swap, and no mounted subvolumes).  It also fails pure
+-          evaluation, because importing
+-          `../../systems/nixos/commons.nix` pulls in the emacs-overlay
+-          `fetchTarball` without a pinned `sha256`.  Instead, build a
+-          VM backed by a real disko image, which boots the actual
+-          bcachefs/swap layout:
+-          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
++          no swap, and no mounted subvolumes).  Instead, build a VM
++          backed by a real disko image, which boots the actual
++          bcachefs and swap layout:
++          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko`
+         */
+-        router = nixosSystem-patched {
+-          system = "x86_64-linux";
+-          specialArgs = { inherit inputs; };
+-          modules = [
+-            nix-flatpak.nixosModules.nix-flatpak
+-            nixos-facter-modules.nixosModules.facter
+-            {
+-              config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/router.json then
+-                  ./machines/nixos/facter/router.json
+-                else
+-                  throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+-            }
+-            disko.nixosModules.disko
+-            ./machines/nixos/router.nix
+-          ];
+-        };
++        router = mkNixos "router";
+ 
+         # nix build .#nixosConfigurations.bcachefs-iso.config.system.build.isoImage
+         bcachefs-iso = nixpkgs.lib.nixosSystem {
+@@ -197,81 +178,55 @@
+       packages.x86_64-linux.openwrt =
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++          /*
++            The openwrt-imagebuilder input pins the hashes of the
++            OpenWrt package feeds, which change every day or two while
++            a release is maintained.  Upstream refreshes the hashes
++            daily, so when evaluation stops at a hash mismatch, update
++            the input with `nix flake update openwrt-imagebuilder`.
++          */
+           profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
+-          config = profiles.identifyProfile "avm_fritz7412" // {
+-            # Packages to include in the image instead of installing them later
+-            packages = [ "tcpdump" ];
+-
+-            disabledServices = [ "dnsmasq" ];
+-
+-            /*
+-              Files to include in the image.  UCI configuration is set
+-              with a uci-defaults script, as the OpenWrt Image Builder
+-              documentation recommends.
+-            */
+-            files = pkgs.runCommand "image-files" { } ''
+-              mkdir -p $out/etc/uci-defaults
+-              cat > $out/etc/uci-defaults/99-custom <<EOF
+-              uci -q batch << EOI
+-              set system.@system[0].hostname='testap'
+-              commit
+-              EOI
+-              EOF
+-            '';
+-          };
+         in
+-        openwrt-imagebuilder.lib.build config;
++        openwrt-imagebuilder.lib.build (
++          import ./machines/openwrt/fritzbox-7412.nix { inherit pkgs profiles; }
++        );
+ 
+       darwinConfigurations = {
+-        iris = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "iris";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
++        iris = mkDarwin "iris";
++        lexi = mkDarwin "lexi";
++      };
+ 
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/iris.nix
+-          ];
+-        };
++      # nix fmt
++      formatter = nixpkgs.lib.genAttrs [
++        "x86_64-linux"
++        "aarch64-darwin"
++      ] (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
+ 
+-        lexi = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "lexi";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
++      /*
++        `nix flake check` builds these checks, in addition to evaluating
++        the NixOS configurations and the packages, which it does on its
++        own.
++      */
++      checks = {
++        # Fails on each Nix file that `nix fmt` would change
++        x86_64-linux.nixfmt =
++          let
++            pkgs = nixpkgs.legacyPackages.x86_64-linux;
++          in
++          pkgs.runCommand "nixfmt-check" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
++            cd ${self}
++            find . -name '*.nix' -exec nixfmt --check {} +
++            touch $out
++          '';
+ 
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/lexi.nix
+-          ];
+-        };
++        /*
++          Each nix-darwin configuration is a check too, since
++          `nix flake check` ignores `darwinConfigurations`.  It builds
++          them on aarch64-darwin, and evaluates them on other
++          platforms with `--all-systems`.
++        */
++        aarch64-darwin = builtins.mapAttrs (_: host: host.system) self.darwinConfigurations;
+       };
+     };
+ }
+diff --git a/machines/darwin/iris.nix b/machines/darwin/iris.nix
+index 6452831..df64c2c 100644
+--- a/machines/darwin/iris.nix
++++ b/machines/darwin/iris.nix
+@@ -1,4 +1,4 @@
+-{ }:
++{ ... }:
+ {
+   imports = [
+     ./state-version.nix
+diff --git a/machines/darwin/lexi.nix b/machines/darwin/lexi.nix
+index 872bbaf..f70c18c 100644
+--- a/machines/darwin/lexi.nix
++++ b/machines/darwin/lexi.nix
+@@ -1,6 +1,11 @@
+ { ... }:
+ {
+-  ids.gids.nixbld = 350; # temp
++  /*
++    The Nix installer of this machine created the nixbld group with GID
++    350, while nix-darwin expects 30000 at state version 4 and refuses
++    to activate when they differ.
++  */
++  ids.gids.nixbld = 350;
+ 
+   imports = [
+     ./state-version.nix
+diff --git a/machines/darwin/state-version.nix b/machines/darwin/state-version.nix
+index 46339ec..44b37a7 100644
+--- a/machines/darwin/state-version.nix
++++ b/machines/darwin/state-version.nix
+@@ -1,5 +1,4 @@
+-{ ... }:
+-{
++_: {
+   /*
+      This value determines the nix-darwin release from which the
+      default settings for stateful data, like file locations and
+diff --git a/machines/nixos/router.nix b/machines/nixos/router.nix
+index 2d03f38..6f13f94 100644
+--- a/machines/nixos/router.nix
++++ b/machines/nixos/router.nix
+@@ -1,4 +1,4 @@
+-{ pkgs, lib, ... }:
++{ ... }:
+ {
+   imports = [
+     ./state-version.nix
+@@ -8,32 +8,4 @@
+ 
+   services.dnsmasq.enable = true;
+   networking.hostName = "router";
+-
+-  /*
+-    The disko image-builder VM builds its initrd from in-tree kernel
+-    modules only, but nixpkgs ships bcachefs as an out-of-tree module
+-    (pkgs.linuxPackages.bcachefs).  Merge it into the kernel module
+-    tree and regenerate modules.dep so the builder's initrd can find
+-    it.
+-  */
+-  disko.imageBuilder = {
+-    extraRootModules = [ "bcachefs" ];
+-    kernelPackages = pkgs.linuxPackages // {
+-      kernel = pkgs.linuxPackages.kernel // {
+-        modules = pkgs.buildEnv {
+-          name = "kernel-modules-with-bcachefs";
+-          paths = with pkgs.linuxPackages; [
+-            kernel.modules
+-            bcachefs
+-          ];
+-
+-          postBuild = ''
+-            version=$(cd $out/lib/modules && ls -d *)
+-            ${lib.getExe' pkgs.kmod "depmod"} \
+-              --basedir "$out" --all "$version"
+-          '';
+-        };
+-      };
+-    };
+-  };
+ }
+diff --git a/machines/openwrt/fritzbox-7412.nix b/machines/openwrt/fritzbox-7412.nix
+new file mode 100644
+index 0000000..9b02460
+--- /dev/null
++++ b/machines/openwrt/fritzbox-7412.nix
+@@ -0,0 +1,24 @@
++# OpenWrt Image Builder configuration of the AVM FRITZ!Box 7412
++{ pkgs, profiles }:
++profiles.identifyProfile "avm_fritz7412"
++// {
++  # Packages to include in the image instead of installing them later
++  packages = [ "tcpdump" ];
++
++  disabledServices = [ "dnsmasq" ];
++
++  /*
++    Files to include in the image.  UCI configuration is set with a
++    uci-defaults script, as the OpenWrt Image Builder documentation
++    recommends.
++  */
++  files = pkgs.runCommand "image-files" { } ''
++    mkdir -p $out/etc/uci-defaults
++    cat > $out/etc/uci-defaults/99-custom <<EOF
++    uci -q batch << EOI
++    set system.@system[0].hostname='testap'
++    commit
++    EOI
++    EOF
++  '';
++}
+diff --git a/patched.nix b/patched.nix
+new file mode 100644
+index 0000000..9277533
+--- /dev/null
++++ b/patched.nix
+@@ -0,0 +1,114 @@
++/*
++  Flake inputs with commits from open pull requests applied on top.
++  Each commit is pinned so that pushes to a pull request do not
++  invalidate the hashes.
++
++  TODO: remove each pull request once it is merged, and this file once
++  none are left.
++*/
++{ nixpkgs, ... }:
++let
++  inherit (nixpkgs) lib;
++  pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++  /*
++    Fetch the patch of a commit of the GitHub pull request `pr` from
++    the commit URL in the repository of the pull request.  Attributes
++    of the commit other than `rev` are passed on to fetchpatch.
++  */
++  fetchPrCommit =
++    pr:
++    { rev, ... }@commit:
++    let
++      repo = lib.head (lib.splitString "/pull/" pr.url);
++    in
++    pkgs.fetchpatch ({ url = "${repo}/commit/${rev}.patch"; } // removeAttrs commit [ "rev" ]);
++
++  /*
++    Apply the commits of `pullRequests` on top of the source tree `src`.
++    Each pull request has its URL and its commits in the order they
++    apply, each with its revision and the hash of its patch.
++  */
++  applyPullRequests =
++    {
++      name,
++      src,
++      pullRequests,
++    }:
++    pkgs.applyPatches {
++      inherit name src;
++      patches = lib.concatMap (pr: map (fetchPrCommit pr) pr.commits) pullRequests;
++    };
++in
++rec {
++  /*
++    Nixpkgs master with the commits below applied.  Evaluating a
++    system from the patched tree imports from a derivation, so the
++    patched source is built before evaluation.
++
++    TODO: go back to `nixpkgs.lib.nixosSystem` once no pull requests
++    are left.
++  */
++  nixpkgs-patched = applyPullRequests {
++    name = "nixpkgs-patched";
++    src = nixpkgs;
++    pullRequests = [
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/550395";
++        commits = [
++          # nixos/river: init
++          {
++            rev = "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca";
++            hash = "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=";
++          }
++          # kwm: init at 0.3.0
++          {
++            rev = "c08b9ab09a451370fecb4c9fb066524f5c302b34";
++            hash = "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=";
++          }
++          # nixos/kwm: init
++          {
++            rev = "95213484d31f167321bcf01af375f77c57fa538b";
++            hash = "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=";
++          }
++          # kwim: init at 0.2.0
++          {
++            rev = "a6846d48060dd112964e2ee55935692f8838bf5e";
++            hash = "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=";
++          }
++        ];
++      }
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/566470";
++        commits = [
++          # maintainers: add jakob1379
++          {
++            rev = "094265f353ac97584592b65fdcade927cd628c4e";
++            hash = "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=";
++          }
++          # nixos/t3code: init
++          {
++            rev = "c73e1fccfdf1e52182d9693b645587e3f4c27310";
++            hash = "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=";
++          }
++        ];
++      }
++    ];
++  };
++
++  # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
++  nixosSystem-patched =
++    args:
++    import "${nixpkgs-patched}/nixos/lib/eval-config.nix" (
++      {
++        lib = import "${nixpkgs-patched}/lib";
++        system = null;
++        # Errors in inline modules name the file of the caller, not this one
++        modulesLocation = (builtins.unsafeGetAttrPos "modules" args).file or null;
++      }
++      // args
++      // {
++        modules = args.modules ++ [ { config.nixpkgs.flake.source = nixpkgs-patched.outPath; } ];
++      }
++    );
++}
+diff --git a/scripts/darwin_setup.sh b/scripts/darwin_setup.sh
+index 4647980..a24c33d 100755
+--- a/scripts/darwin_setup.sh
++++ b/scripts/darwin_setup.sh
+@@ -5,27 +5,28 @@ echo "STOP! Did you grant Full Disk Access for Terminal in System Settings?
+ ^C to terminate if you have not, type your password to continue."
+ 
+ echo -n Password: 
+-read -s password
++read -rs password
+ echo
+ 
+ # Change login shell to bash for iris
+-echo $password | sudo -S chsh -s /bin/bash iris
++printf '%s\n' "$password" | sudo -S chsh -s /bin/bash iris
+ 
+-if csrutil status | grep 'enabled'; then
++if csrutil status | grep 'status: enabled'; then
+   echo 'Disable SIP before executing! Aborting...'
+   printf "\nBoot in to recovery and run\
+ 	  \n$ csrutil enable --without fs --without debug --without nvram\n\n"
+   read -p "Press return to poweroff"
+-  echo $password | sudo -S shutdown -h now
++  printf '%s\n' "$password" | sudo -S shutdown -h now
+ fi
+ 
+ # yabai: enable non-Apple-signed arm64e binaries for Apple Silicon
+-echo $password | sudo -S nvram boot-args=-arm64e_preview_abi
++printf '%s\n' "$password" | sudo -S nvram boot-args=-arm64e_preview_abi
+ 
+ # nix-darwin
+ build_flake () {
+-  nix run --extra-experimental-features "nix-command flakes" \
+-	  nix-darwin -- switch --flake .#m1
++  printf '%s\n' "$password" | sudo -S -v
++  sudo nix run --extra-experimental-features "nix-command flakes" \
++	  nix-darwin -- switch --flake .#iris
+ }
+ 
+ # Run twice to ensure
+diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
+index ce65330..08ff754 100644
+--- a/systems/darwin/default.nix
++++ b/systems/darwin/default.nix
+@@ -4,17 +4,7 @@
+   ...
+ }:
+ {
+-  imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
+-  ];
+-
+-  programs.tmux.enable = true;
++  imports = [ ../shared.nix ];
+ 
+   environment = {
+     shells = with pkgs; [ bash ];
+@@ -43,7 +33,6 @@
+       # NixOS
+       nixos-anywhere
+       #nixos-facter
+-      nix-init
+ 
+       # TeX
+       tectonic
+@@ -161,7 +150,6 @@
+ 
+   homebrew = {
+     enable = true;
+-    caskArgs.no_quarantine = true;
+     global.brewfile = true;
+     masApps = { };
+     casks = [
+diff --git a/systems/man.nix b/systems/man.nix
+index ba8120b..5bdb86e 100644
+--- a/systems/man.nix
++++ b/systems/man.nix
+@@ -1,17 +1,8 @@
+-{
+-  pkgs,
+-  ...
+-}:
+-
+-let
+-  inherit (pkgs) stdenv;
+-in
+ {
+   documentation = {
+     enable = true;
+     man.enable = true;
+     info.enable = true;
+     doc.enable = true;
+-  }
+-  // (if stdenv.hostPlatform.isLinux then { dev.enable = true; } else { });
++  };
+ }
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..1db0b01 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -5,14 +5,10 @@
+ }:
+ {
+   imports = [
+-    ../nix.nix
+-    ../nixpkgs.nix
+-    ../shell.nix
+-    ../dev.nix
+-    ../vc.nix
+-    ../editors.nix
+-    ../man.nix
+-    ./t3code-themes.nix
++    ../shared.nix
++    ./emacs.nix
++    ./network.nix
++    ./t3code.nix
+   ];
+ 
+   # Bootloader
+@@ -26,33 +22,6 @@
+ 
+   zramSwap.enable = true;
+ 
+-  networking = {
+-    # Use iwd as the IEEE 802.11 backend for NetworkManager
+-    networkmanager.wifi.backend = "iwd";
+-    wireless.iwd = {
+-      enable = true;
+-      settings = {
+-        General.AddressRandomization = "once";
+-        IPv6.Enabled = true;
+-        Settings.AutoConnect = true;
+-      };
+-    };
+-
+-    # Use nftables as the backend instead of iptables
+-    nftables.enable = true;
+-    firewall = {
+-      enable = true;
+-      package = pkgs.nftables;
+-      # Open ports in the firewall
+-      #allowedTCPPorts = [ ... ];
+-      #allowedUDPPorts = [ ... ];
+-    };
+-
+-    # Network proxy
+-    #proxy.default = "http://user:password@proxy:port/";
+-    #proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+-  };
+-
+   # Internationalisation properties.
+   i18n = {
+     defaultLocale = "en_US.UTF-8";
+@@ -66,37 +35,9 @@
+       "LC_PAPER"
+       "LC_TELEPHONE"
+       "LC_TIME"
+-    ] (locale: "en_US.UTF-8");
++    ] (_: "en_US.UTF-8");
+   };
+ 
+-  nixpkgs.overlays = [
+-    (import (
+-      builtins.fetchTarball {
+-        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
+-      }
+-    ))
+-
+-    (final: prev: {
+-      emacs-git = prev.emacs-git.overrideAttrs (
+-        _: prevAttrs: {
+-          src = builtins.fetchGit {
+-            url = "https://github.com/emacsmirror/emacs.git";
+-            ref = "master";
+-          };
+-
+-          # Keep RET from being refilled away by `refill-mode' in Org
+-          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
+-        }
+-      );
+-
+-      emacs-unstable = prev.emacs-unstable.overrideAttrs (
+-        _: _: {
+-          src = final.emacs-git.src;
+-        }
+-      );
+-    })
+-  ];
+-
+   virtualisation.podman = {
+     enable = true;
+     dockerSocket.enable = true;
+@@ -127,9 +68,6 @@
+     # Common UNIX Printing System
+     printing.enable = true;
+ 
+-    # OpenSSH daemon
+-    openssh.enable = true;
+-
+     # Touchpad support (enabled default in most desktopManager)
+     libinput.enable = true;
+ 
+@@ -138,24 +76,6 @@
+       gc.enable = true;
+     };
+ 
+-    tailscale = {
+-      enable = true;
+-      useRoutingFeatures = "both";
+-      extraSetFlags = [
+-        "--exit-node-allow-lan-access=true"
+-        "--operator=yiyu"
+-        "--ssh"
+-      ];
+-    };
+-
+-    # Web GUI for LLM programming agents, reachable over the network
+-    t3code = {
+-      enable = true;
+-      user = "yiyu";
+-      host = "0.0.0.0";
+-      openFirewall = true;
+-    };
+-
+     # BitTorrent daemon with an HTTP API and web UI on localhost:3030
+     rqbit = {
+       enable = true;
+@@ -183,30 +103,13 @@
+     mode = "0755";
+   };
+ 
+-  # Passphrase-less SSH key for t3code, which fetches at boot before login and
+-  # so must not prompt through gpg-agent while the GNOME keyring is locked
+-  systemd.services.t3code.environment.GIT_SSH_COMMAND =
+-    "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
+-
+-  # Unattended retry mode of Claude Code, in which t3code sessions wait out a
+-  # usage limit until it resets instead of failing the turn
+-  systemd.services.t3code.environment = {
+-    CLAUDE_CODE_RETRY_WATCHDOG = "1";
+-    # Cover the 5-hour window, but keep a weekly limit from stalling for days
+-    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
+-  };
+-
+   hardware = {
+-    bluetooth = {
+-      enable = true;
+-      powerOnBoot = true;
+-    };
++    bluetooth.enable = true;
+     acpilight.enable = true;
+   };
+ 
+   security = {
+     # Use sudo-rs and doas instead of sudo
+-    sudo.enable = false;
+     sudo-rs = {
+       enable = true;
+       extraConfig = ''
+@@ -235,7 +138,6 @@
+     extraGroups = [
+       "wheel"
+       "video"
+-      "networkmanager"
+       "podman"
+     ];
+ 
+@@ -243,6 +145,9 @@
+     hashedPassword = "$6$yM8t/1VCAl66Y7XD$dmvt7Xq6iGLU3uJ9lcpUvr/7PZxt7IzYsoZbm4s42pejndU4IAMW4YbP4JcQK5KxI5DzSwLjPFCYY/OETznnO1";
+   };
+ 
++  # Developer documentation, for which nix-darwin has no option
++  documentation.dev.enable = true;
++
+   environment.systemPackages = with pkgs; [
+     readline
+     tree
+@@ -287,7 +192,6 @@
+     };
+ 
+     neovim.enable = true;
+-    tmux.enable = true;
+ 
+     htop = {
+       enable = true;
+@@ -304,11 +208,5 @@
+     };
+ 
+     nix-index.enable = true;
+-
+-    /*
+-      Some programs need SUID wrappers, can be configured further or
+-      are started in user sessions.
+-    */
+-    #mtr.enable = true;
+   };
+ }
+diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
+new file mode 100644
+index 0000000..90dea23
+--- /dev/null
++++ b/systems/nixos/emacs.nix
+@@ -0,0 +1,23 @@
++{ inputs, ... }:
++{
++  nixpkgs.overlays = [
++    inputs.emacs-overlay.overlays.default
++
++    (final: prev: {
++      emacs-git = prev.emacs-git.overrideAttrs (
++        _: prevAttrs: {
++          src = inputs.emacs-src;
++
++          # Keep RET from being refilled away by `refill-mode' in Org
++          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
++        }
++      );
++
++      emacs-unstable = prev.emacs-unstable.overrideAttrs (
++        _: _: {
++          src = final.emacs-git.src;
++        }
++      );
++    })
++  ];
++}
+diff --git a/systems/nixos/network.nix b/systems/nixos/network.nix
+new file mode 100644
+index 0000000..2cce018
+--- /dev/null
++++ b/systems/nixos/network.nix
+@@ -0,0 +1,31 @@
++{
++  networking = {
++    # Wi-Fi through iwd on its own, with dhcpcd for the addresses
++    wireless.iwd = {
++      enable = true;
++      settings = {
++        General.AddressRandomization = "once";
++        IPv6.Enabled = true;
++        Settings.AutoConnect = true;
++      };
++    };
++
++    # Use nftables as the backend instead of iptables
++    nftables.enable = true;
++  };
++
++  services = {
++    # OpenSSH daemon
++    openssh.enable = true;
++
++    tailscale = {
++      enable = true;
++      useRoutingFeatures = "both";
++      extraSetFlags = [
++        "--exit-node-allow-lan-access=true"
++        "--operator=yiyu"
++        "--ssh"
++      ];
++    };
++  };
++}
+diff --git a/systems/nixos/t3code-themes.el b/systems/nixos/t3code-themes.el
+index 88a647a..b4f864e 100644
+--- a/systems/nixos/t3code-themes.el
++++ b/systems/nixos/t3code-themes.el
+@@ -95,6 +95,15 @@
+   "Return the default palette of THEME without user overrides."
+   (symbol-value (plist-get (get theme 'theme-properties) :modus-core-palette)))
+ 
++;; Modus themes 5.3 export the function that looks up a color.  Modus
++;; themes 5.2, which Emacs 31 bundles, keep it private, so fall back to
++;; the private name.
++(defun t3code-themes-palette-value (color palette)
++  "Return the value of COLOR in PALETTE, following named references."
++  (if (fboundp 'modus-themes-retrieve-palette-value)
++      (modus-themes-retrieve-palette-value color palette)
++    (modus-themes--retrieve-palette-value color palette)))
++
+ (defun t3code-themes-file (theme name)
+   "Return the t3code theme file for Modus THEME, displayed as NAME."
+   (let ((palette (t3code-themes-palette theme)))
+@@ -104,7 +113,7 @@
+       (colors . ,(mapcar
+                   (lambda (role)
+                     (cons (car role)
+-                          (modus-themes-retrieve-palette-value (cdr role) palette)))
++                          (t3code-themes-palette-value (cdr role) palette)))
+                   t3code-themes-roles)))))
+ 
+ (let ((dir (file-name-as-directory (car command-line-args-left))))
+diff --git a/systems/nixos/t3code.nix b/systems/nixos/t3code.nix
+new file mode 100644
+index 0000000..e0b4fad
+--- /dev/null
++++ b/systems/nixos/t3code.nix
+@@ -0,0 +1,23 @@
++{
++  imports = [ ./t3code-themes.nix ];
++
++  # Web GUI for LLM programming agents, reachable over the network
++  services.t3code = {
++    enable = true;
++    user = "yiyu";
++    host = "0.0.0.0";
++    openFirewall = true;
++  };
++
++  systemd.services.t3code.environment = {
++    # Passphrase-less SSH key for t3code, which fetches at boot before login
++    # and so must not prompt through gpg-agent while the GNOME keyring is locked
++    GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
++
++    # Unattended retry mode of Claude Code, in which t3code sessions wait out a
++    # usage limit until it resets instead of failing the turn
++    CLAUDE_CODE_RETRY_WATCHDOG = "1";
++    # Cover the 5-hour window, but keep a weekly limit from stalling for days
++    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
++  };
++}
+diff --git a/systems/nixos/tty.nix b/systems/nixos/tty.nix
+deleted file mode 100644
+index 8359da7..0000000
+--- a/systems/nixos/tty.nix
++++ /dev/null
+@@ -1,5 +0,0 @@
+-{ pkgs, ... }:
+-{
+-  imports = [ ./commons.nix ];
+-  services.emacs.package = pkgs.emacs-git-nox;
+-}
+diff --git a/systems/shared.nix b/systems/shared.nix
+new file mode 100644
+index 0000000..689997b
+--- /dev/null
++++ b/systems/shared.nix
+@@ -0,0 +1,12 @@
++# Modules that NixOS and Darwin share
++{
++  imports = [
++    ./nix.nix
++    ./nixpkgs.nix
++    ./shell.nix
++    ./dev.nix
++    ./vc.nix
++    ./editors.nix
++    ./man.nix
++  ];
++}
+diff --git a/systems/shell.nix b/systems/shell.nix
+index 1c4fdc8..95adbe6 100644
+--- a/systems/shell.nix
++++ b/systems/shell.nix
+@@ -32,7 +32,7 @@ in
+     // (
+       if stdenv.hostPlatform.isLinux then
+         { promptInit = bashPrompt; }
+-      else if stdenv.isDarwin then
++      else if stdenv.hostPlatform.isDarwin then
+         { interactiveShellInit = bashPrompt; }
+       else
+         { }
+@@ -43,5 +43,7 @@ in
+       silent = true;
+       nix-direnv.enable = true;
+     };
++
++    tmux.enable = true;
+   };
+ }

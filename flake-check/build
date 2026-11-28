@@ -4,3 +4,5 @@
 #
 # Flake attributes to build from the candidate, one per line.  Builds are
 # slow, so list only what a change needs; none by default.
+checks.x86_64-linux.nixfmt
+nixosConfigurations.router.config.systemd.units.'"t3code.service"'.unit
