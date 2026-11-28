@@ -1,0 +1,188 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Keys}
+\label{ch:keys}
+
+\section{Keymaps}
+
+cinq ships one keymap, vi.  It moves with letters such as \key{j} and
+\key{k}, and uses two-key sequences for some actions, such as \key{dd}.  It
+opens the help page with \key{?}, which departs from Vim, and with \key{F1}.
+It puts GO on \key{Space} and Panic on \key{Escape}, as QLab does, and also
+uses \key{ArrowUp}, \key{ArrowDown}, \key{Enter}, \key{Alt} with those
+arrows, \key{Control+s}, and \key{F11}.
+
+The actions that this tutorial performed with buttons and clicks also have
+keys:
+
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.62\textwidth}p{0.34\textwidth}@{}}
+\hline
+Action & vi \\
+\hline
+Add a cue below the selection & \key{o} \\
+Cut the selected cue & \key{dd}, \key{x}, \key{Delete} \\
+Copy the selected cue & \key{yy}, \key{Y} \\
+Paste below the selection & \key{p} \\
+Paste above the selection & \key{P} \\
+Move the selected cue into the group above it & \key{>>} \\
+Move the selected cue out of its group & \key{<<} \\
+Cancel what is typed halfway & \key{Control+c}, \key{Control+[} \\
+Edit the name of the selected cue & \key{i}, \key{a}, \key{A} \\
+Edit the name from its start & \key{I} \\
+Change the name, selecting all of it & \key{cc}, \key{S} \\
+Undo the latest change & \key{u} \\
+Redo the change undone last & \key{Control+r} \\
+Open a show & \key{Control+l} \\
+Put the selected cue on standby & \key{Enter} \\
+Show the next cue list, then the outputs & \key{l} \\
+Show the previous cue list & \key{h} \\
+Move down half a page & \key{Control+d} \\
+Move down a page & \key{Control+f} \\
+Show the next inspector tab & \key{gt} \\
+Show inspector tab number 2, or another & \key{2gt} \\
+Go back to the place before the last jump, or leave the outputs & \key{Control+o} \\
+Go forward again & \key{Control+i} \\
+Search the cues, or the outputs, by their text & \key{/} \\
+Select the next match & \key{n} \\
+Show or hide the help page & \key{?} or \key{F1} \\
+Pick the highlighted option of an open menu & \key{Control+y} \\
+Close an open menu without picking & \key{Control+e} \\
+\hline
+\end{tabular}
+\end{center}
+
+\key{Enter} picks as well.  While a drop-down list is open, the status
+bar names the keys that pick and close it, and \key{PageDown}, \key{PageUp},
+\key{Home}, and \key{End} move the highlight by a page or to either end.
+
+\section{The help page}
+
+\begin{enumerate}
+\item Press the help key that the status bar names, \key{?} or \key{F1}.
+  The help page opens with a paragraph of first steps, then lists
+  every action that has a key, with its keys and, in a wide window, its name
+  in the configuration file, as Figure~\ref{fig:help} shows.
+\item Press \key{Enter} on the page to open the tutorial, which the first
+  paragraph names.
+\item Press the same key again to close the page, or \key{q}, which only
+  closes it.  GO and Panic also close it, so that the show stays in view
+  while it runs.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/help.png}
+  \caption{Help page of the vi keymap}
+  \label{fig:help}
+\end{figure}
+
+\section{Key sequences}
+
+Some actions take more than one key, such as \key{gg},
+which selects the first cue.  The keys of a sequence are typed one after
+another with no \key{Space} between them, since \key{Space} is GO.
+
+\begin{enumerate}
+\item Press \key{g}.  The status bar shows the keys typed so far, and a box
+  lists the keys that can follow, as in Figure~\ref{fig:keys}.  While the
+  outputs show, it names outputs where it names cues here.
+\item Press \key{g} again.  The first cue is selected.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/keys.png}
+  \caption{Keys that can follow \key{g}}
+  \label{fig:keys}
+\end{figure}
+
+A number typed first repeats the action: \key{3j} moves the selection three
+rows down, \key{3dd} cuts three cues, \key{3o} adds three cues, \key{3p}
+pastes the copied cues three times, and \key{3u} undoes three changes.
+\key{d} and \key{y} also take a motion: \key{dj} cuts the selected cue and
+the next, \key{yk} copies it and the previous, and \key{dG} cuts down to the
+last cue.  A number before the operator, before the motion, or both
+multiplies, so that \key{2d3j} cuts seven cues.  A key that does not
+continue the sequence cancels it and does nothing: cinq drops the keys typed
+so far without a sound or a message, so that a mistyped \key{dx} cuts nothing
+and the status bar goes back to its usual hints.  The keys for GO
+and Panic act immediately, even in the middle of a sequence.  \key{Control+c}
+cancels a sequence, as it does in Vim, and the status bar
+hints it while a sequence waits or a text field has the keyboard, so that no one
+reaches for \key{Escape}, which is Panic.
+
+\section{Searching the cues}
+
+A long cue list is easier to search than to scroll.
+
+\begin{enumerate}
+\item Press the search key, \key{/}.  A search line opens at the left of
+  the status bar.
+\item Type part of what the list shows of a cue, such as its name, its number,
+  or the file that it plays.  The selection moves to the first
+  cue after the selection that holds the text, in any case, and the list
+  scrolls to it.  The search wraps around the list and ends on the selection,
+  so that the selection is the match only when no other cue holds the text.
+  When no cue holds the text, the line says so and the selection goes back to
+  where the search began.
+\item While typing, \key{Control+w} deletes the word before the caret and
+  \key{Control+u} everything before it, as in any text field, and
+  \key{ArrowUp} and \key{ArrowDown} recall earlier searches that start with
+  the text.
+\item Press \key{Enter} to accept the search.  \key{Control+c} and
+  \key{Escape}, which is also Panic, close the line and put the
+  selection back, and any click in the main window closes it and leaves the
+  selection where it is.
+\item Press \key{n} for the next match in the direction of the search, wrapping
+  around at the end of the list, and \key{N} for the next match in the other
+  direction.  \key{Enter} on an empty line repeats the last search.
+\end{enumerate}
+
+Searches are jumps, as in Vim.  After a search, \key{Control+o} goes back to
+where it began, or to the cue before a step to the next match, and
+\key{Control+i} returns to the match.
+
+\section{Hint mode}
+
+The keys do not reach everything that a click does, so a key can label each
+place for you, as Vimium does in a browser.
+
+\begin{enumerate}
+\item Press the hint key, \key{f}.  A small label of a few
+  letters appears left of each button, check box, inspector tab, cue list of
+  the sidebar, drop-down list, text field, and group mark that is in view.
+  The status bar asks for a label.
+\item Type the letters of one label.  The labels that the letters do not begin
+  disappear, and \key{Backspace} takes a letter back.  When the letters are
+  whole, cinq acts as a click on that place would: it presses the button,
+  flips the check box, shows the tab or the cue list, or gives the text field or
+  the drop-down list the keyboard, where \key{Enter} opens the menu.
+\item To leave without choosing, press \key{Control+c}, or
+  \key{Backspace} where no letter is typed, or click in the main window.  A letter that begins no label is
+  ignored, so that a slip never runs the next letters as commands.  GO and
+  Panic act as ever and leave too, and so does a cue that starts or ends in the
+  Active list of the sidebar, since the labels would no longer lie on their
+  places.
+\end{enumerate}
+
+The help page takes labels on its links.  The rows of the cue list have their
+own keys.  GO and Panic have no label, as their keys act from everywhere.
+
+\section{Changing the keys}
+
+The configuration file, \texttt{config.toml}, binds actions to other keys.  It
+can also declare keymaps of its own, since cinq ships only vi.  The help page
+links to it, and following the link creates the file if it does not exist.
+cinq rereads the file whenever it changes, so edits take effect as soon as the
+file is saved.  The manual page \texttt{cinq(5)} describes every setting, lists
+the keys of the vi keymap, and tells how to declare a keymap of one's own.
+
+\section*{Exercise}
+
+You can now find the key for any action and choose the keys that suit you.
+Declare a keymap of your own that starts from vi, as the examples in
+\texttt{cinq(5)} show, and open the help page with \key{?}.
