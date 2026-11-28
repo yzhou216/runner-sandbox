@@ -1,0 +1,59 @@
+From d914b93c50ab91e91868fe7d32c902041e23162d Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:36:29 -0800
+Subject: [PATCH 3/3] flake: drop --impure from the build commands
+
+With emacs-overlay and the Emacs source locked as flake inputs, galago
+and router evaluate in pure mode.  Neither the hourly build of galago
+nor the VM command in the comment on router needs --impure any more,
+and that comment no longer has a pure evaluation failure to warn of.
+---
+ .github/workflows/build-galago.yml | 5 +----
+ flake.nix                          | 9 +++------
+ 2 files changed, 4 insertions(+), 10 deletions(-)
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 7930cc5..eb466f5 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -20,15 +20,12 @@ jobs:
+       - name: Update flake.lock
+         run: nix flake update
+ 
+-      # Same target as `nixos-rebuild switch --flake . --impure`;
+-      # `--impure` is needed because the Emacs overlay uses a bare
+-      # `builtins.fetchTarball`.
++      # Same target as `nixos-rebuild switch --flake .`;
+       # `--keep-going` builds the rest if one package fails, and
+       # cachix's daemon pushes each successful path as it builds.
+       - name: Build galago
+         run: |
+           nix build \
+-            --impure \
+             --keep-going \
+             --no-link \
+             ".#nixosConfigurations.galago.config.system.build.toplevel"
+diff --git a/flake.nix b/flake.nix
+index 76a78a5..fafc50a 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -164,13 +164,10 @@
+           .#router` won't work, since it builds the stock
+           `system.build.vm`, which boots an empty overlay root and
+           ignores the disko layout entirely (no bcachefs partitions,
+-          no swap, and no mounted subvolumes).  It also fails pure
+-          evaluation, because importing
+-          `../../systems/nixos/commons.nix` pulls in the emacs-overlay
+-          `fetchTarball` without a pinned `sha256`.  Instead, build a
+-          VM backed by a real disko image, which boots the actual
++          no swap, and no mounted subvolumes).  Instead, build a VM
++          backed by a real disko image, which boots the actual
+           bcachefs/swap layout:
+-          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
++          `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko`
+         */
+         router = nixosSystem-patched {
+           system = "x86_64-linux";
+-- 
+2.56.1
+

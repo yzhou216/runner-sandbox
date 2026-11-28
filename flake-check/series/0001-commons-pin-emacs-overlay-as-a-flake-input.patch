@@ -1,0 +1,128 @@
+From 8512cc30fd2c6daa0e825fa1a17e2134042b3dc6 Mon Sep 17 00:00:00 2001
+From: Yiyu Zhou <yiyu@yiyuzhou.io>
+Date: Sat, 28 Nov 2026 02:36:01 -0800
+Subject: [PATCH 1/3] commons: pin emacs-overlay as a flake input
+
+builtins.fetchTarball without a sha256 fetched the master branch of
+emacs-overlay at evaluation time, which is impure, so galago and router
+evaluated only with --impure, and the result depended on when it ran.
+As a flake input, emacs-overlay is locked in flake.lock and moves with
+`nix flake update`, which the galago workflow runs every hour.
+
+The overlays.default output of the flake is the same `import ./overlays`
+that default.nix of the tarball returned.  Its nixpkgs input follows
+ours, like those of disko and nix-darwin, since only the overlay is
+used.
+---
+ flake.lock                | 38 ++++++++++++++++++++++++++++++++++++++
+ flake.nix                 |  5 +++++
+ systems/nixos/commons.nix |  7 ++-----
+ 3 files changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/flake.lock b/flake.lock
+index b3f4d32..e7406a1 100644
+--- a/flake.lock
++++ b/flake.lock
+@@ -79,6 +79,27 @@
+         "type": "github"
+       }
+     },
++    "emacs-overlay": {
++      "inputs": {
++        "nixpkgs": [
++          "nixpkgs"
++        ],
++        "nixpkgs-stable": "nixpkgs-stable"
++      },
++      "locked": {
++        "lastModified": 1795850262,
++        "narHash": "sha256-GvQQ+GXuLGWjpDxr9bP4D4QKksLutCa5F1g8JqTNPEQ=",
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "rev": "0a34f1e1afa9308f294859e7f9cf86b0908dce85",
++        "type": "github"
++      },
++      "original": {
++        "owner": "nix-community",
++        "repo": "emacs-overlay",
++        "type": "github"
++      }
++    },
+     "flake-compat": {
+       "flake": false,
+       "locked": {
+@@ -305,6 +326,22 @@
+         "type": "github"
+       }
+     },
++    "nixpkgs-stable": {
++      "locked": {
++        "lastModified": 1795502373,
++        "narHash": "sha256-CiSQ3/bsP5gXG2SQzOgwhqwl9MkBRhQQqJd3YmpaYL4=",
++        "owner": "NixOS",
++        "repo": "nixpkgs",
++        "rev": "5b31ff946309736077f0c4ee23bb85d0a0a1c181",
++        "type": "github"
++      },
++      "original": {
++        "owner": "NixOS",
++        "ref": "nixos-26.05",
++        "repo": "nixpkgs",
++        "type": "github"
++      }
++    },
+     "nixpkgs_2": {
+       "locked": {
+         "lastModified": 1761236834,
+@@ -409,6 +446,7 @@
+       "inputs": {
+         "darwin": "darwin",
+         "disko": "disko",
++        "emacs-overlay": "emacs-overlay",
+         "homebrew-bundle": "homebrew-bundle",
+         "homebrew-cask": "homebrew-cask",
+         "homebrew-core": "homebrew-core",
+diff --git a/flake.nix b/flake.nix
+index e74cecb..6bee0bd 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -29,6 +29,11 @@
+ 
+     openwrt-imagebuilder.url = "github:astro/nix-openwrt-imagebuilder";
+ 
++    emacs-overlay = {
++      url = "github:nix-community/emacs-overlay";
++      inputs.nixpkgs.follows = "nixpkgs";
++    };
++
+     darwin = {
+       url = "github:lnl7/nix-darwin";
+       inputs.nixpkgs.follows = "nixpkgs";
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..3d9f5e7 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -1,6 +1,7 @@
+ {
+   pkgs,
+   lib,
++  inputs,
+   ...
+ }:
+ {
+@@ -70,11 +71,7 @@
+   };
+ 
+   nixpkgs.overlays = [
+-    (import (
+-      builtins.fetchTarball {
+-        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
+-      }
+-    ))
++    inputs.emacs-overlay.overlays.default
+ 
+     (final: prev: {
+       emacs-git = prev.emacs-git.overrideAttrs (
+-- 
+2.56.1
+
