@@ -1,0 +1,236 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  7ca3408 flake: build galago and router with a shared mkNixos helper
+  dc38c72 flake: build iris and lexi with a shared mkDarwin helper
+  847995b openwrt: move the fritzbox 7412 configuration into machines/openwrt
+
+diff --git a/flake.nix b/flake.nix
+index e74cecb..b8009d3 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -127,10 +127,15 @@
+             modules = args.modules ++ [ { config.nixpkgs.flake.source = nixpkgs-patched.outPath; } ];
+           }
+         );
+-    in
+-    {
+-      nixosConfigurations = {
+-        galago = nixosSystem-patched {
++
++      /*
++        NixOS system of the machine in machines/nixos/<name>.nix, with
++        the hardware report that nixos-facter wrote for it in
++        machines/nixos/facter/<name>.json.
++      */
++      mkNixos =
++        name:
++        nixosSystem-patched {
+           system = "x86_64-linux";
+           specialArgs = { inherit inputs; };
+           modules = [
+@@ -138,16 +143,58 @@
+             nixos-facter-modules.nixosModules.facter
+             {
+               config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/galago.json then
+-                  ./machines/nixos/facter/galago.json
++                let
++                  report = ./machines/nixos/facter/${name}.json;
++                in
++                if builtins.pathExists report then
++                  report
+                 else
+                   throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+             }
+             disko.nixosModules.disko
+-            ./machines/nixos/galago.nix
++            ./machines/nixos/${name}.nix
+           ];
+         };
+ 
++      /*
++        Darwin system of the machine in machines/darwin/<name>.nix, with
++        Homebrew and its taps managed by nix-homebrew for the primary
++        user that the machine sets.
++      */
++      mkDarwin =
++        name:
++        darwin.lib.darwinSystem {
++          system = "aarch64-darwin";
++          modules = [
++            mac-app-util.darwinModules.default
++            nix-homebrew.darwinModules.nix-homebrew
++            (
++              { config, ... }:
++              {
++                nix-homebrew = {
++                  enable = true;
++                  enableRosetta = true;
++                  user = config.system.primaryUser;
++                  taps = {
++                    "homebrew/homebrew-core" = inputs.homebrew-core;
++                    "homebrew/homebrew-cask" = inputs.homebrew-cask;
++                    "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
++                  };
++
++                  # Enable fully-declarative tap management
++                  # Taps can no longer be added imperatively with `brew tap`
++                  mutableTaps = false;
++                };
++              }
++            )
++            ./machines/darwin/${name}.nix
++          ];
++        };
++    in
++    {
++      nixosConfigurations = {
++        galago = mkNixos "galago";
++
+         /*
+           When testing out in an VM, `$ nixos-rebuild build-vm --flake
+           .#router` won't work, since it builds the stock
+@@ -161,23 +208,7 @@
+           bcachefs/swap layout:
+           `$ nix build .#nixosConfigurations.router.config.system.build.vmWithDisko --impure`
+         */
+-        router = nixosSystem-patched {
+-          system = "x86_64-linux";
+-          specialArgs = { inherit inputs; };
+-          modules = [
+-            nix-flatpak.nixosModules.nix-flatpak
+-            nixos-facter-modules.nixosModules.facter
+-            {
+-              config.facter.reportPath =
+-                if builtins.pathExists ./machines/nixos/facter/router.json then
+-                  ./machines/nixos/facter/router.json
+-                else
+-                  throw "Have you forgotten to run nixos-anywhere with `--generate-hardware-config nixos-facter ./facter.json`?";
+-            }
+-            disko.nixosModules.disko
+-            ./machines/nixos/router.nix
+-          ];
+-        };
++        router = mkNixos "router";
+ 
+         # nix build .#nixosConfigurations.bcachefs-iso.config.system.build.isoImage
+         bcachefs-iso = nixpkgs.lib.nixosSystem {
+@@ -198,80 +229,14 @@
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
+           profiles = openwrt-imagebuilder.lib.profiles { inherit pkgs; };
+-          config = profiles.identifyProfile "avm_fritz7412" // {
+-            # Packages to include in the image instead of installing them later
+-            packages = [ "tcpdump" ];
+-
+-            disabledServices = [ "dnsmasq" ];
+-
+-            /*
+-              Files to include in the image.  UCI configuration is set
+-              with a uci-defaults script, as the OpenWrt Image Builder
+-              documentation recommends.
+-            */
+-            files = pkgs.runCommand "image-files" { } ''
+-              mkdir -p $out/etc/uci-defaults
+-              cat > $out/etc/uci-defaults/99-custom <<EOF
+-              uci -q batch << EOI
+-              set system.@system[0].hostname='testap'
+-              commit
+-              EOI
+-              EOF
+-            '';
+-          };
+         in
+-        openwrt-imagebuilder.lib.build config;
++        openwrt-imagebuilder.lib.build (
++          import ./machines/openwrt/fritzbox-7412.nix { inherit pkgs profiles; }
++        );
+ 
+       darwinConfigurations = {
+-        iris = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "iris";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
+-
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/iris.nix
+-          ];
+-        };
+-
+-        lexi = darwin.lib.darwinSystem {
+-          system = "aarch64-darwin";
+-          modules = [
+-            mac-app-util.darwinModules.default
+-            nix-homebrew.darwinModules.nix-homebrew
+-            {
+-              nix-homebrew = {
+-                enable = true;
+-                enableRosetta = true;
+-                user = "lexi";
+-                taps = {
+-                  "homebrew/homebrew-core" = inputs.homebrew-core;
+-                  "homebrew/homebrew-cask" = inputs.homebrew-cask;
+-                  "homebrew/homebrew-bundle" = inputs.homebrew-bundle;
+-                };
+-
+-                # Enable fully-declarative tap management
+-                # Taps can no longer be added imperatively with `brew tap`
+-                mutableTaps = false;
+-              };
+-            }
+-            ./machines/darwin/lexi.nix
+-          ];
+-        };
++        iris = mkDarwin "iris";
++        lexi = mkDarwin "lexi";
+       };
+     };
+ }
+diff --git a/machines/openwrt/fritzbox-7412.nix b/machines/openwrt/fritzbox-7412.nix
+new file mode 100644
+index 0000000..9b02460
+--- /dev/null
++++ b/machines/openwrt/fritzbox-7412.nix
+@@ -0,0 +1,24 @@
++# OpenWrt Image Builder configuration of the AVM FRITZ!Box 7412
++{ pkgs, profiles }:
++profiles.identifyProfile "avm_fritz7412"
++// {
++  # Packages to include in the image instead of installing them later
++  packages = [ "tcpdump" ];
++
++  disabledServices = [ "dnsmasq" ];
++
++  /*
++    Files to include in the image.  UCI configuration is set with a
++    uci-defaults script, as the OpenWrt Image Builder documentation
++    recommends.
++  */
++  files = pkgs.runCommand "image-files" { } ''
++    mkdir -p $out/etc/uci-defaults
++    cat > $out/etc/uci-defaults/99-custom <<EOF
++    uci -q batch << EOI
++    set system.@system[0].hostname='testap'
++    commit
++    EOI
++    EOF
++  '';
++}
