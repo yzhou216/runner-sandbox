@@ -2,6 +2,5 @@
 #
 # SPDX-License-Identifier: 0BSD OR CC0-1.0
 #
-# Commit of the flake that flake.patch applies to: hotfix/galago-bcachefs-encryption,
-# b5d6424, for a check of that branch rebased onto the series.
-b5d64247d17f569a9b8fd3a8ee8aee86111d77ef
+# Commit of the flake that flake.patch applies to: master, 1dd2043.
+1dd20435a5fea3a6633404f9cf398e6c98416a13
