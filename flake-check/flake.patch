@@ -1,0 +1,289 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  afe3a63 commons: ignore the argument of the locale function
+  affeb58 commons: merge the definitions of the t3code environment
+  a6123a3 commons: move the t3code service into t3code.nix
+  96c3063 commons: move the emacs overlays into emacs.nix
+  7e8d6b7 commons: drop commented-out settings of the configuration.nix template
+  e6eaa59 commons: drop settings that nixos sets by default
+  faa01fa commons: drop the networkmanager settings, which nothing enables
+  7ce614c commons: move networking, openssh, and tailscale into network.nix
+
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..3be3f58 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -12,7 +12,9 @@
+     ../vc.nix
+     ../editors.nix
+     ../man.nix
+-    ./t3code-themes.nix
++    ./emacs.nix
++    ./network.nix
++    ./t3code.nix
+   ];
+ 
+   # Bootloader
+@@ -26,33 +28,6 @@
+ 
+   zramSwap.enable = true;
+ 
+-  networking = {
+-    # Use iwd as the IEEE 802.11 backend for NetworkManager
+-    networkmanager.wifi.backend = "iwd";
+-    wireless.iwd = {
+-      enable = true;
+-      settings = {
+-        General.AddressRandomization = "once";
+-        IPv6.Enabled = true;
+-        Settings.AutoConnect = true;
+-      };
+-    };
+-
+-    # Use nftables as the backend instead of iptables
+-    nftables.enable = true;
+-    firewall = {
+-      enable = true;
+-      package = pkgs.nftables;
+-      # Open ports in the firewall
+-      #allowedTCPPorts = [ ... ];
+-      #allowedUDPPorts = [ ... ];
+-    };
+-
+-    # Network proxy
+-    #proxy.default = "http://user:password@proxy:port/";
+-    #proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+-  };
+-
+   # Internationalisation properties.
+   i18n = {
+     defaultLocale = "en_US.UTF-8";
+@@ -66,37 +41,9 @@
+       "LC_PAPER"
+       "LC_TELEPHONE"
+       "LC_TIME"
+-    ] (locale: "en_US.UTF-8");
++    ] (_: "en_US.UTF-8");
+   };
+ 
+-  nixpkgs.overlays = [
+-    (import (
+-      builtins.fetchTarball {
+-        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
+-      }
+-    ))
+-
+-    (final: prev: {
+-      emacs-git = prev.emacs-git.overrideAttrs (
+-        _: prevAttrs: {
+-          src = builtins.fetchGit {
+-            url = "https://github.com/emacsmirror/emacs.git";
+-            ref = "master";
+-          };
+-
+-          # Keep RET from being refilled away by `refill-mode' in Org
+-          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
+-        }
+-      );
+-
+-      emacs-unstable = prev.emacs-unstable.overrideAttrs (
+-        _: _: {
+-          src = final.emacs-git.src;
+-        }
+-      );
+-    })
+-  ];
+-
+   virtualisation.podman = {
+     enable = true;
+     dockerSocket.enable = true;
+@@ -127,9 +74,6 @@
+     # Common UNIX Printing System
+     printing.enable = true;
+ 
+-    # OpenSSH daemon
+-    openssh.enable = true;
+-
+     # Touchpad support (enabled default in most desktopManager)
+     libinput.enable = true;
+ 
+@@ -138,24 +82,6 @@
+       gc.enable = true;
+     };
+ 
+-    tailscale = {
+-      enable = true;
+-      useRoutingFeatures = "both";
+-      extraSetFlags = [
+-        "--exit-node-allow-lan-access=true"
+-        "--operator=yiyu"
+-        "--ssh"
+-      ];
+-    };
+-
+-    # Web GUI for LLM programming agents, reachable over the network
+-    t3code = {
+-      enable = true;
+-      user = "yiyu";
+-      host = "0.0.0.0";
+-      openFirewall = true;
+-    };
+-
+     # BitTorrent daemon with an HTTP API and web UI on localhost:3030
+     rqbit = {
+       enable = true;
+@@ -183,30 +109,13 @@
+     mode = "0755";
+   };
+ 
+-  # Passphrase-less SSH key for t3code, which fetches at boot before login and
+-  # so must not prompt through gpg-agent while the GNOME keyring is locked
+-  systemd.services.t3code.environment.GIT_SSH_COMMAND =
+-    "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
+-
+-  # Unattended retry mode of Claude Code, in which t3code sessions wait out a
+-  # usage limit until it resets instead of failing the turn
+-  systemd.services.t3code.environment = {
+-    CLAUDE_CODE_RETRY_WATCHDOG = "1";
+-    # Cover the 5-hour window, but keep a weekly limit from stalling for days
+-    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
+-  };
+-
+   hardware = {
+-    bluetooth = {
+-      enable = true;
+-      powerOnBoot = true;
+-    };
++    bluetooth.enable = true;
+     acpilight.enable = true;
+   };
+ 
+   security = {
+     # Use sudo-rs and doas instead of sudo
+-    sudo.enable = false;
+     sudo-rs = {
+       enable = true;
+       extraConfig = ''
+@@ -235,7 +144,6 @@
+     extraGroups = [
+       "wheel"
+       "video"
+-      "networkmanager"
+       "podman"
+     ];
+ 
+@@ -304,11 +212,5 @@
+     };
+ 
+     nix-index.enable = true;
+-
+-    /*
+-      Some programs need SUID wrappers, can be configured further or
+-      are started in user sessions.
+-    */
+-    #mtr.enable = true;
+   };
+ }
+diff --git a/systems/nixos/emacs.nix b/systems/nixos/emacs.nix
+new file mode 100644
+index 0000000..704f06d
+--- /dev/null
++++ b/systems/nixos/emacs.nix
+@@ -0,0 +1,29 @@
++{
++  nixpkgs.overlays = [
++    (import (
++      builtins.fetchTarball {
++        url = "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz";
++      }
++    ))
++
++    (final: prev: {
++      emacs-git = prev.emacs-git.overrideAttrs (
++        _: prevAttrs: {
++          src = builtins.fetchGit {
++            url = "https://github.com/emacsmirror/emacs.git";
++            ref = "master";
++          };
++
++          # Keep RET from being refilled away by `refill-mode' in Org
++          patches = (prevAttrs.patches or [ ]) ++ [ ./emacs-refill-newline.patch ];
++        }
++      );
++
++      emacs-unstable = prev.emacs-unstable.overrideAttrs (
++        _: _: {
++          src = final.emacs-git.src;
++        }
++      );
++    })
++  ];
++}
+diff --git a/systems/nixos/network.nix b/systems/nixos/network.nix
+new file mode 100644
+index 0000000..33959a0
+--- /dev/null
++++ b/systems/nixos/network.nix
+@@ -0,0 +1,30 @@
++{
++  networking = {
++    wireless.iwd = {
++      enable = true;
++      settings = {
++        General.AddressRandomization = "once";
++        IPv6.Enabled = true;
++        Settings.AutoConnect = true;
++      };
++    };
++
++    # Use nftables as the backend instead of iptables
++    nftables.enable = true;
++  };
++
++  services = {
++    # OpenSSH daemon
++    openssh.enable = true;
++
++    tailscale = {
++      enable = true;
++      useRoutingFeatures = "both";
++      extraSetFlags = [
++        "--exit-node-allow-lan-access=true"
++        "--operator=yiyu"
++        "--ssh"
++      ];
++    };
++  };
++}
+diff --git a/systems/nixos/t3code.nix b/systems/nixos/t3code.nix
+new file mode 100644
+index 0000000..e0b4fad
+--- /dev/null
++++ b/systems/nixos/t3code.nix
+@@ -0,0 +1,23 @@
++{
++  imports = [ ./t3code-themes.nix ];
++
++  # Web GUI for LLM programming agents, reachable over the network
++  services.t3code = {
++    enable = true;
++    user = "yiyu";
++    host = "0.0.0.0";
++    openFirewall = true;
++  };
++
++  systemd.services.t3code.environment = {
++    # Passphrase-less SSH key for t3code, which fetches at boot before login
++    # and so must not prompt through gpg-agent while the GNOME keyring is locked
++    GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
++
++    # Unattended retry mode of Claude Code, in which t3code sessions wait out a
++    # usage limit until it resets instead of failing the turn
++    CLAUDE_CODE_RETRY_WATCHDOG = "1";
++    # Cover the 5-hour window, but keep a weekly limit from stalling for days
++    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
++  };
++}
