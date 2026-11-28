@@ -3,32 +3,14 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  bbf020f systems: import the shared modules through one module
-  ecb9527 shell: enable tmux for nixos and darwin alike
-  6fe13ba shell: check for darwin through stdenv.hostPlatform
-  0402206 man: set the nixos-only developer documentation in commons
-  3ceb088 darwin: drop nix-init, which dev.nix installs
+  612096a systems: import the shared modules through one module
+  7d963f6 shell: enable tmux for nixos and darwin alike
+  49b0bf0 shell: check for darwin through stdenv.hostPlatform
+  664a1b6 man: move the nixos-only dev documentation to nixos commons
+  aaee1ea darwin: drop nix-init, which dev.nix installs
 
-diff --git a/systems/commons.nix b/systems/commons.nix
-new file mode 100644
-index 0000000..689997b
---- /dev/null
-+++ b/systems/commons.nix
-@@ -0,0 +1,12 @@
-+# Modules that NixOS and Darwin share
-+{
-+  imports = [
-+    ./nix.nix
-+    ./nixpkgs.nix
-+    ./shell.nix
-+    ./dev.nix
-+    ./vc.nix
-+    ./editors.nix
-+    ./man.nix
-+  ];
-+}
 diff --git a/systems/darwin/default.nix b/systems/darwin/default.nix
-index ce65330..a19200a 100644
+index ce65330..cfc274e 100644
 --- a/systems/darwin/default.nix
 +++ b/systems/darwin/default.nix
 @@ -4,17 +4,7 @@
@@ -46,7 +28,7 @@ index ce65330..a19200a 100644
 -  ];
 -
 -  programs.tmux.enable = true;
-+  imports = [ ../commons.nix ];
++  imports = [ ../shared.nix ];
  
    environment = {
      shells = with pkgs; [ bash ];
@@ -82,7 +64,7 @@ index ba8120b..5bdb86e 100644
 +  };
  }
 diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
-index 0c3dfa3..28deceb 100644
+index 0c3dfa3..698c1df 100644
 --- a/systems/nixos/commons.nix
 +++ b/systems/nixos/commons.nix
 @@ -5,13 +5,7 @@
@@ -96,7 +78,7 @@ index 0c3dfa3..28deceb 100644
 -    ../vc.nix
 -    ../editors.nix
 -    ../man.nix
-+    ../commons.nix
++    ../shared.nix
      ./t3code-themes.nix
    ];
  
@@ -118,6 +100,24 @@ index 0c3dfa3..28deceb 100644
  
      htop = {
        enable = true;
+diff --git a/systems/shared.nix b/systems/shared.nix
+new file mode 100644
+index 0000000..689997b
+--- /dev/null
++++ b/systems/shared.nix
+@@ -0,0 +1,12 @@
++# Modules that NixOS and Darwin share
++{
++  imports = [
++    ./nix.nix
++    ./nixpkgs.nix
++    ./shell.nix
++    ./dev.nix
++    ./vc.nix
++    ./editors.nix
++    ./man.nix
++  ];
++}
 diff --git a/systems/shell.nix b/systems/shell.nix
 index 1c4fdc8..95adbe6 100644
 --- a/systems/shell.nix
