@@ -1,10 +1,9 @@
 SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 
 The changes under test to github.com/yzhou216/flake, as a diff against
-7f2b444, under the terms of that repository.  It holds the commits
-from 6de2201 through 09224bd and, uncommitted, galago's switch to
-disko/bcachefs-encrypted.nix and the disko module patched with
-nix-community/disko#1316.
+7f2b444, under the terms of that repository.  It holds commits 6de2201
+through 09224bd, 611e012, and aaa0608, the hotfix/galago-bcachefs-encryption
+branch apart from an unrelated commit.
 
 diff --git c/disko/bcachefs-encrypted.nix w/disko/bcachefs-encrypted.nix
 new file mode 100644

@@ -32,16 +32,22 @@ frees disk space for `/nix`.
 ## Changes for the test
 
 `galago-disko/flake.patch` holds the changes under test as a diff against
-7f2b444: commits 6de2201 through 09224bd of the flake, which share the nix
-settings between the machines and the installer, and, uncommitted, galago's
-switch to `disko/bcachefs-encrypted.nix`.  That layout encrypts the bcachefs
-filesystem, encrypts swap with dm-crypt and a key made anew at each boot,
-turns hibernation off, and keeps only the initrd unlock unit for `/`.
+7f2b444, which are now the `hotfix/galago-bcachefs-encryption` branch of the
+flake apart from an unrelated commit:
 
-`galago-disko/disko.patch` fixes how disko tells that an encrypted bcachefs
-filesystem on a single device is unlocked, which the workflow applies to the
-disko commit that the flake pins; see below.  The other changes leave the
-disk layout alone:
+- 6de2201 through 09224bd share the nix settings between the machines and
+  the installer, and are on the flake's master.
+- 611e012 patches the disko module with the commit of
+  [nix-community/disko#1316](https://github.com/nix-community/disko/pull/1316),
+  fetched by URL, which fixes how disko tells that an encrypted bcachefs
+  filesystem on a single device is unlocked; see below.  Up to run
+  46081950969, the workflow applied the same fix through a lock override.
+- aaa0608 switches galago to `disko/bcachefs-encrypted.nix`, which encrypts
+  the bcachefs filesystem, encrypts swap with dm-crypt and a key made anew at
+  each boot, turns hibernation off, and keeps only the initrd unlock unit for
+  `/`.
+
+The other changes leave the disk layout alone:
 
 - `galago-disko/galago.nix` replaces `linuxPackages_testing` with
   `linuxPackages_latest`, 7.3.6, and drops the xhci patch: at 7f2b444,
@@ -55,9 +61,12 @@ disk layout alone:
 
 ## Result
 
-Run 46081950969 (commit a2dc3f3) passed all 25 checks.  galago asked for the
-passphrase once, and its unlock unit logged `Device is encrypted and locked`
-before unlocking `/`; `/nix` and `/home` mounted without asking.
+Runs 46081950969 (commit a2dc3f3) and 46091061640 (commit 81814c8) passed
+all 25 checks, the second with the flake patching disko itself; both built
+the same derivations of galago and of its disko script.  galago asked for
+the passphrase once, and its unlock unit logged
+`Device is encrypted and locked` before unlocking `/`; `/nix` and `/home`
+mounted without asking.
 
 | Check | Outcome |
 | --- | --- |
@@ -89,6 +98,7 @@ one for `/` asked again and unlocked.
 | 46072716624 | 51a41fb | Installed with the disko fix; the boot got 8 of the 17 characters of the passphrase, since QEMU drops what the guest has not read when the client hangs up |
 | 46077764939 | 5d3ece5 | Cancelled: its checks ran `bcachefs unlock -c` on the mounted root, which cannot read its superblock |
 | 46081950969 | a2dc3f3 | Passed, as above |
+| 46091061640 | 81814c8 | Passed, with the flake fetching the disko fix from the pull request |
 
 ## disko's bcachefs test
 
