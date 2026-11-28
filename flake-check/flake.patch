@@ -3,7 +3,8 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 Changes to github.com/yzhou216/flake under test, as a diff against
 1dd2043, under the terms of that repository:
 
-  cf9a387 flake: move the nixpkgs patching into patched.nix
+  be75793 flake: move the nixpkgs patching into patched.nix
+  b45268f patched: list the commits of each pull request as data
 
 diff --git a/flake.nix b/flake.nix
 index e74cecb..8610e4a 100644
@@ -75,66 +76,107 @@ index e74cecb..8610e4a 100644
        nixosConfigurations = {
 diff --git a/patched.nix b/patched.nix
 new file mode 100644
-index 0000000..031cbcc
+index 0000000..9277533
 --- /dev/null
 +++ b/patched.nix
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,114 @@
++/*
++  Flake inputs with commits from open pull requests applied on top.
++  Each commit is pinned so that pushes to a pull request do not
++  invalidate the hashes.
++
++  TODO: remove each pull request once it is merged, and this file once
++  none are left.
++*/
 +{ nixpkgs, ... }:
++let
++  inherit (nixpkgs) lib;
++  pkgs = nixpkgs.legacyPackages.x86_64-linux;
++
++  /*
++    Fetch the patch of a commit of the GitHub pull request `pr` from
++    the commit URL in the repository of the pull request.  Attributes
++    of the commit other than `rev` are passed on to fetchpatch.
++  */
++  fetchPrCommit =
++    pr:
++    { rev, ... }@commit:
++    let
++      repo = lib.head (lib.splitString "/pull/" pr.url);
++    in
++    pkgs.fetchpatch ({ url = "${repo}/commit/${rev}.patch"; } // removeAttrs commit [ "rev" ]);
++
++  /*
++    Apply the commits of `pullRequests` on top of the source tree `src`.
++    Each pull request has its URL and its commits in the order they
++    apply, each with its revision and the hash of its patch.
++  */
++  applyPullRequests =
++    {
++      name,
++      src,
++      pullRequests,
++    }:
++    pkgs.applyPatches {
++      inherit name src;
++      patches = lib.concatMap (pr: map (fetchPrCommit pr) pr.commits) pullRequests;
++    };
++in
 +rec {
 +  /*
-+    Nixpkgs master with commits from open pull requests applied on
-+    top.  Each commit is pinned so that pushes to a pull request do
-+    not invalidate the hashes.  Evaluating a system from the
-+    patched tree imports from a derivation, so the patched source
-+    is built before evaluation.
++    Nixpkgs master with the commits below applied.  Evaluating a
++    system from the patched tree imports from a derivation, so the
++    patched source is built before evaluation.
 +
-+    TODO: remove the patches of each pull request once it is
-+    merged, and go back to `nixpkgs.lib.nixosSystem` once none are
-+    left.
++    TODO: go back to `nixpkgs.lib.nixosSystem` once no pull requests
++    are left.
 +  */
-+  nixpkgs-patched =
-+    let
-+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-+      fetchPrCommit =
-+        pr: rev: hash:
-+        pkgs.fetchpatch {
-+          url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
-+          inherit hash;
-+        };
-+    in
-+    pkgs.applyPatches {
-+      name = "nixpkgs-patched";
-+      src = nixpkgs;
-+      patches = [
-+        # https://github.com/NixOS/nixpkgs/pull/550395
-+        # nixos/river: init
-+        (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca"
-+          "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4="
-+        )
-+        # kwm: init at 0.3.0
-+        (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34"
-+          "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U="
-+        )
-+        # nixos/kwm: init
-+        (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b"
-+          "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g="
-+        )
-+        # kwim: init at 0.2.0
-+        (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e"
-+          "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44="
-+        )
-+
-+        # https://github.com/NixOS/nixpkgs/pull/566470
-+        # maintainers: add jakob1379
-+        (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e"
-+          "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg="
-+        )
-+        # nixos/t3code: init
-+        (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310"
-+          "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0="
-+        )
-+      ];
-+    };
++  nixpkgs-patched = applyPullRequests {
++    name = "nixpkgs-patched";
++    src = nixpkgs;
++    pullRequests = [
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/550395";
++        commits = [
++          # nixos/river: init
++          {
++            rev = "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca";
++            hash = "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=";
++          }
++          # kwm: init at 0.3.0
++          {
++            rev = "c08b9ab09a451370fecb4c9fb066524f5c302b34";
++            hash = "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=";
++          }
++          # nixos/kwm: init
++          {
++            rev = "95213484d31f167321bcf01af375f77c57fa538b";
++            hash = "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=";
++          }
++          # kwim: init at 0.2.0
++          {
++            rev = "a6846d48060dd112964e2ee55935692f8838bf5e";
++            hash = "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=";
++          }
++        ];
++      }
++      {
++        url = "https://github.com/NixOS/nixpkgs/pull/566470";
++        commits = [
++          # maintainers: add jakob1379
++          {
++            rev = "094265f353ac97584592b65fdcade927cd628c4e";
++            hash = "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=";
++          }
++          # nixos/t3code: init
++          {
++            rev = "c73e1fccfdf1e52182d9693b645587e3f4c27310";
++            hash = "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=";
++          }
++        ];
++      }
++    ];
++  };
 +
 +  # Same as `nixpkgs.lib.nixosSystem`, but from the patched tree
 +  nixosSystem-patched =
@@ -143,6 +185,8 @@ index 0000000..031cbcc
 +      {
 +        lib = import "${nixpkgs-patched}/lib";
 +        system = null;
++        # Errors in inline modules name the file of the caller, not this one
++        modulesLocation = (builtins.unsafeGetAttrPos "modules" args).file or null;
 +      }
 +      // args
 +      // {
