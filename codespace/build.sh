@@ -5,10 +5,10 @@
 
 # Builds riscv64 derivations longer than a runner's 6-hour job in a codespace
 # prepared by setup.sh, from the binary cache that riscv64-export.yml uploaded
-# in run EXPORT_RUN.  Then uploads their closure as NAME.tar, a file binary
-# cache, to the riscv64-import release for riscv64-qemu.yml to import, and
-# stops the codespace.  It first built the stdenv's final gcc
-# (`build.sh RUN gcc stdenv.cc.cc`).
+# in run EXPORT_RUN and the tars of the riscv64-import release.  Then uploads
+# their closure as NAME.tar, a file binary cache, to that release for later
+# codespaces and riscv64-qemu.yml to import, and stops the codespace.  It
+# first built the stdenv's final gcc (`build.sh RUN gcc stdenv.cc.cc`).
 # Usage: build.sh EXPORT_RUN NAME ATTR...
 set -euo pipefail
 umask 022
@@ -27,6 +27,15 @@ if [ -z "$(find /tmp/nix-cache -maxdepth 1 -name '*.narinfo' -print -quit 2> /de
 	gh run download "$run" -R "$repo" -n nix-cache -D /tmp/dl
 	tar -C /tmp -xf /tmp/dl/nix-cache.tar
 	rm -rf /tmp/dl
+fi
+# Paths from earlier codespaces, which the Actions cache lacks
+if gh release view "$tag" -R "$repo" > /dev/null 2>&1; then
+	gh release download "$tag" -R "$repo" -p '*.tar' -D /tmp/import
+	for t in /tmp/import/*.tar; do
+		tar -C /tmp/nix-cache --strip-components=1 -xf "$t"
+		echo "imported $(tar -tf "$t" | grep -c '\.narinfo$') paths from ${t##*/}"
+	done
+	rm -rf /tmp/import
 fi
 echo "$(find /tmp/nix-cache -name '*.narinfo' | wc -l) paths in the binary cache"
 
