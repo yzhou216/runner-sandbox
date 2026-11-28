@@ -11,7 +11,8 @@ set -uo pipefail
 
 dir=$1
 here=$(cd "$(dirname "$0")" && pwd)
-mapfile -t series < <(ls "$here"/series/*.patch | sort)
+series=()
+  while IFS= read -r f; do series+=("$f"); done < <(ls "$here"/series/*.patch | sort)
 echo "## flake-check series: each commit against the commits before it"
 echo
 echo "| # | Commit | GNU/Linux | macOS |"
@@ -21,7 +22,7 @@ cell() { # mode k
   [ -f "$d/results.tar" ] && [ ! -d "$d/results" ] && tar -xf "$d/results.tar" -C "$d"
   local r="$d/results/results.md"
   if [ ! -f "$r" ]; then
-    [ "$1" = darwin ] && echo "not run" || echo "**no results**"
+    if [ -d "$d" ]; then echo "**job failed**"; elif [ "$1" = darwin ]; then echo "not run"; else echo "**no results**"; fi
     return
   fi
   local odd

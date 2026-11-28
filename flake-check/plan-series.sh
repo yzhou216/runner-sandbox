@@ -9,7 +9,8 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
-mapfile -t series < <(ls "$here"/series/*.patch | sort)
+series=()
+  while IFS= read -r f; do series+=("$f"); done < <(ls "$here"/series/*.patch | sort)
 linux=()
 darwin=()
 for i in "${!series[@]}"; do

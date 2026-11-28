@@ -31,7 +31,8 @@ git -C "$work/base" checkout --quiet -b flake-check "$base"
 patch_file=$here/flake.patch
 series_note=
 if [ -n "${SERIES_INDEX:-}" ]; then
-  mapfile -t series < <(ls "$here"/series/*.patch | sort)
+  series=()
+  while IFS= read -r f; do series+=("$f"); done < <(ls "$here"/series/*.patch | sort)
   k=$SERIES_INDEX
   for ((i = 0; i < k - 1; i++)); do
     git -C "$work/base" am --quiet "${series[$i]}"
