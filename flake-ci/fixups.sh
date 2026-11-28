@@ -17,8 +17,6 @@ cd "$1"
 nix fmt
 # iris.nix takes no module arguments, so the module system cannot call it
 sed -i 's/^{ }:$/{ ... }:/' machines/darwin/iris.nix
-# The OpenWrt package indexes change daily, and so do their hashes
-nix flake update openwrt-imagebuilder
 git add -A
 git commit --quiet -m fixups
 git show --stat HEAD | cat

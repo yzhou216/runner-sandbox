@@ -39,6 +39,14 @@ jobs:
             # Substitute from the caches that the nixConfig of flake.nix names
             accept-flake-config = true
 
+      # The OpenWrt Image Builder pins the hashes of the package indexes
+      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
+      # updates them every day, so packages.x86_64-linux.openwrt fails to
+      # evaluate once the lock is a day or two old.  Building the image
+      # needs this update anyway; the run does not commit it.
+      - name: Refresh the hashes of the OpenWrt packages
+        run: nix flake update openwrt-imagebuilder
+
       # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
       # systems/nixos/commons.nix, evaluate.  --all-systems evaluates the
       # checks of aarch64-darwin, which are the nix-darwin configurations.
@@ -68,6 +76,13 @@ jobs:
       - name: Fix what the check finds on the base
         working-directory: .
         run: sandbox/flake-ci/fixups.sh flake
+      # The OpenWrt Image Builder pins the hashes of the package indexes
+      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
+      # updates them every day, so packages.x86_64-linux.openwrt fails to
+      # evaluate once the lock is a day or two old.  Building the image
+      # needs this update anyway; the run does not commit it.
+      - name: Refresh the hashes of the OpenWrt packages
+        run: nix flake update openwrt-imagebuilder
       - name: Check the flake
         run: nix flake check --impure --all-systems --keep-going
 
@@ -119,7 +134,7 @@ jobs:
 
       # Changed: counts what the build would build and fetch instead of
       # building galago, which takes hours, and builds a derivation that
-      # no cache has, to show that builds run in build-dir
+      # no cache has, to show where builds run
       - name: Build galago
         timeout-minutes: 330
         run: |
@@ -131,16 +146,16 @@ jobs:
             ".#nixosConfigurations.galago.config.system.build.toplevel" 2>&1 |
             tee dry-run.log | grep -E 'will be (built|fetched)'
           sed -n '/will be built/,/will be fetched/p' dry-run.log | head -n 80
-          nix config show build-dir
-          nix build --no-link --impure --expr "derivation {
-            name = \"build-dir-$RANDOM\";
-            system = builtins.currentSystem;
-            builder = \"/bin/sh\";
-            args = [ \"-c\" \"sleep 20; echo > \$out\" ];
-          }" &
-          sleep 10
-          ls -la /nix/build
-          wait
+          # Without the sandbox, the builder sees its build directory
+          # under its real path instead of /build
+          out=$(nix build --no-link --print-out-paths --option sandbox false \
+            --impure --expr "derivation {
+              name = \"build-dir-$RANDOM\";
+              system = builtins.currentSystem;
+              builder = \"/bin/sh\";
+              args = [ \"-c\" \"pwd > \$out\" ];
+            }")
+          echo "the build ran in $(cat "$out")"
 
       # Changed: the path is inside the flake's directory here
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

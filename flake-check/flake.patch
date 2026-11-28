@@ -5,13 +5,14 @@ Changes to github.com/yzhou216/flake under test, as a diff against
 
   2288c78 flake: format with nix fmt
   1febbe9 flake: check the formatting of the nix files
-  ddea013 flake: check the darwin configurations
-  7141a3a workflows: run nix flake check on each push
-  e681682 workflows: build galago from flake.lock, and update it once a day
-  b020d95 workflows: keep long galago builds from overlapping and being cut off
-  ef17c8d workflows: substitute from the caches of flake.nix in the galago build
-  d9db3ad workflows: install upstream nix in the galago build
-  c6f591b workflows: pin the actions of the galago build to commits
+  bc8c183 flake: check the darwin configurations
+  8d199e1 workflows: run nix flake check on each push
+  8bdb23d workflows: refresh the openwrt hashes before the check
+  3f975a0 workflows: build galago from flake.lock, and update it once a day
+  a84c46a workflows: keep long galago builds from overlapping and being cut off
+  b59066a workflows: substitute from the caches of flake.nix in the galago build
+  1fb258a workflows: install upstream nix in the galago build
+  d9d4190 workflows: pin the actions of the galago build to commits
 
 diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
 index 7930cc5..0db2953 100644
@@ -114,14 +115,14 @@ index 7930cc5..0db2953 100644
 +          path: flake.lock
 diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
 new file mode 100644
-index 0000000..3fa4661
+index 0000000..5fdb9de
 --- /dev/null
 +++ b/.github/workflows/check.yml
-@@ -0,0 +1,28 @@
-+# Runs `nix flake check` with the inputs that flake.lock pins, on each
-+# push and pull request.  It evaluates every NixOS and nix-darwin
-+# configuration and package, and checks the formatting, in a few
-+# minutes, without building any system.
+@@ -0,0 +1,36 @@
++# Runs `nix flake check` with the inputs that flake.lock pins, but for
++# the hashes of the OpenWrt packages, on each push and pull request.  It
++# evaluates every NixOS and nix-darwin configuration and package, and
++# checks the formatting, in a few minutes, without building any system.
 +name: check
 +on:
 +  push:
@@ -141,13 +142,21 @@ index 0000000..3fa4661
 +            # Substitute from the caches that the nixConfig of flake.nix names
 +            accept-flake-config = true
 +
++      # The OpenWrt Image Builder pins the hashes of the package indexes
++      # of OpenWrt, which change whenever OpenWrt rebuilds packages, and
++      # updates them every day, so packages.x86_64-linux.openwrt fails to
++      # evaluate once the lock is a day or two old.  Building the image
++      # needs this update anyway; the run does not commit it.
++      - name: Refresh the hashes of the OpenWrt packages
++        run: nix flake update openwrt-imagebuilder
++
 +      # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
 +      # systems/nixos/commons.nix, evaluate.  --all-systems evaluates the
 +      # checks of aarch64-darwin, which are the nix-darwin configurations.
 +      - name: Check the flake
 +        run: nix flake check --impure --all-systems --keep-going
 diff --git a/flake.nix b/flake.nix
-index e74cecb..2210160 100644
+index e74cecb..075ad0a 100644
 --- a/flake.nix
 +++ b/flake.nix
 @@ -273,5 +273,37 @@
@@ -184,7 +193,7 @@ index e74cecb..2210160 100644
 +          them on aarch64-darwin, and evaluates them on other
 +          platforms with `--all-systems`.
 +        */
-+        aarch64-darwin = builtins.mapAttrs (_: darwin: darwin.system) self.darwinConfigurations;
++        aarch64-darwin = builtins.mapAttrs (_: host: host.system) self.darwinConfigurations;
 +      };
      };
  }
