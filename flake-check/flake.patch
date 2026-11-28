@@ -1,0 +1,127 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  a00a749 treewide: remove unused bindings
+  cc3c971 commons: merge the repeated systemd attributes
+  c7c52da flake: add nixfmt-tree as the formatter
+
+diff --git a/flake.nix b/flake.nix
+index e74cecb..ba385ca 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -64,9 +64,6 @@
+       openwrt-imagebuilder,
+       darwin,
+       nix-homebrew,
+-      homebrew-bundle,
+-      homebrew-core,
+-      homebrew-cask,
+       mac-app-util,
+       ...
+     }@inputs:
+@@ -86,7 +83,7 @@
+         let
+           pkgs = nixpkgs.legacyPackages.x86_64-linux;
+           fetchPrCommit =
+-            pr: rev: hash:
++            rev: hash:
+             pkgs.fetchpatch {
+               url = "https://github.com/NixOS/nixpkgs/commit/${rev}.patch";
+               inherit hash;
+@@ -98,19 +95,19 @@
+           patches = [
+             # https://github.com/NixOS/nixpkgs/pull/550395
+             # nixos/river: init
+-            (fetchPrCommit 550395 "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca" "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=")
++            (fetchPrCommit "e0158f7c4876e3a5785a8f6f9582220c72a2d3ca" "sha256-u51R02kTwqGfBAn30xt//qpSlkAxIJ06/1etKsNNpv4=")
+             # kwm: init at 0.3.0
+-            (fetchPrCommit 550395 "c08b9ab09a451370fecb4c9fb066524f5c302b34" "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=")
++            (fetchPrCommit "c08b9ab09a451370fecb4c9fb066524f5c302b34" "sha256-jGFJ/ukFauntI2RRosyA3JVFQvhj5ARErDlYtIBEk9U=")
+             # nixos/kwm: init
+-            (fetchPrCommit 550395 "95213484d31f167321bcf01af375f77c57fa538b" "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=")
++            (fetchPrCommit "95213484d31f167321bcf01af375f77c57fa538b" "sha256-WC4SVSAivKi8SX4L6dFsq0n5BAgnJjuPnAQrLwsrB6g=")
+             # kwim: init at 0.2.0
+-            (fetchPrCommit 550395 "a6846d48060dd112964e2ee55935692f8838bf5e" "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=")
++            (fetchPrCommit "a6846d48060dd112964e2ee55935692f8838bf5e" "sha256-sfZC7jThRQhnaBwBw/dw2EQXUzP3YwKDS6tzV2YVC44=")
+ 
+             # https://github.com/NixOS/nixpkgs/pull/566470
+             # maintainers: add jakob1379
+-            (fetchPrCommit 566470 "094265f353ac97584592b65fdcade927cd628c4e" "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=")
++            (fetchPrCommit "094265f353ac97584592b65fdcade927cd628c4e" "sha256-Y+QRgmLs6ooXo0N0YGWhRVaHP5pqK6zf5bNMbi7k9Xg=")
+             # nixos/t3code: init
+-            (fetchPrCommit 566470 "c73e1fccfdf1e52182d9693b645587e3f4c27310" "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=")
++            (fetchPrCommit "c73e1fccfdf1e52182d9693b645587e3f4c27310" "sha256-C8WLiZVYUaPYhH7bKRYriy0+FpT9MWYiCeAmDUKeSz0=")
+           ];
+         };
+ 
+@@ -222,6 +219,12 @@
+         in
+         openwrt-imagebuilder.lib.build config;
+ 
++      # nix fmt
++      formatter = {
++        x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-tree;
++        aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.nixfmt-tree;
++      };
++
+       darwinConfigurations = {
+         iris = darwin.lib.darwinSystem {
+           system = "aarch64-darwin";
+diff --git a/systems/nixos/commons.nix b/systems/nixos/commons.nix
+index 0c3dfa3..0c0e49e 100644
+--- a/systems/nixos/commons.nix
++++ b/systems/nixos/commons.nix
+@@ -66,7 +66,7 @@
+       "LC_PAPER"
+       "LC_TELEPHONE"
+       "LC_TIME"
+-    ] (locale: "en_US.UTF-8");
++    ] (_: "en_US.UTF-8");
+   };
+ 
+   nixpkgs.overlays = [
+@@ -176,24 +176,26 @@
+     };
+   };
+ 
+-  # Download directory of rqbit, which must exist before it starts
+-  systemd.tmpfiles.settings."10-rqbit"."/home/yiyu/Downloads".d = {
+-    user = "yiyu";
+-    group = "users";
+-    mode = "0755";
+-  };
++  systemd = {
++    # Download directory of rqbit, which must exist before it starts
++    tmpfiles.settings."10-rqbit"."/home/yiyu/Downloads".d = {
++      user = "yiyu";
++      group = "users";
++      mode = "0755";
++    };
+ 
+-  # Passphrase-less SSH key for t3code, which fetches at boot before login and
+-  # so must not prompt through gpg-agent while the GNOME keyring is locked
+-  systemd.services.t3code.environment.GIT_SSH_COMMAND =
+-    "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
++    services.t3code.environment = {
++      # Passphrase-less SSH key for t3code, which fetches at boot before
++      # login and so must not prompt through gpg-agent while the GNOME
++      # keyring is locked
++      GIT_SSH_COMMAND = "ssh -i /home/yiyu/.ssh/id_ed25519_t3code -o IdentitiesOnly=yes -o IdentityAgent=none";
+ 
+-  # Unattended retry mode of Claude Code, in which t3code sessions wait out a
+-  # usage limit until it resets instead of failing the turn
+-  systemd.services.t3code.environment = {
+-    CLAUDE_CODE_RETRY_WATCHDOG = "1";
+-    # Cover the 5-hour window, but keep a weekly limit from stalling for days
+-    CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
++      # Unattended retry mode of Claude Code, in which t3code sessions wait
++      # out a usage limit until it resets instead of failing the turn
++      CLAUDE_CODE_RETRY_WATCHDOG = "1";
++      # Cover the 5-hour window, but keep a weekly limit from stalling for days
++      CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS = toString (6 * 60 * 60 * 1000);
++    };
+   };
+ 
+   hardware = {
