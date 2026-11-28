@@ -110,6 +110,14 @@ impl Standby {
             ..self
         }
     }
+
+    /// Returns the move that leaves standby where it was
+    fn unmoved(self) -> Self {
+        Self {
+            after: self.before,
+            ..self
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,18 +178,12 @@ impl Change {
             Self::Added { cues, at, standby } if standby.list == list => Self::Added {
                 cues,
                 at,
-                standby: Standby {
-                    after: standby.before,
-                    ..standby
-                },
+                standby: standby.unmoved(),
             },
             Self::Pasted { cues, at, standby } if standby.list == list => Self::Pasted {
                 cues,
                 at,
-                standby: Standby {
-                    after: standby.before,
-                    ..standby
-                },
+                standby: standby.unmoved(),
             },
             change => change,
         }

@@ -82,19 +82,22 @@ impl Workspace {
             lists: self
                 .lists
                 .iter()
-                .map(|list| ListFile {
-                    name: list.name.clone(),
-                    cues: list
-                        .cues
-                        .iter()
-                        .map(|cue| {
-                            CueFile::of(cue, self.written_file(cue, directory), &self.outputs)
-                        })
-                        .collect(),
-                })
+                .map(|list| self.written_list(list, directory))
                 .collect(),
         };
         toml::to_string(&show).expect("TOML holds every setting of a show")
+    }
+
+    /// Returns `list` as a show file in `directory` holds it
+    fn written_list(&self, list: &CueList, directory: Option<&Path>) -> ListFile {
+        ListFile {
+            name: list.name.clone(),
+            cues: list
+                .cues
+                .iter()
+                .map(|cue| CueFile::of(cue, self.written_file(cue, directory), &self.outputs))
+                .collect(),
+        }
     }
 
     /// Returns the file that `cue` plays as a show file in `directory`
