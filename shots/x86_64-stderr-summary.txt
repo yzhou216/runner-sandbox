@@ -1,0 +1,31 @@
+=== 1-silent (0 characters)
+
+=== 2-cua (201 characters)
+  ? config.toml: cinq no longer ships the cua keymap, so vi stands in for it
+   ?-[D:\a\runner-sandbox\runner-sandbox\work\cfg-2-cua\config.toml:1:10]
+ 1 ¦ keymap = "cua"
+   ·          -----
+   ?----
+
+
+=== 3-hint (0 characters)
+
+=== 4a-osc (50 characters)
+cinq: OSC from 127.0.0.1: no cue is numbered "99"
+
+=== 4b-taken (192 characters)
+cinq: osc_listen: cannot listen on 127.0.0.1:53000: Only one usage of each socket address (protocol/network address/port) is normally permitted. (os error 10048); trying again every 2 seconds
+
+=== 5-watch (0 characters)
+
+=== 6-paste (0 characters)
+
+=== 7a-directory (101 characters)
+cinq: cannot open D:\a\runner-sandbox\runner-sandbox\work\adirectory: Access is denied. (os error 5)
+
+=== 7b-save (189 characters)
+cinq: cannot save D:\a\runner-sandbox\runner-sandbox\work\readonly\new.cinq.toml: Access is denied. (os error 5) at path "D:\\a\\runner-sandbox\\runner-sandbox\\work\\readonly\\.tmpcvZJ7K"
+
+=== 8-net (61 characters)
+cinq: network cue to tcp://127.0.0.1:9: connection timed out
+

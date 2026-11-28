@@ -4,43 +4,25 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq FINAL ab9fada0 on Windows
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Rerun of the eight checks of `cinq/2026-11-24-windows-checks` on
+`ab9fada06db75110f94d58cd471a965a55448af9` (`verify-drop-cua-regroup`) on
+`windows-latest` and `windows-11-arm`.  Only the cinq SHA in the workflow
+changed.  Run **45520325545**, green first time, no rerun.  Screenshots and
+standard error read from the `checks-*` artifacts; a selection is in `shots/`.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+| Check | windows-latest | windows-11-arm | Earlier |
+| --- | --- | --- | --- |
+| 1 Silent start | pass, stderr 0 characters | pass | same |
+| 2 Retired keymap | pass, stderr and sidebar name `config.toml:1` | pass | same |
+| 3 Hint mode | pass, stderr empty, cue 4 added by label, Backspace left | pass | same |
+| 4 OSC | pass, no cue 99 message; port taken retries, no number | pass | same |
+| 5 File watching | pass, `BROKEN`, `file not found`, back again | pass | same |
+| 6 Paste | pass, cue 4 `Tone`, `Pasted cue 4` | pass | same |
+| 7 Errors in words | pass, `Cannot save: permission denied`; directory open denied | pass | same |
+| 8 Closed port | pass, `SEND FAILED`, `connection timed out` | pass | same |
 
-## Setup
-
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+No verdict differs.  The earlier notes hold unchanged: standard error keeps
+the os error numbers, Windows reports `permission denied` and `connection
+timed out`, and no audio device exists on either runner.
