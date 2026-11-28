@@ -7,7 +7,7 @@ SPDX-License-Identifier: 0BSD OR CC0-1.0
 # cinq/2026-11-28-r22-fix-nix-drv
 
 drvPaths of every package, check, dev shell, and formatter of cinq's flake on
-all 20 systems (175 entries), before (`cinq-before`, f89ccec60), with the
+the 9 systems that the flake offers (175 entries), before (`cinq-before`, f89ccec60), with the
 loader fix alone (`cinq-loader`), and with the tidies (`cinq-after`).
 
 - Run 46160241510 (eval, compare): the loader fix changes `deb`, `rpm`, and
