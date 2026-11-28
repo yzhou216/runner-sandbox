@@ -45,7 +45,7 @@ const PLACE: usize = 16;
 
 /// Names where a way back or forward goes: the outputs, the cue list, or
 /// for a cue of the list on show, the cue
-fn place(app: &App, spot: Spot) -> String {
+pub(in crate::front::view::status_bar) fn place(app: &App, spot: Spot) -> String {
     let list = |index: usize| {
         app.workspace
             .lists()
