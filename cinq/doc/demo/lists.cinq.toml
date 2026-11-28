@@ -1,0 +1,67 @@
+[[list]]
+name = "Main"
+
+[[list.cue]]
+id = 1
+number = "1"
+kind = "audio"
+name = "Preshow music"
+file = "sounds/preshow.ogg"
+loop = true
+level = -8.0
+
+[[list.cue]]
+id = 2
+number = "2"
+kind = "fade"
+name = "Preshow out"
+target = 1
+duration = 4.0
+level = -60.0
+stop_target = true
+
+[[list.cue]]
+id = 3
+number = "3"
+kind = "audio"
+name = "Bell"
+file = "sounds/bell.mp3"
+level = -6.0
+
+[[list]]
+name = "Effects"
+
+[[list.cue]]
+id = 11
+number = "E1"
+kind = "audio"
+name = "Thunder"
+file = "sounds/thunder.wav"
+level = -4.0
+
+[[list.cue]]
+id = 12
+number = "E2"
+kind = "audio"
+name = "Knock"
+file = "sounds/knock.wav"
+level = 0.0
+
+[[list.cue]]
+id = 13
+number = "E3"
+kind = "audio"
+name = "Rain"
+file = "sounds/rain.flac"
+loop = true
+level = -12.0
+
+[[list.cue]]
+id = 14
+number = "E4"
+kind = "fade"
+name = "Rain out"
+target = 13
+duration = 6.0
+level = -60.0
+stop_target = true
