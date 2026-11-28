@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Compares the drvPath of every output of cinq's flake before and after the
+# fixes of flake/distro.nix and the tidies, as snapshots under cinq-before
+# (f89ccec60), cinq-loader (the loader fix alone), and cinq-after.
+name: drvPaths
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [before, loader, after]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: ./drv.sh cinq-${{ matrix.variant }} drv-${{ matrix.variant }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drv-${{ matrix.variant }}
+          path: drv-${{ matrix.variant }}.txt
+  compare:
+    needs: eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: .
+          merge-multiple: true
+      - name: the loader fix changes only deb, rpm, and archlinux
+        run: ./compare.sh drv-before.txt drv-loader.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$'
+      - name: the tidies change nothing
+        run: ./compare.sh drv-loader.txt drv-after.txt '^$'
+      - name: all together
+        run: ./compare.sh drv-before.txt drv-after.txt '^packages [^ ]*-linux (deb|rpm|archlinux)$'
+      - if: always()
+        run: command grep -v '\.drv$' drv-after.txt || true
+  loader:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        system: [x86_64-linux, aarch64-linux, i686-linux]
+        include:
+          - {system: riscv64-linux, same: ""}
+          - {system: armv6l-linux, same: ""}
+          - {system: armv7l-linux, same: ""}
+          - {system: powerpc64le-linux, same: ""}
+          - {system: x86_64-linux, same: same}
+          - {system: aarch64-linux, same: same}
+          - {system: i686-linux, same: same}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: ./loader.sh ${{ matrix.system }} ${{ matrix.same }}
+  packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: wimpysworld/nothing-but-nix@main
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: ./packages.sh
