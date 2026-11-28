@@ -4,34 +4,28 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# darwin: cinq c9408b4b490e on macos-latest
+# darwin: cinq OLD vs NEW on macos-latest
 
-Branch `cinq/2026-11-24-darwin-checks` of yzhou216/runner-sandbox.  Runner: macos-latest (Darwin 26, aarch64), cinq built natively, `nix build github:yzhou216/cinq/c9408b4b490ef3e26cd5e27048b09981f3f52f48#cinq`, run as cinq.app via `open -n`, keys by System Events, 1024x768 window, standard error to a file.
+Branch `cinq/2026-11-27-darwin-loc`.  Workflow, scripts, and data copied from `cinq/2026-11-24-darwin-final`; only the cinq commit became a matrix over the build.  Runner: macos-latest (Darwin 26.7.2, aarch64), cinq built natively with Nix.
 
-Runs: 45380429125 (first try: state leaked between my launches, since cinq brings back unsaved changes of a known show; the hint label was not typed), 45383794068 (final: a fresh show and config directory per check, label `sd` typed).  Both green; pictures in the artifact `darwin-macos-latest`, under `checks/<n>-<name>/`.
+- OLD: `e304bd4e581af53fa32c5ae9a598c2d655130e61`
+- NEW: `efa362c0f5193bc3bd73bbc4494284fa6c6429ce`
 
-| # | Check | macos-latest |
-| - | - | - |
-| 1 | Silent start | pass: cinq.log 0 bytes; status bar `Space: GO / Escape: Panic / ?: help / gt: next tab / l: next list / f: hint` (1-silent/start.png) |
-| 2 | Retired keymap | pass: stderr `cinq no longer ships the cua keymap, so vi stands in for it` at config.toml:1:10; sidebar lists `config.toml:1: cinq no...` (Warnings 2); `j`, `o` act: cue 3 added |
-| 3 | Hint mode | pass: `f` labels buttons, tabs, fields (sa, sd, sf, ss, se...); typing `sd` added cue 3 (3-hint/added.png); Backspace on empty left the mode (left.png).  Labels cover text here: `sa` hides the colon of `New cue:`, `af` the last letter of `Post-wait`, `sf` touches the `e` of `Add cue` |
-| 4 | OSC | pass: `/go` ran cue 1 (Active 1 Hold, 0:53 left); `/cue/99/start` logged `OSC from 127.0.0.1: no cue is numbered "99"`; port held: sidebar `osc_listen: cannot...` (red) |
-| 5 | File watching | pass: after mv, State `BROKEN`, header `file not found`, sidebar `1 Tone: file not...`; restored: warning gone (within 4 s each) |
-| 6 | Paste | pass: `gg`, `yy`, `p`: `Pasted cue 3`, Action `0:20.0` after 1 s and 5 s |
-| 7 | Errors in words | pass: sidebar `Cannot open adir: is a...`; status bar `Cannot save: permission denied` |
-| 8 | Closed port | pass: State `SEND FAILED`, sidebar `1 Closed: message not...` |
+Run **46111148692**, green first time for both jobs (OLD 12 min, NEW 14 min), no rerun.  Artifacts `darwin-old` and `darwin-new`, read by hand (screen texts, pictures, cinq.log), since the script's verdict step never fails.
 
-## Differences and notes
+| # | Check | OLD | NEW |
+| - | - | - | - |
+| 1 | Silent start | pass: stderr 0 bytes, status bar names Space, Escape, help, hint | same |
+| 2 | Retired keymap | pass: warning at config.toml:1:10 on stderr; `j`, `o` act | same |
+| 3 | Hint mode | pass: label `sd` added cue 3, Backspace left | same |
+| 4 | OSC | pass: `/go` ran cue 1 (0:57.8 left); `no cue is numbered "99"`; port held warning | same |
+| 5 | File watching | pass: BROKEN and `file not found`, cleared on restore | same |
+| 6 | Paste | pass: `Pasted cue 3`, Action `0:20.0` at once and after 5 s | same |
+| 7 | Errors in words | pass: `Cannot open adir`, `Cannot save: permission denied` | same |
+| 8 | Closed port | pass: `SEND FAILED` | same |
 
-- Standard error, not the sidebar, keeps `(os error N)`: `cannot open ...: Is a directory (os error 21)`, `cannot save ... (os error 13)`, `osc_listen: cannot listen on 127.0.0.1:53000: Address already in use (os error 48)`, `network cue to tcp://127.0.0.1:9: Connection refused (os error 61)`.  The sidebar and status bar texts that fit in the window have none; the sidebar line is cut by the window height, so the full words were not visible, only their start.
-- No Local Network prompt appeared at all (loopback only); `ui click Allow` found none.
-- Not run: the cross build `#aarch64-darwin`, other Darwin runners.
-- No cinq failures found.
+## Differences between OLD and NEW
 
-## Rerun on cinq 17c2b075 (2026-11-24)
+None.  All ten cinq.log files match byte for byte except temporary file names (`.tmpXXXXXX`).  Screen texts match after dropping the clock and coordinates, apart from 6-paste/at-once, where the accessibility dump of OLD held a few more sidebar labels; the two pictures are identical.
 
-Same workflow, only the cinq commit changed to `17c2b0755ee66d31a99cf4513d8f34c48f09d2f2` (`verify-drop-cua-2`: a thread watches the file stamps and wakes the window on a change; the light thread reports differently).  Run **45397427755**, green first time, no rerun.  All eight checks pass on macos-latest.  Check 5: a deleted sound file gave `BROKEN` and `file not found` within the sampling delay (about 4 s), and the warning went when the file was back.  Check 1: standard error 0 bytes.  The sidebar line of check 4's `no cue is numbered "99"` was out of view in the picture (status bar showed 1 warning); stderr has the exact text, as in the first run.
-
-## Rerun on cinq ab9fada0 (FINAL, 2026-11-24)
-
-Same workflow and scripts, only the cinq commit changed to `ab9fada06db75110f94d58cd471a965a55448af9` (`verify-drop-cua-regroup`), on branch `cinq/2026-11-24-darwin-final`.  Run **45520341355**, green first time, no rerun (build 1466 tests passed; job 18 min).  All eight checks pass, same as the earlier README: 1 stderr 0 bytes, status bar with Space, Escape, help, hint; 2 retired-keymap warning on stderr (config.toml:1:10); 3 label `sd` added cue 3, Backspace left the mode; 4 `no cue is numbered "99"` and the port-held warning; 5 `BROKEN` and `file not found`, cleared on restore; 6 pasted cue, Action `0:20.0`; 7 `Cannot open adir` and `Cannot save: permission denied`; 8 `SEND FAILED`.  Standard error keeps `(os error N)` as before.  No differences.
+Notes: the script's marks `2-cua:cua`, `6-paste:loading`, and `8-network:not sent` count 0 on both builds (stale search words, not cinq).  No Local Network prompt appeared.
