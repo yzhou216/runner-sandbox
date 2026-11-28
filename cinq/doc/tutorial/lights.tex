@@ -1,0 +1,192 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Lights and network cues}
+\label{ch:lights}
+
+Lighting consoles, dimmers, and nodes take levels over a network as sACN,
+the open standard ANSI E1.31, or as Art-Net.  cinq sends both, so light cues
+can set the lights along with the sound.  Network cues send Open Sound
+Control (OSC) messages, which can fire a cue on a lighting console or in
+another program, and cinq takes OSC commands in return, so that a tablet or a
+console can fire its cues.  This chapter needs no lighting hardware, since the
+window shows every level that cinq sends.
+
+Press \key{Control+l} and open \texttt{lights.cinq.toml} in your copy of the
+demo.
+
+\section{The light patch}
+
+Each light is an instrument with a name and a DMX address.  The address is
+the channel that sets the intensity of the instrument.  The instruments form
+the light patch.
+
+\begin{enumerate}
+\item Click the \ui{Light Patch} tab of the inspector.  It lists the three
+  instruments of the show, as in Figure~\ref{fig:patch}.
+\item Press \ui{GO} twice.  Cue~1 brings the front light to 30\% at once.
+  Cue~2 fades it to 70\% and the back light to 40\% over three seconds.  The
+  \ui{Now} column follows each level.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/patch.png}
+  \caption{\ui{Light Patch} tab after cue~2}
+  \label{fig:patch}
+\end{figure}
+
+Universes count from 1, as in sACN, and each holds 512 addresses.  The
+\ui{Address} column shows an address in universe~1 as the address alone.  In
+another universe, it shows the universe, a slash, and the address, as
+\texttt{2/1} for the lightning.  \ui{Add instrument} adds an instrument at
+the address after the last one.  \ui{Remove} removes an instrument from the
+patch, and no cue sets it afterward.  A light cue that still names it reads
+\texttt{UNPATCHED} in yellow in its state, and one that names no instrument
+reads \texttt{NO LEVELS}.  The inspector says why in yellow, and the sidebar
+lists the cue among the warnings.  On the \ui{Levels} tab of an unpatched cue,
+the missing instrument reads \texttt{99 (unpatched)}, and clearing its field
+puts the cue right.  With the keys, \key{Tab} reaches each of these buttons, in
+the order of the window, and \key{Enter} presses it.  The table scrolls to show
+the field or \ui{Remove} button that \key{Tab} reached.
+
+\section{Light cues}
+
+A light cue fades the instruments that it names to its own levels, in
+percent, over its duration.  The other instruments keep their levels until a
+later light cue names them, as in QLab.
+
+\begin{enumerate}
+\item Select cue~2, Stage up, and click the \ui{Levels} tab.  It lists every
+  instrument with its level in the cue and the level that it has on stage
+  now, as in Figure~\ref{fig:light}.  An empty field, as for the lightning,
+  leaves the instrument unchanged.
+\item Press \ui{GO}\@.  Cue~3 flashes the lightning.  It auto-continues to
+  cue~4, which fades the lightning out in half a second, and cue~4
+  auto-continues at once to cue~5, which plays the thunder.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/light.png}
+  \caption{\ui{Levels} tab of a light cue}
+  \label{fig:light}
+\end{figure}
+
+Pausing a light cue pauses its fade.  Stopping it, as Panic does, leaves the
+lights where the fade has brought them, so Panic never blacks out the stage.
+For a blackout, use a light cue that takes every instrument to 0\%, such as
+cue~7.
+
+\section{Seeing the output}
+
+cinq sends each universe of the patch as sACN and as Art-Net.  It sends them
+on every network of the computer and to the computer itself, whenever a level
+changes and again every second.  An sACN monitor, such as sACNView, shows
+universes 1 and 2 as the cues run.  cinq also announces its universes every
+ten seconds, so the monitor lists the source \texttt{cinq} without further
+setup.  On Darwin, allow cinq to find devices on local networks when it asks.
+
+A receiver merges the sACN of cinq with that of any other source at the same
+priority that drives the same universe, such as a lighting console, and takes
+the higher level of each address.  Test on a universe that nothing else uses.
+Drive the universe of a real rig only with the agreement of the lighting
+designer.
+
+\section{Network cues}
+
+A network cue sends one OSC message when it starts.  For TCP, the destination
+is \texttt{host:port}.  For UDP, it is \texttt{udp://host:port}.  The message
+is an address that starts with a slash, followed by arguments.  Each argument
+is a number or text.  Double quotes keep text with spaces whole.
+
+\begin{enumerate}
+\item Select cue~6 and click the \ui{Basics} tab.  The \ui{Destination} and
+  \ui{Message} rows hold the destination, UDP port 9000 on this computer, and
+  the message, as in Figure~\ref{fig:network}.
+\item In a terminal, start a program that prints the OSC messages that it
+  receives on that port, such as \texttt{oscdump 9000} from liblo.
+\item Press \ui{GO}\@.  After the thunder, cue~6 is on standby, so GO fires
+  it.  The program prints the message, with \texttt{Act 1} and \texttt{3} as
+  its arguments.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/network.png}
+  \caption{\ui{Basics} tab of a network cue}
+  \label{fig:network}
+\end{figure}
+
+Each console or program documents the messages that it accepts and the port
+that it listens on.  For example, the Eos consoles of ETC take OSC over TCP
+with SLIP framing on port~3037, and \texttt{/eos/cue/1/5/fire} fires cue~5
+of cue list~1.
+
+A message that cannot be sent, as when no program accepts its TCP
+connection, appears among the warnings in the sidebar, for the first cue
+that names the destination, and the \texttt{State} of every cue that names
+the same destination reads \texttt{SEND FAILED}.  Pressing the warning selects
+the cue, whose inspector shows the destination.  cinq drops a message that it
+cannot send within a second of its cue, since a console cue that fires late
+can do more harm than one that does not fire.  A UDP message fails in the same
+way when its host cannot be found, but one that goes out and reaches no program
+reports no failure, since nothing answers it.
+
+\section{Commands from the network}
+
+A tablet, a console, or another program can fire cues over the network with
+OSC commands.  Add this line to \texttt{config.toml}, at the top, above any
+line that starts with \texttt{[}, since a setting below a table belongs to the
+table.  The help page links to the file, as Chapter~\ref{ch:keys} tells.  cinq
+rereads the file when it is saved:
+
+\begin{verbatim}
+osc_listen = "127.0.0.1:53000"
+\end{verbatim}
+
+The address \texttt{127.0.0.1} lets programs on this computer alone send
+commands.  Anyone who can reach the address and port can fire cues, so for
+another computer give the address of the interface that the show network
+uses, such as \texttt{192.168.1.20:53000}, and keep the port from other
+networks.  Without the line, cinq listens to nothing.
+
+The commands are those of QLab, so remote controls made for QLab work as they
+are.  \texttt{/go} and \texttt{/panic} act as the keys do, and \texttt{/pause}
+and \texttt{/resume} act on every running cue.  A cue goes by its number as the
+cue list shows it: \texttt{/cue/5/start}, \texttt{/cue/5/stop},
+\texttt{/cue/5/pause}, \texttt{/cue/5/resume}, and \texttt{/playhead/5}, which
+moves standby to cue~5.  A program such as \texttt{oscsend} from liblo sends
+one, to the address of the setting:
+
+\begin{verbatim}
+oscsend 127.0.0.1 53000 /go
+\end{verbatim}
+
+Without liblo, bash sends the same message.  An OSC string ends in a zero byte
+and is padded with zero bytes to a multiple of four bytes, so that \texttt{/go}
+takes one zero byte, and the comma that lists no arguments takes three:
+
+\begin{verbatim}
+printf "/go\0,\0\0\0" > /dev/udp/127.0.0.1/53000
+\end{verbatim}
+
+cinq fires the cue that is on standby, as \ui{GO} does.  A remote control
+whose button sends a 1 when pressed and a 0 when released fires once, since a
+message whose only argument is 0 does nothing.  The sidebar warns when the
+address cannot be used, as when another program holds the port.  A command
+that does nothing, such as one for a cue that does not exist, shows in the
+sidebar among the warnings, with the address that it came from, as in
+\texttt{OSC from 127.0.0.1: no cue is numbered "99"}, and stays until a
+command acts.  It goes to standard error as well, which a launcher does not
+show.  The manual page \texttt{cinq(5)} describes the setting in full.
+
+\section*{Exercise}
+
+Add an instrument with \ui{Add instrument}.  Then choose \ui{Light} in the
+\ui{New cue} drop-down list and press \ui{Add cue}.  Set the \ui{Duration} of
+the new cue to 2 seconds on the \ui{Basics} tab, which holds the fade time of
+a light cue, and on the \ui{Levels} tab of the cue, set the
+level of the new instrument to 50.  Press \ui{Standby selected}, then
+\ui{GO}\@.  Watch the level in the \ui{Now} column or in your sACN monitor.
