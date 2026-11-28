@@ -1,0 +1,18 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  801472d tty: remove the unused profile
+
+diff --git a/systems/nixos/tty.nix b/systems/nixos/tty.nix
+deleted file mode 100644
+index 8359da7..0000000
+--- a/systems/nixos/tty.nix
++++ /dev/null
+@@ -1,5 +0,0 @@
+-{ pkgs, ... }:
+-{
+-  imports = [ ./commons.nix ];
+-  services.emacs.package = pkgs.emacs-git-nox;
+-}
