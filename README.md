@@ -4,43 +4,30 @@ SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
 SPDX-License-Identifier: 0BSD OR CC0-1.0
 -->
 
-# runner-sandbox
+# cinq OLD vs NEW after the line-cutting round, on FreeBSD
 
-Skill that lets LLM agents build and test on GNU/Linux, Darwin, and Windows,
-on amd64 and aarch64, and on riscv64, from any machine, through free hosted
-runners
+Rerun of `cinq/2026-11-24-freebsd-final` with a matrix over the build: OLD is
+`e304bd4e581af53fa32c5ae9a598c2d655130e61`, NEW is
+`efa362c0f5193bc3bd73bbc4494284fa6c6429ce`.  Run **46111331460**, all eight
+jobs green first time, no rerun.  Workflow and `fb/check.sh` are unchanged
+from the earlier branch except for the matrix.  FreeBSD 15.1, x86_64 native
+and aarch64 emulated.
 
-Each session pushes a branch to a public sandbox repository, follows its
-workflow runs, and leaves a `README.md` that records the outcome.
-[SKILL.md](SKILL.md) holds the instructions, and branches other than `master`
-record earlier sessions.
+| Check | x86_64 OLD | x86_64 NEW | aarch64 OLD | aarch64 NEW |
+| --- | --- | --- | --- | --- |
+| 1 Silent start | pass (0 bytes) | pass (0 bytes) | pass | pass |
+| 2 Retired keymap | pass | pass | pass | pass |
+| 3 Hint mode | pass | pass | pass | pass |
+| 4 OSC | pass | pass | pass | pass |
+| 5 File watching | pass | pass | pass | pass |
+| 6 Paste | pass | pass | pass | pass |
+| 7 Errors in words | pass | pass | pass | pass |
+| 8 Network cue | pass | pass | pass | pass |
 
-## Setup
+Verdicts were taken from the artifacts, not the job status: standard error
+files and saved config.toml files are identical between OLD and NEW apart
+from the random temporary directory name in paths; 38 of 56 screenshots are
+byte identical, and the rest (countdown seconds in check 4, equal on viewing
+in checks 2, 5, 6, 7) differ only in pixel noise or timing.
 
-Fork this repository, then clone it into the agent's skills directory:
-
-```sh
-gh repo fork yzhou216/runner-sandbox --clone=false --default-branch-only
-gh repo clone yzhou216/runner-sandbox <skills-dir>/runner-sandbox -- --depth 1
-```
-
-- Keep the fork public, which keeps the standard runners free.  Everything
-  that sessions push, log, or upload is public.
-- The skill uses the repository named `runner-sandbox` in the user's account.
-  To use another, set `RUNNER_SANDBOX_REPO` to its `owner/name`.
-- For riscv64 jobs, install the
-  [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) GitHub App on
-  the fork.
-- If the fork's Actions tab reports that workflows are disabled, enable them
-  there.
-- Agents without skill support can read `AGENTS.md` instead.  Run `git pull`
-  in the clone to update the skill.
-
-## Contributing
-
-With the user's approval, sessions propose new findings as pull requests that
-change `SKILL.md` and cite the runs that support them.
-
-## License
-
-Licensed under `0BSD OR CC0-1.0`.
+Difference between OLD and NEW: none.
