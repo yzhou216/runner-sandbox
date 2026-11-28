@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# The eight checks of cinq on macos-latest, with cinq built natively by Nix
+name: Darwin checks
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  darwin:
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [old, new]
+    name: macos-latest ${{ matrix.build }}
+    runs-on: macos-latest
+    env:
+      CINQ: github:yzhou216/cinq/${{ matrix.build == 'old' && 'e304bd4e581af53fa32c5ae9a598c2d655130e61' || 'efa362c0f5193bc3bd73bbc4494284fa6c6429ce' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build cinq
+        run: |
+          mkdir out
+          { sw_vers; uname -m; } | tee out/runner.txt
+          nix build "$CINQ#cinq" --print-build-logs 2>&1 | tail -n 30 | tee out/build.txt
+          cp -R result/Applications/cinq.app cinq.app
+          chmod -R u+w cinq.app
+      - name: Helpers
+        run: swiftc -O -o ui darwin/screen.swift
+      - name: Checks
+        run: bash -x darwin/checks.sh "$PWD/cinq.app" out/checks 2> out/checks-trace.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-${{ matrix.build }}
+          path: out
