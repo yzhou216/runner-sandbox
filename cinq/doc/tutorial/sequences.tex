@@ -1,0 +1,253 @@
+% SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+%
+% SPDX-License-Identifier: GPL-3.0-or-later
+
+\chapter{Sequences}
+\label{ch:sequences}
+
+So far, each cue has needed its own GO\@.  A cue can also fire the next cue
+by itself, so that a single GO plays a whole sequence.  Three settings on the
+\ui{Basics} tab control the timing:
+
+\begin{description}
+\item[Pre-wait] Seconds between the cue firing and its action starting.
+\item[Post-wait] Seconds between the action starting and the next cue
+  firing, for a cue that continues to the next.
+\item[Then] What happens to the next cue: \ui{wait for GO}, the default,
+  leaves it to the operator; \ui{auto-continue} fires it when the post-wait
+  ends; and \ui{auto-follow} fires it when this cue's action ends.
+\end{description}
+
+The \texttt{Pre}, \texttt{Post}, and \texttt{Then} columns of the cue list
+show the same settings, and \texttt{Then} shows \ui{auto-continue} and
+\ui{auto-follow} as \texttt{continue} and \texttt{follow}.  The list leaves
+out a column that no cue fills.
+
+\section{A sequence in the storm}
+
+Press \key{Control+l} and open \texttt{storm.cinq.toml} again.
+
+\begin{enumerate}
+\item Select cue~1, press \ui{Standby selected}, and press \ui{GO} to restart
+  the preshow music.  Cue~3 is now on standby, and the transport summarizes
+  what its GO fires: three cues, the second 4.0 seconds and the third 5.5
+  seconds after GO, as Figure~\ref{fig:playing} in
+  Chapter~\ref{ch:running} shows.
+\item Press \ui{GO}\@.  Cue~3 fades the music out over six seconds.  Four
+  seconds after GO, the distant thunder starts, followed 1.5 seconds later by
+  the rain, as in Figure~\ref{fig:running}.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{screenshots/running.png}
+  \caption{Five seconds after GO on cue 3, which fades out the preshow
+    music, while the thunder plays and the rain is about to start}
+  \label{fig:running}
+\end{figure}
+
+Cue~3 auto-continues to cue~4 after a post-wait of 4 seconds, and cue~4
+continues to cue~5 after 1.5 seconds.  Cue~5 waits for GO, so the sequence
+ends there.  While a cue waits to start, its \texttt{State} column reads
+\texttt{in} and the seconds left.
+
+\section{Pre-wait and post-wait}
+
+A pre-wait can produce the same timing, but it belongs to the cue that waits
+rather than to the cue before it.
+
+\begin{enumerate}
+\item Press \ui{Panic}.  Set the \ui{Post-wait} of cue~3 to 0 and the
+  \ui{Pre-wait} of cue~4 to 4.
+\item Put cue~1 on standby, press \ui{GO} for the music, and press \ui{GO}
+  again for cue~3.  The sequence sounds the same: cue~4 now fires at once and
+  waits four seconds before playing.
+\item Put cue~4 on standby and press \ui{GO}\@.  The thunder now waits four
+  seconds; before the change, it would have started immediately.  A pre-wait
+  delays its own cue's action however the cue is fired, while a post-wait
+  delays only the next cue.
+\item Restore the original values: a post-wait of 4 on cue~3 and a pre-wait
+  of 0 on cue~4.
+\end{enumerate}
+
+\section{Auto-follow}
+
+Auto-follow fires the next cue when the current cue's action ends, such as
+when a sound finishes playing, so it needs no post-wait.  An action that
+never ends, such as a looping sound or a picture, never triggers an
+auto-follow.
+
+\section{Wait and memo cues}
+
+A wait cue lasts for its \ui{Duration} and does nothing else; it paces a
+sequence.  A memo cue does nothing at all.  It serves as a note in the list
+or as the start of a sequence, like cue~1 of the storm show, whose notes tell
+the operator what the music is for.
+
+\section{Pause and start cues}
+
+A pause cue pauses another cue, its target, and a start cue starts it again.
+Both take no time, and both go in the list like any other cue.
+
+Press \key{Control+l} and open \texttt{my-show.cinq.toml}.
+
+\begin{enumerate}
+\item Select the rain.  On its \ui{Time \& Loops} tab, check \ui{Loop until
+  stopped or devamped} if it is not checked, so that the rain keeps playing
+  while you work.  With the keys, \key{Tab} reaches the check box and
+  \key{Enter} checks it, as in Chapter~\ref{ch:cues}.
+\item Choose \ui{Pause} in the \ui{New cue} drop-down list of the toolbar,
+  with the keys of Chapter~\ref{ch:fades} if you like, and press
+  \ui{Add cue}\@.  The new cue appears below the rain and targets it, since a
+  new pause cue targets the cue above it.
+\item With the pause cue selected, choose \ui{Start} in the \ui{New cue} list
+  and press \ui{Add cue}\@.  The new start cue appears below the pause cue,
+  which it targets for the same reason.  Open the \ui{Target} list on its
+  \ui{Basics} tab and choose the rain instead.
+\item Select the rain, press \ui{Standby selected}, and press \ui{GO}\@.  The
+  rain starts.  Press \ui{GO} again.  The pause cue pauses the rain, which
+  the \texttt{State} column and the sidebar mark as paused, and the sound
+  stops where it was.
+\item Press \ui{GO} again.  The start cue resumes the rain from the point
+  where it stopped.  \ui{Resume all} in the transport resumes it as well.
+\end{enumerate}
+
+A start cue whose target is not paused fires the target as GO would, together
+with the cues that chain to it.  A pause cue also holds the cues that wait
+for its target to start them, as cue~4 of the storm show waits out the
+post-wait of cue~3, so that the whole sequence holds where it is.  Aimed at a
+fade cue, a pause cue holds the fade where it is, and the fade goes on when a
+start cue resumes the fade cue.  Neither moves the cue on standby.
+
+A GoTo cue does move it.  Its target can be any cue, and when GO fires the
+GoTo cue, the target goes on standby, so that the next GO fires it, and
+nothing else happens.  Use one at the end of a list to put its first cue on
+standby again.  Before GO, the chain line of the transport names what such a
+cue does, as in \texttt{13 (GoTo 2)}.  While a GoTo cue that has fired waits
+out its pre-wait, the line leads with the time in which standby moves, as in
+\texttt{Standby moves to 5 in 2.9s}.
+
+\section{Loop sections and devamp cues}
+
+A loop need not take the whole file.  \ui{Loop start} and \ui{Loop end}, on
+the \ui{Time \& Loops} tab beside \ui{Start} and \ui{End}, set the part of the
+file that a looping cue plays again and again, in seconds from the beginning
+of the file.  The cue plays from its start to its loop end, then goes back to
+its loop start each time it reaches the loop end.  Left blank, they stand for
+the start and the end of the cue, so a cue without them loops its whole file,
+as before.  The fields are available only while the cue loops.  One file can
+therefore hold an introduction, a vamp that repeats under a scene, and an
+ending.
+
+A devamp cue lets the vamp end.  Its target, an audio or video cue that
+loops, plays on to the end of its current pass through the loop, goes on from
+the loop end to the end of the file, and ends there.  Like a pause cue, a
+devamp cue takes no time.
+
+Press \key{Control+l} and open \texttt{my-show.cinq.toml}.  The rain plays for
+eight seconds, so the steps make its first two seconds the introduction, the
+next four the vamp, and the last two the ending.
+
+\begin{enumerate}
+\item Press \ui{Panic}, and select the rain.  On its \ui{Time \& Loops} tab,
+  check \ui{Loop until stopped or devamped} if it is not checked, as above,
+  and type \texttt{2} in \ui{Loop start} and \texttt{6} in \ui{Loop end}.
+\item With the rain selected, choose \ui{Devamp} in the \ui{New cue} list
+  and press \ui{Add cue}\@.  The new cue appears below the rain and targets
+  it, as a new pause cue does.
+\item Select the rain, press \ui{Standby selected}, and press \ui{GO}\@.  The
+  rain plays its two-second introduction, then repeats seconds 2 to 6 of the
+  file, and the \texttt{State} column reads \texttt{looping}.  The devamp cue
+  is on standby.
+\item Press \ui{GO} while the rain loops.  The \texttt{State} column of the
+  rain shows the time it has left instead of \texttt{looping}.  The rain
+  finishes its pass, plays the last two seconds of its file, and ends.
+\end{enumerate}
+
+A devamp cue never cuts a pass short.  It lets the rain leave at the first
+end of a pass that comes more than half a second after the cue acts, so that a
+GO that comes just before an end waits for the end after it.  A target that
+does not loop cannot be devamped: its devamp cue reads \texttt{NO LOOP}, and GO
+skips it.  A loop that starts at or after its end, or lasts less than a
+millisecond, cannot play either, and its cue reads \texttt{BROKEN}\@.
+
+\section{Groups}
+
+A group cue holds the cues below it and fires them all at once.  One GO on a
+group starts every cue in it, each after its own pre-wait, so that a group
+makes a scene out of several cues.  The group takes no time of its own, and
+the cue list shows what it holds by indenting those cues below it.
+
+A cue lies in the group above it when it is indented one level deeper, and
+groups can nest.  A new cue added below an open group goes into it, as its
+first cue, and one added below a cue of a group joins that group.  Inside a
+group, the \ui{Post-wait} and \ui{Then} settings of a cue have no effect, since
+the group fires the cues beside it, and the inspector shows them disabled.
+
+Press \key{Control+l} and open \texttt{my-show.cinq.toml}.
+
+\begin{enumerate}
+\item Press \ui{Panic}, select the rain, and press \key{yy} to copy it.  Then
+  select the last cue of the list, choose \ui{Group} in the \ui{New cue} list,
+  and press \ui{Add cue}\@.  The group appears at the end of the list.
+\item Select the group and press \key{p}.  The copy of the rain pastes below
+  the group, indented, so that it lies in the group.  Select the copy, choose
+  \ui{Audio} in the \ui{New cue} list, and press \ui{Add cue}\@.  The new cue
+  appears below the copy and joins the group.  Choose
+  \texttt{sounds/thunder.wav} as its file, as in Chapter~\ref{ch:cues}, and
+  type \texttt{2} in its \ui{Pre-wait}.
+\item Select the group, press \ui{Standby selected}, and press \ui{GO}\@.  The
+  rain starts at once, and the thunder two seconds later.  The
+  \texttt{State} column of the group reads \texttt{running} for as long as the
+  rain loops, and the standby cue moves past the whole group.
+\item Press the group's \ui{Stop} button in the sidebar.  The group, the rain,
+  and the thunder all stop.
+\end{enumerate}
+
+A cue moves in and out of a group with the keys for indent and outdent.  Select
+the thunder cue, choose \ui{Memo} in the \ui{New cue} list, and press
+\ui{Add cue}\@.  The memo joins the group.  Press \key{<<} to move it out of
+the group, to just below it, and press \key{>>} to move it back into the group
+above it.  Both move a cue together with the cues that it holds, and both take
+a number and the motions of \key{d} and \key{y}, so that \key{3>>} indents
+three cues.
+
+A group collapses into one row, which hides the cues that it holds, as a closed
+fold does in Vim.  Select the group and press \key{zc}, and the row of the
+group gains a \texttt{+} before its name, while an open group has a
+\texttt{-} before its name.  Its \texttt{Target} column says how many cues the
+group holds, as in \texttt{2 cues}, or its name ends in the count, as in
+\texttt{(2 cues)}, where the list is too narrow for that column.  \key{zo}
+opens it again, \key{za} does either, and \key{zM} and \key{zR} collapse and
+open every group.  A click on the \texttt{+} or the \texttt{-} flips the group,
+and so does its hint label.  A collapsed group fires, stops, and pauses its
+cues as an open one does, and keys that count rows, such as \key{3j}, count it
+as one row.  A search, a jump, and GO that move the selection to a hidden cue
+open the groups around it, so that the selection never goes out of sight, but
+a search that is cancelled closes them again.  When standby lies in a
+collapsed group, the \texttt{State} column of the group reads \texttt{NEXT},
+and switching to the list selects the group.  When a cue that a collapsed
+group hides has a problem, such as \texttt{NO FILE}, the \texttt{State} column
+of the group reads it, so that no broken cue lies out of sight.  While the
+group itself does not run, the column also counts the cues that the group
+hides and that run, as \texttt{3 running}, and those that are paused, as
+\texttt{1 paused}, so that no cue that plays lies out of sight.  Collapsing is
+a way to look at the list, so undo leaves it alone, show mode allows it, and
+the show file keeps it.
+
+A group goes on by its own \ui{Then} setting, to the cue below everything that
+it holds: auto-continue fires that cue after the group's post-wait, and
+auto-follow fires it once the last cue in the group ends, which a looping
+cue never does.  A stop cue, a pause cue, a start cue, and a GoTo cue can name
+a group and act on it as a whole, and a stop cue stops every cue in it.  A fade
+cue or a devamp cue cannot, since a fade needs a sound or picture and a devamp
+cue an audio or video cue.  Moving, cutting, copying, and deleting a group
+takes it together with every cue that it holds, and undo brings them back
+together.
+
+\section*{Exercise}
+
+You can now make one GO fire a whole sequence.  In your own show, move the
+thunder cue from Chapter~\ref{ch:cues} above the rain with
+\key{Alt+ArrowUp}, and set its \ui{Then} to \ui{auto-follow}, so that one GO
+plays the thunder and then the rain.
