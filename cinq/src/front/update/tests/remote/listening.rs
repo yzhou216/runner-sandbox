@@ -78,7 +78,7 @@ fn line_of_a_command_that_did_nothing_goes_with_the_address() {
 #[test]
 fn number_that_no_cue_has_is_cut_short_in_the_line_that_tells_so() {
     let long = "9".repeat(100);
-    let app = remote(playable(None), Remote::Start(long.clone().into()));
+    let app = remote(playable(None), Remote::Start(long.clone()));
     assert_eq!(
         app.problems.osc_ignored,
         Some(format!(
