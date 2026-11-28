@@ -1,0 +1,137 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Runs the steps of the flake's own workflows, .github/workflows/check.yml
+# and build-galago.yml as flake-check/flake.patch leaves them, on the
+# base commit with that patch applied.  flake-ci/checkout.sh stands in
+# for actions/checkout; otherwise the steps are copies, except where a
+# comment says so.
+name: flake ci
+on:
+  push:
+    paths:
+      - flake-check/flake.patch
+      - flake-ci/**
+      - .github/workflows/flake-ci.yml
+defaults:
+  run:
+    shell: bash
+jobs:
+  # check.yml as it is
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: flake
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sandbox
+      - name: Check out the flake with the patch
+        working-directory: .
+        run: sandbox/flake-ci/checkout.sh flake
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+        with:
+          extra_nix_config: |
+            # Substitute from the caches that the nixConfig of flake.nix names
+            accept-flake-config = true
+
+      # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
+      # systems/nixos/commons.nix, evaluate.  --all-systems evaluates the
+      # checks of aarch64-darwin, which are the nix-darwin configurations.
+      - name: Check the flake
+        run: nix flake check --impure --all-systems --keep-going
+
+  # check.yml after flake-ci/fixups.sh fixes what it finds on the base
+  check-fixed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: flake
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sandbox
+      - name: Check out the flake with the patch
+        working-directory: .
+        run: sandbox/flake-ci/checkout.sh flake
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+        with:
+          extra_nix_config: |
+            # Substitute from the caches that the nixConfig of flake.nix names
+            accept-flake-config = true
+      - name: Fix what the check finds on the base
+        working-directory: .
+        run: sandbox/flake-ci/fixups.sh flake
+      - name: Check the flake
+        run: nix flake check --impure --all-systems --keep-going
+
+  # build-galago.yml, as a scheduled run that updates the inputs
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        working-directory: flake
+    env:
+      # Changed: no schedule or dispatch triggers a sandbox branch
+      UPDATE: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sandbox
+      - name: Check out the flake with the patch
+        working-directory: .
+        run: sandbox/flake-ci/checkout.sh flake
+      - uses: wimpysworld/nothing-but-nix@b2574ec1cf1462bee0a34de0fb6ff11ad3c43cb2 # v12
+      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+        with:
+          extra_nix_config: |
+            # Substitute from the caches that the nixConfig of flake.nix names
+            accept-flake-config = true
+            build-dir = /nix/build
+      # Changed: the sandbox has no CACHIX_AUTH_TOKEN, so this only pulls
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: yzhou216
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Update flake.lock
+        if: env.UPDATE == 'true'
+        run: |
+          nix flake update 2>&1 | tee update.log
+          {
+            echo '```'
+            cat update.log
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      # Changed: lists what the build would build and fetch instead of
+      # building galago, which takes hours, and builds the hosts file of
+      # galago, a derivation that only builds locally, to exercise
+      # build-dir
+      - name: Build galago
+        timeout-minutes: 330
+        run: |
+          nix build \
+            --impure \
+            --keep-going \
+            --no-link \
+            --dry-run \
+            ".#nixosConfigurations.galago.config.system.build.toplevel" 2>&1 | tail -n 60
+          nix build \
+            --impure \
+            --keep-going \
+            --no-link \
+            --print-build-logs \
+            ".#nixosConfigurations.galago.config.environment.etc.hosts.source"
+          nix config show build-dir
+
+      # Changed: the path is inside the flake's directory here
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && env.UPDATE == 'true'
+        with:
+          name: flake.lock
+          path: flake/flake.lock

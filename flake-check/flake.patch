@@ -1,0 +1,190 @@
+SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+
+Changes to github.com/yzhou216/flake under test, as a diff against
+1dd2043, under the terms of that repository:
+
+  2288c78 flake: format with nix fmt
+  1febbe9 flake: check the formatting of the nix files
+  ddea013 flake: check the darwin configurations
+  7141a3a workflows: run nix flake check on each push
+  e681682 workflows: build galago from flake.lock, and update it once a day
+  b020d95 workflows: keep long galago builds from overlapping and being cut off
+  ef17c8d workflows: substitute from the caches of flake.nix in the galago build
+  d9db3ad workflows: install upstream nix in the galago build
+  c6f591b workflows: pin the actions of the galago build to commits
+
+diff --git a/.github/workflows/build-galago.yml b/.github/workflows/build-galago.yml
+index 7930cc5..0db2953 100644
+--- a/.github/workflows/build-galago.yml
++++ b/.github/workflows/build-galago.yml
+@@ -1,34 +1,86 @@
++# Builds galago and pushes each path it builds to the yzhou216 Cachix
++# cache.
++#
++# On a push to master, it builds the inputs that flake.lock pins, which
++# is what `nixos-rebuild switch --flake .` deploys, so a failure there
++# means that the committed configuration does not build.
++#
++# Once a day, and when dispatched with `update`, it runs
++# `nix flake update` first, to find out whether galago builds with the
++# latest inputs and to fill the cache before the next update.  A
++# failure there is breakage upstream that updating would bring in.  The
++# job summary lists the inputs that changed, and the run keeps the
++# updated flake.lock as an artifact; to commit the inputs that the run
++# built, fetch it with
++# `gh run download <run> -R yzhou216/flake -n flake.lock`.
++name: build galago
+ on:
++  push:
++    branches: [master]
+   schedule:
+-    - cron: "0 */1 * * *"
++    - cron: "17 3 * * *"
+   workflow_dispatch:
+-
++    inputs:
++      update:
++        description: Update the flake inputs before building
++        type: boolean
++        default: true
++# Newer run of the same kind cancels the one in progress
++concurrency:
++  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || inputs.update) && 'update' || 'locked' }}
++  cancel-in-progress: true
++permissions:
++  contents: read
++defaults:
++  run:
++    shell: bash
++env:
++  UPDATE: ${{ github.event_name == 'schedule' || inputs.update }}
+ jobs:
+   build:
+     runs-on: ubuntu-latest
++    timeout-minutes: 360
+     steps:
+-      - uses: actions/checkout@main
+-      - uses: wimpysworld/nothing-but-nix@main
+-      - uses: DeterminateSystems/nix-installer-action@main
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - uses: wimpysworld/nothing-but-nix@b2574ec1cf1462bee0a34de0fb6ff11ad3c43cb2 # v12
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
+         with:
+-          extra-conf: |
++          extra_nix_config: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
+             build-dir = /nix/build
+-      - uses: cachix/cachix-action@master
++      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+         with:
+           name: yzhou216
+           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+       - name: Update flake.lock
+-        run: nix flake update
++        if: env.UPDATE == 'true'
++        run: |
++          nix flake update 2>&1 | tee update.log
++          {
++            echo '```'
++            cat update.log
++            echo '```'
++          } >>"$GITHUB_STEP_SUMMARY"
+ 
+       # Same target as `nixos-rebuild switch --flake . --impure`;
+       # `--impure` is needed because the Emacs overlay uses a bare
+       # `builtins.fetchTarball`.
+       # `--keep-going` builds the rest if one package fails, and
+       # cachix's daemon pushes each successful path as it builds.
++      # The step times out before the job does, which leaves cachix
++      # time to push the paths still queued.
+       - name: Build galago
++        timeout-minutes: 330
+         run: |
+           nix build \
+             --impure \
+             --keep-going \
+             --no-link \
+             ".#nixosConfigurations.galago.config.system.build.toplevel"
++
++      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
++        if: always() && env.UPDATE == 'true'
++        with:
++          name: flake.lock
++          path: flake.lock
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+new file mode 100644
+index 0000000..3fa4661
+--- /dev/null
++++ b/.github/workflows/check.yml
+@@ -0,0 +1,28 @@
++# Runs `nix flake check` with the inputs that flake.lock pins, on each
++# push and pull request.  It evaluates every NixOS and nix-darwin
++# configuration and package, and checks the formatting, in a few
++# minutes, without building any system.
++name: check
++on:
++  push:
++  pull_request:
++  workflow_dispatch:
++permissions:
++  contents: read
++jobs:
++  check:
++    runs-on: ubuntu-latest
++    timeout-minutes: 60
++    steps:
++      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++      - uses: cachix/install-nix-action@382a9ed9481c7c1f94f68b72ef105b3417c73877 # v32.1.0
++        with:
++          extra_nix_config: |
++            # Substitute from the caches that the nixConfig of flake.nix names
++            accept-flake-config = true
++
++      # --impure lets the Emacs overlay, a bare builtins.fetchTarball in
++      # systems/nixos/commons.nix, evaluate.  --all-systems evaluates the
++      # checks of aarch64-darwin, which are the nix-darwin configurations.
++      - name: Check the flake
++        run: nix flake check --impure --all-systems --keep-going
+diff --git a/flake.nix b/flake.nix
+index e74cecb..2210160 100644
+--- a/flake.nix
++++ b/flake.nix
+@@ -273,5 +273,37 @@
+           ];
+         };
+       };
++
++      # nix fmt
++      formatter = nixpkgs.lib.genAttrs [
++        "x86_64-linux"
++        "aarch64-darwin"
++      ] (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
++
++      /*
++        Checks that `nix flake check` builds, besides evaluating the
++        NixOS configurations and the packages, which it does on its
++        own.
++      */
++      checks = {
++        # Fails on each Nix file that `nix fmt` would change
++        x86_64-linux.nixfmt =
++          let
++            pkgs = nixpkgs.legacyPackages.x86_64-linux;
++          in
++          pkgs.runCommand "nixfmt-check" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
++            cd ${self}
++            find . -name '*.nix' -exec nixfmt --check {} +
++            touch $out
++          '';
++
++        /*
++          Each nix-darwin configuration is a check too, since
++          `nix flake check` ignores `darwinConfigurations`.  It builds
++          them on aarch64-darwin, and evaluates them on other
++          platforms with `--all-systems`.
++        */
++        aarch64-darwin = builtins.mapAttrs (_: darwin: darwin.system) self.darwinConfigurations;
++      };
+     };
+ }

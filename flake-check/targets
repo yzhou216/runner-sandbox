@@ -13,3 +13,11 @@ packages.x86_64-linux.bcachefs-iso
 packages.x86_64-linux.openwrt
 darwinConfigurations.iris.system
 darwinConfigurations.lexi.system
+# Outputs that the ci-checks series adds; the base has none of them.
+# The aarch64-darwin checks are the Darwin configurations, evaluated
+# here on GNU/Linux.
+formatter.x86_64-linux
+formatter.aarch64-darwin
+checks.x86_64-linux.nixfmt
+checks.aarch64-darwin.iris
+checks.aarch64-darwin.lexi
