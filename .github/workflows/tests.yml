@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 Yiyu Zhou <yiyu@yiyuzhou.io>
+#
+# SPDX-License-Identifier: 0BSD OR CC0-1.0
+
+# Runs cinq's own test suite natively on Windows and FreeBSD for the commit
+# that makes the six Windows tests and the FreeBSD TCP test hold there, and
+# runs that TCP test twenty times more on FreeBSD
+name: Native tests
+on: push
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  FIXED: c129559ffaa312ed4f05f0f1b79ab1d9d13a4827
+  CINQ_SHARE_DIR: '' # No manual pages, which need scdoc
+  FONTCONFIG_FILE: /dev/null
+  CARGO_TERM_COLOR: never
+  CARGO_PROFILE_DEV_DEBUG: '0'
+jobs:
+  windows:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: dtolnay/rust-toolchain@stable
+      - run: |
+          git clone -q https://github.com/yzhou216/cinq src
+          git -C src checkout -q "$FIXED"
+          git -C src rev-parse HEAD
+          rustc -V
+      - run: |
+          cd src
+          cargo test --locked --no-fail-fast 2>&1 | tee ../test.log
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-${{ matrix.os }}
+          path: test.log
+          if-no-files-found: ignore
+  freebsd:
+    name: x86_64-freebsd
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: vmactions/freebsd-vm@main
+        with:
+          release: '15.1'
+          arch: x86_64
+          mem: 8192
+          cpu: 4
+          envs: 'FIXED CINQ_SHARE_DIR FONTCONFIG_FILE CARGO_TERM_COLOR CARGO_PROFILE_DEV_DEBUG'
+          prepare: pkg install -y bash git rust pkgconf alsa-lib jackit
+          run: |
+            set +e
+            uname -a
+            sysctl net.inet.tcp.sendspace net.inet.tcp.recvspace net.inet.tcp.sendbuf_auto net.inet.tcp.recvbuf_auto
+            git clone -q https://github.com/yzhou216/cinq src
+            git -C src checkout -q "$FIXED"
+            git -C src rev-parse HEAD
+            rustc -V
+            cd src
+            cargo test --locked --no-fail-fast > "$OLDPWD/test.log" 2>&1
+            echo "suite exit $?" >> "$OLDPWD/test.log"
+            for n in $(seq 20); do
+              cargo test --locked -q bounded_amount > /dev/null 2>&1
+              echo "repeat $n exit $?"
+            done > "$OLDPWD/repeat.log"
+            tail -n 5 "$OLDPWD/test.log"
+            cat "$OLDPWD/repeat.log"
+            ! grep -q 'exit [^0]' "$OLDPWD/test.log" "$OLDPWD/repeat.log"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-x86_64-freebsd
+          path: |
+            test.log
+            repeat.log
+          if-no-files-found: ignore
